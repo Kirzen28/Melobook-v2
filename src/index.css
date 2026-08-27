@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: #0A0A0B;
+    color: #E0E0E0;
+  }
+}
+
+/* Custom Stage & ChordSheet styles */
+.font-chord {
+  font-family: var(--font-mono);
+}
+
+/* Custom Scrollbar for Stage view & sidebar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #111112;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2A2A2D;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3B82F6;
+}
+
+/* No select in performance mode */
+.no-select {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Print optimization for Chord Sheets */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-sheet {
+    background: white !important;
+    color: black !important;
+    font-size: 11pt !important;
+    padding: 0 !important;
+  }
+  .chord-badge {
+    color: #2563eb !important;
+    font-weight: bold !important;
+  }
+}
+

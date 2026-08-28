@@ -1,6 +1,6 @@
 {
-  "short_name": "SongBook",
-  "name": "SongBook PWA - Chants & Setlists",
+  "short_name": "Melobook",
+  "name": "Melobook - Chants & Setlists",
   "description": "Application progressive de gestion de partitions, chants ChordPro, transposition et setlists pour musiciens.",
   "icons": [
     {

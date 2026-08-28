@@ -2,6 +2,8 @@ export type UserRole = 'admin' | 'member';
 
 export type NotationSystem = 'standard' | 'latin';
 
+export type VocalArrangementType = 'Unisson' | 'Lead' | '2e voix' | '3e voix';
+
 export interface UserProfile {
   uid: string;
   email: string;
@@ -21,15 +23,6 @@ export interface Group {
   createdAt?: any;
 }
 
-export interface Folder {
-  id: string;
-  groupId: string;
-  name: string;
-  color?: string;
-  icon?: string;
-  createdAt?: any;
-}
-
 export interface Song {
   id: string;
   groupId: string;
@@ -39,7 +32,7 @@ export interface Song {
   tempo: number;
   timeSignature?: string;
   contentChordPro: string;
-  folderId: string | null;
+  folderId?: string | null;
   capo?: number;
   tags?: string[];
   notes?: string;

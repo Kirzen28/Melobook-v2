@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { Setlist, Song } from '../types';
 import { LiveSetlistPlayer } from './LiveSetlistPlayer';
+import { SetlistPdfModal } from './SetlistPdfModal';
 import { 
   ListMusic, 
   Plus, 
@@ -18,7 +19,9 @@ import {
   Layers, 
   Sparkles,
   Info,
-  ArrowRight
+  ArrowRight,
+  FileDown,
+  Share2
 } from 'lucide-react';
 
 export const SetlistManager: React.FC = () => {
@@ -46,6 +49,15 @@ export const SetlistManager: React.FC = () => {
   // Add songs to active setlist modal
   const [isAddSongModalOpen, setIsAddSongModalOpen] = useState(false);
   const [songSearchQuery, setSongSearchQuery] = useState('');
+  const [confirmDeleteSetlistId, setConfirmDeleteSetlistId] = useState<string | null>(null);
+  const [pdfModalSetlist, setPdfModalSetlist] = useState<Setlist | null>(null);
+
+  React.useEffect(() => {
+    if (confirmDeleteSetlistId) {
+      const timer = setTimeout(() => setConfirmDeleteSetlistId(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [confirmDeleteSetlistId]);
 
   // Open Live Player
   const handleLaunchLive = (setlist: Setlist, startIndex = 0) => {
@@ -112,14 +124,11 @@ export const SetlistManager: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
-            <span>Listes de Morceaux (Setlists)</span>
+            <span>Setlists</span>
             <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-[#1C1C1E] text-blue-400 border border-[#333]">
-              {setlists.length} listes
+              {setlists.length}
             </span>
           </h1>
-          <p className="text-xs text-gray-400 mt-1">
-            Préparez vos programmes de concerts, cultes et répétitions avec navigation instantanée
-          </p>
         </div>
 
         {currentUser?.role === 'admin' && (
@@ -189,16 +198,29 @@ export const SetlistManager: React.FC = () => {
                       </div>
                     </div>
 
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleLaunchLive(st, 0);
-                      }}
-                      className="p-1.5 rounded-md bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-sm transition-all active:scale-95"
-                      title="Lancer le mode Live"
-                    >
-                      <PlayCircle className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPdfModalSetlist(st);
+                        }}
+                        className="p-1.5 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 hover:text-white border border-[#333] text-xs font-semibold shadow-sm transition-all active:scale-95"
+                        title="Exporter en PDF / Partager"
+                      >
+                        <FileDown className="w-4 h-4 text-emerald-400" />
+                      </button>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleLaunchLive(st, 0);
+                        }}
+                        className="p-1.5 rounded-md bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-sm transition-all active:scale-95"
+                        title="Lancer le mode Live"
+                      >
+                        <PlayCircle className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
 
                   {st.notes && (
@@ -232,6 +254,15 @@ export const SetlistManager: React.FC = () => {
 
                   <div className="flex items-center gap-2">
                     <button
+                      onClick={() => setPdfModalSetlist(selectedSetlist)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-200 hover:text-white border border-[#333] font-semibold text-xs shadow-sm transition-all active:scale-95"
+                      title="Exporter la setlist en PDF / Partager sur WhatsApp"
+                    >
+                      <FileDown className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Exporter PDF</span>
+                    </button>
+
+                    <button
                       onClick={() => handleLaunchLive(selectedSetlist, 0)}
                       className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-md bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-sm transition-all active:scale-95"
                     >
@@ -242,14 +273,31 @@ export const SetlistManager: React.FC = () => {
                     {currentUser?.role === 'admin' && (
                       <button
                         onClick={() => {
-                          if (window.confirm(`Supprimer la setlist "${selectedSetlist.name}" ?`)) {
+                          if (confirmDeleteSetlistId === selectedSetlist.id) {
                             deleteSetlist(selectedSetlist.id);
+                            setConfirmDeleteSetlistId(null);
+                          } else {
+                            setConfirmDeleteSetlistId(selectedSetlist.id);
                           }
                         }}
-                        className="p-1.5 rounded-md bg-[#1C1C1E] hover:bg-rose-500/20 text-gray-400 hover:text-rose-400 border border-[#333] transition-colors"
-                        title="Supprimer la setlist"
+                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-xs font-medium transition-all ${
+                          confirmDeleteSetlistId === selectedSetlist.id
+                            ? 'bg-rose-600 hover:bg-rose-700 text-white border-rose-500 shadow-sm font-bold animate-pulse'
+                            : 'bg-[#1C1C1E] hover:bg-rose-500/20 text-gray-400 hover:text-rose-400 border-[#333] hover:border-rose-500/40'
+                        }`}
+                        title={confirmDeleteSetlistId === selectedSetlist.id ? "Cliquez pour confirmer la suppression" : "Supprimer la setlist"}
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        {confirmDeleteSetlistId === selectedSetlist.id ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-white" />
+                            <span>Confirmer ?</span>
+                          </>
+                        ) : (
+                          <>
+                            <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                            <span>Supprimer</span>
+                          </>
+                        )}
                       </button>
                     )}
                   </div>
@@ -552,6 +600,15 @@ export const SetlistManager: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* PDF Export & Share Modal */}
+      {pdfModalSetlist && (
+        <SetlistPdfModal
+          setlist={pdfModalSetlist}
+          songs={songs}
+          onClose={() => setPdfModalSetlist(null)}
+        />
       )}
 
     </div>

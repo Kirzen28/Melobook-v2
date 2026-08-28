@@ -1,77 +1,120 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { useApp } from '../context/AppContext';
-import { Song, Folder } from '../types';
+import { Song, Setlist } from '../types';
+import { SongImportModal } from './SongImportModal';
 import { 
   Search, 
   Plus, 
-  FolderPlus, 
   PlayCircle, 
   FileEdit, 
   Trash2, 
   ListPlus, 
   Music, 
   Tag, 
-  Folder as FolderIcon, 
-  Flame, 
-  Heart, 
-  Sparkles, 
   SlidersHorizontal, 
-  FileUp, 
-  FileDown, 
   Check, 
   X,
   Gauge,
   ChevronDown,
   Globe,
-  Upload,
   FileCode,
-  ExternalLink,
   BookOpen,
-  ArrowRight
+  FileUp,
+  Calendar,
+  ArrowUpDown,
+  CheckSquare,
+  Square,
+  Clock,
+  Sparkles
 } from 'lucide-react';
+
+const DEFAULT_CATEGORY_SUGGESTIONS = [
+  'Louange',
+  'Adoration',
+  'Célébration',
+  'Action de grâce',
+  'Prière',
+  'Méditation',
+  'Gospel',
+  'Noël',
+  'Pâques',
+  'Jeunesse',
+  'Communion'
+];
 
 export const SongList: React.FC = () => {
   const { 
     songs, 
-    folders, 
     setlists, 
     setSelectedSong, 
     setActiveTab, 
     currentUser, 
     deleteSong, 
-    createFolder, 
-    deleteFolder,
     updateSetlist,
+    createSetlist,
     createSong
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedFolderId, setSelectedFolderId] = useState<string | 'all'>('all');
   const [selectedKey, setSelectedKey] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'title' | 'artist' | 'tempo' | 'recent'>('title');
-  
-  // Folder modal state
-  const [isNewFolderModalOpen, setIsNewFolderModalOpen] = useState(false);
-  const [newFolderName, setNewFolderName] = useState('');
-  const [newFolderColor, setNewFolderColor] = useState('#38bdf8');
 
-  // Modals state
+  // Category filter state & custom categories synced via localStorage
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [isCategoryFilterOpen, setIsCategoryFilterOpen] = useState(false);
+  const [categoryFilterSearch, setCategoryFilterSearch] = useState('');
+  const [customCategories, setCustomCategories] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('melobook_custom_categories');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const categoryFilterRef = useRef<HTMLDivElement>(null);
+  const importDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdowns on outside click
+  React.useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (categoryFilterRef.current && !categoryFilterRef.current.contains(e.target as Node)) {
+        setIsCategoryFilterOpen(false);
+      }
+      if (importDropdownRef.current && !importDropdownRef.current.contains(e.target as Node)) {
+        setIsImportDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+  
+  // Setlist modal state (Search, Sort, Multi-select, Quick-create)
   const [addToSetlistSong, setAddToSetlistSong] = useState<Song | null>(null);
-  const [selectedSetlistId, setSelectedSetlistId] = useState<string>('');
+  const [selectedSetlistIds, setSelectedSetlistIds] = useState<string[]>([]);
+  const [setlistSearchQuery, setSetlistSearchQuery] = useState<string>('');
+  const [setlistSortBy, setSetlistSortBy] = useState<'recent' | 'name' | 'count'>('recent');
+  const [isCreatingNewSetlist, setIsCreatingNewSetlist] = useState<boolean>(false);
+  const [newSetlistName, setNewSetlistName] = useState<string>('');
+  const [newSetlistDate, setNewSetlistDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [isSavingSetlists, setIsSavingSetlists] = useState<boolean>(false);
+  
+  // Delete confirm state
+  const [confirmDeleteSongId, setConfirmDeleteSongId] = useState<string | null>(null);
+
+  // Auto-reset delete confirmation after 4 seconds
+  React.useEffect(() => {
+    if (confirmDeleteSongId) {
+      const timer = setTimeout(() => {
+        setConfirmDeleteSongId(null);
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [confirmDeleteSongId]);
   
   // Importer state
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isImportDropdownOpen, setIsImportDropdownOpen] = useState(false);
-  const [importSource, setImportSource] = useState<'chordpro' | 'shir' | 'webchords'>('chordpro');
-  
-  const [importTitle, setImportTitle] = useState('');
-  const [importArtist, setImportArtist] = useState('');
-  const [importKey, setImportKey] = useState('C');
-  const [importTempo, setImportTempo] = useState(100);
-  const [importText, setImportText] = useState('');
-  const [importedFileCount, setImportedFileCount] = useState(0);
-  
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importSource, setImportSource] = useState<'search' | 'chordpro' | 'shir' | 'webchords'>('search');
 
   // Key list for filtering
   const availableKeys = useMemo(() => {
@@ -82,16 +125,82 @@ export const SongList: React.FC = () => {
     return Array.from(keys).sort();
   }, [songs]);
 
+  // Aggregate all unique categories and their song counts
+  const allCategoriesWithCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    
+    // Preset suggestions
+    DEFAULT_CATEGORY_SUGGESTIONS.forEach(c => {
+      counts[c] = 0;
+    });
+
+    // Custom added categories
+    customCategories.forEach(c => {
+      counts[c] = 0;
+    });
+
+    // Song categories
+    songs.forEach(s => {
+      s.tags?.forEach(t => {
+        const trimmed = t?.trim();
+        if (trimmed) {
+          counts[trimmed] = (counts[trimmed] || 0) + 1;
+        }
+      });
+    });
+
+    return Object.entries(counts)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => {
+        if (b.count !== a.count && (a.count === 0 || b.count === 0)) {
+          return b.count - a.count;
+        }
+        return a.name.localeCompare(b.name);
+      });
+  }, [songs, customCategories]);
+
+  const filteredCategoriesInDropdown = useMemo(() => {
+    if (!categoryFilterSearch.trim()) return allCategoriesWithCounts;
+    const q = categoryFilterSearch.toLowerCase().trim();
+    return allCategoriesWithCounts.filter(c => c.name.toLowerCase().includes(q));
+  }, [allCategoriesWithCounts, categoryFilterSearch]);
+
+  const toggleCategoryFilter = (catName: string) => {
+    setSelectedCategories(prev =>
+      prev.includes(catName) ? prev.filter(c => c !== catName) : [...prev, catName]
+    );
+  };
+
+  const handleCreateCategory = () => {
+    const trimmed = categoryFilterSearch.trim();
+    if (!trimmed) return;
+    if (!customCategories.includes(trimmed)) {
+      const updated = [...customCategories, trimmed];
+      setCustomCategories(updated);
+      try {
+        localStorage.setItem('melobook_custom_categories', JSON.stringify(updated));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    if (!selectedCategories.includes(trimmed)) {
+      setSelectedCategories(prev => [...prev, trimmed]);
+    }
+    setCategoryFilterSearch('');
+  };
+
   // Filtered & Sorted Songs
   const filteredSongs = useMemo(() => {
     return songs.filter(song => {
-      // Folder filter
-      if (selectedFolderId !== 'all' && song.folderId !== selectedFolderId) {
-        return false;
-      }
       // Key filter
       if (selectedKey !== 'all' && song.key.toUpperCase() !== selectedKey) {
         return false;
+      }
+      // Categories filter (support single or multiple selection - union match)
+      if (selectedCategories.length > 0) {
+        const songCats = (song.tags || []).map(t => t.trim().toLowerCase());
+        const hasMatch = selectedCategories.some(cat => songCats.includes(cat.trim().toLowerCase()));
+        if (!hasMatch) return false;
       }
       // Search query
       if (searchQuery.trim()) {
@@ -112,7 +221,7 @@ export const SongList: React.FC = () => {
       if (sortBy === 'recent') return (b.createdAt || '').localeCompare(a.createdAt || '');
       return 0;
     });
-  }, [songs, selectedFolderId, selectedKey, searchQuery, sortBy]);
+  }, [songs, selectedKey, selectedCategories, searchQuery, sortBy]);
 
   const handleOpenStage = (song: Song) => {
     setSelectedSong(song);
@@ -129,230 +238,93 @@ export const SongList: React.FC = () => {
     setActiveTab('editor');
   };
 
-  const handleCreateFolder = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newFolderName.trim()) return;
-    await createFolder(newFolderName.trim(), newFolderColor);
-    setNewFolderName('');
-    setIsNewFolderModalOpen(false);
+  // Filter & Sort Setlists inside the Add-to-Setlist Modal
+  const filteredAndSortedSetlists = useMemo(() => {
+    if (!addToSetlistSong) return [];
+    return setlists
+      .filter(st => {
+        if (!setlistSearchQuery.trim()) return true;
+        const q = setlistSearchQuery.toLowerCase();
+        const matchName = st.name.toLowerCase().includes(q);
+        const matchDate = st.date?.toLowerCase().includes(q);
+        const matchNotes = st.notes?.toLowerCase().includes(q);
+        return matchName || matchDate || matchNotes;
+      })
+      .sort((a, b) => {
+        if (setlistSortBy === 'recent') {
+          const dateA = a.date || a.createdAt || '';
+          const dateB = b.date || b.createdAt || '';
+          return dateB.localeCompare(dateA);
+        }
+        if (setlistSortBy === 'name') {
+          return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+        }
+        if (setlistSortBy === 'count') {
+          return (b.songIds?.length || 0) - (a.songIds?.length || 0);
+        }
+        return 0;
+      });
+  }, [setlists, addToSetlistSong, setlistSearchQuery, setlistSortBy]);
+
+  const handleToggleSetlistSelection = (setlistId: string) => {
+    setSelectedSetlistIds(prev => 
+      prev.includes(setlistId)
+        ? prev.filter(id => id !== setlistId)
+        : [...prev, setlistId]
+    );
   };
 
-  const handleConfirmAddToSetlist = async () => {
-    if (!addToSetlistSong || !selectedSetlistId) return;
-    const targetSetlist = setlists.find(st => st.id === selectedSetlistId);
-    if (targetSetlist) {
-      if (!targetSetlist.songIds.includes(addToSetlistSong.id)) {
-        await updateSetlist(targetSetlist.id, {
-          songIds: [...targetSetlist.songIds, addToSetlistSong.id]
-        });
-      }
+  const handleQuickCreateSetlist = async () => {
+    if (!newSetlistName.trim() || !addToSetlistSong) return;
+    try {
+      const createdId = await createSetlist({
+        name: newSetlistName.trim(),
+        date: newSetlistDate || new Date().toISOString().split('T')[0],
+        songIds: [addToSetlistSong.id],
+        notes: '',
+        targetDuration: 25
+      });
+      setSelectedSetlistIds(prev => [...prev, createdId]);
+      setNewSetlistName('');
+      setIsCreatingNewSetlist(false);
+    } catch (e) {
+      console.error('Error creating setlist:', e);
     }
-    setAddToSetlistSong(null);
+  };
+
+  const handleSaveSetlistSelection = async () => {
+    if (!addToSetlistSong) return;
+    setIsSavingSetlists(true);
+    const songId = addToSetlistSong.id;
+
+    try {
+      for (const st of setlists) {
+        const isSelected = selectedSetlistIds.includes(st.id);
+        const hasSong = st.songIds.includes(songId);
+
+        if (isSelected && !hasSong) {
+          await updateSetlist(st.id, {
+            songIds: [...st.songIds, songId]
+          });
+        } else if (!isSelected && hasSong) {
+          await updateSetlist(st.id, {
+            songIds: st.songIds.filter(id => id !== songId)
+          });
+        }
+      }
+    } catch (e) {
+      console.error('Error updating setlists:', e);
+    } finally {
+      setIsSavingSetlists(false);
+      setAddToSetlistSong(null);
+    }
   };
 
   // Open import modal for specific option
-  const handleOpenImport = (source: 'chordpro' | 'shir' | 'webchords') => {
+  const handleOpenImport = (source: 'search' | 'chordpro' | 'shir' | 'webchords' = 'search') => {
     setImportSource(source);
     setIsImportDropdownOpen(false);
     setIsImportModalOpen(true);
-    setImportedFileCount(0);
-  };
-
-  // Convert Chords-Over-Lyrics text (Ultimate-Guitar, LaCuerda, WorshipTogether, E-Chords, Shir.fr) to ChordPro
-  const convertPlainTextToChordPro = (rawText: string): string => {
-    const lines = rawText.split('\n');
-    const chordRegex = /^[A-G][b#]?(?:m|min|maj|dim|aug|sus[24]?|[0-9]+|\+[0-9]*)*(?:\/[A-G][b#]?)?$/i;
-
-    const isChordOnlyToken = (tok: string) => {
-      const clean = tok.replace(/[()[\],]/g, '');
-      return chordRegex.test(clean);
-    };
-
-    const isLineOfChords = (line: string): boolean => {
-      const trimmed = line.trim();
-      if (!trimmed) return false;
-      const tokens = trimmed.split(/\s+/).filter(Boolean);
-      if (tokens.length === 0) return false;
-      
-      let chordMatches = 0;
-      for (const tok of tokens) {
-        if (isChordOnlyToken(tok)) {
-          chordMatches++;
-        }
-      }
-      return chordMatches / tokens.length >= 0.5;
-    };
-
-    const isSectionHeader = (line: string): string | null => {
-      const trimmed = line.trim();
-      const match = trimmed.match(/^\[?(Couplet|Verse|Refrain|Chorus|Pont|Bridge|Intro|Outro|Solo|Pre-Chorus|Pré-Refrain|Instrumental|Fin|Ending|Strophe)\s*([0-9A-Za-z]*)\]?:?$/i);
-      if (match) {
-        const secName = `${match[1]} ${match[2]}`.trim();
-        return secName;
-      }
-      return null;
-    };
-
-    const outputLines: string[] = [];
-
-    for (let i = 0; i < lines.length; i++) {
-      const currentLine = lines[i];
-      const sectionName = isSectionHeader(currentLine);
-
-      if (sectionName) {
-        const isChorus = /refrain|chorus/i.test(sectionName);
-        if (isChorus) {
-          outputLines.push(`{soc: ${sectionName}}`);
-        } else {
-          outputLines.push(`{comment: ${sectionName}}`);
-        }
-        continue;
-      }
-
-      if (isLineOfChords(currentLine)) {
-        const nextLine = lines[i + 1];
-        if (nextLine !== undefined && !isLineOfChords(nextLine) && !isSectionHeader(nextLine)) {
-          // Merge chords from currentLine into nextLine
-          const chordPositions: { col: number; chord: string }[] = [];
-          const regex = /\S+/g;
-          let match;
-          while ((match = regex.exec(currentLine)) !== null) {
-            chordPositions.push({
-              col: match.index,
-              chord: match[0].replace(/[()]/g, '')
-            });
-          }
-
-          let merged = '';
-          let lyricIndex = 0;
-
-          chordPositions.forEach((cp, idx) => {
-            const nextCp = chordPositions[idx + 1];
-            // lyrics up to this chord's column
-            if (cp.col > lyricIndex && lyricIndex < nextLine.length) {
-              merged += nextLine.slice(lyricIndex, Math.min(cp.col, nextLine.length));
-              lyricIndex = Math.min(cp.col, nextLine.length);
-            }
-            merged += `[${cp.chord}]`;
-          });
-
-          if (lyricIndex < nextLine.length) {
-            merged += nextLine.slice(lyricIndex);
-          }
-
-          outputLines.push(merged);
-          i++; // Skip the next line since we merged it
-        } else {
-          // Chords only on this line (like intro or instrumental)
-          const chordsFormatted = currentLine.trim().split(/\s+/).map(c => `[${c.replace(/[()]/g, '')}]`).join(' ');
-          outputLines.push(chordsFormatted);
-        }
-      } else {
-        outputLines.push(currentLine);
-      }
-    }
-
-    return outputLines.join('\n');
-  };
-
-  // Handle file uploads (.pro, .cho, .txt, .chopro)
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    let count = 0;
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const text = await file.text();
-      
-      let title = file.name.replace(/\.(cho|pro|chopro|txt|crd)$/i, '');
-      let artist = '';
-      let key = 'C';
-      let tempo = 100;
-      let finalChordPro = text;
-
-      // Check if text is already chordpro or plain text
-      if (!text.includes('[') && !text.includes('{')) {
-        finalChordPro = convertPlainTextToChordPro(text);
-      }
-
-      // Parse directives
-      const lines = finalChordPro.split('\n');
-      lines.forEach(l => {
-        const match = l.match(/\{([a-zA-Z_]+)\s*:\s*(.+)\}/);
-        if (match) {
-          const tag = match[1].toLowerCase();
-          const val = match[2].trim();
-          if (tag === 'title' || tag === 't') title = val;
-          if (tag === 'artist' || tag === 'a' || tag === 'subtitle' || tag === 'st') artist = val;
-          if (tag === 'key' || tag === 'k') key = val;
-          if (tag === 'tempo' || tag === 'bpm') tempo = parseInt(val, 10) || 100;
-        }
-      });
-
-      await createSong({
-        title,
-        artist,
-        key,
-        tempo,
-        contentChordPro: finalChordPro,
-        folderId: selectedFolderId !== 'all' ? selectedFolderId : null
-      });
-      count++;
-    }
-
-    setImportedFileCount(count);
-    if (count === 1 && files[0]) {
-      // Just preview
-    } else {
-      setTimeout(() => {
-        setIsImportModalOpen(false);
-      }, 1000);
-    }
-  };
-
-  // Execute manual import from text area
-  const handleExecuteImport = async () => {
-    if (!importText.trim()) return;
-
-    let finalContent = importText;
-    let detectedTitle = importTitle.trim() || 'Nouveau Chant';
-    let detectedArtist = importArtist.trim() || '';
-    let detectedKey = importKey || 'C';
-    let detectedTempo = importTempo || 100;
-
-    // If source is webchords or shir.fr or plain text, convert to ChordPro
-    if (importSource === 'webchords' || importSource === 'shir' || (!importText.includes('[') && !importText.includes('{'))) {
-      finalContent = convertPlainTextToChordPro(importText);
-    }
-
-    // Extract directives if present in text
-    const lines = finalContent.split('\n');
-    lines.forEach(l => {
-      const match = l.match(/\{([a-zA-Z_]+)\s*:\s*(.+)\}/);
-      if (match) {
-        const tag = match[1].toLowerCase();
-        const val = match[2].trim();
-        if ((tag === 'title' || tag === 't') && !importTitle.trim()) detectedTitle = val;
-        if ((tag === 'artist' || tag === 'a' || tag === 'subtitle' || tag === 'st') && !importArtist.trim()) detectedArtist = val;
-        if ((tag === 'key' || tag === 'k') && !importKey) detectedKey = val;
-        if ((tag === 'tempo' || tag === 'bpm') && !importTempo) detectedTempo = parseInt(val, 10) || 100;
-      }
-    });
-
-    await createSong({
-      title: detectedTitle,
-      artist: detectedArtist,
-      key: detectedKey,
-      tempo: detectedTempo,
-      contentChordPro: finalContent,
-      folderId: selectedFolderId !== 'all' ? selectedFolderId : null
-    });
-
-    setImportText('');
-    setImportTitle('');
-    setImportArtist('');
-    setIsImportModalOpen(false);
   };
 
   return (
@@ -369,39 +341,65 @@ export const SongList: React.FC = () => {
         {/* Action Buttons: Importer Dropdown & Nouveau Chant */}
         <div className="flex items-center gap-2">
           
-          {/* Importer Button with 3 Options */}
-          <div className="relative">
-            <button
-              onClick={() => setIsImportDropdownOpen(!isImportDropdownOpen)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-200 border border-[#333] text-xs font-semibold transition-colors shadow-sm"
-              title="Importer des chants depuis des fichiers ou des sites d'accords"
-            >
-              <FileUp className="w-3.5 h-3.5 text-blue-400" />
-              <span>Importer</span>
-              <ChevronDown className="w-3 h-3 text-gray-400 ml-0.5" />
-            </button>
+          {/* Importer Button with Dropdown Options */}
+          <div className="relative" ref={importDropdownRef}>
+            <div className="flex items-center rounded-md bg-[#1C1C1E] border border-[#333] shadow-sm">
+              <button
+                onClick={() => handleOpenImport('search')}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-gray-200 hover:bg-[#2A2A2D] text-xs font-semibold rounded-l-md transition-colors"
+                title="Rechercher des chants sur les sites externes et importer"
+              >
+                <FileUp className="w-3.5 h-3.5 text-blue-400" />
+                <span>Importer</span>
+              </button>
+              <button
+                onClick={() => setIsImportDropdownOpen(!isImportDropdownOpen)}
+                className="px-1.5 py-1.5 text-gray-400 hover:text-white hover:bg-[#2A2A2D] rounded-r-md border-l border-[#333] transition-colors"
+                title="Options d'importation"
+              >
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isImportDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+            </div>
 
             {/* Importer Dropdown Menu */}
             {isImportDropdownOpen && (
               <div 
-                className="absolute right-0 mt-1.5 w-72 sm:w-80 bg-[#111112] border border-[#333] rounded-lg shadow-2xl z-30 py-1.5 text-xs animate-in fade-in zoom-in-95 duration-100"
-                onMouseLeave={() => setIsImportDropdownOpen(false)}
+                className="absolute left-0 sm:left-auto sm:right-0 mt-1.5 w-80 max-w-[calc(100vw-2rem)] bg-[#111112] border border-[#333] rounded-lg shadow-2xl z-30 py-1.5 text-xs animate-in fade-in zoom-in-95 duration-100"
               >
                 <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400 border-b border-[#222224]">
-                  Sources d'importation
+                  Mode d'importation
                 </div>
 
-                {/* Option 1: ChordPro Files */}
+                {/* Option 1: Online Search */}
+                <button
+                  onClick={() => handleOpenImport('search')}
+                  className="w-full text-left px-3.5 py-2.5 hover:bg-[#1C1C1E] flex items-start gap-2.5 transition-colors group bg-blue-950/20 border-b border-[#222224]"
+                >
+                  <div className="p-1.5 rounded bg-blue-600/20 border border-blue-500/30 text-blue-400 mt-0.5 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                    <Search className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-white group-hover:text-blue-400 flex items-center gap-1.5">
+                      <span>Recherche en ligne</span>
+                      <span className="px-1.5 py-0.2 text-[9px] font-bold uppercase rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">Nouveau</span>
+                    </div>
+                    <p className="text-[11px] text-gray-400 mt-0.5">
+                      Cherchez parmi des milliers de chants chrétiens (Shir.fr, WorshipTogether, etc.) et importez en 1 clic
+                    </p>
+                  </div>
+                </button>
+
+                {/* Option 2: ChordPro Files */}
                 <button
                   onClick={() => handleOpenImport('chordpro')}
-                  className="w-full text-left px-3.5 py-2.5 hover:bg-[#1C1C1E] flex items-start gap-2.5 transition-colors group"
+                  className="w-full text-left px-3.5 py-2 hover:bg-[#1C1C1E] flex items-start gap-2.5 transition-colors group"
                 >
                   <div className="p-1.5 rounded bg-[#1C1C1E] border border-[#333] text-blue-400 mt-0.5 group-hover:border-blue-500">
                     <FileCode className="w-4 h-4" />
                   </div>
                   <div>
                     <div className="font-semibold text-white group-hover:text-blue-400">
-                      1. Fichiers ChordPro (.pro, .cho, .txt)
+                      Fichiers ChordPro (.pro, .cho, .txt)
                     </div>
                     <p className="text-[11px] text-gray-400 mt-0.5">
                       Glisser-déposer ou code ChordPro avec balises <code className="text-blue-400">[C]</code>
@@ -409,35 +407,35 @@ export const SongList: React.FC = () => {
                   </div>
                 </button>
 
-                {/* Option 2: Shir.fr */}
+                {/* Option 3: Shir.fr */}
                 <button
                   onClick={() => handleOpenImport('shir')}
-                  className="w-full text-left px-3.5 py-2.5 hover:bg-[#1C1C1E] flex items-start gap-2.5 transition-colors group"
+                  className="w-full text-left px-3.5 py-2 hover:bg-[#1C1C1E] flex items-start gap-2.5 transition-colors group"
                 >
                   <div className="p-1.5 rounded bg-[#1C1C1E] border border-[#333] text-blue-400 mt-0.5 group-hover:border-blue-500">
                     <BookOpen className="w-4 h-4" />
                   </div>
                   <div>
                     <div className="font-semibold text-white group-hover:text-blue-400">
-                      2. Depuis Shir.fr
+                      Coller depuis Shir.fr
                     </div>
                     <p className="text-[11px] text-gray-400 mt-0.5">
-                      Chants de louange chrétiens francophones & hébreux avec auto-formatage
+                      Chants francophones & hébreux avec auto-formatage
                     </p>
                   </div>
                 </button>
 
-                {/* Option 3: Web Chords Sites (LaCuerda, Ultimate-Guitar, WorshipTogether, E-Chords) */}
+                {/* Option 4: Web Chords Sites */}
                 <button
                   onClick={() => handleOpenImport('webchords')}
-                  className="w-full text-left px-3.5 py-2.5 hover:bg-[#1C1C1E] flex items-start gap-2.5 transition-colors group"
+                  className="w-full text-left px-3.5 py-2 hover:bg-[#1C1C1E] flex items-start gap-2.5 transition-colors group"
                 >
                   <div className="p-1.5 rounded bg-[#1C1C1E] border border-[#333] text-blue-400 mt-0.5 group-hover:border-blue-500">
                     <Globe className="w-4 h-4" />
                   </div>
                   <div>
                     <div className="font-semibold text-white group-hover:text-blue-400">
-                      3. Depuis Lacuerda, Ultimate Guitar, Worship Together, E-Chords
+                      Sites d'accords (Ultimate, LaCuerda...)
                     </div>
                     <p className="text-[11px] text-gray-400 mt-0.5">
                       Convertit automatiquement les accords superposés au-dessus des paroles
@@ -461,69 +459,15 @@ export const SongList: React.FC = () => {
         </div>
       </div>
 
-      {/* Folder Tabs Navigation */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none mb-4">
-        <button
-          onClick={() => setSelectedFolderId('all')}
-          className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-all ${
-            selectedFolderId === 'all'
-              ? 'bg-[#1C1C1E] text-white border border-[#333]'
-              : 'bg-[#111112] hover:bg-[#1C1C1E] text-gray-400 border border-[#222224]'
-          }`}
-        >
-          <FolderIcon className="w-3.5 h-3.5 text-blue-400" />
-          <span>Tous les chants</span>
-          <span className="text-[10px] px-1.5 py-0.2 rounded bg-[#0A0A0B] text-gray-400 border border-[#222224]">
-            {songs.length}
-          </span>
-        </button>
-
-        {folders.map(folder => {
-          const folderSongsCount = songs.filter(s => s.folderId === folder.id).length;
-          const isSelected = selectedFolderId === folder.id;
-          return (
-            <div key={folder.id} className="flex items-center">
-              <button
-                onClick={() => setSelectedFolderId(folder.id)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-all ${
-                  isSelected
-                    ? 'bg-[#1C1C1E] text-white border border-[#333]'
-                    : 'bg-[#111112] hover:bg-[#1C1C1E] text-gray-400 border border-[#222224]'
-                }`}
-              >
-                <span 
-                  className="w-2 h-2 rounded-full" 
-                  style={{ backgroundColor: folder.color || '#3B82F6' }}
-                />
-                <span>{folder.name}</span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded bg-[#0A0A0B] text-gray-400 border border-[#222224]">
-                  {folderSongsCount}
-                </span>
-              </button>
-            </div>
-          );
-        })}
-
-        {currentUser?.role === 'admin' && (
-          <button
-            onClick={() => setIsNewFolderModalOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#111112] hover:bg-[#1C1C1E] text-gray-400 hover:text-white border border-dashed border-[#333] text-xs font-medium whitespace-nowrap transition-colors"
-          >
-            <FolderPlus className="w-3.5 h-3.5 text-blue-400" />
-            <span>Nouveau dossier</span>
-          </button>
-        )}
-      </div>
-
       {/* Search & Filter Controls Bar */}
-      <div className="bg-[#111112] border border-[#222224] rounded-lg p-2.5 mb-5 flex flex-col md:flex-row items-center gap-2.5">
+      <div className="bg-[#111112] border border-[#222224] rounded-lg p-2.5 mb-3 flex flex-col md:flex-row items-center gap-2.5">
         
         {/* Search Bar */}
         <div className="relative flex-1 w-full">
           <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Rechercher par titre, artiste, paroles ou tag..."
+            placeholder="Rechercher par titre, artiste, paroles ou catégorie..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full bg-[#1C1C1E] border border-[#333] rounded-md pl-9 pr-8 py-1.5 text-xs text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-all"
@@ -538,15 +482,166 @@ export const SongList: React.FC = () => {
           )}
         </div>
 
-        <div className="flex items-center gap-2 w-full md:w-auto justify-between md:justify-end">
+        <div className="flex items-center gap-1.5 sm:gap-2 w-full md:w-auto flex-nowrap justify-between md:justify-end">
+          {/* Category Filter Dropdown (Multi-select) */}
+          <div className="relative flex-1 sm:flex-initial min-w-0" ref={categoryFilterRef}>
+            <div
+              onClick={() => setIsCategoryFilterOpen(!isCategoryFilterOpen)}
+              className={`h-[34px] bg-[#1C1C1E] border hover:border-[#444] rounded-md px-2 sm:px-2.5 py-1 text-xs text-gray-200 cursor-pointer flex items-center justify-between gap-1 sm:gap-1.5 transition-colors ${
+                selectedCategories.length > 0
+                  ? 'border-blue-500/50 bg-blue-950/20'
+                  : 'border-[#333]'
+              }`}
+            >
+              <div className="flex items-center gap-1 sm:gap-1.5 min-w-0 truncate">
+                <Tag className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                {selectedCategories.length === 0 ? (
+                  <span className="text-gray-300 truncate text-[11px] sm:text-xs">Catégories</span>
+                ) : (
+                  <span className="text-blue-300 font-semibold truncate text-[11px] sm:text-xs">
+                    {selectedCategories.length === 1 ? selectedCategories[0] : `${selectedCategories.length} cat.`}
+                  </span>
+                )}
+              </div>
+              
+              <ChevronDown className={`w-3 h-3 text-gray-400 shrink-0 transition-transform ml-0.5 ${isCategoryFilterOpen ? 'rotate-180' : ''}`} />
+            </div>
+
+            {/* Dropdown Popover */}
+            {isCategoryFilterOpen && (
+              <div className="absolute left-0 mt-1.5 w-72 sm:w-80 max-w-[calc(100vw-2rem)] bg-[#141416] border border-[#2A2A2D] rounded-lg shadow-2xl p-2.5 z-50 text-xs">
+                
+                {/* Header with Title & Selection Counter */}
+                <div className="flex items-center justify-between mb-2 px-0.5">
+                  <div className="flex items-center gap-1.5 font-semibold text-white text-xs">
+                    <Tag className="w-3.5 h-3.5 text-blue-400" />
+                    <span>Catégories</span>
+                  </div>
+                  {selectedCategories.length > 0 ? (
+                    <span className="text-[11px] text-blue-400 font-semibold">
+                      {selectedCategories.length} sélectionnée{selectedCategories.length > 1 ? 's' : ''}
+                    </span>
+                  ) : (
+                    <span className="text-[11px] text-gray-500">Toutes</span>
+                  )}
+                </div>
+
+                {/* Search & Quick Creation Field */}
+                <div className="flex items-center gap-1.5 mb-2">
+                  <input
+                    type="text"
+                    placeholder="Rechercher ou créer une catégorie..."
+                    value={categoryFilterSearch}
+                    onChange={(e) => setCategoryFilterSearch(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleCreateCategory();
+                      }
+                    }}
+                    className="flex-1 bg-[#1C1C1E] border border-[#333] rounded px-2.5 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                    autoFocus
+                  />
+                  {categoryFilterSearch.trim() && (
+                    <button
+                      type="button"
+                      onClick={handleCreateCategory}
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold whitespace-nowrap transition-colors"
+                      title="Créer cette nouvelle catégorie"
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>Créer</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Category List */}
+                <div className="max-h-52 overflow-y-auto space-y-1 pr-1">
+                  {filteredCategoriesInDropdown.length === 0 ? (
+                    <div className="py-3 text-center text-gray-500 text-xs">
+                      {categoryFilterSearch.trim() ? (
+                        <div>
+                          <span>Aucune catégorie correspondante.</span>
+                          <button
+                            type="button"
+                            onClick={handleCreateCategory}
+                            className="block mx-auto mt-1 text-blue-400 font-semibold hover:underline"
+                          >
+                            + Créer &quot;{categoryFilterSearch.trim()}&quot;
+                          </button>
+                        </div>
+                      ) : (
+                        'Aucune catégorie disponible'
+                      )}
+                    </div>
+                  ) : (
+                    filteredCategoriesInDropdown.map((cat) => {
+                      const isSelected = selectedCategories.includes(cat.name);
+                      return (
+                        <div
+                          key={cat.name}
+                          onClick={() => toggleCategoryFilter(cat.name)}
+                          className={`flex items-center justify-between px-2.5 py-1.5 rounded cursor-pointer transition-colors ${
+                            isSelected
+                              ? 'bg-blue-600/15 text-blue-300 font-medium'
+                              : 'hover:bg-[#1C1C1E] text-gray-300'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 truncate pr-2">
+                            <span className="truncate">{cat.name}</span>
+                            {cat.count > 0 && (
+                              <span className="text-[10px] text-gray-400 bg-[#0A0A0B] px-1.5 py-0.2 rounded border border-[#222224]">
+                                {cat.count}
+                              </span>
+                            )}
+                          </div>
+                          <div className={`w-4 h-4 rounded shrink-0 flex items-center justify-center border transition-colors ${
+                            isSelected 
+                              ? 'bg-blue-600 border-blue-500 text-white' 
+                              : 'border-[#444] bg-[#1C1C1E]'
+                          }`}>
+                            {isSelected && <Check className="w-3 h-3 stroke-[2.5]" />}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Footer bar */}
+                <div className="flex items-center justify-between pt-2 mt-2 border-t border-[#222224]">
+                  {selectedCategories.length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCategories([])}
+                      className="text-[11px] text-gray-400 hover:text-rose-400 transition-colors"
+                    >
+                      Tout désélectionner
+                    </button>
+                  ) : (
+                    <span />
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setIsCategoryFilterOpen(false)}
+                    className="px-3 py-1 rounded bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 text-[11px] font-medium border border-[#333] transition-colors"
+                  >
+                    Fermer
+                  </button>
+                </div>
+
+              </div>
+            )}
+          </div>
+
           {/* Key Filter */}
-          <div className="flex items-center gap-1.5 text-xs text-gray-400 bg-[#1C1C1E] border border-[#333] rounded-md px-2.5 py-1.5">
-            <Music className="w-3.5 h-3.5 text-blue-400" />
-            <span className="hidden sm:inline">Tonalité:</span>
+          <div className="flex-1 sm:flex-initial min-w-0 h-[34px] flex items-center gap-1 sm:gap-1.5 text-xs text-gray-400 bg-[#1C1C1E] border border-[#333] hover:border-[#444] rounded-md px-2 sm:px-2.5 py-1 transition-colors">
+            <Music className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+            <span className="hidden lg:inline text-gray-400">Tonalité:</span>
             <select
               value={selectedKey}
               onChange={(e) => setSelectedKey(e.target.value)}
-              className="bg-transparent text-gray-200 text-xs font-semibold focus:outline-none cursor-pointer"
+              className="w-full bg-transparent text-gray-200 text-[11px] sm:text-xs font-semibold focus:outline-none cursor-pointer truncate"
             >
               <option value="all" className="bg-[#111112]">Toutes</option>
               {availableKeys.map(k => (
@@ -556,13 +651,13 @@ export const SongList: React.FC = () => {
           </div>
 
           {/* Sort By */}
-          <div className="flex items-center gap-1.5 text-xs text-gray-400 bg-[#1C1C1E] border border-[#333] rounded-md px-2.5 py-1.5">
-            <SlidersHorizontal className="w-3.5 h-3.5 text-blue-400" />
-            <span className="hidden sm:inline">Trier:</span>
+          <div className="flex-1 sm:flex-initial min-w-0 h-[34px] flex items-center gap-1 sm:gap-1.5 text-xs text-gray-400 bg-[#1C1C1E] border border-[#333] hover:border-[#444] rounded-md px-2 sm:px-2.5 py-1 transition-colors">
+            <SlidersHorizontal className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+            <span className="hidden lg:inline text-gray-400">Trier:</span>
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as any)}
-              className="bg-transparent text-gray-200 text-xs font-semibold focus:outline-none cursor-pointer"
+              className="w-full bg-transparent text-gray-200 text-[11px] sm:text-xs font-semibold focus:outline-none cursor-pointer truncate"
             >
               <option value="title" className="bg-[#111112]">Titre (A-Z)</option>
               <option value="artist" className="bg-[#111112]">Artiste</option>
@@ -573,13 +668,44 @@ export const SongList: React.FC = () => {
         </div>
       </div>
 
+      {/* Active Category Filter Chips Bar */}
+      {selectedCategories.length > 0 && (
+        <div className="flex items-center flex-wrap gap-1.5 mb-4 px-1">
+          <span className="text-[11px] text-gray-400 flex items-center gap-1 mr-1">
+            <Tag className="w-3 h-3 text-blue-400" />
+            <span>Filtre catégorie{selectedCategories.length > 1 ? 's' : ''} :</span>
+          </span>
+          {selectedCategories.map((cat) => (
+            <span
+              key={cat}
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-600/20 border border-blue-500/40 text-blue-300 text-xs font-medium"
+            >
+              <span>{cat}</span>
+              <button
+                onClick={() => toggleCategoryFilter(cat)}
+                className="hover:text-white transition-colors"
+                title="Supprimer ce filtre"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          ))}
+          <button
+            onClick={() => setSelectedCategories([])}
+            className="text-[11px] text-gray-400 hover:text-white ml-2 underline"
+          >
+            Effacer
+          </button>
+        </div>
+      )}
+
       {/* Song List Cards */}
       {filteredSongs.length === 0 ? (
         <div className="text-center py-16 bg-[#111112] rounded-lg border border-[#222224] p-6">
           <Music className="w-10 h-10 text-gray-600 mx-auto mb-3" />
           <h3 className="text-sm font-bold text-gray-300">Aucun chant trouvé</h3>
           <p className="text-xs text-gray-500 mt-1 max-w-sm mx-auto">
-            {searchQuery || selectedFolderId !== 'all' || selectedKey !== 'all'
+            {searchQuery || selectedKey !== 'all' || selectedCategories.length > 0
               ? "Essayez de modifier vos critères de recherche ou vos filtres."
               : "Commencez par ajouter votre premier chant ou charger les chants de démonstration."}
           </p>
@@ -587,27 +713,15 @@ export const SongList: React.FC = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {filteredSongs.map((song) => {
-            const folder = folders.find(f => f.id === song.folderId);
             return (
               <div
                 key={song.id}
-                className="group relative bg-[#111112] hover:bg-[#141416] border border-[#222224] hover:border-[#333] rounded-lg p-4 transition-colors flex flex-col justify-between"
+                onClick={() => handleOpenStage(song)}
+                className="group relative bg-[#111112] hover:bg-[#151518] border border-[#222224] hover:border-blue-500/40 rounded-lg p-4 transition-all flex flex-col justify-between cursor-pointer shadow-sm hover:shadow-md"
               >
                 <div>
-                  {/* Card Header: Folder Badge + Key / BPM / Capo */}
+                  {/* Card Header: Key / BPM / Capo */}
                   <div className="flex items-center justify-between gap-2 mb-2">
-                    {folder ? (
-                      <span 
-                        className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-medium bg-[#1C1C1E] border border-[#333]"
-                        style={{ color: folder.color || '#3B82F6' }}
-                      >
-                        <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: folder.color || '#3B82F6' }} />
-                        <span className="truncate max-w-[120px]">{folder.name}</span>
-                      </span>
-                    ) : (
-                      <span className="text-[10px] text-gray-500">Sans dossier</span>
-                    )}
-
                     <div className="flex items-center gap-1.5">
                       <span className="px-2 py-0.5 rounded bg-[#1C1C1E] border border-[#333] text-gray-200 text-[11px] font-bold">
                         {song.key || 'C'}
@@ -627,70 +741,110 @@ export const SongList: React.FC = () => {
                   </div>
 
                   {/* Title & Artist */}
-                  <h3 
-                    onClick={() => handleOpenStage(song)}
-                    className="text-sm font-bold text-white group-hover:text-blue-400 transition-colors cursor-pointer line-clamp-1"
-                  >
+                  <h3 className="text-sm font-bold text-white group-hover:text-blue-400 transition-colors line-clamp-1">
                     {song.title}
                   </h3>
                   <p className="text-xs text-gray-400 font-medium line-clamp-1 mt-0.5">
                     {song.artist || 'Auteur inconnu'}
                   </p>
 
-                  {/* Tags */}
+                  {/* Catégories */}
                   {song.tags && song.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-2.5">
-                      {song.tags.slice(0, 3).map((t, idx) => (
-                        <span key={idx} className="text-[10px] px-1.5 py-0.5 rounded bg-[#1C1C1E] border border-[#222224] text-gray-400">
-                          #{t}
-                        </span>
-                      ))}
+                      {song.tags.map((cat, idx) => {
+                        const isFiltered = selectedCategories.includes(cat);
+                        return (
+                          <button
+                            key={idx}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleCategoryFilter(cat);
+                            }}
+                            className={`text-[10px] px-2 py-0.5 rounded border transition-colors flex items-center gap-1 ${
+                              isFiltered
+                                ? 'bg-blue-600/20 text-blue-300 border-blue-500/40 font-semibold'
+                                : 'bg-[#1C1C1E] border-[#222224] text-gray-400 hover:text-gray-200 hover:border-[#333]'
+                            }`}
+                            title={`Filtrer par la catégorie "${cat}"`}
+                          >
+                            <Tag className="w-2.5 h-2.5 text-blue-400" />
+                            <span>{cat}</span>
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
 
                 {/* Card Actions Footer */}
-                <div className="mt-4 pt-3 border-t border-[#222224] flex items-center justify-between gap-2">
+                <div className="mt-4 pt-3 border-t border-[#222224] flex items-center gap-1.5">
                   <button
-                    onClick={() => handleOpenStage(song)}
-                    className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-md bg-blue-600 hover:bg-blue-500 text-white border border-transparent text-xs font-semibold transition-all shadow-sm active:scale-95"
-                  >
-                    <PlayCircle className="w-3.5 h-3.5" />
-                    <span>Mode Scène</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       setAddToSetlistSong(song);
-                      setSelectedSetlistId(setlists[0]?.id || '');
+                      setSelectedSetlistIds(
+                        setlists.filter(st => st.songIds.includes(song.id)).map(st => st.id)
+                      );
+                      setSetlistSearchQuery('');
+                      setIsCreatingNewSetlist(false);
+                      setNewSetlistName('');
+                      setNewSetlistDate(new Date().toISOString().split('T')[0]);
                     }}
-                    className="p-1.5 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 hover:text-white border border-[#333] transition-colors"
-                    title="Ajouter à une setlist"
+                    className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md bg-[#1C1C1E] hover:bg-[#252528] text-gray-300 hover:text-white border border-[#333] hover:border-blue-500/40 transition-colors text-xs font-medium"
+                    title="Ajouter ou gérer dans vos setlists"
                   >
-                    <ListPlus className="w-3.5 h-3.5" />
+                    <ListPlus className="w-3.5 h-3.5 text-blue-400" />
+                    <span>Setlist</span>
                   </button>
 
                   {currentUser?.role === 'admin' && (
                     <>
                       <button
-                        onClick={() => handleEditSong(song)}
-                        className="p-1.5 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 hover:text-white border border-[#333] transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEditSong(song);
+                        }}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md bg-[#1C1C1E] hover:bg-[#252528] text-gray-300 hover:text-white border border-[#333] hover:border-amber-500/40 transition-colors text-xs font-medium"
                         title="Éditer le chant"
                       >
-                        <FileEdit className="w-3.5 h-3.5" />
+                        <FileEdit className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Éditer</span>
                       </button>
 
-                      <button
-                        onClick={() => {
-                          if (window.confirm(`Supprimer le chant "${song.title}" ?`)) {
-                            deleteSong(song.id);
-                          }
-                        }}
-                        className="p-1.5 rounded-md bg-[#1C1C1E] hover:bg-rose-500/20 text-gray-400 hover:text-rose-400 border border-[#333] transition-colors"
-                        title="Supprimer"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      {(() => {
+                        const isConfirming = confirmDeleteSongId === song.id;
+                        return (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (isConfirming) {
+                                deleteSong(song.id);
+                                setConfirmDeleteSongId(null);
+                              } else {
+                                setConfirmDeleteSongId(song.id);
+                              }
+                            }}
+                            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md transition-all text-xs font-medium ${
+                              isConfirming
+                                ? 'bg-rose-600 hover:bg-rose-700 text-white border border-rose-500 shadow-sm font-bold animate-pulse'
+                                : 'bg-[#1C1C1E] hover:bg-rose-500/20 text-gray-400 hover:text-rose-400 border border-[#333] hover:border-rose-500/40'
+                            }`}
+                            title={isConfirming ? "Cliquez à nouveau pour confirmer la suppression" : "Supprimer le chant"}
+                          >
+                            {isConfirming ? (
+                              <>
+                                <Check className="w-3.5 h-3.5 text-white" />
+                                <span>Confirmer ?</span>
+                              </>
+                            ) : (
+                              <>
+                                <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                                <span>Supprimer</span>
+                              </>
+                            )}
+                          </button>
+                        );
+                      })()}
                     </>
                   )}
                 </div>
@@ -700,398 +854,335 @@ export const SongList: React.FC = () => {
         </div>
       )}
 
-      {/* Modal: Add to Setlist */}
+      {/* Modal: Add / Manage Song in Setlists (Multi-select, Search, Sort & Quick Create) */}
       {addToSetlistSong && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#111112] border border-[#222224] rounded-lg w-full max-w-md p-5 shadow-2xl">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <ListPlus className="w-4 h-4 text-blue-400" />
-                <span>Ajouter à une Setlist</span>
-              </h3>
-              <button 
-                onClick={() => setAddToSetlistSong(null)}
-                className="text-gray-400 hover:text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <p className="text-xs text-gray-400 mb-4">
-              Chant: <strong className="text-white">{addToSetlistSong.title}</strong>
-            </p>
-
-            {setlists.length === 0 ? (
-              <div className="text-center py-6 bg-[#0A0A0B] border border-[#222224] rounded-lg p-4 mb-4">
-                <p className="text-xs text-gray-400">Aucune setlist créée pour le moment.</p>
-                <button
-                  onClick={() => {
-                    setAddToSetlistSong(null);
-                    setActiveTab('setlists');
-                  }}
-                  className="mt-2 text-xs font-bold text-blue-400 hover:underline"
-                >
-                  Créer une setlist maintenant
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-2 mb-5 max-h-56 overflow-y-auto">
-                <label className="block text-xs font-semibold text-gray-300">
-                  Choisir la setlist :
-                </label>
-                {setlists.map(st => {
-                  const alreadyIn = st.songIds.includes(addToSetlistSong.id);
-                  return (
-                    <label
-                      key={st.id}
-                      className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all ${
-                        selectedSetlistId === st.id
-                          ? 'bg-[#1C1C1E] border-blue-500/60 text-white'
-                          : 'bg-[#0A0A0B] border-[#222224] text-gray-300 hover:bg-[#1C1C1E]'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <input
-                          type="radio"
-                          name="setlist_select"
-                          value={st.id}
-                          checked={selectedSetlistId === st.id}
-                          onChange={() => setSelectedSetlistId(st.id)}
-                          className="text-blue-600 focus:ring-0"
-                        />
-                        <div>
-                          <p className="text-xs font-bold">{st.name}</p>
-                          <p className="text-[10px] text-gray-400">{st.songIds.length} chants • {st.date}</p>
-                        </div>
-                      </div>
-                      {alreadyIn && (
-                        <span className="text-[10px] px-2 py-0.5 rounded bg-[#1C1C1E] text-blue-400 border border-[#333]">
-                          Déjà présent
-                        </span>
-                      )}
-                    </label>
-                  );
-                })}
-              </div>
-            )}
-
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#222224]">
-              <button
-                type="button"
-                onClick={() => setAddToSetlistSong(null)}
-                className="px-3.5 py-1.5 rounded-md text-xs font-medium text-gray-400 hover:bg-[#1C1C1E]"
-              >
-                Annuler
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmAddToSetlist}
-                disabled={!selectedSetlistId}
-                className="px-3.5 py-1.5 rounded-md text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-50"
-              >
-                Confirmer l'ajout
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal: Universal Multi-Source Importer */}
-      {isImportModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-          <div className="bg-[#111112] border border-[#222224] rounded-lg w-full max-w-2xl p-5 shadow-2xl my-auto text-[#E0E0E0]">
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150">
+          <div className="bg-[#111112] border border-[#222224] rounded-xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
             
             {/* Modal Header */}
-            <div className="flex items-center justify-between mb-4 pb-3 border-b border-[#222224]">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-md bg-blue-600/20 text-blue-400 border border-blue-500/30">
-                  <FileUp className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-white">
-                    Importer des Chants & Partitions
+            <div className="p-4 sm:p-5 border-b border-[#222224] bg-[#141416] flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="p-1 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                    <ListPlus className="w-4 h-4" />
+                  </span>
+                  <h3 className="text-sm sm:text-base font-bold text-white tracking-tight">
+                    Ajouter aux Setlists
                   </h3>
-                  <p className="text-[11px] text-gray-400">
-                    Importation directe depuis des fichiers ou conversion intelligente de sites d'accords
-                  </p>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-gray-400">
+                  <span className="font-semibold text-white truncate">{addToSetlistSong.title}</span>
+                  {addToSetlistSong.artist && (
+                    <>
+                      <span>•</span>
+                      <span className="truncate">{addToSetlistSong.artist}</span>
+                    </>
+                  )}
+                  {addToSetlistSong.key && (
+                    <span className="px-1.5 py-0.2 bg-[#222] text-amber-300 rounded text-[10px] font-bold border border-[#333]">
+                      {addToSetlistSong.key}
+                    </span>
+                  )}
                 </div>
               </div>
               <button 
-                onClick={() => setIsImportModalOpen(false)}
-                className="p-1 rounded-md text-gray-400 hover:text-white hover:bg-[#1C1C1E] transition-colors"
+                onClick={() => setAddToSetlistSong(null)}
+                className="p-1 rounded-md text-gray-400 hover:text-white hover:bg-[#222] transition-colors"
+                title="Fermer"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Source Selection Tabs (The 3 Options) */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-4">
-              
-              {/* Option 1: ChordPro */}
-              <button
-                type="button"
-                onClick={() => setImportSource('chordpro')}
-                className={`p-2.5 rounded-lg border text-left transition-all ${
-                  importSource === 'chordpro'
-                    ? 'bg-[#1C1C1E] border-blue-500 text-white shadow-sm'
-                    : 'bg-[#0A0A0B] border-[#222224] text-gray-400 hover:text-gray-200 hover:bg-[#1C1C1E]'
-                }`}
-              >
-                <div className="flex items-center gap-1.5 font-semibold text-xs text-blue-400 mb-0.5">
-                  <FileCode className="w-3.5 h-3.5" />
-                  <span>1. Fichiers ChordPro</span>
+            {/* Toolbar: Search, Sort & Quick Create Toggle */}
+            <div className="p-3 sm:p-4 border-b border-[#222224] bg-[#0D0D0E] space-y-3">
+              {/* Search Bar & Quick Create Button */}
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={setlistSearchQuery}
+                    onChange={(e) => setSetlistSearchQuery(e.target.value)}
+                    placeholder="Rechercher une setlist (nom, date)..."
+                    className="w-full bg-[#171719] border border-[#2A2A2D] focus:border-blue-500 rounded-lg pl-8 pr-7 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none transition-colors"
+                  />
+                  {setlistSearchQuery && (
+                    <button
+                      onClick={() => setSetlistSearchQuery('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
                 </div>
-                <div className="text-[10px] text-gray-400">
-                  Fichiers .pro, .cho, .txt ou balises [C]
-                </div>
-              </button>
 
-              {/* Option 2: Shir.fr */}
-              <button
-                type="button"
-                onClick={() => setImportSource('shir')}
-                className={`p-2.5 rounded-lg border text-left transition-all ${
-                  importSource === 'shir'
-                    ? 'bg-[#1C1C1E] border-blue-500 text-white shadow-sm'
-                    : 'bg-[#0A0A0B] border-[#222224] text-gray-400 hover:text-gray-200 hover:bg-[#1C1C1E]'
-                }`}
-              >
-                <div className="flex items-center gap-1.5 font-semibold text-xs text-blue-400 mb-0.5">
-                  <BookOpen className="w-3.5 h-3.5" />
-                  <span>2. Depuis Shir.fr</span>
-                </div>
-                <div className="text-[10px] text-gray-400">
-                  Louange chrétienne francophone & hébreu
-                </div>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setIsCreatingNewSetlist(!isCreatingNewSetlist)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all whitespace-nowrap ${
+                    isCreatingNewSetlist
+                      ? 'bg-blue-600/20 text-blue-400 border-blue-500/50 shadow-sm'
+                      : 'bg-[#1C1C1E] hover:bg-[#252528] text-gray-200 border-[#333] hover:border-[#444]'
+                  }`}
+                >
+                  <Plus className={`w-3.5 h-3.5 transition-transform ${isCreatingNewSetlist ? 'rotate-45' : ''}`} />
+                  <span>Nouvelle</span>
+                </button>
+              </div>
 
-              {/* Option 3: Web Chords Sites */}
-              <button
-                type="button"
-                onClick={() => setImportSource('webchords')}
-                className={`p-2.5 rounded-lg border text-left transition-all ${
-                  importSource === 'webchords'
-                    ? 'bg-[#1C1C1E] border-blue-500 text-white shadow-sm'
-                    : 'bg-[#0A0A0B] border-[#222224] text-gray-400 hover:text-gray-200 hover:bg-[#1C1C1E]'
-                }`}
-              >
-                <div className="flex items-center gap-1.5 font-semibold text-xs text-blue-400 mb-0.5">
-                  <Globe className="w-3.5 h-3.5" />
-                  <span>3. Sites d'Accords Web</span>
-                </div>
-                <div className="text-[10px] text-gray-400 truncate">
-                  LaCuerda, Ultimate, Worship, E-Chords
-                </div>
-              </button>
-            </div>
-
-            {/* Hidden native file input */}
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              onChange={handleFileUpload} 
-              multiple 
-              accept=".cho,.pro,.chopro,.txt,.crd"
-              className="hidden" 
-            />
-
-            {/* Tab 1 Content: ChordPro */}
-            {importSource === 'chordpro' && (
-              <div className="space-y-3 mb-4">
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-2 p-3 bg-[#0A0A0B] border border-[#222224] rounded-lg">
-                  <div>
-                    <span className="text-xs font-semibold text-white block">
-                      Téléverser des fichiers locaux (.cho, .pro, .txt)
+              {/* Quick Create Inline Panel */}
+              {isCreatingNewSetlist && (
+                <div className="p-3 bg-[#151518] border border-blue-500/30 rounded-lg space-y-2.5 animate-in fade-in duration-150">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-blue-400 uppercase tracking-wider flex items-center gap-1">
+                      <Sparkles className="w-3 h-3" />
+                      <span>Créer &amp; Ajouter directement</span>
                     </span>
-                    <span className="text-[11px] text-gray-400">
-                      Importez un ou plusieurs fichiers de chants simultanément
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsCreatingNewSetlist(false)}
+                      className="text-[10px] text-gray-400 hover:text-white"
+                    >
+                      Annuler
+                    </button>
                   </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <input
+                      type="text"
+                      value={newSetlistName}
+                      onChange={(e) => setNewSetlistName(e.target.value)}
+                      placeholder="Nom (ex: Culte Dimanche)"
+                      className="sm:col-span-2 bg-[#1C1C1E] border border-[#333] focus:border-blue-500 rounded px-2.5 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleQuickCreateSetlist();
+                        }
+                      }}
+                    />
+                    <input
+                      type="date"
+                      value={newSetlistDate}
+                      onChange={(e) => setNewSetlistDate(e.target.value)}
+                      className="bg-[#1C1C1E] border border-[#333] focus:border-blue-500 rounded px-2.5 py-1.5 text-xs text-white focus:outline-none"
+                    />
+                  </div>
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleQuickCreateSetlist}
+                      disabled={!newSetlistName.trim()}
+                      className="px-3 py-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-semibold rounded transition-colors shadow-sm"
+                    >
+                      Créer &amp; Sélectionner
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Sorting Filter Pills */}
+              <div className="flex items-center justify-between gap-2 pt-1">
+                <div className="flex items-center gap-1.5 text-[11px] text-gray-400">
+                  <ArrowUpDown className="w-3 h-3 text-gray-500" />
+                  <span>Trier par :</span>
+                </div>
+                <div className="flex items-center gap-1 bg-[#141416] p-0.5 rounded-lg border border-[#222]">
                   <button
                     type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] text-white border border-[#333] text-xs font-medium transition-colors whitespace-nowrap"
+                    onClick={() => setSetlistSortBy('recent')}
+                    className={`px-2 py-1 rounded text-[11px] font-medium transition-all ${
+                      setlistSortBy === 'recent'
+                        ? 'bg-[#252528] text-white shadow-sm font-semibold'
+                        : 'text-gray-400 hover:text-gray-200'
+                    }`}
                   >
-                    <Upload className="w-3.5 h-3.5 text-blue-400" />
-                    <span>Choisir fichier(s)...</span>
+                    Récent
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSetlistSortBy('name')}
+                    className={`px-2 py-1 rounded text-[11px] font-medium transition-all ${
+                      setlistSortBy === 'name'
+                        ? 'bg-[#252528] text-white shadow-sm font-semibold'
+                        : 'text-gray-400 hover:text-gray-200'
+                    }`}
+                  >
+                    A-Z
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSetlistSortBy('count')}
+                    className={`px-2 py-1 rounded text-[11px] font-medium transition-all ${
+                      setlistSortBy === 'count'
+                        ? 'bg-[#252528] text-white shadow-sm font-semibold'
+                        : 'text-gray-400 hover:text-gray-200'
+                    }`}
+                  >
+                    Nb Chants
                   </button>
                 </div>
-
-                {importedFileCount > 0 && (
-                  <div className="p-2.5 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-medium flex items-center gap-2">
-                    <Check className="w-4 h-4 shrink-0" />
-                    <span>{importedFileCount} fichier(s) importé(s) avec succès dans votre bibliothèque !</span>
-                  </div>
-                )}
-
-                <div className="text-center text-[11px] text-gray-500 font-medium my-1">
-                  — OU COLLER DU TEXTE AU FORMAT CHORDPRO —
-                </div>
               </div>
-            )}
+            </div>
 
-            {/* Tab 2 Content: Shir.fr */}
-            {importSource === 'shir' && (
-              <div className="space-y-3 mb-4">
-                <div className="p-3 bg-[#0A0A0B] border border-[#222224] rounded-lg text-xs space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="font-semibold text-white flex items-center gap-1.5">
-                      <span>Importation depuis le recueil Shir.fr</span>
-                    </span>
-                    <a 
-                      href="https://shir.fr" 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-blue-400 hover:underline text-[11px]"
-                    >
-                      <span>Ouvrir Shir.fr</span>
-                      <ExternalLink className="w-3 h-3" />
-                    </a>
-                  </div>
-                  <p className="text-[11px] text-gray-400">
-                    Copiez les paroles et accords depuis la fiche de chant sur <strong className="text-gray-200">shir.fr</strong> (ou un recueil chrétien / cantique) et collez-les ci-dessous. Le convertisseur détectera automatiquement les strophes, refrains et accords.
-                  </p>
+            {/* Setlists Multi-select List */}
+            <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-2 min-h-[220px] max-h-[380px]">
+              {setlists.length === 0 ? (
+                <div className="text-center py-8 bg-[#0A0A0B] border border-[#222224] rounded-xl p-4">
+                  <ListPlus className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+                  <p className="text-xs text-gray-300 font-semibold">Aucune setlist disponible</p>
+                  <p className="text-[11px] text-gray-500 mt-0.5">Créez votre première setlist pour y inclure ce chant.</p>
+                  <button
+                    type="button"
+                    onClick={() => setIsCreatingNewSetlist(true)}
+                    className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold transition-all shadow-sm"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Créer une setlist</span>
+                  </button>
                 </div>
-              </div>
-            )}
-
-            {/* Tab 3 Content: Web Chords (LaCuerda, Ultimate-Guitar, WorshipTogether, E-Chords) */}
-            {importSource === 'webchords' && (
-              <div className="space-y-3 mb-4">
-                <div className="p-3 bg-[#0A0A0B] border border-[#222224] rounded-lg text-xs space-y-2">
-                  <span className="font-semibold text-white block">
-                    Convertisseur Universel d'Accords Web
-                  </span>
-                  <p className="text-[11px] text-gray-400">
-                    Collez la tablature ou grille d'accords textuelle où les accords sont disposés au-dessus des paroles. Notre moteur fusionne automatiquement les lignes d'accords en balises <code className="text-blue-400 font-mono">[C]Paroles</code>.
+              ) : filteredAndSortedSetlists.length === 0 ? (
+                <div className="text-center py-8 bg-[#0A0A0B] border border-[#222224] rounded-xl p-4">
+                  <p className="text-xs text-gray-400">
+                    Aucune setlist ne correspond à « <strong className="text-white">{setlistSearchQuery}</strong> »
                   </p>
-                  
-                  {/* Supported Sites Quick Links */}
-                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                    <span className="text-[10px] text-gray-400 uppercase font-semibold">Sites compatibles :</span>
-                    {[
-                      { name: 'LaCuerda.net', url: 'https://lacuerda.net' },
-                      { name: 'Ultimate-Guitar.com', url: 'https://www.ultimate-guitar.com' },
-                      { name: 'WorshipTogether.com', url: 'https://www.worshiptogether.com' },
-                      { name: 'E-Chords.com', url: 'https://www.e-chords.com' }
-                    ].map(site => (
-                      <a
-                        key={site.name}
-                        href={site.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#1C1C1E] hover:bg-[#2A2A2D] text-blue-400 border border-[#333] text-[10px] font-medium transition-colors"
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewSetlistName(setlistSearchQuery.trim());
+                      setIsCreatingNewSetlist(true);
+                    }}
+                    className="mt-2.5 text-xs text-blue-400 hover:text-blue-300 font-semibold hover:underline flex items-center justify-center gap-1 mx-auto"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>Créer la setlist « {setlistSearchQuery.trim()} »</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px] text-gray-400 px-1 pb-1">
+                    <span>Sélectionnez les setlists ({filteredAndSortedSetlists.length} disponible{filteredAndSortedSetlists.length > 1 ? 's' : ''})</span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const allIds = filteredAndSortedSetlists.map(s => s.id);
+                          setSelectedSetlistIds(prev => Array.from(new Set([...prev, ...allIds])));
+                        }}
+                        className="text-blue-400 hover:underline"
                       >
-                        <span>{site.name}</span>
-                        <ExternalLink className="w-2.5 h-2.5" />
-                      </a>
-                    ))}
+                        Tout cocher
+                      </button>
+                      <span>•</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const visibleIds = new Set(filteredAndSortedSetlists.map(s => s.id));
+                          setSelectedSetlistIds(prev => prev.filter(id => !visibleIds.has(id)));
+                        }}
+                        className="text-gray-400 hover:text-white hover:underline"
+                      >
+                        Décocher
+                      </button>
+                    </div>
                   </div>
+
+                  {filteredAndSortedSetlists.map(st => {
+                    const isSelected = selectedSetlistIds.includes(st.id);
+                    const wasAlreadyIn = st.songIds.includes(addToSetlistSong.id);
+
+                    return (
+                      <div
+                        key={st.id}
+                        onClick={() => handleToggleSetlistSelection(st.id)}
+                        className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all ${
+                          isSelected
+                            ? 'bg-[#181C28] border-blue-500/60 shadow-sm text-white'
+                            : 'bg-[#0E0E10] border-[#222224] text-gray-300 hover:bg-[#151518] hover:border-[#333]'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="shrink-0 text-blue-400">
+                            {isSelected ? (
+                              <CheckSquare className="w-4 h-4 fill-blue-500/20 text-blue-400" />
+                            ) : (
+                              <Square className="w-4 h-4 text-gray-500" />
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className={`text-xs font-bold truncate ${isSelected ? 'text-white' : 'text-gray-200'}`}>
+                                {st.name}
+                              </p>
+                              {wasAlreadyIn && (
+                                <span className="shrink-0 text-[9px] px-1.5 py-0.2 rounded bg-[#1F1F23] text-gray-400 border border-[#333]">
+                                  Déjà présent
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 text-[10px] text-gray-400 mt-0.5">
+                              <span className="flex items-center gap-1">
+                                <Music className="w-2.5 h-2.5 text-gray-500" />
+                                <span>{st.songIds.length} chant{st.songIds.length > 1 ? 's' : ''}</span>
+                              </span>
+                              {st.date && (
+                                <>
+                                  <span>•</span>
+                                  <span className="flex items-center gap-1">
+                                    <Calendar className="w-2.5 h-2.5 text-gray-500" />
+                                    <span>{st.date}</span>
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="shrink-0 pl-2">
+                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border transition-colors ${
+                            isSelected
+                              ? 'bg-blue-600 text-white border-blue-500'
+                              : 'bg-[#1A1A1D] text-gray-500 border-[#2A2A2D]'
+                          }`}>
+                            {isSelected ? 'Inclus' : 'Non inclus'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              </div>
-            )}
-
-            {/* Optional Metadata Row */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
-              <div>
-                <label className="block text-[11px] font-medium text-gray-300 mb-1">Titre (optionnel)</label>
-                <input
-                  type="text"
-                  placeholder="ex: Dieu Tout-Puissant"
-                  value={importTitle}
-                  onChange={(e) => setImportTitle(e.target.value)}
-                  className="w-full bg-[#1C1C1E] border border-[#333] rounded-md px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-medium text-gray-300 mb-1">Artiste / Auteur</label>
-                <input
-                  type="text"
-                  placeholder="ex: Hillsong / Paul Baloche"
-                  value={importArtist}
-                  onChange={(e) => setImportArtist(e.target.value)}
-                  className="w-full bg-[#1C1C1E] border border-[#333] rounded-md px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-medium text-gray-300 mb-1">Tonalité</label>
-                <select
-                  value={importKey}
-                  onChange={(e) => setImportKey(e.target.value)}
-                  className="w-full bg-[#1C1C1E] border border-[#333] rounded-md px-2.5 py-1.5 text-xs text-blue-400 font-bold focus:outline-none focus:border-blue-500"
-                >
-                  {['C', 'C#', 'Db', 'D', 'D#', 'Eb', 'E', 'F', 'F#', 'Gb', 'G', 'G#', 'Ab', 'A', 'A#', 'Bb', 'B', 'Am', 'Em', 'Dm', 'Bm'].map(k => (
-                    <option key={k} value={k} className="bg-[#111112] text-gray-200">{k}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-medium text-gray-300 mb-1">Tempo (BPM)</label>
-                <input
-                  type="number"
-                  min={40}
-                  max={240}
-                  value={importTempo}
-                  onChange={(e) => setImportTempo(parseInt(e.target.value, 10) || 100)}
-                  className="w-full bg-[#1C1C1E] border border-[#333] rounded-md px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
-                />
-              </div>
+              )}
             </div>
 
-            {/* Textarea for paste input */}
-            <div className="mb-4">
-              <label className="block text-xs font-semibold text-gray-300 mb-1.5 flex items-center justify-between">
-                <span>
-                  {importSource === 'chordpro' && 'Contenu ChordPro (avec balises [C] ou {title}) :'}
-                  {importSource === 'shir' && 'Collez les paroles & accords copiés depuis Shir.fr :'}
-                  {importSource === 'webchords' && 'Collez la tablature / accords 2 lignes (LaCuerda, Ultimate-Guitar, etc.) :'}
-                </span>
-                <span className="text-[10px] text-blue-400 font-normal">
-                  Conversion automatique
-                </span>
-              </label>
-              <textarea
-                rows={9}
-                value={importText}
-                onChange={(e) => setImportText(e.target.value)}
-                placeholder={
-                  importSource === 'chordpro'
-                    ? "{title: Mon Chant}\n{artist: Louange}\n{key: G}\n\n[G]Voici le premier [C]accord..."
-                    : (importSource === 'shir'
-                      ? "Couplet 1:\n  G           C\nDans ta présence Seigneur\n  D           G\nJe trouve la paix..."
-                      : "  C          G        Am         F\nAmazing grace how sweet the sound that saved a wretch like me\n  C          G        F          C\nI once was lost but now am found was blind but now I see")
-                }
-                className="w-full bg-[#0A0A0B] font-mono text-xs text-gray-100 border border-[#333] rounded-md p-3 focus:outline-none focus:border-blue-500 leading-relaxed"
-              />
-            </div>
-
-            {/* Modal Actions */}
-            <div className="flex items-center justify-between pt-3 border-t border-[#222224]">
-              <div className="text-[11px] text-gray-400">
-                {selectedFolderId !== 'all' && (
-                  <span>Sera ajouté dans : <strong className="text-white">{folders.find(f => f.id === selectedFolderId)?.name}</strong></span>
-                )}
+            {/* Modal Footer */}
+            <div className="p-3 sm:p-4 border-t border-[#222224] bg-[#141416] flex items-center justify-between gap-3">
+              <div className="text-xs text-gray-400">
+                <span className="font-bold text-white">{selectedSetlistIds.length}</span> setlist{selectedSetlistIds.length > 1 ? 's' : ''} sélectionnée{selectedSetlistIds.length > 1 ? 's' : ''}
               </div>
 
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setIsImportModalOpen(false)}
-                  className="px-3.5 py-1.5 rounded-md text-xs font-medium text-gray-400 hover:bg-[#1C1C1E] transition-colors"
+                  onClick={() => setAddToSetlistSong(null)}
+                  className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-gray-400 hover:text-white hover:bg-[#222] transition-colors"
                 >
                   Annuler
                 </button>
                 <button
                   type="button"
-                  onClick={handleExecuteImport}
-                  disabled={!importText.trim()}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-md text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white transition-colors disabled:opacity-50 shadow-sm"
+                  onClick={handleSaveSetlistSelection}
+                  disabled={isSavingSetlists}
+                  className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-50 transition-all shadow-sm active:scale-95"
                 >
-                  <FileUp className="w-3.5 h-3.5" />
-                  <span>Importer dans la bibliothèque</span>
+                  {isSavingSetlists ? (
+                    <span>Enregistrement...</span>
+                  ) : (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Enregistrer</span>
+                    </>
+                  )}
                 </button>
               </div>
             </div>
@@ -1100,77 +1191,27 @@ export const SongList: React.FC = () => {
         </div>
       )}
 
-      {/* Modal: New Folder */}
-      {isNewFolderModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#111112] border border-[#222224] rounded-lg w-full max-w-md p-5 shadow-2xl">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <FolderPlus className="w-4 h-4 text-blue-400" />
-                <span>Nouveau Dossier</span>
-              </h3>
-              <button 
-                onClick={() => setIsNewFolderModalOpen(false)}
-                className="text-gray-400 hover:text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateFolder} className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-gray-300 mb-1.5">
-                  Nom du dossier
-                </label>
-                <input
-                  type="text"
-                  placeholder="ex: Louange Rythmée, Spécial Pâques..."
-                  value={newFolderName}
-                  onChange={(e) => setNewFolderName(e.target.value)}
-                  className="w-full bg-[#1C1C1E] border border-[#333] rounded-md px-3.5 py-1.5 text-xs text-gray-100 focus:outline-none focus:border-blue-500"
-                  autoFocus
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-300 mb-1.5">
-                  Couleur d'étiquette
-                </label>
-                <div className="flex items-center gap-2.5">
-                  {['#2563eb', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'].map(color => (
-                    <button
-                      key={color}
-                      type="button"
-                      onClick={() => setNewFolderColor(color)}
-                      className={`w-7 h-7 rounded-md transition-transform ${
-                        newFolderColor === color ? 'scale-110 ring-2 ring-white ring-offset-2 ring-offset-[#111112]' : 'opacity-70 hover:opacity-100'
-                      }`}
-                      style={{ backgroundColor: color }}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#222224]">
-                <button
-                  type="button"
-                  onClick={() => setIsNewFolderModalOpen(false)}
-                  className="px-3.5 py-1.5 rounded-md text-xs font-medium text-gray-400 hover:bg-[#1C1C1E] transition-colors"
-                >
-                  Annuler
-                </button>
-                <button
-                  type="submit"
-                  disabled={!newFolderName.trim()}
-                  className="px-3.5 py-1.5 rounded-md text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white transition-colors disabled:opacity-50"
-                >
-                  Créer le dossier
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Modal: Universal In-App Song Importer & External Search */}
+      <SongImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onImportSong={async (songData) => {
+          await createSong(songData);
+        }}
+        onImportAndEdit={async (songData) => {
+          const newId = await createSong(songData);
+          const createdSong: Song = {
+            ...songData,
+            id: newId,
+            groupId: currentUser?.currentGroupId || 'default-group',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
+          setSelectedSong(createdSong);
+          setActiveTab('editor');
+        }}
+        initialSource={importSource}
+      />
 
     </div>
   );

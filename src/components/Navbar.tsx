@@ -58,12 +58,12 @@ export const Navbar: React.FC = () => {
               className="flex items-center gap-2.5 cursor-pointer group"
             >
               <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-white shadow-sm group-hover:bg-blue-500 transition-colors">
-                S
+                M
               </div>
               <div>
                 <div className="flex items-center gap-1.5">
                   <span className="font-bold text-sm sm:text-base tracking-tight text-white">
-                    SONGBOOK
+                    MELOBOOK
                   </span>
                   <span className="text-[9px] sm:text-[10px] uppercase font-semibold tracking-wider px-1.5 py-0.5 rounded bg-[#1C1C1E] border border-[#333] text-blue-400">
                     PRO

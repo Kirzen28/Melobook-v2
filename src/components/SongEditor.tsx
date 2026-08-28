@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { Song } from '../types';
 import { parseChordPro, transposeChord } from '../utils/chordUtils';
@@ -7,17 +7,34 @@ import {
   ChevronLeft, 
   Sparkles, 
   Music, 
-  Folder as FolderIcon, 
   Gauge, 
   Eye, 
   Code2, 
   Plus, 
   Check, 
   HelpCircle,
-  FileText
+  FileText,
+  Tag,
+  ChevronDown,
+  X,
+  Mic
 } from 'lucide-react';
 
 const COMMON_CHORDS = ['C', 'G', 'Am', 'F', 'D', 'Em', 'A', 'Dm', 'E', 'B7', 'Bb', 'Gsus4', 'C#m', 'F#m'];
+
+const DEFAULT_CATEGORY_SUGGESTIONS = [
+  'Louange',
+  'Adoration',
+  'Célébration',
+  'Action de grâce',
+  'Prière',
+  'Méditation',
+  'Gospel',
+  'Noël',
+  'Pâques',
+  'Jeunesse',
+  'Communion'
+];
 
 const SAMPLE_TEMPLATE = `{title: Mon Nouveau Chant}
 {artist: Auteur / Compositeur}
@@ -48,7 +65,7 @@ export const SongEditor: React.FC = () => {
   const { 
     selectedSong, 
     setSelectedSong, 
-    folders,
+    songs,
     createSong, 
     updateSong, 
     setActiveTab 
@@ -59,9 +76,8 @@ export const SongEditor: React.FC = () => {
   const [key, setKey] = useState(selectedSong?.key || 'C');
   const [tempo, setTempo] = useState<number>(selectedSong?.tempo || 100);
   const [timeSignature, setTimeSignature] = useState(selectedSong?.timeSignature || '4/4');
-  const [folderId, setFolderId] = useState<string | null>(selectedSong?.folderId || null);
   const [capo, setCapo] = useState<number>(selectedSong?.capo || 0);
-  const [tagsString, setTagsString] = useState(selectedSong?.tags?.join(', ') || '');
+  const [categories, setCategories] = useState<string[]>(selectedSong?.tags || []);
   const [notes, setNotes] = useState(selectedSong?.notes || '');
   const [contentChordPro, setContentChordPro] = useState(selectedSong?.contentChordPro || SAMPLE_TEMPLATE);
 
@@ -71,7 +87,76 @@ export const SongEditor: React.FC = () => {
   const [customChordInput, setCustomChordInput] = useState('');
   const [showCustomChordPrompt, setShowCustomChordPrompt] = useState(false);
 
+  // Category dropdown & quick-creation state
+  const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
+  const [categorySearchQuery, setCategorySearchQuery] = useState('');
+  const [customCategories, setCustomCategories] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('melobook_custom_categories');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const categoryDropdownRef = useRef<HTMLDivElement>(null);
+
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Close category dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(e.target as Node)) {
+        setIsCategoryDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Compute all available categories from all songs in library + presets + custom additions
+  const allAvailableCategories = useMemo(() => {
+    const set = new Set<string>();
+    DEFAULT_CATEGORY_SUGGESTIONS.forEach(c => set.add(c));
+    songs.forEach(s => {
+      s.tags?.forEach(t => {
+        if (t && t.trim()) set.add(t.trim());
+      });
+    });
+    customCategories.forEach(c => set.add(c));
+    categories.forEach(c => set.add(c));
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [songs, customCategories, categories]);
+
+  // Filtered categories in dropdown based on search
+  const filteredCategoryList = useMemo(() => {
+    if (!categorySearchQuery.trim()) return allAvailableCategories;
+    const q = categorySearchQuery.toLowerCase().trim();
+    return allAvailableCategories.filter(c => c.toLowerCase().includes(q));
+  }, [allAvailableCategories, categorySearchQuery]);
+
+  const handleToggleCategory = (catName: string) => {
+    setCategories(prev => 
+      prev.includes(catName) ? prev.filter(c => c !== catName) : [...prev, catName]
+    );
+  };
+
+  const handleCreateCategory = () => {
+    const trimmed = categorySearchQuery.trim();
+    if (!trimmed) return;
+    if (!customCategories.includes(trimmed)) {
+      const updated = [...customCategories, trimmed];
+      setCustomCategories(updated);
+      try {
+        localStorage.setItem('melobook_custom_categories', JSON.stringify(updated));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    if (!categories.includes(trimmed)) {
+      setCategories(prev => [...prev, trimmed]);
+    }
+    setCategorySearchQuery('');
+  };
 
   // Sync state if selectedSong changes
   useEffect(() => {
@@ -81,9 +166,8 @@ export const SongEditor: React.FC = () => {
       setKey(selectedSong.key || 'C');
       setTempo(selectedSong.tempo || 100);
       setTimeSignature(selectedSong.timeSignature || '4/4');
-      setFolderId(selectedSong.folderId || null);
       setCapo(selectedSong.capo || 0);
-      setTagsString(selectedSong.tags?.join(', ') || '');
+      setCategories(selectedSong.tags || []);
       setNotes(selectedSong.notes || '');
       setContentChordPro(selectedSong.contentChordPro);
     } else {
@@ -92,13 +176,12 @@ export const SongEditor: React.FC = () => {
       setKey('C');
       setTempo(100);
       setTimeSignature('4/4');
-      setFolderId(folders[0]?.id || null);
       setCapo(0);
-      setTagsString('');
+      setCategories([]);
       setNotes('');
       setContentChordPro(SAMPLE_TEMPLATE);
     }
-  }, [selectedSong, folders]);
+  }, [selectedSong]);
 
   // Insert Chord at cursor
   const insertTextAtCursor = (textToInsert: string) => {
@@ -153,10 +236,6 @@ export const SongEditor: React.FC = () => {
     }
 
     setIsSaving(true);
-    const tags = tagsString
-      .split(',')
-      .map(t => t.trim())
-      .filter(t => t.length > 0);
 
     const songData = {
       title: title.trim(),
@@ -164,9 +243,8 @@ export const SongEditor: React.FC = () => {
       key: key.trim().toUpperCase(),
       tempo: Number(tempo) || 100,
       timeSignature,
-      folderId,
       capo: Number(capo) || 0,
-      tags,
+      tags: categories,
       notes: notes.trim(),
       contentChordPro
     };
@@ -258,7 +336,7 @@ export const SongEditor: React.FC = () => {
 
       {/* Metadata Form Grid */}
       <div className="bg-[#111112] border border-[#222224] rounded-lg p-4 sm:p-5 mb-6 shadow-sm">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
           
           {/* Titre */}
           <div>
@@ -338,41 +416,163 @@ export const SongEditor: React.FC = () => {
             </div>
           </div>
 
-          {/* Dossier */}
-          <div>
-            <label className="block text-xs font-medium text-gray-300 mb-1">
-              Dossier
-            </label>
-            <select
-              value={folderId || ''}
-              onChange={(e) => setFolderId(e.target.value || null)}
-              className="w-full bg-[#1C1C1E] border border-[#333] rounded-md px-2.5 py-1.5 text-xs text-gray-200 focus:outline-none focus:border-blue-500 cursor-pointer truncate"
-            >
-              <option value="" className="bg-[#111112] text-gray-200">Sans dossier</option>
-              {folders.map(f => (
-                <option key={f.id} value={f.id} className="bg-[#111112] text-gray-200">{f.name}</option>
-              ))}
-            </select>
-          </div>
-
         </div>
 
-        {/* Tags & Stage Notes */}
+        {/* Catégories & Stage Notes */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mt-3 pt-3 border-t border-[#222224]">
-          <div>
-            <label className="block text-[11px] font-medium text-gray-400 mb-1">
-              Tags / Catégories (séparés par virgule)
-            </label>
-            <input
-              type="text"
-              placeholder="Louange, Psaumes, Clameur..."
-              value={tagsString}
-              onChange={(e) => setTagsString(e.target.value)}
-              className="w-full bg-[#1C1C1E] border border-[#333] rounded-md px-3 py-1.5 text-xs text-gray-200 focus:outline-none focus:border-blue-500"
-            />
+          {/* Catégories Multi-Select Dropdown */}
+          <div className="relative" ref={categoryDropdownRef}>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-medium text-gray-300 flex items-center gap-1.5">
+                <Tag className="w-3.5 h-3.5 text-blue-400" />
+                <span>Catégorie{categories.length > 1 ? 's' : ''}</span>
+              </label>
+              {categories.length > 0 && (
+                <span className="text-[10px] text-blue-400 font-semibold">
+                  {categories.length} sélectionnée{categories.length > 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
+
+            {/* Dropdown Trigger Box */}
+            <div 
+              onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}
+              className="w-full min-h-[34px] bg-[#1C1C1E] border border-[#333] hover:border-[#444] rounded-md px-2.5 py-1.5 text-xs text-gray-200 cursor-pointer flex flex-wrap items-center gap-1.5 transition-colors"
+            >
+              {categories.length === 0 ? (
+                <span className="text-gray-500 text-xs">Sélectionner ou créer des catégories...</span>
+              ) : (
+                categories.map((cat) => (
+                  <span
+                    key={cat}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-600/20 text-blue-300 border border-blue-500/30 text-[11px] font-medium"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                    }}
+                  >
+                    <span>{cat}</span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleToggleCategory(cat);
+                      }}
+                      className="hover:text-white transition-colors"
+                      title="Retirer"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))
+              )}
+              <ChevronDown className={`w-3.5 h-3.5 text-gray-400 ml-auto transition-transform ${isCategoryDropdownOpen ? 'rotate-180' : ''}`} />
+            </div>
+
+            {/* Dropdown Menu Popover */}
+            {isCategoryDropdownOpen && (
+              <div className="absolute left-0 right-0 top-full mt-1 bg-[#141416] border border-[#2A2A2D] rounded-lg shadow-2xl z-50 p-2.5 text-xs">
+                
+                {/* Search & Quick Creation Field */}
+                <div className="flex items-center gap-1.5 mb-2">
+                  <input
+                    type="text"
+                    placeholder="Rechercher ou créer une catégorie..."
+                    value={categorySearchQuery}
+                    onChange={(e) => setCategorySearchQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleCreateCategory();
+                      }
+                    }}
+                    className="flex-1 bg-[#1C1C1E] border border-[#333] rounded px-2.5 py-1 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                    autoFocus
+                  />
+                  {categorySearchQuery.trim() && (
+                    <button
+                      type="button"
+                      onClick={handleCreateCategory}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold whitespace-nowrap transition-colors"
+                      title="Créer cette nouvelle catégorie"
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>Créer</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Categories List */}
+                <div className="max-h-48 overflow-y-auto space-y-1 pr-1">
+                  {filteredCategoryList.length === 0 ? (
+                    <div className="py-3 text-center text-gray-500 text-xs">
+                      {categorySearchQuery.trim() ? (
+                        <div>
+                          <span>Aucune catégorie correspondante.</span>
+                          <button
+                            type="button"
+                            onClick={handleCreateCategory}
+                            className="block mx-auto mt-1 text-blue-400 font-semibold hover:underline"
+                          >
+                            + Créer &quot;{categorySearchQuery.trim()}&quot;
+                          </button>
+                        </div>
+                      ) : (
+                        'Aucune catégorie disponible'
+                      )}
+                    </div>
+                  ) : (
+                    filteredCategoryList.map((cat) => {
+                      const isSelected = categories.includes(cat);
+                      return (
+                        <div
+                          key={cat}
+                          onClick={() => handleToggleCategory(cat)}
+                          className={`flex items-center justify-between px-2.5 py-1.5 rounded cursor-pointer transition-colors ${
+                            isSelected
+                              ? 'bg-blue-600/15 text-blue-300 font-medium'
+                              : 'hover:bg-[#1C1C1E] text-gray-300'
+                          }`}
+                        >
+                          <span className="truncate">{cat}</span>
+                          <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${
+                            isSelected 
+                              ? 'bg-blue-600 border-blue-500 text-white' 
+                              : 'border-[#444] bg-[#1C1C1E]'
+                          }`}>
+                            {isSelected && <Check className="w-3 h-3 stroke-[2.5]" />}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Footer bar */}
+                <div className="flex items-center justify-between pt-2 mt-2 border-t border-[#222224]">
+                  {categories.length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => setCategories([])}
+                      className="text-[11px] text-gray-400 hover:text-rose-400 transition-colors"
+                    >
+                      Tout désélectionner
+                    </button>
+                  ) : <span />}
+                  <button
+                    type="button"
+                    onClick={() => setIsCategoryDropdownOpen(false)}
+                    className="px-2.5 py-0.5 rounded bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 text-[11px] font-medium border border-[#333] transition-colors"
+                  >
+                    Fermer
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
+
+          {/* Note de scène */}
           <div>
-            <label className="block text-[11px] font-medium text-gray-400 mb-1">
+            <label className="block text-xs font-medium text-gray-300 mb-1">
               Note de Scène / Consignes pour le groupe
             </label>
             <input
@@ -479,6 +679,29 @@ export const SongEditor: React.FC = () => {
               </button>
             </div>
 
+            {/* Vocal Arrangement Directives Pills */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pt-2 border-t border-[#222224] scrollbar-none">
+              <span className="text-[10px] uppercase font-semibold text-purple-400 flex items-center gap-1 whitespace-nowrap mr-1">
+                <Mic className="w-3 h-3" /> Voix :
+              </span>
+              {[
+                { label: 'Unisson', directive: 'vocal: Unisson', style: 'text-cyan-400 border-cyan-500/30 hover:bg-cyan-950/40' },
+                { label: 'Lead', directive: 'vocal: Lead', style: 'text-amber-400 border-amber-500/30 hover:bg-amber-950/40' },
+                { label: '2e voix', directive: 'vocal: 2e voix', style: 'text-purple-400 border-purple-500/30 hover:bg-purple-950/40' },
+                { label: '3e voix', directive: 'vocal: 3e voix', style: 'text-emerald-400 border-emerald-500/30 hover:bg-emerald-950/40' }
+              ].map(voc => (
+                <button
+                  key={voc.label}
+                  type="button"
+                  onClick={() => handleInsertDirective(voc.directive)}
+                  className={`px-2 py-0.5 rounded bg-[#1C1C1E] text-[11px] font-semibold border ${voc.style} transition-colors shrink-0`}
+                  title={`Insérer la pastille d'arrangement {${voc.directive}}`}
+                >
+                  + {voc.label}
+                </button>
+              ))}
+            </div>
+
           </div>
 
           {/* Text Area */}
@@ -514,10 +737,33 @@ export const SongEditor: React.FC = () => {
                   sec.type === 'chorus' ? 'bg-[#1C1C1E] border-l-2 border-blue-500' : 'bg-[#0A0A0B]'
                 }`}
               >
-                {sec.title && (
-                  <span className="inline-block text-[10px] uppercase font-bold text-blue-400 mb-2 px-1.5 py-0.5 rounded bg-[#1C1C1E] border border-[#333]">
-                    {sec.title}
-                  </span>
+                {(sec.title || sec.vocal) && (
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    {sec.title ? (
+                      <span className="inline-block text-[10px] uppercase font-bold text-blue-400 px-1.5 py-0.5 rounded bg-[#1C1C1E] border border-[#333]">
+                        {sec.title}
+                      </span>
+                    ) : <div />}
+
+                    {sec.vocal && (
+                      <span 
+                        className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                          sec.vocal.toLowerCase().includes('lead')
+                            ? 'bg-amber-500/15 text-amber-300 border-amber-500/40'
+                            : sec.vocal.toLowerCase().includes('unisson')
+                            ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/40'
+                            : sec.vocal.toLowerCase().includes('2')
+                            ? 'bg-purple-500/15 text-purple-300 border-purple-500/40'
+                            : sec.vocal.toLowerCase().includes('3')
+                            ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40'
+                            : 'bg-[#1F1F23] text-gray-300 border-[#3A3A3E]'
+                        }`}
+                      >
+                        <Mic className="w-2.5 h-2.5" />
+                        <span>{sec.vocal}</span>
+                      </span>
+                    )}
+                  </div>
                 )}
                 <div className="space-y-2 font-mono text-xs leading-relaxed">
                   {sec.lines.map((line, lIdx) => (

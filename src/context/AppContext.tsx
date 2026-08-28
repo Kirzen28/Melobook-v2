@@ -2,13 +2,12 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { 
   UserProfile, 
   Group, 
-  Folder, 
   Song, 
   Setlist, 
   StageSettings, 
-  DisplaySettings,
-  SongTypographySettings,
-  SectionColors,
+  DisplaySettings, 
+  SongTypographySettings, 
+  SectionColors, 
   UserRole 
 } from '../types';
 import { DEFAULT_DISPLAY_SETTINGS } from '../utils/displayDefaults';
@@ -29,7 +28,7 @@ import {
   serverTimestamp
 } from '../firebase';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { SAMPLE_FOLDERS, SAMPLE_SONGS, SAMPLE_SETLISTS } from '../data/sampleSongs';
+import { SAMPLE_SONGS, SAMPLE_SETLISTS } from '../data/sampleSongs';
 
 const DEFAULT_GROUP: Group = {
   id: 'default-group',
@@ -60,7 +59,6 @@ interface AppContextType {
   groups: Group[];
   currentGroup: Group | null;
   songs: Song[];
-  folders: Folder[];
   setlists: Setlist[];
   activeTab: 'repertoire' | 'setlists' | 'stage' | 'groups' | 'editor' | 'settings';
   setActiveTab: (tab: 'repertoire' | 'setlists' | 'stage' | 'groups' | 'editor' | 'settings') => void;
@@ -86,9 +84,6 @@ interface AppContextType {
   createSong: (songData: Omit<Song, 'id' | 'groupId' | 'createdAt' | 'updatedAt'>) => Promise<string>;
   updateSong: (id: string, songData: Partial<Song>) => Promise<void>;
   deleteSong: (id: string) => Promise<void>;
-  
-  createFolder: (name: string, color?: string) => Promise<void>;
-  deleteFolder: (id: string) => Promise<void>;
   
   createSetlist: (setlistData: Omit<Setlist, 'id' | 'groupId' | 'createdAt'>) => Promise<string>;
   updateSetlist: (id: string, setlistData: Partial<Setlist>) => Promise<void>;
@@ -140,13 +135,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     return SAMPLE_SONGS;
   });
-  const [folders, setFolders] = useState<Folder[]>(() => {
-    const saved = localStorage.getItem('songbook_cached_folders');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
-    }
-    return SAMPLE_FOLDERS;
-  });
   const [setlists, setSetlists] = useState<Setlist[]>(() => {
     const saved = localStorage.getItem('songbook_cached_setlists');
     if (saved) {
@@ -159,12 +147,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [stageSettings, setStageSettings] = useState<StageSettings>(() => {
     const saved = localStorage.getItem('songbook_stage_settings');
     if (saved) {
-      try { return { ...DEFAULT_STAGE_SETTINGS, ...JSON.parse(saved) }; } catch (e) {}
+      try { return JSON.parse(saved); } catch (e) {}
     }
     return DEFAULT_STAGE_SETTINGS;
   });
 
-  // App-wide Typography and Section Color Display Settings
+  // Display Typography & Section Colors (synced with localStorage)
   const [displaySettings, setDisplaySettings] = useState<DisplaySettings>(() => {
     const saved = localStorage.getItem('songbook_display_settings');
     if (saved) {
@@ -261,10 +249,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [songs]);
 
   useEffect(() => {
-    localStorage.setItem('songbook_cached_folders', JSON.stringify(folders));
-  }, [folders]);
-
-  useEffect(() => {
     localStorage.setItem('songbook_cached_setlists', JSON.stringify(setlists));
   }, [setlists]);
 
@@ -334,23 +318,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.warn('Firestore songs snapshot notice:', error.message);
     });
 
-    // 2. Sync Folders
-    const qFolders = query(collection(db, 'folders'), where('groupId', '==', targetGroupId));
-    const unsubFolders = onSnapshot(qFolders, (snapshot) => {
-      if (!snapshot.empty) {
-        const loadedFolders: Folder[] = [];
-        snapshot.forEach((d) => {
-          loadedFolders.push({ id: d.id, ...d.data() } as Folder);
-        });
-        setFolders(loadedFolders);
-      } else if (targetGroupId === 'default-group' && folders.length === 0) {
-        setFolders(SAMPLE_FOLDERS);
-      }
-    }, (error) => {
-      console.warn('Firestore folders snapshot notice:', error.message);
-    });
-
-    // 3. Sync Setlists
+    // 2. Sync Setlists
     const qSetlists = query(collection(db, 'setlists'), where('groupId', '==', targetGroupId));
     const unsubSetlists = onSnapshot(qSetlists, (snapshot) => {
       if (!snapshot.empty) {
@@ -366,7 +334,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.warn('Firestore setlists snapshot notice:', error.message);
     });
 
-    // 4. Sync Groups if user is logged in
+    // 3. Sync Groups if user is logged in
     if (currentUser?.uid) {
       const qGroups = query(collection(db, 'groups'), where('members', 'array-contains', currentUser.uid));
       const unsubGroups = onSnapshot(qGroups, (snapshot) => {
@@ -381,7 +349,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       return () => {
         unsubSongs();
-        unsubFolders();
         unsubSetlists();
         unsubGroups();
       };
@@ -389,7 +356,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     return () => {
       unsubSongs();
-      unsubFolders();
       unsubSetlists();
     };
   }, [currentGroup?.id, currentUser?.uid]);
@@ -398,24 +364,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const seedDemoDataToFirestore = useCallback(async () => {
     const groupId = currentGroup?.id || 'default-group';
     try {
-      // 1. Folders
-      for (const folder of SAMPLE_FOLDERS) {
-        const folderRef = doc(db, 'folders', folder.id);
-        await setDoc(folderRef, { ...folder, groupId });
-      }
-      // 2. Songs
+      // 1. Songs
       for (const song of SAMPLE_SONGS) {
         const songRef = doc(db, 'songs', song.id);
         await setDoc(songRef, { ...song, groupId, createdAt: serverTimestamp() });
       }
-      // 3. Setlists
+      // 2. Setlists
       for (const setlist of SAMPLE_SETLISTS) {
         const setlistRef = doc(db, 'setlists', setlist.id);
         await setDoc(setlistRef, { ...setlist, groupId, createdAt: serverTimestamp() });
       }
       // Update local state directly
       setSongs(SAMPLE_SONGS.map(s => ({ ...s, groupId })));
-      setFolders(SAMPLE_FOLDERS.map(f => ({ ...f, groupId })));
       setSetlists(SAMPLE_SETLISTS.map(st => ({ ...st, groupId })));
     } catch (e) {
       console.error('Error seeding demo data:', e);
@@ -482,39 +442,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [selectedSong?.id, songs]);
 
-  // Folder Actions
-  const createFolder = useCallback(async (name: string, color = '#38bdf8') => {
-    const groupId = currentGroup?.id || 'default-group';
-    const newId = 'folder_' + Date.now();
-    const newFolder: Folder = {
-      id: newId,
-      groupId,
-      name,
-      color,
-      createdAt: new Date().toISOString()
-    };
-
-    setFolders(prev => [...prev, newFolder]);
-
-    try {
-      await setDoc(doc(db, 'folders', newId), { ...newFolder, createdAt: serverTimestamp() });
-    } catch (e) {
-      console.warn('Saved folder locally:', e);
-    }
-  }, [currentGroup?.id]);
-
-  const deleteFolder = useCallback(async (id: string) => {
-    setFolders(prev => prev.filter(f => f.id !== id));
-    // Reset folderId on songs
-    setSongs(prev => prev.map(s => s.folderId === id ? { ...s, folderId: null } : s));
-
-    try {
-      await deleteDoc(doc(db, 'folders', id));
-    } catch (e) {
-      console.warn('Deleted folder locally:', e);
-    }
-  }, []);
-
   // Setlist Actions
   const createSetlist = useCallback(async (setlistData: Omit<Setlist, 'id' | 'groupId' | 'createdAt'>) => {
     const groupId = currentGroup?.id || 'default-group';
@@ -545,7 +472,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     try {
-      await updateDoc(doc(db, 'setlists', id), setlistData);
+      const docRef = doc(db, 'setlists', id);
+      await updateDoc(docRef, setlistData);
     } catch (e) {
       console.warn('Updated setlist locally:', e);
     }
@@ -568,13 +496,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const createGroup = useCallback(async (name: string, description = '') => {
     const newId = 'group_' + Date.now();
     const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const uid = currentUser?.uid || 'user';
     const newGroup: Group = {
       id: newId,
       name,
-      ownerId: currentUser?.uid || 'user',
-      members: [currentUser?.uid || 'user'],
-      inviteCode,
       description,
+      ownerId: uid,
+      members: [uid],
+      inviteCode,
       createdAt: new Date().toISOString()
     };
 
@@ -671,7 +600,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       groups,
       currentGroup,
       songs,
-      folders,
       setlists,
       activeTab,
       setActiveTab,
@@ -695,8 +623,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createSong,
       updateSong,
       deleteSong,
-      createFolder,
-      deleteFolder,
       createSetlist,
       updateSetlist,
       deleteSetlist,

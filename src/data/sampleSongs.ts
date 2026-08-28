@@ -1,35 +1,4 @@
-import { Song, Folder, Setlist } from '../types';
-
-export const SAMPLE_FOLDERS: Folder[] = [
-  {
-    id: 'folder-louange',
-    groupId: 'default-group',
-    name: 'Louange & Célébration',
-    color: '#38bdf8',
-    icon: 'Flame'
-  },
-  {
-    id: 'folder-adoration',
-    groupId: 'default-group',
-    name: 'Adoration & Méditation',
-    color: '#818cf8',
-    icon: 'Heart'
-  },
-  {
-    id: 'folder-acoustique',
-    groupId: 'default-group',
-    name: 'Acoustique & Intimiste',
-    color: '#34d399',
-    icon: 'Music'
-  },
-  {
-    id: 'folder-noel',
-    groupId: 'default-group',
-    name: 'Spécial Fêtes & Pâques',
-    color: '#fbbf24',
-    icon: 'Sparkles'
-  }
-];
+import { Song, Setlist } from '../types';
 
 export const SAMPLE_SONGS: Song[] = [
   {
@@ -40,7 +9,6 @@ export const SAMPLE_SONGS: Song[] = [
     key: 'G',
     tempo: 70,
     timeSignature: '4/4',
-    folderId: 'folder-adoration',
     capo: 0,
     tags: ['Adoration', 'Grâce', 'Fidélité'],
     notes: 'Intro douce à la guitare acoustique. Monter en puissance au Pont.',
@@ -54,30 +22,35 @@ export const SAMPLE_SONGS: Song[] = [
 [G] [Gsus4] [G] [Gsus4]
 
 {c: Couplet 1}
+{vocal: Lead}
 Je t'[G]aime Seigneur, Ta [C]miséricorde ne [G]finit jamais
 Tous mes [Em]jours, je suis [C]tenu dans Ta [D]main
 Dès le [Em]lever du so[C]leil jusqu'au [G]coucher de la [D/F#]nuit [Em]
 Je chan[C]terai la bonté [D]de mon [G]Dieu
 
 {c: Refrain}
+{vocal: 2e voix}
 Toute ma [C]vie Tu as été [G]fidèle
 Toute ma [C]vie Tu as été si [G]si [D]bon
 Avec chaque [C]souffle dont je suis [G]rem[D/F#]pli [Em]
 Je chan[C]terai la bonté [D]de mon [G]Dieu
 
 {c: Couplet 2}
+{vocal: Lead}
 J'aime [G]Ta voix, Tu m'as [C]conduit à tra[G]vers le feu
 Dans les nuits [Em]sombres, Tu es [C]si proche de [D]moi
 Je Te [Em]connais comme un [C]Père, je Te [G]connais comme un [D/F#]Ami [Em]
 Et j'ai [C]vécu dans la bon[D]té de mon [G]Dieu
 
 {c: Pont}
+{vocal: 3e voix}
 Ta bon[G/B]té me poursuit, [C]elle me poursuit tou[D]jours [G]
 Ta bon[G/B]té me poursuit, [C]elle me poursuit tou[D]jours [G]
 Ma vie [G/B]abandonnée, Te [C]rendre tout ce que j'ai [D] [Em]
 Ta bon[G/B]té me poursuit, [C]elle me poursuit tou[D]jours [G]
 
 {c: Refrain}
+{vocal: Unisson}
 Toute ma [C]vie Tu as été [G]fidèle
 Toute ma [C]vie Tu as été si [G]si [D]bon
 Avec chaque [C]souffle dont je suis [G]rem[D/F#]pli [Em]
@@ -91,9 +64,8 @@ Je chan[C]terai la bonté [D]de mon [G]Dieu`
     key: 'C',
     tempo: 118,
     timeSignature: '4/4',
-    folderId: 'folder-louange',
     capo: 0,
-    tags: ['Louange', 'Rythmé', 'Joie'],
+    tags: ['Louange', 'Rythmé', 'Joie', 'Célébration'],
     notes: 'Tempo dynamique avec clap des mains. Entrée énergique de la basse.',
     contentChordPro: `{title: Comment ne pas te louer}
 {artist: Aurélien Saniko}
@@ -137,9 +109,8 @@ Comment ne [Dm]pas te louer, [G]Seigneur Jé[C]sus !`
     key: 'E',
     tempo: 75,
     timeSignature: '3/4',
-    folderId: 'folder-acoustique',
     capo: 2,
-    tags: ['Classique', 'Hymne', 'Grâce'],
+    tags: ['Classique', 'Hymne', 'Grâce', 'Méditation'],
     notes: 'Capo 2 (jouer en D pour sonner en E). Valse 3/4.',
     contentChordPro: `{title: Grâce Infinie (Amazing Grace)}
 {artist: John Newton / Chris Tomlin}
@@ -180,9 +151,8 @@ Sa lou[E]ange pour [B7]l'éter[E]nité`
     key: 'G',
     tempo: 73,
     timeSignature: '4/4',
-    folderId: 'folder-louange',
     capo: 0,
-    tags: ['Louange', 'Culte', 'Psaumes'],
+    tags: ['Louange', 'Culte', 'Psaumes', 'Action de grâce'],
     notes: 'Commencer directement par le refrain doux au piano.',
     contentChordPro: `{title: 10 000 Raisons (Mon âme bénis le Seigneur)}
 {artist: Matt Redman}
@@ -191,6 +161,7 @@ Sa lou[E]ange pour [B7]l'éter[E]nité`
 {time: 4/4}
 
 {c: Refrain}
+{vocal: Unisson}
 Bénis le [C]Seigneur, ô mon [G]âme
 Ô [D/F#]mon [Em]âme
 Chante [C]Son saint [G]Nom [Dsus4] [D]
@@ -198,22 +169,26 @@ Chante comme [C]jamais, [Em]ô mon [C]â[D]me [Em]
 Je [C]bénis Ton [D]saint Nom [G]
 
 {c: Couplet 1}
+{vocal: Lead}
 Le so[C]leil se lève, un [G]jour nouveau com[D]mence [Em]
 Il est [C]temps de Te chan[G]ter à nou[D]veau [Em]
 Quoi qu'il [C]arrive et quel [G]que soit le com[D]bat [Em]
 Que je [C]chante encore [G]à la fin du [Dsus4]jour [D]
 
 {c: Couplet 2}
+{vocal: 2e voix}
 Riche en a[C]mour et [G]lent à la co[D]lère [Em]
 Ton nom est [C]grand et Ton [G]cœur est si [D]bon [Em]
 Pour tous [C]Tes bienfaits, je [G]chanterai sans [D]cesse [Em]
 J'ai dix [C]mille raisons [G]de Te lou[Dsus4]er [D]
 
-{c: Couplet 3}
-Et quand un [C]jour mes forces [G]m'abandonne[D]ront [Em]
-Quand vien[C]dra le soir et [G]que sonnera l'[D]heure [Em]
-Mon âme [C]chantera Ta [G]louange sans [D]fin [Em]
-Pendant dix [C]mille ans et [G]pour l'éter[Dsus4]nité [D]`
+{c: Refrain}
+{vocal: 3e voix}
+Bénis le [C]Seigneur, ô mon [G]âme
+Ô [D/F#]mon [Em]âme
+Chante [C]Son saint [G]Nom [Dsus4] [D]
+Chante comme [C]jamais, [Em]ô mon [C]â[D]me [Em]
+Je [C]bénis Ton [D]saint Nom [G]`
   },
   {
     id: 'song-5',
@@ -223,9 +198,8 @@ Pendant dix [C]mille ans et [G]pour l'éter[Dsus4]nité [D]`
     key: 'D',
     tempo: 62,
     timeSignature: '4/4',
-    folderId: 'folder-adoration',
     capo: 0,
-    tags: ['Adoration', 'Trône', 'Majesté'],
+    tags: ['Adoration', 'Trône', 'Majesté', 'Prière'],
     notes: 'Progression continue: D - Am7 - C - G tout le long du chant.',
     contentChordPro: `{title: Révélation Song}
 {artist: Jennie Lee Riddle / Kari Jobe}
@@ -264,9 +238,8 @@ Seul Roi de [C]sagesse, d'amour et de [G]paix`
     key: 'D',
     tempo: 68,
     timeSignature: '4/4',
-    folderId: 'folder-adoration',
     capo: 0,
-    tags: ['Nom de Jésus', 'Puissance', 'Adoration'],
+    tags: ['Nom de Jésus', 'Puissance', 'Adoration', 'Louange'],
     notes: 'Monter au Pont avec la batterie complète.',
     contentChordPro: `{title: Ce nom si merveilleux (What a Beautiful Name)}
 {artist: Hillsong Worship}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useApp } from '../context/AppContext';
 import { SongReader } from './SongReader';
+import { SetlistPdfModal } from './SetlistPdfModal';
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -9,7 +10,8 @@ import {
   Info, 
   Layers, 
   Music,
-  CheckCircle2
+  CheckCircle2,
+  FileDown
 } from 'lucide-react';
 
 interface LiveSetlistPlayerProps {
@@ -26,6 +28,7 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
   } = useApp();
 
   const [showNotesModal, setShowNotesModal] = useState(false);
+  const [showPdfModal, setShowPdfModal] = useState(false);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
 
   // Ordered list of songs in this setlist
@@ -170,20 +173,31 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
           </button>
         </div>
 
-        {/* Right: Next Song Quick Peek */}
-        <div className="hidden lg:flex items-center gap-2 text-right">
-          {activeSetlistIndex < setlistSongs.length - 1 ? (
-            <div>
-              <span className="text-[10px] uppercase font-semibold text-gray-500">À suivre :</span>
-              <p className="text-xs font-semibold text-blue-400 truncate max-w-[160px]">
-                {setlistSongs[activeSetlistIndex + 1]?.title}
-              </p>
-            </div>
-          ) : (
-            <span className="text-xs font-semibold text-emerald-400 flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Dernier chant
-            </span>
-          )}
+        {/* Right: Next Song Quick Peek & PDF Export */}
+        <div className="flex items-center gap-2 text-right">
+          <button
+            onClick={() => setShowPdfModal(true)}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 hover:text-white border border-[#333] text-xs font-medium transition-colors"
+            title="Exporter la setlist en PDF / Partager"
+          >
+            <FileDown className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="hidden sm:inline">PDF</span>
+          </button>
+
+          <div className="hidden lg:flex items-center gap-2">
+            {activeSetlistIndex < setlistSongs.length - 1 ? (
+              <div>
+                <span className="text-[10px] uppercase font-semibold text-gray-500">À suivre :</span>
+                <p className="text-xs font-semibold text-blue-400 truncate max-w-[140px]">
+                  {setlistSongs[activeSetlistIndex + 1]?.title}
+                </p>
+              </div>
+            ) : (
+              <span className="text-xs font-semibold text-emerald-400 flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5" /> Dernier chant
+              </span>
+            )}
+          </div>
         </div>
 
       </div>
@@ -228,6 +242,15 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
           hasPrev={activeSetlistIndex > 0}
           setlistContextName={selectedSetlist.name}
           setlistPosition={{ current: activeSetlistIndex + 1, total: setlistSongs.length }}
+        />
+      )}
+
+      {/* PDF Export & Share Modal */}
+      {showPdfModal && selectedSetlist && (
+        <SetlistPdfModal
+          setlist={selectedSetlist}
+          songs={songs}
+          onClose={() => setShowPdfModal(false)}
         />
       )}
     </div>

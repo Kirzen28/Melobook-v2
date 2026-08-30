@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { Song, Setlist } from '../types';
+import { parseDurationToSeconds, formatSetlistDuration, getSongDuration } from '../utils/chordUtils';
 import { SongImportModal } from './SongImportModal';
 import { 
   Search, 
@@ -57,7 +58,7 @@ export const SongList: React.FC = () => {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedKey, setSelectedKey] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<'title' | 'artist' | 'tempo' | 'recent'>('title');
+  const [sortBy, setSortBy] = useState<'title' | 'artist' | 'tempo' | 'duration' | 'recent'>('title');
 
   // Category filter state & custom categories synced via localStorage
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -218,6 +219,7 @@ export const SongList: React.FC = () => {
       if (sortBy === 'title') return a.title.localeCompare(b.title);
       if (sortBy === 'artist') return a.artist.localeCompare(b.artist);
       if (sortBy === 'tempo') return (a.tempo || 0) - (b.tempo || 0);
+      if (sortBy === 'duration') return parseDurationToSeconds(b) - parseDurationToSeconds(a);
       if (sortBy === 'recent') return (b.createdAt || '').localeCompare(a.createdAt || '');
       return 0;
     });
@@ -662,6 +664,7 @@ export const SongList: React.FC = () => {
               <option value="title" className="bg-[#111112]">Titre (A-Z)</option>
               <option value="artist" className="bg-[#111112]">Artiste</option>
               <option value="tempo" className="bg-[#111112]">Tempo (BPM)</option>
+              <option value="duration" className="bg-[#111112]">Durée (plus longs)</option>
               <option value="recent" className="bg-[#111112]">Plus récents</option>
             </select>
           </div>
@@ -732,9 +735,10 @@ export const SongList: React.FC = () => {
                           {song.tempo}
                         </span>
                       )}
-                      {song.capo ? (
-                        <span className="px-1.5 py-0.5 rounded bg-[#1C1C1E] text-blue-400 text-[10px] font-semibold border border-[#333]">
-                          Capo {song.capo}
+                      {getSongDuration(song) ? (
+                        <span className="px-1.5 py-0.5 rounded bg-cyan-950/50 border border-cyan-500/30 text-cyan-300 text-[10px] font-medium flex items-center gap-1 font-mono shadow-sm">
+                          <Clock className="w-2.5 h-2.5 text-cyan-400" />
+                          {getSongDuration(song)}
                         </span>
                       ) : null}
                     </div>
@@ -1121,11 +1125,26 @@ export const SongList: React.FC = () => {
                                 </span>
                               )}
                             </div>
-                            <div className="flex items-center gap-2 text-[10px] text-gray-400 mt-0.5">
+                            <div className="flex items-center gap-2 text-[10px] text-gray-400 mt-0.5 flex-wrap">
                               <span className="flex items-center gap-1">
                                 <Music className="w-2.5 h-2.5 text-gray-500" />
                                 <span>{st.songIds.length} chant{st.songIds.length > 1 ? 's' : ''}</span>
                               </span>
+                              {(() => {
+                                const totalSecs = st.songIds.reduce((tot, sId) => {
+                                  const targetSong = songs.find(s => s.id === sId);
+                                  return tot + parseDurationToSeconds(targetSong?.duration);
+                                }, 0);
+                                return totalSecs > 0 ? (
+                                  <>
+                                    <span>•</span>
+                                    <span className="flex items-center gap-1 text-cyan-400 font-mono">
+                                      <Clock className="w-2.5 h-2.5 text-cyan-400" />
+                                      <span>{formatSetlistDuration(totalSecs)}</span>
+                                    </span>
+                                  </>
+                                ) : null;
+                              })()}
                               {st.date && (
                                 <>
                                   <span>•</span>

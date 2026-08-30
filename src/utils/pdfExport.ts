@@ -1,6 +1,14 @@
 import { jsPDF } from 'jspdf';
 import { Setlist, Song, NotationSystem } from '../types';
-import { parseChordPro, transposeChord, ParsedSongData, ParsedSection } from './chordUtils';
+import { 
+  parseChordPro, 
+  transposeChord, 
+  ParsedSongData, 
+  ParsedSection,
+  parseDurationToSeconds,
+  formatSetlistDuration,
+  getSongDuration
+} from './chordUtils';
 
 export interface PdfExportOptions {
   includeCover: boolean;
@@ -136,9 +144,10 @@ export async function generateSetlistPdf(
     doc.setFontSize(10);
     doc.setTextColor(colors.textMuted[0], colors.textMuted[1], colors.textMuted[2]);
     
+    const totalDurationSecs = setlistSongs.reduce((acc, s) => acc + parseDurationToSeconds(s), 0);
     const dateText = `Date : ${setlist.date || 'Non définie'}`;
     const countText = `${setlistSongs.length} Chants`;
-    const durText = `Durée est. : ${setlist.targetDuration || 25} min`;
+    const durText = totalDurationSecs > 0 ? `Durée totale : ${formatSetlistDuration(totalDurationSecs)}` : `Durée est. : ${setlist.targetDuration || 25} min`;
     doc.text(`${dateText}   •   ${countText}   •   ${durText}`, marginX + 8, currentY + 20);
 
     // Setlist Notes if present
@@ -167,10 +176,11 @@ export async function generateSetlistPdf(
     doc.setTextColor(colors.textMuted[0], colors.textMuted[1], colors.textMuted[2]);
 
     doc.text('#', marginX + 4, currentY + 5.5);
-    doc.text('TITRE DU CHANT', marginX + 14, currentY + 5.5);
-    doc.text('AUTEUR', marginX + 92, currentY + 5.5);
-    doc.text('TONALITÉ', marginX + 140, currentY + 5.5);
-    doc.text('TEMPO', marginX + 162, currentY + 5.5);
+    doc.text('TITRE DU CHANT', marginX + 13, currentY + 5.5);
+    doc.text('AUTEUR', marginX + 86, currentY + 5.5);
+    doc.text('TONALITÉ', marginX + 130, currentY + 5.5);
+    doc.text('TEMPO', marginX + 152, currentY + 5.5);
+    doc.text('DURÉE', marginX + 172, currentY + 5.5);
 
     currentY += 9;
 
@@ -198,29 +208,34 @@ export async function generateSetlistPdf(
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(9.5);
       doc.setTextColor(colors.text[0], colors.text[1], colors.text[2]);
-      const safeTitle = song.title.length > 38 ? song.title.substring(0, 36) + '...' : song.title;
-      doc.text(safeTitle, marginX + 14, currentY + 6.5);
+      const safeTitle = song.title.length > 34 ? song.title.substring(0, 32) + '...' : song.title;
+      doc.text(safeTitle, marginX + 13, currentY + 6.5);
 
       // Artist
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8.5);
       doc.setTextColor(colors.textMuted[0], colors.textMuted[1], colors.textMuted[2]);
-      const safeArtist = (song.artist || 'Auteur').length > 24 ? (song.artist || 'Auteur').substring(0, 22) + '...' : (song.artist || 'Auteur');
-      doc.text(safeArtist, marginX + 92, currentY + 6.5);
+      const safeArtist = (song.artist || 'Auteur').length > 22 ? (song.artist || 'Auteur').substring(0, 20) + '...' : (song.artist || 'Auteur');
+      doc.text(safeArtist, marginX + 86, currentY + 6.5);
 
       // Key
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(9);
       doc.setTextColor(colors.primary[0], colors.primary[1], colors.primary[2]);
-      doc.text(effectiveKey, marginX + 140, currentY + 6.5);
+      doc.text(effectiveKey, marginX + 130, currentY + 6.5);
 
-      // Tempo & Capo
+      // Tempo
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8.5);
       doc.setTextColor(colors.text[0], colors.text[1], colors.text[2]);
-      let tempoStr = song.tempo ? `${song.tempo} BPM` : '-';
-      if (song.capo && song.capo > 0) tempoStr += ` (Capo ${song.capo})`;
-      doc.text(tempoStr, marginX + 162, currentY + 6.5);
+      const tempoStr = song.tempo ? `${song.tempo} BPM` : '-';
+      doc.text(tempoStr, marginX + 152, currentY + 6.5);
+
+      // Duration
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      doc.setTextColor(colors.textMuted[0], colors.textMuted[1], colors.textMuted[2]);
+      doc.text(getSongDuration(song) || '-', marginX + 172, currentY + 6.5);
 
       currentY += rowHeight;
     });
@@ -359,8 +374,9 @@ export async function generateSetlistPdf(
 
       const secStartY = currentY;
 
-      // Section Header (Title + Vocal Badge)
-      if (section.title || section.vocal) {
+      // Section Header (Title + Vocal Badges aligned side by side)
+      const vocalsList = (section.vocals && section.vocals.length > 0) ? section.vocals : (section.vocal ? [section.vocal] : []);
+      if (section.title || vocalsList.length > 0) {
         // Section Title Pill
         if (section.title) {
           doc.setFont('helvetica', 'bold');
@@ -369,27 +385,33 @@ export async function generateSetlistPdf(
           doc.text(section.title.toUpperCase(), marginX + 4, currentY + 4);
         }
 
-        // Vocal Arrangement Pastille
-        if (section.vocal) {
-          const vocLower = section.vocal.toLowerCase();
-          let vocColor = colors.vocalLead;
-          if (vocLower.includes('unisson')) vocColor = colors.vocalUnisson;
-          else if (vocLower.includes('2')) vocColor = colors.vocal2e;
-          else if (vocLower.includes('3')) vocColor = colors.vocal3e;
+        // Vocal Arrangement Pastilles aligned side by side on the right
+        if (vocalsList.length > 0) {
+          let rightCursor = marginX + contentWidth - 2;
+          for (let vIdx = vocalsList.length - 1; vIdx >= 0; vIdx--) {
+            const voc = vocalsList[vIdx];
+            const vocLower = voc.toLowerCase();
+            let vocColor = colors.vocalLead;
+            if (vocLower.includes('unisson')) vocColor = colors.vocalUnisson;
+            else if (vocLower.includes('2')) vocColor = colors.vocal2e;
+            else if (vocLower.includes('3')) vocColor = colors.vocal3e;
 
-          const vocText = `Voix : ${section.vocal}`;
-          const vocWidth = doc.getTextWidth(vocText) + 8;
-          const vocX = marginX + contentWidth - vocWidth - 2;
+            const vocText = voc;
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(7.5);
+            const vocWidth = doc.getTextWidth(vocText) + 6;
+            const vocX = rightCursor - vocWidth;
 
-          doc.setFillColor(isDark ? 30 : 240, isDark ? 30 : 240, isDark ? 35 : 245);
-          doc.setDrawColor(vocColor[0], vocColor[1], vocColor[2]);
-          doc.setLineWidth(0.4);
-          doc.roundedRect(vocX, currentY - 0.5, vocWidth, 6, 2, 2, 'FD');
+            doc.setFillColor(isDark ? 30 : 240, isDark ? 30 : 240, isDark ? 35 : 245);
+            doc.setDrawColor(vocColor[0], vocColor[1], vocColor[2]);
+            doc.setLineWidth(0.4);
+            doc.roundedRect(vocX, currentY - 0.5, vocWidth, 6, 2, 2, 'FD');
 
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(7.5);
-          doc.setTextColor(vocColor[0], vocColor[1], vocColor[2]);
-          doc.text(vocText, vocX + 4, currentY + 3.8);
+            doc.setTextColor(vocColor[0], vocColor[1], vocColor[2]);
+            doc.text(vocText, vocX + 3, currentY + 3.8);
+
+            rightCursor = vocX - 2.5;
+          }
         }
 
         currentY += 7;

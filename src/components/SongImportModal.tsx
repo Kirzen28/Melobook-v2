@@ -284,6 +284,7 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
       let artist = '';
       let key = 'C';
       let tempo = 100;
+      let duration: string | undefined = undefined;
       let finalChordPro = text;
 
       if (!text.includes('[') && !text.includes('{')) {
@@ -300,6 +301,7 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
           if (tag === 'artist' || tag === 'a' || tag === 'subtitle' || tag === 'st') artist = val;
           if (tag === 'key' || tag === 'k') key = val;
           if (tag === 'tempo' || tag === 'bpm') tempo = parseInt(val, 10) || 100;
+          if (tag === 'duration' || tag === 'd' || tag === 'dur') duration = val;
         }
       });
 
@@ -308,6 +310,7 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
         artist,
         key,
         tempo,
+        duration,
         contentChordPro: finalChordPro
       });
       count++;
@@ -328,6 +331,7 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
     let detectedArtist = manualArtist.trim() || '';
     let detectedKey = manualKey || 'C';
     let detectedTempo = manualTempo || 100;
+    let detectedDuration: string | undefined = undefined;
 
     if (manualSource === 'webchords' || manualSource === 'shir' || (!manualText.includes('[') && !manualText.includes('{'))) {
       finalContent = convertPlainTextToChordPro(manualText);
@@ -343,6 +347,7 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
         if ((tag === 'artist' || tag === 'a' || tag === 'subtitle' || tag === 'st') && !manualArtist.trim()) detectedArtist = val;
         if ((tag === 'key' || tag === 'k') && !manualKey) detectedKey = val;
         if ((tag === 'tempo' || tag === 'bpm') && !manualTempo) detectedTempo = parseInt(val, 10) || 100;
+        if (tag === 'duration' || tag === 'd' || tag === 'dur') detectedDuration = val;
       }
     });
 
@@ -351,6 +356,7 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
       artist: detectedArtist,
       key: detectedKey,
       tempo: detectedTempo,
+      duration: detectedDuration,
       contentChordPro: finalContent
     });
 

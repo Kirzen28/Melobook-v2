@@ -1,8 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { Setlist, Song } from '../types';
 import { LiveSetlistPlayer } from './LiveSetlistPlayer';
 import { SetlistPdfModal } from './SetlistPdfModal';
+import { 
+  parseDurationToSeconds, 
+  formatSetlistDuration, 
+  formatSecondsToMinutes,
+  getSongDuration 
+} from '../utils/chordUtils';
 import { 
   ListMusic, 
   Plus, 
@@ -21,7 +27,8 @@ import {
   Info,
   ArrowRight,
   FileDown,
-  Share2
+  Share2,
+  GripVertical
 } from 'lucide-react';
 
 export const SetlistManager: React.FC = () => {
@@ -51,6 +58,21 @@ export const SetlistManager: React.FC = () => {
   const [songSearchQuery, setSongSearchQuery] = useState('');
   const [confirmDeleteSetlistId, setConfirmDeleteSetlistId] = useState<string | null>(null);
   const [pdfModalSetlist, setPdfModalSetlist] = useState<Setlist | null>(null);
+
+  // Drag-and-Drop state for song reordering
+  const [draggedSongIndex, setDraggedSongIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const songsListContainerRef = useRef<HTMLDivElement>(null);
+  const touchStartYRef = useRef<number | null>(null);
+  const touchStartIndexRef = useRef<number | null>(null);
+
+  // Helper to calculate total seconds for a setlist
+  const getSetlistTotalDurationSeconds = (st: Setlist) => {
+    return st.songIds.reduce((total, id) => {
+      const s = songs.find(song => song.id === id);
+      return total + parseDurationToSeconds(s);
+    }, 0);
+  };
 
   React.useEffect(() => {
     if (confirmDeleteSetlistId) {
@@ -84,7 +106,7 @@ export const SetlistManager: React.FC = () => {
     setIsCreateModalOpen(false);
   };
 
-  // Reorder songs in setlist
+  // Reorder songs in setlist via index swap
   const handleMoveSong = async (setlist: Setlist, index: number, direction: 'up' | 'down') => {
     const newSongIds = [...setlist.songIds];
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
@@ -95,6 +117,92 @@ export const SetlistManager: React.FC = () => {
     newSongIds[targetIndex] = temp;
 
     await updateSetlist(setlist.id, { songIds: newSongIds });
+  };
+
+  // Drag-and-Drop Handlers (HTML5 Mouse)
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedSongIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', index.toString());
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverIndex !== index) {
+      setDragOverIndex(index);
+    }
+  };
+
+  const handleDragLeave = (index: number) => {
+    if (dragOverIndex === index) {
+      setDragOverIndex(null);
+    }
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault();
+    if (draggedSongIndex === null || !selectedSetlist) return;
+    if (draggedSongIndex === targetIndex) {
+      setDraggedSongIndex(null);
+      setDragOverIndex(null);
+      return;
+    }
+
+    const newSongIds = [...selectedSetlist.songIds];
+    const [movedSongId] = newSongIds.splice(draggedSongIndex, 1);
+    newSongIds.splice(targetIndex, 0, movedSongId);
+
+    setDraggedSongIndex(null);
+    setDragOverIndex(null);
+
+    await updateSetlist(selectedSetlist.id, { songIds: newSongIds });
+  };
+
+  const handleDragEnd = () => {
+    setDraggedSongIndex(null);
+    setDragOverIndex(null);
+  };
+
+  // Touch Drag & Drop Handlers (Mobile / Tablet)
+  const handleTouchStartHandle = (e: React.TouchEvent, index: number) => {
+    touchStartYRef.current = e.touches[0].clientY;
+    touchStartIndexRef.current = index;
+    setDraggedSongIndex(index);
+  };
+
+  const handleTouchMoveHandle = (e: React.TouchEvent) => {
+    if (touchStartIndexRef.current === null || !songsListContainerRef.current) return;
+    const currentY = e.touches[0].clientY;
+    
+    // Find item element under finger
+    const children = Array.from(songsListContainerRef.current.children) as HTMLElement[];
+    for (let i = 0; i < children.length; i++) {
+      const rect = children[i].getBoundingClientRect();
+      if (currentY >= rect.top && currentY <= rect.bottom) {
+        if (dragOverIndex !== i) {
+          setDragOverIndex(i);
+        }
+        break;
+      }
+    }
+  };
+
+  const handleTouchEndHandle = async () => {
+    if (touchStartIndexRef.current !== null && dragOverIndex !== null && selectedSetlist) {
+      const fromIdx = touchStartIndexRef.current;
+      const toIdx = dragOverIndex;
+      if (fromIdx !== toIdx) {
+        const newSongIds = [...selectedSetlist.songIds];
+        const [movedSongId] = newSongIds.splice(fromIdx, 1);
+        newSongIds.splice(toIdx, 0, movedSongId);
+        await updateSetlist(selectedSetlist.id, { songIds: newSongIds });
+      }
+    }
+    touchStartYRef.current = null;
+    touchStartIndexRef.current = null;
+    setDraggedSongIndex(null);
+    setDragOverIndex(null);
   };
 
   // Remove song from setlist
@@ -170,6 +278,7 @@ export const SetlistManager: React.FC = () => {
 
             {setlists.map((st) => {
               const isSelected = selectedSetlist?.id === st.id;
+              const totalSecs = getSetlistTotalDurationSeconds(st);
               return (
                 <div
                   key={st.id}
@@ -185,7 +294,7 @@ export const SetlistManager: React.FC = () => {
                       <h3 className="text-sm font-bold text-white group-hover:text-blue-400">
                         {st.name}
                       </h3>
-                      <div className="flex items-center gap-2.5 text-xs text-gray-400 mt-1">
+                      <div className="flex items-center gap-2 text-xs text-gray-400 mt-1 flex-wrap">
                         <span className="flex items-center gap-1">
                           <Calendar className="w-3 h-3 text-blue-400" />
                           {st.date}
@@ -195,6 +304,15 @@ export const SetlistManager: React.FC = () => {
                           <Music className="w-3 h-3" />
                           {st.songIds.length} chants
                         </span>
+                        {totalSecs > 0 && (
+                          <>
+                            <span>•</span>
+                            <span className="flex items-center gap-1 font-semibold text-cyan-400 font-mono text-[11px]">
+                              <Clock className="w-3 h-3 text-cyan-400" />
+                              {formatSetlistDuration(totalSecs)}
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
 
@@ -245,11 +363,28 @@ export const SetlistManager: React.FC = () => {
                       Setlist Active
                     </span>
                     <h2 className="text-lg font-bold text-white">{selectedSetlist.name}</h2>
-                    <p className="text-xs text-gray-400 flex items-center gap-3 mt-0.5">
+                    <div className="text-xs text-gray-400 flex items-center gap-2.5 mt-1 flex-wrap">
                       <span>Date : <strong className="text-gray-200">{selectedSetlist.date}</strong></span>
                       <span>•</span>
-                      <span>Durée estimée : <strong className="text-gray-200">{selectedSetlist.targetDuration || 25} min</strong></span>
-                    </p>
+                      <span className="flex items-center gap-1">
+                        <span className="text-gray-400">Durée totale :</span>
+                        {(() => {
+                          const totalSecs = getSetlistTotalDurationSeconds(selectedSetlist);
+                          return (
+                            <strong className="text-cyan-300 font-semibold inline-flex items-center gap-1 font-mono">
+                              <Clock className="w-3.5 h-3.5 text-cyan-400" />
+                              {totalSecs > 0 ? formatSetlistDuration(totalSecs) : 'Non renseignée'}
+                            </strong>
+                          );
+                        })()}
+                      </span>
+                      {selectedSetlist.targetDuration ? (
+                        <>
+                          <span>•</span>
+                          <span>Cible : <strong className="text-gray-200">{selectedSetlist.targetDuration} min</strong></span>
+                        </>
+                      ) : null}
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -314,9 +449,17 @@ export const SetlistManager: React.FC = () => {
                 {/* Songs Sequence List */}
                 <div className="my-5">
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400">
-                      Ordre des Morceaux ({selectedSetlist.songIds.length})
-                    </h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400">
+                        Ordre des Morceaux ({selectedSetlist.songIds.length})
+                      </h3>
+                      {currentUser?.role === 'admin' && selectedSetlist.songIds.length > 1 && (
+                        <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-medium text-blue-400/80 bg-blue-950/40 px-2 py-0.5 rounded border border-blue-800/40">
+                          <GripVertical className="w-3 h-3 text-blue-400" />
+                          Glisser-déposer pour réordonner
+                        </span>
+                      )}
+                    </div>
 
                     {currentUser?.role === 'admin' && (
                       <button
@@ -340,36 +483,87 @@ export const SetlistManager: React.FC = () => {
                       </button>
                     </div>
                   ) : (
-                    <div className="space-y-2">
+                    <div 
+                      ref={songsListContainerRef}
+                      className="space-y-2 select-none"
+                    >
                       {selectedSetlist.songIds.map((songId, index) => {
                         const song = songs.find(s => s.id === songId);
                         if (!song) return null;
 
+                        const isBeingDragged = draggedSongIndex === index;
+                        const isDragOver = dragOverIndex === index && draggedSongIndex !== index;
+
                         return (
                           <div
                             key={`${song.id}-${index}`}
-                            className="flex items-center justify-between gap-3 p-2.5 rounded-md bg-[#0A0A0B] border border-[#222224] hover:border-[#333] transition-colors group"
+                            draggable={currentUser?.role === 'admin'}
+                            onDragStart={(e) => handleDragStart(e, index)}
+                            onDragOver={(e) => handleDragOver(e, index)}
+                            onDragLeave={() => handleDragLeave(index)}
+                            onDrop={(e) => handleDrop(e, index)}
+                            onDragEnd={handleDragEnd}
+                            className={`flex items-center justify-between gap-3 p-2.5 rounded-lg border transition-all duration-150 group ${
+                              isBeingDragged 
+                                ? 'opacity-40 scale-[0.98] border-dashed border-blue-500 bg-[#16161c]'
+                                : isDragOver
+                                ? 'border-blue-500 bg-blue-950/40 shadow-lg shadow-blue-500/10 ring-1 ring-blue-500/50 -translate-y-0.5'
+                                : 'bg-[#0A0A0B] border-[#222224] hover:border-[#3a3a40] hover:bg-[#0f0f12]'
+                            }`}
                           >
-                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                              {/* Drag Grip Handle */}
+                              {currentUser?.role === 'admin' && (
+                                <div
+                                  onTouchStart={(e) => handleTouchStartHandle(e, index)}
+                                  onTouchMove={handleTouchMoveHandle}
+                                  onTouchEnd={handleTouchEndHandle}
+                                  className="p-1 -ml-1 text-gray-500 hover:text-blue-400 active:text-blue-300 cursor-grab active:cursor-grabbing rounded transition-colors touch-none shrink-0"
+                                  title="Glisser pour réorganiser"
+                                >
+                                  <GripVertical className="w-4 h-4" />
+                                </div>
+                              )}
+
                               <span className="w-5 h-5 rounded bg-[#1C1C1E] text-gray-400 font-mono text-[11px] font-bold flex items-center justify-center shrink-0 border border-[#333]">
                                 {index + 1}
                               </span>
 
-                              <div className="min-w-0">
-                                <h4 className="text-xs font-bold text-white truncate">
+                              <div 
+                                className="min-w-0 flex-1 cursor-pointer"
+                                onClick={() => {
+                                  setSelectedSong(song);
+                                  setActiveTab('stage');
+                                }}
+                                title="Ouvrir les détails de ce chant"
+                              >
+                                <h4 className="text-xs font-bold text-white group-hover:text-blue-300 truncate transition-colors">
                                   {song.title}
                                 </h4>
-                                <p className="text-[11px] text-gray-400 truncate">
-                                  {song.artist || 'Auteur'} • Tonalité: <strong className="text-blue-400">{song.key}</strong> • {song.tempo} BPM
+                                <p className="text-[11px] text-gray-400 truncate flex items-center gap-1.5 flex-wrap">
+                                  <span>{song.artist || 'Auteur'}</span>
+                                  <span>•</span>
+                                  <span>Tonalité: <strong className="text-blue-400">{song.key}</strong></span>
+                                  <span>•</span>
+                                  <span>{song.tempo} BPM</span>
+                                  {getSongDuration(song) ? (
+                                    <>
+                                      <span>•</span>
+                                      <span className="inline-flex items-center gap-1 text-cyan-400 font-mono font-medium">
+                                        <Clock className="w-2.5 h-2.5 text-cyan-400" />
+                                        {getSongDuration(song)}
+                                      </span>
+                                    </>
+                                  ) : null}
                                 </p>
                               </div>
                             </div>
 
-                            {/* Actions: Play single song in live / Reorder / Delete */}
-                            <div className="flex items-center gap-1.5">
+                            {/* Actions: Play single song in live / Reorder buttons fallback / Delete */}
+                            <div className="flex items-center gap-1.5 shrink-0">
                               <button
                                 onClick={() => handleLaunchLive(selectedSetlist, index)}
-                                className="p-1 rounded-md bg-[#1C1C1E] hover:bg-blue-600 text-blue-400 hover:text-white border border-[#333] transition-colors"
+                                className="p-1.5 rounded-md bg-[#1C1C1E] hover:bg-blue-600 text-blue-400 hover:text-white border border-[#333] transition-colors"
                                 title="Lire à partir de ce chant"
                               >
                                 <PlayCircle className="w-3.5 h-3.5" />
@@ -380,8 +574,8 @@ export const SetlistManager: React.FC = () => {
                                   <button
                                     onClick={() => handleMoveSong(selectedSetlist, index, 'up')}
                                     disabled={index === 0}
-                                    className="p-1 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] disabled:opacity-20 text-gray-300 border border-[#333]"
-                                    title="Monter"
+                                    className="p-1.5 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] disabled:opacity-20 text-gray-300 border border-[#333] transition-colors"
+                                    title="Monter d'une position"
                                   >
                                     <ChevronUp className="w-3.5 h-3.5" />
                                   </button>
@@ -389,15 +583,15 @@ export const SetlistManager: React.FC = () => {
                                   <button
                                     onClick={() => handleMoveSong(selectedSetlist, index, 'down')}
                                     disabled={index === selectedSetlist.songIds.length - 1}
-                                    className="p-1 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] disabled:opacity-20 text-gray-300 border border-[#333]"
-                                    title="Descendre"
+                                    className="p-1.5 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] disabled:opacity-20 text-gray-300 border border-[#333] transition-colors"
+                                    title="Descendre d'une position"
                                   >
                                     <ChevronDown className="w-3.5 h-3.5" />
                                   </button>
 
                                   <button
                                     onClick={() => handleRemoveSong(selectedSetlist, song.id)}
-                                    className="p-1 rounded-md bg-[#1C1C1E] hover:bg-rose-500/20 text-gray-400 hover:text-rose-400 border border-[#333]"
+                                    className="p-1.5 rounded-md bg-[#1C1C1E] hover:bg-rose-500/20 text-gray-400 hover:text-rose-400 border border-[#333] transition-colors"
                                     title="Retirer de la setlist"
                                   >
                                     <X className="w-3.5 h-3.5" />
@@ -568,8 +762,21 @@ export const SetlistManager: React.FC = () => {
                     >
                       <div>
                         <h4 className="text-xs font-bold text-white">{song.title}</h4>
-                        <p className="text-[10px] text-gray-400">
-                          {song.artist} • <span className="text-blue-400">{song.key}</span> • {song.tempo} BPM
+                        <p className="text-[10px] text-gray-400 flex items-center gap-1.5 flex-wrap">
+                          <span>{song.artist}</span>
+                          <span>•</span>
+                          <span className="text-blue-400 font-semibold">{song.key}</span>
+                          <span>•</span>
+                          <span>{song.tempo} BPM</span>
+                          {getSongDuration(song) ? (
+                            <>
+                              <span>•</span>
+                              <span className="text-cyan-400 font-mono flex items-center gap-0.5 font-medium">
+                                <Clock className="w-2.5 h-2.5 text-cyan-400" />
+                                {getSongDuration(song)}
+                              </span>
+                            </>
+                          ) : null}
                         </p>
                       </div>
 

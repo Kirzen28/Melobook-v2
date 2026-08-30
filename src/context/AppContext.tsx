@@ -29,6 +29,7 @@ import {
 } from '../firebase';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { SAMPLE_SONGS, SAMPLE_SETLISTS } from '../data/sampleSongs';
+import { getSongDuration } from '../utils/chordUtils';
 
 const DEFAULT_GROUP: Group = {
   id: 'default-group',
@@ -131,7 +132,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [songs, setSongs] = useState<Song[]>(() => {
     const saved = localStorage.getItem('songbook_cached_songs');
     if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((s: Song) => {
+            const resolvedDuration = s.duration || getSongDuration(s) || SAMPLE_SONGS.find(sm => sm.id === s.id || sm.title.toLowerCase() === s.title?.toLowerCase())?.duration;
+            return resolvedDuration ? { ...s, duration: resolvedDuration } : s;
+          });
+        }
+      } catch (e) {}
     }
     return SAMPLE_SONGS;
   });
@@ -302,7 +311,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!snapshot.empty) {
         const loadedSongs: Song[] = [];
         snapshot.forEach((d) => {
-          loadedSongs.push({ id: d.id, ...d.data() } as Song);
+          const raw = { id: d.id, ...d.data() } as Song;
+          const resolvedDuration = raw.duration || getSongDuration(raw) || SAMPLE_SONGS.find(sm => sm.id === raw.id || sm.title.toLowerCase() === raw.title?.toLowerCase())?.duration;
+          loadedSongs.push(resolvedDuration ? { ...raw, duration: resolvedDuration } : raw);
         });
         setSongs(loadedSongs);
         if (selectedSong && !loadedSongs.find(s => s.id === selectedSong.id)) {

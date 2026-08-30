@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useApp } from '../context/AppContext';
+import { parseDurationToSeconds, formatSetlistDuration, getSongDuration } from '../utils/chordUtils';
 import { SongReader } from './SongReader';
 import { SetlistPdfModal } from './SetlistPdfModal';
 import { 
@@ -132,6 +133,10 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
             </div>
             <p className="text-[10px] text-gray-400 hidden sm:block">
               {setlistSongs.length} morceaux • Date : {selectedSetlist.date}
+              {(() => {
+                const totalSecs = setlistSongs.reduce((acc, s) => acc + parseDurationToSeconds(s), 0);
+                return totalSecs > 0 ? ` • Durée : ${formatSetlistDuration(totalSecs)}` : '';
+              })()}
             </p>
           </div>
         </div>
@@ -156,11 +161,14 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
             }}
             className="bg-[#1C1C1E] text-gray-100 font-semibold text-xs border border-[#333] rounded-md px-3 py-1.5 focus:outline-none cursor-pointer max-w-[200px] sm:max-w-[340px] truncate"
           >
-            {setlistSongs.map((s, idx) => (
-              <option key={s.id} value={idx} className="bg-[#111112] text-gray-200">
-                {idx + 1}. {s.title} ({s.key} • {s.tempo} BPM)
-              </option>
-            ))}
+            {setlistSongs.map((s, idx) => {
+              const dur = getSongDuration(s);
+              return (
+                <option key={s.id} value={idx} className="bg-[#111112] text-gray-200">
+                  {idx + 1}. {s.title} ({s.key} • {s.tempo} BPM{dur ? ` • ${dur}` : ''})
+                </option>
+              );
+            })}
           </select>
 
           <button

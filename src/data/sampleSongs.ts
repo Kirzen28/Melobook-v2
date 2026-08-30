@@ -10,6 +10,7 @@ export const SAMPLE_SONGS: Song[] = [
     tempo: 70,
     timeSignature: '4/4',
     capo: 0,
+    duration: '5:10',
     tags: ['Adoration', 'Grâce', 'Fidélité'],
     notes: 'Intro douce à la guitare acoustique. Monter en puissance au Pont.',
     contentChordPro: `{title: Jésus tu es bon (Goodness of God)}
@@ -17,6 +18,7 @@ export const SAMPLE_SONGS: Song[] = [
 {key: G}
 {tempo: 70}
 {time: 4/4}
+{duration: 5:10}
 
 {c: Intro}
 [G] [Gsus4] [G] [Gsus4]
@@ -65,6 +67,7 @@ Je chan[C]terai la bonté [D]de mon [G]Dieu`
     tempo: 118,
     timeSignature: '4/4',
     capo: 0,
+    duration: '4:20',
     tags: ['Louange', 'Rythmé', 'Joie', 'Célébration'],
     notes: 'Tempo dynamique avec clap des mains. Entrée énergique de la basse.',
     contentChordPro: `{title: Comment ne pas te louer}
@@ -72,6 +75,7 @@ Je chan[C]terai la bonté [D]de mon [G]Dieu`
 {key: C}
 {tempo: 118}
 {time: 4/4}
+{duration: 4:20}
 
 {c: Refrain}
 Comment ne [C]pas te louer, [G]Seigneur Jésus !
@@ -110,6 +114,7 @@ Comment ne [Dm]pas te louer, [G]Seigneur Jé[C]sus !`
     tempo: 75,
     timeSignature: '3/4',
     capo: 2,
+    duration: '4:45',
     tags: ['Classique', 'Hymne', 'Grâce', 'Méditation'],
     notes: 'Capo 2 (jouer en D pour sonner en E). Valse 3/4.',
     contentChordPro: `{title: Grâce Infinie (Amazing Grace)}
@@ -118,6 +123,7 @@ Comment ne [Dm]pas te louer, [G]Seigneur Jé[C]sus !`
 {tempo: 75}
 {time: 3/4}
 {capo: 2}
+{duration: 4:45}
 
 {c: Couplet 1}
 Grâce in[E]finie du [A]Seigneur [E]Dieu
@@ -152,6 +158,7 @@ Sa lou[E]ange pour [B7]l'éter[E]nité`
     tempo: 73,
     timeSignature: '4/4',
     capo: 0,
+    duration: '5:40',
     tags: ['Louange', 'Culte', 'Psaumes', 'Action de grâce'],
     notes: 'Commencer directement par le refrain doux au piano.',
     contentChordPro: `{title: 10 000 Raisons (Mon âme bénis le Seigneur)}
@@ -159,6 +166,7 @@ Sa lou[E]ange pour [B7]l'éter[E]nité`
 {key: G}
 {tempo: 73}
 {time: 4/4}
+{duration: 5:40}
 
 {c: Refrain}
 {vocal: Unisson}
@@ -199,6 +207,7 @@ Je [C]bénis Ton [D]saint Nom [G]`
     tempo: 62,
     timeSignature: '4/4',
     capo: 0,
+    duration: '5:50',
     tags: ['Adoration', 'Trône', 'Majesté', 'Prière'],
     notes: 'Progression continue: D - Am7 - C - G tout le long du chant.',
     contentChordPro: `{title: Révélation Song}
@@ -206,6 +215,7 @@ Je [C]bénis Ton [D]saint Nom [G]`
 {key: D}
 {tempo: 62}
 {time: 4/4}
+{duration: 5:50}
 
 {c: Intro}
 [D] [Am7] [C] [G]
@@ -239,6 +249,7 @@ Seul Roi de [C]sagesse, d'amour et de [G]paix`
     tempo: 68,
     timeSignature: '4/4',
     capo: 0,
+    duration: '5:30',
     tags: ['Nom de Jésus', 'Puissance', 'Adoration', 'Louange'],
     notes: 'Monter au Pont avec la batterie complète.',
     contentChordPro: `{title: Ce nom si merveilleux (What a Beautiful Name)}
@@ -246,6 +257,7 @@ Seul Roi de [C]sagesse, d'amour et de [G]paix`
 {key: D}
 {tempo: 68}
 {time: 4/4}
+{duration: 5:30}
 
 {c: Couplet 1}
 Tu étais [D]la Parole au commencement

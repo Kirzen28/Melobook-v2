@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Setlist, Song } from '../types';
 import { generateSetlistPdf, sharePdfFile, PdfExportOptions, DEFAULT_PDF_OPTIONS } from '../utils/pdfExport';
+import { parseDurationToSeconds, formatSetlistDuration, getSongDuration } from '../utils/chordUtils';
 import { 
   FileDown, 
   Share2, 
@@ -51,7 +52,9 @@ export const SetlistPdfModal: React.FC<SetlistPdfModalProps> = ({ setlist, songs
     setStatusMessage('Génération du PDF pour le partage...');
     try {
       const { blob, fileName } = await generateSetlistPdf(setlist, songs, options);
-      const textMessage = `🎵 Setlist : ${setlist.name} (${setlist.date || 'Programme'})\n${setlistSongs.length} morceaux prêts pour répétition et scène.`;
+      const totalSecs = setlistSongs.reduce((acc, s) => acc + parseDurationToSeconds(s), 0);
+      const durStr = totalSecs > 0 ? ` • Durée totale : ${formatSetlistDuration(totalSecs)}` : '';
+      const textMessage = `🎵 Setlist : ${setlist.name} (${setlist.date || 'Programme'})\n${setlistSongs.length} morceaux prêts pour répétition et scène${durStr}.`;
       
       const result = await sharePdfFile(blob, fileName, setlist.name, textMessage);
       if (result.method === 'download') {
@@ -110,12 +113,19 @@ export const SetlistPdfModal: React.FC<SetlistPdfModalProps> = ({ setlist, songs
 
   // Copy plain text summary for chat apps
   const handleCopyTextSummary = () => {
+    const totalSecs = setlistSongs.reduce((acc, s) => acc + parseDurationToSeconds(s), 0);
+    const durationHeader = totalSecs > 0 ? `Durée totale : ${formatSetlistDuration(totalSecs)}` : `Durée est. : ${setlist.targetDuration || 25} min`;
+
     const lines = [
       `🎵 SETLIST : ${setlist.name.toUpperCase()}`,
-      `📅 Date : ${setlist.date || 'Non spécifiée'} | Durée est. : ${setlist.targetDuration || 25} min`,
+      `📅 Date : ${setlist.date || 'Non spécifiée'} | ${durationHeader}`,
       setlist.notes ? `📝 Consignes : ${setlist.notes}` : '',
-      `\n📋 PROGRAMME (${setlistSongs.length} chants) :`,
-      ...setlistSongs.map((s, i) => `${i + 1}. ${s.title} — ${s.artist || 'Auteur'} [Tonalité : ${s.key}${s.capo ? `, Capo ${s.capo}` : ''} | ${s.tempo} BPM]`),
+      `\n📋 PROGRAMME : ${setlistSongs.length} chants`,
+      ...setlistSongs.map((s, i) => {
+        const songDur = getSongDuration(s);
+        const durPart = songDur ? ` | ⏱️ ${songDur}` : '';
+        return `${i + 1}. ${s.title} — ${s.artist || 'Auteur'} [Tonalité : ${s.key} | ${s.tempo} BPM${durPart}]`;
+      }),
       `\n✨ Généré avec MéloBook Pro`
     ].filter(Boolean);
 

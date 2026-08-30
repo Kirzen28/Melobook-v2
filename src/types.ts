@@ -31,6 +31,8 @@ export interface Song {
   key: string;
   tempo: number;
   timeSignature?: string;
+  duration?: string; // e.g. "4:30", "03:45", "5 min"
+  durationMode?: 'auto' | 'custom'; // 'auto' (calculated based on tempo/lyrics/bars) or 'custom'
   contentChordPro: string;
   folderId?: string | null;
   capo?: number;

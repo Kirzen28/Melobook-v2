@@ -1,7 +1,13 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { Song } from '../types';
-import { parseChordPro, transposeChord } from '../utils/chordUtils';
+import { 
+  parseChordPro, 
+  transposeChord, 
+  getVocalBadgeStyle,
+  formatSecondsToMinutes, 
+  parseDurationToSeconds
+} from '../utils/chordUtils';
 import { 
   Save, 
   ChevronLeft, 
@@ -17,7 +23,8 @@ import {
   Tag,
   ChevronDown,
   X,
-  Mic
+  Mic,
+  Clock
 } from 'lucide-react';
 
 const COMMON_CHORDS = ['C', 'G', 'Am', 'F', 'D', 'Em', 'A', 'Dm', 'E', 'B7', 'Bb', 'Gsus4', 'C#m', 'F#m'];
@@ -76,6 +83,7 @@ export const SongEditor: React.FC = () => {
   const [key, setKey] = useState(selectedSong?.key || 'C');
   const [tempo, setTempo] = useState<number>(selectedSong?.tempo || 100);
   const [timeSignature, setTimeSignature] = useState(selectedSong?.timeSignature || '4/4');
+  const [duration, setDuration] = useState(selectedSong?.duration || '3:30');
   const [capo, setCapo] = useState<number>(selectedSong?.capo || 0);
   const [categories, setCategories] = useState<string[]>(selectedSong?.tags || []);
   const [notes, setNotes] = useState(selectedSong?.notes || '');
@@ -166,6 +174,7 @@ export const SongEditor: React.FC = () => {
       setKey(selectedSong.key || 'C');
       setTempo(selectedSong.tempo || 100);
       setTimeSignature(selectedSong.timeSignature || '4/4');
+      setDuration(selectedSong.duration && selectedSong.duration !== 'auto' ? selectedSong.duration : '3:30');
       setCapo(selectedSong.capo || 0);
       setCategories(selectedSong.tags || []);
       setNotes(selectedSong.notes || '');
@@ -176,6 +185,7 @@ export const SongEditor: React.FC = () => {
       setKey('C');
       setTempo(100);
       setTimeSignature('4/4');
+      setDuration('3:30');
       setCapo(0);
       setCategories([]);
       setNotes('');
@@ -225,6 +235,9 @@ export const SongEditor: React.FC = () => {
     if (parsed.key) setKey(parsed.key);
     if (parsed.tempo) setTempo(parsed.tempo);
     if (parsed.timeSignature) setTimeSignature(parsed.timeSignature);
+    if (parsed.duration) {
+      setDuration(parsed.duration);
+    }
     if (parsed.capo) setCapo(parsed.capo);
   };
 
@@ -237,12 +250,16 @@ export const SongEditor: React.FC = () => {
 
     setIsSaving(true);
 
-    const songData = {
+    const resolvedDuration = duration.trim() || '3:30';
+
+    const songData: Partial<Song> = {
       title: title.trim(),
       artist: artist.trim(),
       key: key.trim().toUpperCase(),
       tempo: Number(tempo) || 100,
       timeSignature,
+      duration: resolvedDuration,
+      durationMode: 'custom',
       capo: Number(capo) || 0,
       tags: categories,
       notes: notes.trim(),
@@ -367,16 +384,16 @@ export const SongEditor: React.FC = () => {
             />
           </div>
 
-          {/* Tonalité, Tempo & Capo */}
-          <div className="grid grid-cols-3 gap-2">
+          {/* Tonalité, Tempo, Mesure & Durée */}
+          <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
             <div>
-              <label className="block text-xs font-medium text-gray-300 mb-1">
+              <label className="block text-xs font-medium text-gray-300 mb-1 truncate">
                 Tonalité
               </label>
               <select
                 value={key}
                 onChange={(e) => setKey(e.target.value)}
-                className="w-full bg-[#1C1C1E] border border-[#333] rounded-md px-2 py-1.5 text-xs text-blue-400 font-bold focus:outline-none focus:border-blue-500 cursor-pointer"
+                className="w-full bg-[#1C1C1E] border border-[#333] rounded-md px-1.5 sm:px-2 py-1.5 text-xs text-blue-400 font-bold focus:outline-none focus:border-blue-500 cursor-pointer text-center"
               >
                 {['C', 'C#', 'Db', 'D', 'D#', 'Eb', 'E', 'F', 'F#', 'Gb', 'G', 'G#', 'Ab', 'A', 'A#', 'Bb', 'B', 'Am', 'Em', 'Dm', 'Bm', 'F#m'].map(k => (
                   <option key={k} value={k} className="bg-[#111112] text-gray-200">{k}</option>
@@ -385,8 +402,8 @@ export const SongEditor: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-300 mb-1">
-                Tempo (BPM)
+              <label className="block text-xs font-medium text-gray-300 mb-1 truncate">
+                Tempo BPM
               </label>
               <input
                 type="number"
@@ -394,25 +411,36 @@ export const SongEditor: React.FC = () => {
                 max={260}
                 value={tempo}
                 onChange={(e) => setTempo(parseInt(e.target.value, 10) || 100)}
-                className="w-full bg-[#1C1C1E] border border-[#333] rounded-md px-2 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500 text-center"
+                className="w-full bg-[#1C1C1E] border border-[#333] rounded-md px-1 sm:px-2 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500 text-center"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-300 mb-1">
-                Capo
+              <label className="block text-xs font-medium text-gray-300 mb-1 truncate">
+                Mesure
               </label>
               <select
-                value={capo}
-                onChange={(e) => setCapo(parseInt(e.target.value, 10) || 0)}
-                className="w-full bg-[#1C1C1E] border border-[#333] rounded-md px-2 py-1.5 text-xs text-purple-400 font-semibold focus:outline-none focus:border-blue-500 cursor-pointer"
+                value={timeSignature}
+                onChange={(e) => setTimeSignature(e.target.value)}
+                className="w-full bg-[#1C1C1E] border border-[#333] rounded-md px-1 sm:px-2 py-1.5 text-xs text-emerald-400 font-medium focus:outline-none focus:border-blue-500 cursor-pointer text-center"
               >
-                {[0, 1, 2, 3, 4, 5, 6, 7].map(c => (
-                  <option key={c} value={c} className="bg-[#111112] text-gray-200">
-                    {c === 0 ? '0' : `${c}`}
-                  </option>
+                {['4/4', '3/4', '6/8', '2/4', '12/8', '5/4'].map(ts => (
+                  <option key={ts} value={ts} className="bg-[#111112] text-gray-200">{ts}</option>
                 ))}
               </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-300 mb-1 truncate">
+                Durée
+              </label>
+              <input
+                type="text"
+                placeholder="3:30"
+                value={duration}
+                onChange={(e) => setDuration(e.target.value)}
+                className="w-full bg-[#1C1C1E] border border-[#333] focus:border-cyan-400 rounded-md px-1 sm:px-2 py-1.5 text-xs text-cyan-300 font-mono font-bold focus:outline-none text-center shadow-inner"
+              />
             </div>
           </div>
 
@@ -737,31 +765,29 @@ export const SongEditor: React.FC = () => {
                   sec.type === 'chorus' ? 'bg-[#1C1C1E] border-l-2 border-blue-500' : 'bg-[#0A0A0B]'
                 }`}
               >
-                {(sec.title || sec.vocal) && (
-                  <div className="flex items-center justify-between gap-2 mb-2">
+                {(sec.title || (sec.vocals && sec.vocals.length > 0) || sec.vocal) && (
+                  <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
                     {sec.title ? (
                       <span className="inline-block text-[10px] uppercase font-bold text-blue-400 px-1.5 py-0.5 rounded bg-[#1C1C1E] border border-[#333]">
                         {sec.title}
                       </span>
                     ) : <div />}
 
-                    {sec.vocal && (
-                      <span 
-                        className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                          sec.vocal.toLowerCase().includes('lead')
-                            ? 'bg-amber-500/15 text-amber-300 border-amber-500/40'
-                            : sec.vocal.toLowerCase().includes('unisson')
-                            ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/40'
-                            : sec.vocal.toLowerCase().includes('2')
-                            ? 'bg-purple-500/15 text-purple-300 border-purple-500/40'
-                            : sec.vocal.toLowerCase().includes('3')
-                            ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40'
-                            : 'bg-[#1F1F23] text-gray-300 border-[#3A3A3E]'
-                        }`}
-                      >
-                        <Mic className="w-2.5 h-2.5" />
-                        <span>{sec.vocal}</span>
-                      </span>
+                    {((sec.vocals && sec.vocals.length > 0) || sec.vocal) && (
+                      <div className="flex items-center gap-1 flex-wrap">
+                        {(sec.vocals && sec.vocals.length > 0 ? sec.vocals : [sec.vocal!]).map((voc, vIdx) => {
+                          const vStyle = getVocalBadgeStyle(voc);
+                          return (
+                            <span 
+                              key={vIdx}
+                              className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${vStyle.bg} ${vStyle.border} ${vStyle.text}`}
+                            >
+                              <Mic className={`w-2.5 h-2.5 ${vStyle.icon}`} />
+                              <span>{voc}</span>
+                            </span>
+                          );
+                        })}
+                      </div>
                     )}
                   </div>
                 )}

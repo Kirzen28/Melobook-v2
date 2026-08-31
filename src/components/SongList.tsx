@@ -4,6 +4,13 @@ import { Song, Setlist } from '../types';
 import { parseDurationToSeconds, formatSetlistDuration, getSongDuration } from '../utils/chordUtils';
 import { SongImportModal } from './SongImportModal';
 import { 
+  DEFAULT_CATEGORY_SUGGESTIONS, 
+  getCustomCategories, 
+  saveCustomCategories, 
+  getHiddenCategories, 
+  saveHiddenCategories 
+} from '../utils/categoryUtils';
+import { 
   Search, 
   Plus, 
   PlayCircle, 
@@ -26,22 +33,10 @@ import {
   CheckSquare,
   Square,
   Clock,
-  Sparkles
+  Sparkles,
+  RotateCcw,
+  Pen
 } from 'lucide-react';
-
-const DEFAULT_CATEGORY_SUGGESTIONS = [
-  'Louange',
-  'Adoration',
-  'Célébration',
-  'Action de grâce',
-  'Prière',
-  'Méditation',
-  'Gospel',
-  'Noël',
-  'Pâques',
-  'Jeunesse',
-  'Communion'
-];
 
 export const SongList: React.FC = () => {
   const { 
@@ -51,6 +46,7 @@ export const SongList: React.FC = () => {
     setActiveTab, 
     currentUser, 
     deleteSong, 
+    updateSong,
     updateSetlist,
     createSetlist,
     createSong
@@ -64,30 +60,44 @@ export const SongList: React.FC = () => {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [isCategoryFilterOpen, setIsCategoryFilterOpen] = useState(false);
   const [categoryFilterSearch, setCategoryFilterSearch] = useState('');
-  const [customCategories, setCustomCategories] = useState<string[]>(() => {
-    try {
-      const saved = localStorage.getItem('melobook_custom_categories');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [customCategories, setCustomCategories] = useState<string[]>(() => getCustomCategories());
+  const [hiddenCategories, setHiddenCategories] = useState<string[]>(() => getHiddenCategories());
+  
+  // Quick category management bubble state (per song)
+  const [openCategorySongId, setOpenCategorySongId] = useState<string | null>(null);
+  const [quickCatInput, setQuickCatInput] = useState('');
+  const [quickCatSearch, setQuickCatSearch] = useState('');
+  const [deletingCatName, setDeletingCatName] = useState<string | null>(null);
+
   const categoryFilterRef = useRef<HTMLDivElement>(null);
   const importDropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdowns on outside click
   React.useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (categoryFilterRef.current && !categoryFilterRef.current.contains(e.target as Node)) {
+      const target = e.target as HTMLElement;
+      if (categoryFilterRef.current && !categoryFilterRef.current.contains(target)) {
         setIsCategoryFilterOpen(false);
       }
-      if (importDropdownRef.current && !importDropdownRef.current.contains(e.target as Node)) {
+      if (importDropdownRef.current && !importDropdownRef.current.contains(target)) {
         setIsImportDropdownOpen(false);
       }
     };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (openCategorySongId) {
+          setOpenCategorySongId(null);
+          setDeletingCatName(null);
+        }
+      }
+    };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [openCategorySongId]);
   
   // Setlist modal state (Search, Sort, Multi-select, Quick-create)
   const [addToSetlistSong, setAddToSetlistSong] = useState<Song | null>(null);
@@ -128,16 +138,22 @@ export const SongList: React.FC = () => {
 
   // Aggregate all unique categories and their song counts
   const allCategoriesWithCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
+    const counts: Record<string, { count: number; isCustom: boolean; isDefault: boolean }> = {};
     
-    // Preset suggestions
+    // Preset suggestions not hidden
     DEFAULT_CATEGORY_SUGGESTIONS.forEach(c => {
-      counts[c] = 0;
+      if (!hiddenCategories.includes(c)) {
+        counts[c] = { count: 0, isCustom: false, isDefault: true };
+      }
     });
 
     // Custom added categories
     customCategories.forEach(c => {
-      counts[c] = 0;
+      if (!counts[c]) {
+        counts[c] = { count: 0, isCustom: true, isDefault: false };
+      } else {
+        counts[c].isCustom = true;
+      }
     });
 
     // Song categories
@@ -145,20 +161,29 @@ export const SongList: React.FC = () => {
       s.tags?.forEach(t => {
         const trimmed = t?.trim();
         if (trimmed) {
-          counts[trimmed] = (counts[trimmed] || 0) + 1;
+          if (!counts[trimmed]) {
+            counts[trimmed] = { count: 1, isCustom: false, isDefault: false };
+          } else {
+            counts[trimmed].count += 1;
+          }
         }
       });
     });
 
     return Object.entries(counts)
-      .map(([name, count]) => ({ name, count }))
+      .map(([name, meta]) => ({ 
+        name, 
+        count: meta.count,
+        isCustom: meta.isCustom,
+        isDefault: meta.isDefault
+      }))
       .sort((a, b) => {
         if (b.count !== a.count && (a.count === 0 || b.count === 0)) {
           return b.count - a.count;
         }
-        return a.name.localeCompare(b.name);
+        return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
       });
-  }, [songs, customCategories]);
+  }, [songs, customCategories, hiddenCategories]);
 
   const filteredCategoriesInDropdown = useMemo(() => {
     if (!categoryFilterSearch.trim()) return allCategoriesWithCounts;
@@ -166,28 +191,109 @@ export const SongList: React.FC = () => {
     return allCategoriesWithCounts.filter(c => c.name.toLowerCase().includes(q));
   }, [allCategoriesWithCounts, categoryFilterSearch]);
 
+  const filteredQuickCategories = useMemo(() => {
+    if (!quickCatSearch.trim()) return allCategoriesWithCounts;
+    const q = quickCatSearch.toLowerCase().trim();
+    return allCategoriesWithCounts.filter(c => c.name.toLowerCase().includes(q));
+  }, [allCategoriesWithCounts, quickCatSearch]);
+
   const toggleCategoryFilter = (catName: string) => {
     setSelectedCategories(prev =>
       prev.includes(catName) ? prev.filter(c => c !== catName) : [...prev, catName]
     );
   };
 
-  const handleCreateCategory = () => {
-    const trimmed = categoryFilterSearch.trim();
+  const toggleTagOnSong = async (songId: string, tag: string) => {
+    const targetSong = songs.find(s => s.id === songId);
+    if (!targetSong) return;
+    const currentTags = targetSong.tags || [];
+    const exists = currentTags.some(t => t.trim().toLowerCase() === tag.trim().toLowerCase());
+    const updatedTags = exists
+      ? currentTags.filter(t => t.trim().toLowerCase() !== tag.trim().toLowerCase())
+      : [...currentTags, tag.trim()];
+    await updateSong(songId, { tags: updatedTags });
+  };
+
+  const handleCreateCategory = (nameToCreate?: string) => {
+    const trimmed = (nameToCreate || categoryFilterSearch).trim();
     if (!trimmed) return;
+    
+    // Unhide if was hidden
+    if (hiddenCategories.includes(trimmed)) {
+      const updatedHidden = hiddenCategories.filter(c => c !== trimmed);
+      setHiddenCategories(updatedHidden);
+      saveHiddenCategories(updatedHidden);
+    }
+
     if (!customCategories.includes(trimmed)) {
       const updated = [...customCategories, trimmed];
       setCustomCategories(updated);
-      try {
-        localStorage.setItem('melobook_custom_categories', JSON.stringify(updated));
-      } catch (e) {
-        console.error(e);
-      }
+      saveCustomCategories(updated);
     }
     if (!selectedCategories.includes(trimmed)) {
       setSelectedCategories(prev => [...prev, trimmed]);
     }
     setCategoryFilterSearch('');
+  };
+
+  const handleQuickCreateCategoryForSong = async (songId: string, nameToCreate?: string) => {
+    const trimmed = (nameToCreate || quickCatInput).trim();
+    if (!trimmed) return;
+
+    // Unhide if was hidden
+    if (hiddenCategories.includes(trimmed)) {
+      const updatedHidden = hiddenCategories.filter(c => c !== trimmed);
+      setHiddenCategories(updatedHidden);
+      saveHiddenCategories(updatedHidden);
+    }
+
+    if (!customCategories.includes(trimmed)) {
+      const updated = [...customCategories, trimmed];
+      setCustomCategories(updated);
+      saveCustomCategories(updated);
+    }
+
+    const targetSong = songs.find(s => s.id === songId);
+    if (targetSong) {
+      const currentTags = targetSong.tags || [];
+      if (!currentTags.some(t => t.trim().toLowerCase() === trimmed.toLowerCase())) {
+        await updateSong(songId, { tags: [...currentTags, trimmed] });
+      }
+    }
+
+    setQuickCatInput('');
+  };
+
+  const handleQuickDeleteCategory = async (catName: string) => {
+    // 1. Remove from custom categories
+    if (customCategories.includes(catName)) {
+      const updatedCustom = customCategories.filter(c => c !== catName);
+      setCustomCategories(updatedCustom);
+      saveCustomCategories(updatedCustom);
+    }
+
+    // 2. If default category, hide it
+    if (DEFAULT_CATEGORY_SUGGESTIONS.includes(catName)) {
+      const updatedHidden = Array.from(new Set([...hiddenCategories, catName]));
+      setHiddenCategories(updatedHidden);
+      saveHiddenCategories(updatedHidden);
+    }
+
+    // 3. Remove tag from any song that has it
+    const songsWithTag = songs.filter(s => s.tags?.some(t => t.trim().toLowerCase() === catName.toLowerCase()));
+    for (const s of songsWithTag) {
+      const updatedTags = (s.tags || []).filter(t => t.trim().toLowerCase() !== catName.toLowerCase());
+      await updateSong(s.id, { tags: updatedTags });
+    }
+
+    // 4. Remove from selected categories
+    setSelectedCategories(prev => prev.filter(c => c.toLowerCase() !== catName.toLowerCase()));
+    setDeletingCatName(null);
+  };
+
+  const handleResetDefaultCategories = () => {
+    setHiddenCategories([]);
+    saveHiddenCategories([]);
   };
 
   // Filtered & Sorted Songs
@@ -386,7 +492,7 @@ export const SongList: React.FC = () => {
                       <span className="px-1.5 py-0.2 text-[9px] font-bold uppercase rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">Nouveau</span>
                     </div>
                     <p className="text-[11px] text-gray-400 mt-0.5">
-                      Cherchez parmi des milliers de chants chrétiens (Shir.fr, WorshipTogether, etc.) et importez en 1 clic
+                      Cherchez parmi des milliers de chants chrétiens comme Shir.fr ou WorshipTogether et importez en 1 clic
                     </p>
                   </div>
                 </button>
@@ -401,7 +507,7 @@ export const SongList: React.FC = () => {
                   </div>
                   <div>
                     <div className="font-semibold text-white group-hover:text-blue-400">
-                      Fichiers ChordPro (.pro, .cho, .txt)
+                      Fichiers ChordPro .pro, .cho, .txt
                     </div>
                     <p className="text-[11px] text-gray-400 mt-0.5">
                       Glisser-déposer ou code ChordPro avec balises <code className="text-blue-400">[C]</code>
@@ -437,7 +543,7 @@ export const SongList: React.FC = () => {
                   </div>
                   <div>
                     <div className="font-semibold text-white group-hover:text-blue-400">
-                      Sites d'accords (Ultimate, LaCuerda...)
+                      Sites d'accords comme Ultimate ou LaCuerda
                     </div>
                     <p className="text-[11px] text-gray-400 mt-0.5">
                       Convertit automatiquement les accords superposés au-dessus des paroles
@@ -485,7 +591,7 @@ export const SongList: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-1.5 sm:gap-2 w-full md:w-auto flex-nowrap justify-between md:justify-end">
-          {/* Category Filter Dropdown (Multi-select) */}
+          {/* Category Filter Dropdown */}
           <div className="relative flex-1 sm:flex-initial min-w-0" ref={categoryFilterRef}>
             <div
               onClick={() => setIsCategoryFilterOpen(!isCategoryFilterOpen)}
@@ -547,7 +653,7 @@ export const SongList: React.FC = () => {
                   {categoryFilterSearch.trim() && (
                     <button
                       type="button"
-                      onClick={handleCreateCategory}
+                      onClick={() => handleCreateCategory()}
                       className="flex items-center gap-1 px-2.5 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold whitespace-nowrap transition-colors"
                       title="Créer cette nouvelle catégorie"
                     >
@@ -566,7 +672,7 @@ export const SongList: React.FC = () => {
                           <span>Aucune catégorie correspondante.</span>
                           <button
                             type="button"
-                            onClick={handleCreateCategory}
+                            onClick={() => handleCreateCategory()}
                             className="block mx-auto mt-1 text-blue-400 font-semibold hover:underline"
                           >
                             + Créer &quot;{categoryFilterSearch.trim()}&quot;
@@ -661,10 +767,10 @@ export const SongList: React.FC = () => {
               onChange={(e) => setSortBy(e.target.value as any)}
               className="w-full bg-transparent text-gray-200 text-[11px] sm:text-xs font-semibold focus:outline-none cursor-pointer truncate"
             >
-              <option value="title" className="bg-[#111112]">Titre (A-Z)</option>
+              <option value="title" className="bg-[#111112]">Titre A-Z</option>
               <option value="artist" className="bg-[#111112]">Artiste</option>
-              <option value="tempo" className="bg-[#111112]">Tempo (BPM)</option>
-              <option value="duration" className="bg-[#111112]">Durée (plus longs)</option>
+              <option value="tempo" className="bg-[#111112]">Tempo BPM</option>
+              <option value="duration" className="bg-[#111112]">Durée plus longs</option>
               <option value="recent" className="bg-[#111112]">Plus récents</option>
             </select>
           </div>
@@ -723,9 +829,9 @@ export const SongList: React.FC = () => {
                 className="group relative bg-[#111112] hover:bg-[#151518] border border-[#222224] hover:border-blue-500/40 rounded-lg p-4 transition-all flex flex-col justify-between cursor-pointer shadow-sm hover:shadow-md"
               >
                 <div>
-                  {/* Card Header: Key / BPM / Capo */}
-                  <div className="flex items-center justify-between gap-2 mb-2">
-                    <div className="flex items-center gap-1.5">
+                  {/* Card Header: Key / BPM / Duration & Action Buttons */}
+                  <div className="flex items-center justify-between gap-2 mb-2.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="px-2 py-0.5 rounded bg-[#1C1C1E] border border-[#333] text-gray-200 text-[11px] font-bold">
                         {song.key || 'C'}
                       </span>
@@ -742,6 +848,77 @@ export const SongList: React.FC = () => {
                         </span>
                       ) : null}
                     </div>
+
+                    {/* Quick action buttons in top-right - Icons only */}
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setAddToSetlistSong(song);
+                          setSelectedSetlistIds(
+                            setlists.filter(st => st.songIds.includes(song.id)).map(st => st.id)
+                          );
+                          setSetlistSearchQuery('');
+                          setIsCreatingNewSetlist(false);
+                          setNewSetlistName('');
+                          setNewSetlistDate(new Date().toISOString().split('T')[0]);
+                        }}
+                        className="p-1.5 rounded bg-[#1C1C1E] hover:bg-[#252528] text-gray-300 hover:text-blue-400 border border-[#333] hover:border-blue-500/40 transition-colors flex items-center justify-center cursor-pointer"
+                        title="Ajouter ou gérer dans vos setlists"
+                        aria-label="Setlist"
+                      >
+                        <ListPlus className="w-3.5 h-3.5 text-blue-400" />
+                      </button>
+
+                      {currentUser?.role === 'admin' && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditSong(song);
+                            }}
+                            className="p-1.5 rounded bg-[#1C1C1E] hover:bg-[#252528] text-gray-300 hover:text-amber-400 border border-[#333] hover:border-amber-500/40 transition-colors flex items-center justify-center cursor-pointer"
+                            title="Éditer le chant"
+                            aria-label="Éditer"
+                          >
+                            <FileEdit className="w-3.5 h-3.5 text-amber-400" />
+                          </button>
+
+                          {(() => {
+                            const isConfirming = confirmDeleteSongId === song.id;
+                            return (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (isConfirming) {
+                                    deleteSong(song.id);
+                                    setConfirmDeleteSongId(null);
+                                  } else {
+                                    setConfirmDeleteSongId(song.id);
+                                  }
+                                }}
+                                className={`p-1.5 rounded transition-all flex items-center justify-center cursor-pointer ${
+                                  isConfirming
+                                    ? 'bg-rose-600 hover:bg-rose-700 text-white border border-rose-500 shadow-sm animate-pulse'
+                                    : 'bg-[#1C1C1E] hover:bg-rose-500/20 text-gray-400 hover:text-rose-400 border border-[#333] hover:border-rose-500/40'
+                                }`}
+                                title={isConfirming ? "Confirmer la suppression" : "Supprimer le chant"}
+                                aria-label={isConfirming ? "Confirmer la suppression" : "Supprimer"}
+                              >
+                                {isConfirming ? (
+                                  <Check className="w-3.5 h-3.5 text-white" />
+                                ) : (
+                                  <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                                )}
+                              </button>
+                            );
+                          })()}
+                        </>
+                      )}
+                    </div>
                   </div>
 
                   {/* Title & Artist */}
@@ -752,111 +929,279 @@ export const SongList: React.FC = () => {
                     {song.artist || 'Auteur inconnu'}
                   </p>
 
-                  {/* Catégories */}
-                  {song.tags && song.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-2.5">
-                      {song.tags.map((cat, idx) => {
-                        const isFiltered = selectedCategories.includes(cat);
-                        return (
-                          <button
-                            key={idx}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleCategoryFilter(cat);
-                            }}
-                            className={`text-[10px] px-2 py-0.5 rounded border transition-colors flex items-center gap-1 ${
-                              isFiltered
-                                ? 'bg-blue-600/20 text-blue-300 border-blue-500/40 font-semibold'
-                                : 'bg-[#1C1C1E] border-[#222224] text-gray-400 hover:text-gray-200 hover:border-[#333]'
-                            }`}
-                            title={`Filtrer par la catégorie "${cat}"`}
-                          >
-                            <Tag className="w-2.5 h-2.5 text-blue-400" />
-                            <span>{cat}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                {/* Card Actions Footer */}
-                <div className="mt-4 pt-3 border-t border-[#222224] flex items-center gap-1.5">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setAddToSetlistSong(song);
-                      setSelectedSetlistIds(
-                        setlists.filter(st => st.songIds.includes(song.id)).map(st => st.id)
+                  {/* Catégories & Pen Button */}
+                  <div className="flex flex-wrap items-center gap-1 mt-2.5 relative" data-category-bubble>
+                    {song.tags && song.tags.map((cat, idx) => {
+                      const isFiltered = selectedCategories.includes(cat);
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleCategoryFilter(cat);
+                          }}
+                          className={`text-[10px] px-2 py-0.5 rounded border transition-colors flex items-center gap-1 ${
+                            isFiltered
+                              ? 'bg-blue-600/20 text-blue-300 border-blue-500/40 font-semibold'
+                              : 'bg-[#1C1C1E] border-[#222224] text-gray-400 hover:text-gray-200 hover:border-[#333]'
+                          }`}
+                          title={`Filtrer par la catégorie "${cat}"`}
+                        >
+                          <Tag className="w-2.5 h-2.5 text-blue-400" />
+                          <span>{cat}</span>
+                        </button>
                       );
-                      setSetlistSearchQuery('');
-                      setIsCreatingNewSetlist(false);
-                      setNewSetlistName('');
-                      setNewSetlistDate(new Date().toISOString().split('T')[0]);
-                    }}
-                    className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md bg-[#1C1C1E] hover:bg-[#252528] text-gray-300 hover:text-white border border-[#333] hover:border-blue-500/40 transition-colors text-xs font-medium"
-                    title="Ajouter ou gérer dans vos setlists"
-                  >
-                    <ListPlus className="w-3.5 h-3.5 text-blue-400" />
-                    <span>Setlist</span>
-                  </button>
+                    })}
 
-                  {currentUser?.role === 'admin' && (
-                    <>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleEditSong(song);
-                        }}
-                        className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md bg-[#1C1C1E] hover:bg-[#252528] text-gray-300 hover:text-white border border-[#333] hover:border-amber-500/40 transition-colors text-xs font-medium"
-                        title="Éditer le chant"
-                      >
-                        <FileEdit className="w-3.5 h-3.5 text-amber-400" />
-                        <span>Éditer</span>
-                      </button>
-
-                      {(() => {
-                        const isConfirming = confirmDeleteSongId === song.id;
-                        return (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (isConfirming) {
-                                deleteSong(song.id);
-                                setConfirmDeleteSongId(null);
-                              } else {
-                                setConfirmDeleteSongId(song.id);
-                              }
-                            }}
-                            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md transition-all text-xs font-medium ${
-                              isConfirming
-                                ? 'bg-rose-600 hover:bg-rose-700 text-white border border-rose-500 shadow-sm font-bold animate-pulse'
-                                : 'bg-[#1C1C1E] hover:bg-rose-500/20 text-gray-400 hover:text-rose-400 border border-[#333] hover:border-rose-500/40'
-                            }`}
-                            title={isConfirming ? "Cliquez à nouveau pour confirmer la suppression" : "Supprimer le chant"}
-                          >
-                            {isConfirming ? (
-                              <>
-                                <Check className="w-3.5 h-3.5 text-white" />
-                                <span>Confirmer ?</span>
-                              </>
-                            ) : (
-                              <>
-                                <Trash2 className="w-3.5 h-3.5 text-rose-400" />
-                                <span>Supprimer</span>
-                              </>
-                            )}
-                          </button>
-                        );
-                      })()}
-                    </>
-                  )}
+                    {/* Pen Button to manage categories for this song */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setOpenCategorySongId(song.id);
+                        setDeletingCatName(null);
+                        setQuickCatInput('');
+                        setQuickCatSearch('');
+                      }}
+                      className="text-[10px] p-1 rounded border transition-all flex items-center justify-center cursor-pointer bg-[#1C1C1E] border-[#222224] text-gray-400 hover:text-blue-400 hover:border-blue-500/40"
+                      title="Gérer les catégories de ce chant"
+                      aria-label="Gérer les catégories de ce chant"
+                    >
+                      <Pen className="w-3 h-3" />
+                    </button>
+                  </div>
                 </div>
               </div>
             );
           })}
         </div>
       )}
+
+      {/* Modal: Gérer les catégories du chant */}
+      {(() => {
+        const currentSongForCategories = openCategorySongId ? songs.find(s => s.id === openCategorySongId) : null;
+        if (!currentSongForCategories) return null;
+
+        return (
+          <div 
+            className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150"
+            onClick={() => {
+              setOpenCategorySongId(null);
+              setDeletingCatName(null);
+            }}
+          >
+            <div 
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md bg-[#141416] border border-[#2A2A2D] rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-100"
+            >
+              {/* Modal Header */}
+              <div className="p-3.5 sm:p-4 border-b border-[#222224] bg-[#171719] flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 shrink-0">
+                    <Tag className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-bold text-white tracking-tight truncate">
+                      Catégories du chant
+                    </h3>
+                    <p className="text-xs text-gray-400 truncate">
+                      {currentSongForCategories.title}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpenCategorySongId(null);
+                    setDeletingCatName(null);
+                  }}
+                  className="text-gray-400 hover:text-white p-1.5 rounded-lg hover:bg-[#222225] transition-colors shrink-0"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-3.5 sm:p-4 space-y-3 overflow-y-auto">
+                {/* Add/Create Input Row */}
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="Nouvelle catégorie..."
+                    value={quickCatInput}
+                    onChange={(e) => setQuickCatInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleQuickCreateCategoryForSong(currentSongForCategories.id);
+                      }
+                    }}
+                    className="flex-1 bg-[#1C1C1E] border border-[#333] rounded-lg px-3 py-2 text-xs sm:text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleQuickCreateCategoryForSong(currentSongForCategories.id)}
+                    disabled={!quickCatInput.trim()}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs sm:text-sm font-semibold whitespace-nowrap transition-colors shadow-sm"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Créer</span>
+                  </button>
+                </div>
+
+                {/* Quick Search */}
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Filtrer les catégories..."
+                    value={quickCatSearch}
+                    onChange={(e) => setQuickCatSearch(e.target.value)}
+                    className="w-full bg-[#1A1A1D] border border-[#2A2A2D] rounded-lg pl-8 pr-7 py-1.5 text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                  />
+                  {quickCatSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setQuickCatSearch('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white p-0.5"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Category List with Checkbox for this song & Delete Action */}
+                <div className="max-h-60 overflow-y-auto space-y-1.5 pr-0.5">
+                  {filteredQuickCategories.length === 0 ? (
+                    <div className="py-6 text-center text-gray-500 text-xs bg-[#1A1A1D]/40 rounded-lg border border-[#222224]">
+                      {quickCatSearch.trim() ? (
+                        <div>
+                          <span>Aucune catégorie trouvée</span>
+                          <button
+                            type="button"
+                            onClick={() => handleQuickCreateCategoryForSong(currentSongForCategories.id, quickCatSearch)}
+                            className="block mx-auto mt-1.5 text-blue-400 font-semibold hover:underline"
+                          >
+                            + Créer &quot;{quickCatSearch.trim()}&quot;
+                          </button>
+                        </div>
+                      ) : (
+                        'Aucune catégorie disponible'
+                      )}
+                    </div>
+                  ) : (
+                    filteredQuickCategories.map((cat) => {
+                      const isAssigned = (currentSongForCategories.tags || []).some(
+                        t => t.trim().toLowerCase() === cat.name.toLowerCase()
+                      );
+                      const isDeleting = deletingCatName === cat.name;
+
+                      return (
+                        <div
+                          key={cat.name}
+                          className={`flex items-center justify-between px-2.5 py-2 rounded-lg border transition-colors ${
+                            isAssigned
+                              ? 'bg-blue-950/30 border-blue-500/50 text-blue-200'
+                              : 'bg-[#18181B] border-[#262629] text-gray-300 hover:border-[#38383C]'
+                          }`}
+                        >
+                          <div 
+                            onClick={() => toggleTagOnSong(currentSongForCategories.id, cat.name)}
+                            className="flex items-center gap-2.5 truncate pr-1 cursor-pointer flex-1 min-w-0"
+                            title={isAssigned ? "Retirer ce tag du chant" : "Ajouter ce tag au chant"}
+                          >
+                            <div className={`w-4 h-4 rounded shrink-0 flex items-center justify-center border transition-colors ${
+                              isAssigned 
+                                ? 'bg-blue-600 border-blue-500 text-white' 
+                                : 'border-[#444] bg-[#1C1C1E]'
+                            }`}>
+                              {isAssigned && <Check className="w-3 h-3 stroke-[2.5]" />}
+                            </div>
+
+                            <span className="truncate text-xs sm:text-sm font-medium">{cat.name}</span>
+
+                            {cat.count > 0 ? (
+                              <span className="text-[10px] text-gray-400 bg-[#0E0E10] px-1.5 py-0.5 rounded border border-[#222224] shrink-0">
+                                {cat.count} {cat.count > 1 ? 'chants' : 'chant'}
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-gray-500 shrink-0 italic">
+                                0 chant
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Delete action with confirmation */}
+                          <div className="flex items-center gap-1 shrink-0 ml-1.5">
+                            {isDeleting ? (
+                              <div className="flex items-center gap-1 bg-rose-950/70 p-1 rounded-md border border-rose-800/50 animate-in fade-in">
+                                <button
+                                  type="button"
+                                  onClick={() => handleQuickDeleteCategory(cat.name)}
+                                  className="px-2 py-0.5 rounded bg-rose-600 hover:bg-rose-500 text-white text-[10px] font-bold transition-colors"
+                                >
+                                  Supprimer
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setDeletingCatName(null)}
+                                  className="px-1.5 py-0.5 rounded bg-[#222] hover:bg-[#333] text-gray-300 text-[10px] transition-colors"
+                                >
+                                  Annuler
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setDeletingCatName(cat.name)}
+                                className="p-1 rounded text-gray-500 hover:text-rose-400 hover:bg-rose-950/30 transition-colors"
+                                title={`Supprimer définitivement la catégorie ${cat.name}`}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-3 sm:p-3.5 border-t border-[#222224] bg-[#171719] flex items-center justify-between">
+                {hiddenCategories.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={handleResetDefaultCategories}
+                    className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Restaurer par défaut</span>
+                  </button>
+                ) : (
+                  <span className="text-xs text-gray-500">
+                    {allCategoriesWithCounts.length} catégories
+                  </span>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpenCategorySongId(null);
+                    setDeletingCatName(null);
+                  }}
+                  className="px-3.5 py-1.5 rounded-lg bg-[#222226] hover:bg-[#2E2E32] text-gray-200 text-xs font-semibold border border-[#333] transition-colors"
+                >
+                  Fermer
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Modal: Add / Manage Song in Setlists (Multi-select, Search, Sort & Quick Create) */}
       {addToSetlistSong && (

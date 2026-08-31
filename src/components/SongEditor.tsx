@@ -3,31 +3,69 @@ import { useApp } from '../context/AppContext';
 import { Song } from '../types';
 import { 
   parseChordPro, 
-  transposeChord, 
   getVocalBadgeStyle,
   formatSecondsToMinutes, 
   parseDurationToSeconds
 } from '../utils/chordUtils';
 import { 
+  VisualSection, 
+  VisualLine, 
+  VisualItem,
+  chordProToVisualSections, 
+  visualSectionsToChordPro, 
+  extractAllChordsFromSections,
+  generateId,
+  insertChordInLine,
+  cleanUpLineItems,
+  SECTION_TYPES_CONFIG
+} from '../utils/visualEditorUtils';
+import { VisualSectionCard } from './editor/VisualSectionCard';
+import { ChordPickerModal } from './editor/ChordPickerModal';
+import { 
   Save, 
   ChevronLeft, 
   Sparkles, 
   Music, 
-  Gauge, 
   Eye, 
   Code2, 
   Plus, 
   Check, 
-  HelpCircle,
-  FileText,
-  Tag,
-  ChevronDown,
-  X,
-  Mic,
-  Clock
+  Tag, 
+  ChevronDown, 
+  X, 
+  Mic, 
+  Layers, 
+  Copy, 
+  Trash2,
+  FileText
 } from 'lucide-react';
 
-const COMMON_CHORDS = ['C', 'G', 'Am', 'F', 'D', 'Em', 'A', 'Dm', 'E', 'B7', 'Bb', 'Gsus4', 'C#m', 'F#m'];
+const SAMPLE_TEMPLATE = `{title: Mon Nouveau Chant}
+{artist: Auteur}
+{key: G}
+{tempo: 75}
+{time: 4/4}
+
+{c: Intro}
+[G] [C] [G] [D]
+
+{c: Couplet 1}
+[G]Voici la première ligne de [C]paroles
+Et [G]voici la suite avec un [D]accord
+Dans la [Em]présence de mon [C]Dieu
+Je [G]chanterai de tout mon [D]cœur
+
+{soc: Refrain [Unisson]}
+Ô [C]Seigneur, Tu es [G]grand
+Ta [Em]bonté dure pour tou[D]jours
+Tous les [C]peuples Te loue[G]ront
+Dans la [D]joie et dans la [G]paix
+{eoc}
+
+{sob: Pont}
+[C]Rien ne peut Te compa[G]rer
+[Em]Tu es le Roi des [D]rois
+{eob}`;
 
 const DEFAULT_CATEGORY_SUGGESTIONS = [
   'Louange',
@@ -43,41 +81,16 @@ const DEFAULT_CATEGORY_SUGGESTIONS = [
   'Communion'
 ];
 
-const SAMPLE_TEMPLATE = `{title: Mon Nouveau Chant}
-{artist: Auteur / Compositeur}
-{key: G}
-{tempo: 75}
-{time: 4/4}
-
-{c: Intro}
-[G] [C] [G] [D]
-
-{c: Couplet 1}
-[G]Voici la première ligne de [C]paroles
-Et [G]voici la suite avec un [D]accord
-Dans la [Em]présence de mon [C]Dieu
-Je [G]chanterai de tout mon [D]cœur
-
-{c: Refrain}
-Ô [C]Seigneur, Tu es [G]grand
-Ta [Em]bonté dure pour tou[D]jours
-Tous les [C]peuples Te loue[G]ront
-Dans la [D]joie et dans la [G]paix
-
-{c: Pont}
-[C]Rien ne peut Te compa[G]rer
-[Em]Tu es le Roi des [D]rois`;
-
 export const SongEditor: React.FC = () => {
   const { 
     selectedSong, 
-    setSelectedSong, 
     songs,
     createSong, 
     updateSong, 
     setActiveTab 
   } = useApp();
 
+  // Basic Song Metadata
   const [title, setTitle] = useState(selectedSong?.title || '');
   const [artist, setArtist] = useState(selectedSong?.artist || '');
   const [key, setKey] = useState(selectedSong?.key || 'C');
@@ -89,13 +102,40 @@ export const SongEditor: React.FC = () => {
   const [notes, setNotes] = useState(selectedSong?.notes || '');
   const [contentChordPro, setContentChordPro] = useState(selectedSong?.contentChordPro || SAMPLE_TEMPLATE);
 
-  const [activePane, setActivePane] = useState<'editor' | 'preview' | 'split'>('split');
+  // Editor View Modes: 'visual' (Interactive Cards) vs 'code' (Raw ChordPro Text)
+  const [editorMode, setEditorMode] = useState<'visual' | 'code'>('visual');
+  const [showPreviewPane, setShowPreviewPane] = useState(true);
+
+  // Visual Structured Sections
+  const [visualSections, setVisualSections] = useState<VisualSection[]>(() => {
+    return chordProToVisualSections(selectedSong?.contentChordPro || SAMPLE_TEMPLATE);
+  });
+
+  // Drag and Drop state
+  const [draggedSectionIndex, setDraggedSectionIndex] = useState<number | null>(null);
+
+  // Chord Picker Modal state
+  const [chordPickerState, setChordPickerState] = useState<{
+    isOpen: boolean;
+    sectionId: string;
+    lineId: string;
+    itemId?: string;
+    charOffset?: number;
+    currentChord: string;
+    lyricsSnippet?: string;
+    sectionTitle?: string;
+  }>({
+    isOpen: false,
+    sectionId: '',
+    lineId: '',
+    currentChord: ''
+  });
+
+  // Saving states
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [customChordInput, setCustomChordInput] = useState('');
-  const [showCustomChordPrompt, setShowCustomChordPrompt] = useState(false);
 
-  // Category dropdown & quick-creation state
+  // Category multi-select popover
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
   const [categorySearchQuery, setCategorySearchQuery] = useState('');
   const [customCategories, setCustomCategories] = useState<string[]>(() => {
@@ -107,7 +147,6 @@ export const SongEditor: React.FC = () => {
     }
   });
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
-
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Close category dropdown on outside click
@@ -121,7 +160,7 @@ export const SongEditor: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Compute all available categories from all songs in library + presets + custom additions
+  // Compute all available categories
   const allAvailableCategories = useMemo(() => {
     const set = new Set<string>();
     DEFAULT_CATEGORY_SUGGESTIONS.forEach(c => set.add(c));
@@ -135,7 +174,6 @@ export const SongEditor: React.FC = () => {
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [songs, customCategories, categories]);
 
-  // Filtered categories in dropdown based on search
   const filteredCategoryList = useMemo(() => {
     if (!categorySearchQuery.trim()) return allAvailableCategories;
     const q = categorySearchQuery.toLowerCase().trim();
@@ -166,7 +204,7 @@ export const SongEditor: React.FC = () => {
     setCategorySearchQuery('');
   };
 
-  // Sync state if selectedSong changes
+  // Sync state on song load
   useEffect(() => {
     if (selectedSong) {
       setTitle(selectedSong.title);
@@ -179,6 +217,7 @@ export const SongEditor: React.FC = () => {
       setCategories(selectedSong.tags || []);
       setNotes(selectedSong.notes || '');
       setContentChordPro(selectedSong.contentChordPro);
+      setVisualSections(chordProToVisualSections(selectedSong.contentChordPro));
     } else {
       setTitle('');
       setArtist('');
@@ -190,44 +229,242 @@ export const SongEditor: React.FC = () => {
       setCategories([]);
       setNotes('');
       setContentChordPro(SAMPLE_TEMPLATE);
+      setVisualSections(chordProToVisualSections(SAMPLE_TEMPLATE));
     }
   }, [selectedSong]);
 
-  // Insert Chord at cursor
-  const insertTextAtCursor = (textToInsert: string) => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
+  // Extract all chords present in the current visual sections
+  const songChords = useMemo(() => {
+    const fromVisual = extractAllChordsFromSections(visualSections);
+    if (fromVisual.length > 0) return fromVisual;
+    const fromCode = parseChordPro(contentChordPro);
+    const set = new Set<string>();
+    fromCode.sections.forEach(sec => {
+      sec.lines.forEach(l => {
+        l.items.forEach(it => {
+          if (it.chord && it.chord.trim()) set.add(it.chord.trim());
+        });
+      });
+    });
+    return Array.from(set);
+  }, [visualSections, contentChordPro]);
 
-    const startPos = textarea.selectionStart;
-    const endPos = textarea.selectionEnd;
-    const currentVal = textarea.value;
-
-    const updated = currentVal.substring(0, startPos) + textToInsert + currentVal.substring(endPos);
-    setContentChordPro(updated);
-
-    setTimeout(() => {
-      textarea.focus();
-      textarea.setSelectionRange(startPos + textToInsert.length, startPos + textToInsert.length);
-    }, 10);
+  // Switch to Code Mode: Sync current visual sections into ChordPro text
+  const handleSwitchToCodeMode = () => {
+    const serialized = visualSectionsToChordPro(visualSections, {
+      title,
+      artist,
+      key,
+      tempo,
+      timeSignature,
+      duration,
+      capo
+    });
+    setContentChordPro(serialized);
+    setEditorMode('code');
   };
 
-  const handleInsertChord = (ch: string) => {
-    insertTextAtCursor(`[${ch}]`);
+  // Switch to Visual Mode: Parse ChordPro text into visual sections
+  const handleSwitchToVisualMode = () => {
+    const parsed = chordProToVisualSections(contentChordPro);
+    setVisualSections(parsed);
+    setEditorMode('visual');
   };
 
-  const handleInsertDirective = (directive: string) => {
-    insertTextAtCursor(`\n{${directive}}\n`);
+  // Update a section in Visual Mode and sync ChordPro text
+  const handleUpdateSection = (updatedSection: VisualSection) => {
+    const updatedSections = visualSections.map(sec => 
+      sec.id === updatedSection.id ? updatedSection : sec
+    );
+    setVisualSections(updatedSections);
+    const newChordPro = visualSectionsToChordPro(updatedSections, {
+      title,
+      artist,
+      key,
+      tempo,
+      timeSignature,
+      duration,
+      capo
+    });
+    setContentChordPro(newChordPro);
   };
 
-  const handleAddCustomChord = () => {
-    if (customChordInput.trim()) {
-      handleInsertChord(customChordInput.trim());
-      setCustomChordInput('');
-      setShowCustomChordPrompt(false);
+  // Add a new section
+  const handleAddNewSection = (type: VisualSection['type'] = 'verse') => {
+    const typeLabel = SECTION_TYPES_CONFIG[type]?.label || 'Section';
+    let countOfType = 1;
+    visualSections.forEach(s => {
+      if (s.type === type) countOfType++;
+    });
+
+    let newTitle = typeLabel;
+    if (type === 'verse') {
+      newTitle = `Couplet ${countOfType}`;
     }
+
+    const newSection: VisualSection = {
+      id: generateId('sec'),
+      type,
+      title: newTitle,
+      vocals: [],
+      lines: [
+        {
+          id: generateId('line'),
+          type: 'lyrics',
+          items: [{ id: generateId('it'), chord: songChords[0] || 'G', lyrics: 'Entrez les paroles ici' }]
+        }
+      ]
+    };
+
+    const updated = [...visualSections, newSection];
+    setVisualSections(updated);
+    setContentChordPro(visualSectionsToChordPro(updated, { title, artist, key, tempo, timeSignature, duration, capo }));
   };
 
-  // Auto-sync title & artist from ChordPro if entered in text
+  // Duplicate a section
+  const handleDuplicateSection = (sectionId: string) => {
+    const sourceIndex = visualSections.findIndex(s => s.id === sectionId);
+    if (sourceIndex === -1) return;
+    const source = visualSections[sourceIndex];
+
+    const duplicatedLines: VisualLine[] = source.lines.map(l => ({
+      id: generateId('line'),
+      type: l.type,
+      items: l.items.map(it => ({
+        id: generateId('it'),
+        chord: it.chord,
+        lyrics: it.lyrics
+      }))
+    }));
+
+    const duplicatedSection: VisualSection = {
+      id: generateId('sec'),
+      type: source.type,
+      title: `${source.title} Bis`,
+      vocals: [...source.vocals],
+      lines: duplicatedLines
+    };
+
+    const updated = [...visualSections];
+    updated.splice(sourceIndex + 1, 0, duplicatedSection);
+    setVisualSections(updated);
+    setContentChordPro(visualSectionsToChordPro(updated, { title, artist, key, tempo, timeSignature, duration, capo }));
+  };
+
+  // Delete a section
+  const handleDeleteSection = (sectionId: string) => {
+    const updated = visualSections.filter(s => s.id !== sectionId);
+    setVisualSections(updated);
+    setContentChordPro(visualSectionsToChordPro(updated, { title, artist, key, tempo, timeSignature, duration, capo }));
+  };
+
+  // Move section by index
+  const handleMoveSection = (fromIndex: number, toIndex: number) => {
+    if (toIndex < 0 || toIndex >= visualSections.length) return;
+    const updated = [...visualSections];
+    const [moved] = updated.splice(fromIndex, 1);
+    updated.splice(toIndex, 0, moved);
+    setVisualSections(updated);
+    setContentChordPro(visualSectionsToChordPro(updated, { title, artist, key, tempo, timeSignature, duration, capo }));
+  };
+
+  // Drag and drop handlers
+  const handleDragStart = (index: number) => {
+    setDraggedSectionIndex(index);
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (targetIndex: number) => {
+    if (draggedSectionIndex === null || draggedSectionIndex === targetIndex) {
+      setDraggedSectionIndex(null);
+      return;
+    }
+    handleMoveSection(draggedSectionIndex, targetIndex);
+    setDraggedSectionIndex(null);
+  };
+
+  // Open chord picker
+  const handleOpenChordPicker = (context: {
+    sectionId: string;
+    lineId: string;
+    itemId?: string;
+    charOffset?: number;
+    currentChord: string;
+    lyricsSnippet?: string;
+    sectionTitle?: string;
+  }) => {
+    setChordPickerState({
+      isOpen: true,
+      ...context
+    });
+  };
+
+  // Save selected chord from picker modal
+  const handleSaveChordFromPicker = (newChord: string) => {
+    const { sectionId, lineId, itemId, charOffset } = chordPickerState;
+    if (!sectionId || !lineId) return;
+
+    const updatedSections = visualSections.map(sec => {
+      if (sec.id !== sectionId) return sec;
+
+      const updatedLines = sec.lines.map(line => {
+        if (line.id !== lineId) return line;
+
+        if (itemId) {
+          // Update existing item chord
+          const updatedItems = line.items.map(it => {
+            if (it.id === itemId) {
+              return { ...it, chord: newChord };
+            }
+            return it;
+          });
+          return { ...line, items: updatedItems };
+        } else if (charOffset !== undefined) {
+          // Insert at character offset
+          return insertChordInLine(line, charOffset, newChord);
+        }
+        return line;
+      });
+
+      return { ...sec, lines: updatedLines };
+    });
+
+    setVisualSections(updatedSections);
+    setContentChordPro(visualSectionsToChordPro(updatedSections, { title, artist, key, tempo, timeSignature, duration, capo }));
+  };
+
+  // Delete chord from picker modal
+  const handleDeleteChordFromPicker = () => {
+    const { sectionId, lineId, itemId } = chordPickerState;
+    if (!sectionId || !lineId || !itemId) return;
+
+    const updatedSections = visualSections.map(sec => {
+      if (sec.id !== sectionId) return sec;
+
+      const updatedLines = sec.lines.map(line => {
+        if (line.id !== lineId) return line;
+
+        const updatedItems = line.items.map(it => {
+          if (it.id === itemId) {
+            return { ...it, chord: '' };
+          }
+          return it;
+        });
+
+        return { ...line, items: cleanUpLineItems(updatedItems) };
+      });
+
+      return { ...sec, lines: updatedLines };
+    });
+
+    setVisualSections(updatedSections);
+    setContentChordPro(visualSectionsToChordPro(updatedSections, { title, artist, key, tempo, timeSignature, duration, capo }));
+  };
+
+  // Auto-sync metadata from ChordPro text
   const handleAutoExtractMetadata = () => {
     const parsed = parseChordPro(contentChordPro);
     if (parsed.title && parsed.title !== 'Sans Titre') setTitle(parsed.title);
@@ -235,12 +472,11 @@ export const SongEditor: React.FC = () => {
     if (parsed.key) setKey(parsed.key);
     if (parsed.tempo) setTempo(parsed.tempo);
     if (parsed.timeSignature) setTimeSignature(parsed.timeSignature);
-    if (parsed.duration) {
-      setDuration(parsed.duration);
-    }
+    if (parsed.duration) setDuration(parsed.duration);
     if (parsed.capo) setCapo(parsed.capo);
   };
 
+  // Save Song to Firebase or Local Repertoire
   const handleSave = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!title.trim()) {
@@ -249,8 +485,20 @@ export const SongEditor: React.FC = () => {
     }
 
     setIsSaving(true);
-
     const resolvedDuration = duration.trim() || '3:30';
+
+    // Ensure ChordPro content is up to date
+    const finalChordPro = editorMode === 'visual'
+      ? visualSectionsToChordPro(visualSections, {
+          title: title.trim(),
+          artist: artist.trim(),
+          key: key.trim().toUpperCase(),
+          tempo: Number(tempo) || 100,
+          timeSignature,
+          duration: resolvedDuration,
+          capo: Number(capo) || 0
+        })
+      : contentChordPro;
 
     const songData: Partial<Song> = {
       title: title.trim(),
@@ -263,14 +511,14 @@ export const SongEditor: React.FC = () => {
       capo: Number(capo) || 0,
       tags: categories,
       notes: notes.trim(),
-      contentChordPro
+      contentChordPro: finalChordPro
     };
 
     try {
       if (selectedSong?.id) {
         await updateSong(selectedSong.id, songData);
       } else {
-        const newId = await createSong(songData);
+        await createSong(songData);
       }
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2500);
@@ -282,68 +530,97 @@ export const SongEditor: React.FC = () => {
   };
 
   // Live parsed preview
-  const previewData = parseChordPro(contentChordPro);
+  const livePreviewData = parseChordPro(
+    editorMode === 'visual'
+      ? visualSectionsToChordPro(visualSections, { title, artist, key, tempo, timeSignature, duration, capo })
+      : contentChordPro
+  );
 
   return (
-    <div className="max-w-7xl mx-auto px-3 sm:px-6 py-6 pb-12 text-[#E0E0E0]">
+    <div className="max-w-7xl mx-auto px-3 sm:px-6 py-6 pb-16 text-[#E0E0E0]">
       
       {/* Top Header & Save Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
           <button
             onClick={() => setActiveTab('repertoire')}
-            className="p-1.5 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 hover:text-white border border-[#333] transition-colors"
+            className="p-2 rounded-lg bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 hover:text-white border border-[#333] transition-colors"
             title="Retour au répertoire"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-white">
-              {selectedSong ? `Édition : ${selectedSong.title}` : 'Créer un nouveau chant'}
+            <h1 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
+              <span>{selectedSong ? selectedSong.title : 'Nouveau Chant'}</span>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-blue-600/20 text-blue-400 border border-blue-500/30 font-medium">
+                Éditeur Visuel
+              </span>
             </h1>
             <p className="text-xs text-gray-400">
-              Format standard ChordPro avec accords <code className="text-blue-400 font-mono">[C]</code> et sections
+              Glissez et déposez les sections, modifiez les accords en un clic
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Mobile view toggle */}
-          <div className="md:hidden flex items-center bg-[#111112] border border-[#222224] rounded-md p-0.5 text-xs">
+          {/* Mode Switcher Tabs */}
+          <div className="flex items-center bg-[#111113] border border-[#222225] rounded-lg p-1 text-xs">
             <button
               type="button"
-              onClick={() => setActivePane('editor')}
-              className={`px-3 py-1 rounded font-medium ${
-                activePane === 'editor' ? 'bg-blue-600 text-white' : 'text-gray-400'
+              onClick={handleSwitchToVisualMode}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-semibold transition-colors ${
+                editorMode === 'visual'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-gray-400 hover:text-gray-200'
               }`}
             >
-              Éditeur
+              <Layers className="w-3.5 h-3.5" />
+              <span>Mode Visuel</span>
             </button>
             <button
               type="button"
-              onClick={() => setActivePane('preview')}
-              className={`px-3 py-1 rounded font-medium ${
-                activePane === 'preview' ? 'bg-blue-600 text-white' : 'text-gray-400'
+              onClick={handleSwitchToCodeMode}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-semibold transition-colors ${
+                editorMode === 'code'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-gray-400 hover:text-gray-200'
               }`}
             >
-              Aperçu
+              <Code2 className="w-3.5 h-3.5" />
+              <span>Code ChordPro</span>
             </button>
           </div>
 
+          {/* Toggle Live Preview pane */}
+          <button
+            type="button"
+            onClick={() => setShowPreviewPane(!showPreviewPane)}
+            className={`hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${
+              showPreviewPane
+                ? 'bg-[#1C1C1E] text-blue-400 border-blue-500/40'
+                : 'bg-[#111113] text-gray-400 border-[#222225] hover:text-gray-200'
+            }`}
+            title="Afficher ou masquer l'aperçu scène"
+          >
+            <Eye className="w-3.5 h-3.5" />
+            <span>Aperçu</span>
+          </button>
+
+          {/* Save / Update Button */}
           <button
             type="button"
             onClick={handleSave}
             disabled={isSaving}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-sm transition-all active:scale-95 disabled:opacity-50"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md transition-all active:scale-95 disabled:opacity-50"
           >
             {saveSuccess ? (
               <>
-                <Check className="w-3.5 h-3.5" />
+                <Check className="w-4 h-4" />
                 <span>Enregistré !</span>
               </>
             ) : (
               <>
-                <Save className="w-3.5 h-3.5" />
+                <Save className="w-4 h-4" />
                 <span>{selectedSong ? 'Mettre à jour' : 'Enregistrer le chant'}</span>
               </>
             )}
@@ -352,7 +629,7 @@ export const SongEditor: React.FC = () => {
       </div>
 
       {/* Metadata Form Grid */}
-      <div className="bg-[#111112] border border-[#222224] rounded-lg p-4 sm:p-5 mb-6 shadow-sm">
+      <div className="bg-[#111113] border border-[#222225] rounded-xl p-4 sm:p-5 mb-6 shadow-sm">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
           
           {/* Titre */}
@@ -362,10 +639,10 @@ export const SongEditor: React.FC = () => {
             </label>
             <input
               type="text"
-              placeholder="ex: Jésus tu es bon"
+              placeholder="Entrez le titre du chant"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full bg-[#1C1C1E] border border-[#333] rounded-md px-3 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500 font-semibold"
+              className="w-full bg-[#1C1C1E] border border-[#333] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 font-semibold"
               required
             />
           </div>
@@ -373,14 +650,14 @@ export const SongEditor: React.FC = () => {
           {/* Artiste */}
           <div>
             <label className="block text-xs font-medium text-gray-300 mb-1">
-              Artiste / Auteur
+              Artiste ou Auteur
             </label>
             <input
               type="text"
-              placeholder="ex: Bethel Music"
+              placeholder="ex: Bethel Music, Chris Tomlin"
               value={artist}
               onChange={(e) => setArtist(e.target.value)}
-              className="w-full bg-[#1C1C1E] border border-[#333] rounded-md px-3 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
+              className="w-full bg-[#1C1C1E] border border-[#333] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500"
             />
           </div>
 
@@ -393,7 +670,7 @@ export const SongEditor: React.FC = () => {
               <select
                 value={key}
                 onChange={(e) => setKey(e.target.value)}
-                className="w-full bg-[#1C1C1E] border border-[#333] rounded-md px-1.5 sm:px-2 py-1.5 text-xs text-blue-400 font-bold focus:outline-none focus:border-blue-500 cursor-pointer text-center"
+                className="w-full bg-[#1C1C1E] border border-[#333] rounded-lg px-1.5 py-2 text-xs text-blue-400 font-bold focus:outline-none focus:border-blue-500 cursor-pointer text-center"
               >
                 {['C', 'C#', 'Db', 'D', 'D#', 'Eb', 'E', 'F', 'F#', 'Gb', 'G', 'G#', 'Ab', 'A', 'A#', 'Bb', 'B', 'Am', 'Em', 'Dm', 'Bm', 'F#m'].map(k => (
                   <option key={k} value={k} className="bg-[#111112] text-gray-200">{k}</option>
@@ -411,7 +688,7 @@ export const SongEditor: React.FC = () => {
                 max={260}
                 value={tempo}
                 onChange={(e) => setTempo(parseInt(e.target.value, 10) || 100)}
-                className="w-full bg-[#1C1C1E] border border-[#333] rounded-md px-1 sm:px-2 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500 text-center"
+                className="w-full bg-[#1C1C1E] border border-[#333] rounded-lg px-1 sm:px-2 py-2 text-xs text-white focus:outline-none focus:border-blue-500 text-center font-bold"
               />
             </div>
 
@@ -422,7 +699,7 @@ export const SongEditor: React.FC = () => {
               <select
                 value={timeSignature}
                 onChange={(e) => setTimeSignature(e.target.value)}
-                className="w-full bg-[#1C1C1E] border border-[#333] rounded-md px-1 sm:px-2 py-1.5 text-xs text-emerald-400 font-medium focus:outline-none focus:border-blue-500 cursor-pointer text-center"
+                className="w-full bg-[#1C1C1E] border border-[#333] rounded-lg px-1 sm:px-2 py-2 text-xs text-emerald-400 font-medium focus:outline-none focus:border-blue-500 cursor-pointer text-center"
               >
                 {['4/4', '3/4', '6/8', '2/4', '12/8', '5/4'].map(ts => (
                   <option key={ts} value={ts} className="bg-[#111112] text-gray-200">{ts}</option>
@@ -439,21 +716,22 @@ export const SongEditor: React.FC = () => {
                 placeholder="3:30"
                 value={duration}
                 onChange={(e) => setDuration(e.target.value)}
-                className="w-full bg-[#1C1C1E] border border-[#333] focus:border-cyan-400 rounded-md px-1 sm:px-2 py-1.5 text-xs text-cyan-300 font-mono font-bold focus:outline-none text-center shadow-inner"
+                className="w-full bg-[#1C1C1E] border border-[#333] focus:border-cyan-400 rounded-lg px-1 sm:px-2 py-2 text-xs text-cyan-300 font-mono font-bold focus:outline-none text-center"
               />
             </div>
           </div>
 
         </div>
 
-        {/* Catégories & Stage Notes */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mt-3 pt-3 border-t border-[#222224]">
-          {/* Catégories Multi-Select Dropdown */}
+        {/* Catégories & Notes de scène */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mt-3 pt-3 border-t border-[#222225]">
+          
+          {/* Multi-Categories Dropdown */}
           <div className="relative" ref={categoryDropdownRef}>
             <div className="flex items-center justify-between mb-1">
               <label className="block text-xs font-medium text-gray-300 flex items-center gap-1.5">
                 <Tag className="w-3.5 h-3.5 text-blue-400" />
-                <span>Catégorie{categories.length > 1 ? 's' : ''}</span>
+                <span>Catégories</span>
               </label>
               {categories.length > 0 && (
                 <span className="text-[10px] text-blue-400 font-semibold">
@@ -462,21 +740,18 @@ export const SongEditor: React.FC = () => {
               )}
             </div>
 
-            {/* Dropdown Trigger Box */}
             <div 
               onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}
-              className="w-full min-h-[34px] bg-[#1C1C1E] border border-[#333] hover:border-[#444] rounded-md px-2.5 py-1.5 text-xs text-gray-200 cursor-pointer flex flex-wrap items-center gap-1.5 transition-colors"
+              className="w-full min-h-[38px] bg-[#1C1C1E] border border-[#333] hover:border-[#444] rounded-lg px-3 py-1.5 text-xs text-gray-200 cursor-pointer flex flex-wrap items-center gap-1.5 transition-colors"
             >
               {categories.length === 0 ? (
-                <span className="text-gray-500 text-xs">Sélectionner ou créer des catégories...</span>
+                <span className="text-gray-500 text-xs">Sélectionner ou créer des catégories</span>
               ) : (
                 categories.map((cat) => (
                   <span
                     key={cat}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-600/20 text-blue-300 border border-blue-500/30 text-[11px] font-medium"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                    }}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-600/20 text-blue-300 border border-blue-500/30 text-[11px] font-medium"
+                    onClick={(e) => e.stopPropagation()}
                   >
                     <span>{cat}</span>
                     <button
@@ -496,11 +771,8 @@ export const SongEditor: React.FC = () => {
               <ChevronDown className={`w-3.5 h-3.5 text-gray-400 ml-auto transition-transform ${isCategoryDropdownOpen ? 'rotate-180' : ''}`} />
             </div>
 
-            {/* Dropdown Menu Popover */}
             {isCategoryDropdownOpen && (
-              <div className="absolute left-0 right-0 top-full mt-1 bg-[#141416] border border-[#2A2A2D] rounded-lg shadow-2xl z-50 p-2.5 text-xs">
-                
-                {/* Search & Quick Creation Field */}
+              <div className="absolute left-0 right-0 top-full mt-1 bg-[#141416] border border-[#2A2A2D] rounded-xl shadow-2xl z-50 p-3 text-xs animate-in fade-in duration-100">
                 <div className="flex items-center gap-1.5 mb-2">
                   <input
                     type="text"
@@ -513,15 +785,14 @@ export const SongEditor: React.FC = () => {
                         handleCreateCategory();
                       }
                     }}
-                    className="flex-1 bg-[#1C1C1E] border border-[#333] rounded px-2.5 py-1 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                    className="flex-1 bg-[#1C1C1E] border border-[#333] rounded-md px-2.5 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
                     autoFocus
                   />
                   {categorySearchQuery.trim() && (
                     <button
                       type="button"
                       onClick={handleCreateCategory}
-                      className="flex items-center gap-1 px-2.5 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold whitespace-nowrap transition-colors"
-                      title="Créer cette nouvelle catégorie"
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold whitespace-nowrap transition-colors"
                     >
                       <Plus className="w-3 h-3" />
                       <span>Créer</span>
@@ -529,70 +800,30 @@ export const SongEditor: React.FC = () => {
                   )}
                 </div>
 
-                {/* Categories List */}
                 <div className="max-h-48 overflow-y-auto space-y-1 pr-1">
-                  {filteredCategoryList.length === 0 ? (
-                    <div className="py-3 text-center text-gray-500 text-xs">
-                      {categorySearchQuery.trim() ? (
-                        <div>
-                          <span>Aucune catégorie correspondante.</span>
-                          <button
-                            type="button"
-                            onClick={handleCreateCategory}
-                            className="block mx-auto mt-1 text-blue-400 font-semibold hover:underline"
-                          >
-                            + Créer &quot;{categorySearchQuery.trim()}&quot;
-                          </button>
+                  {filteredCategoryList.map((cat) => {
+                    const isSelected = categories.includes(cat);
+                    return (
+                      <div
+                        key={cat}
+                        onClick={() => handleToggleCategory(cat)}
+                        className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg cursor-pointer transition-colors ${
+                          isSelected
+                            ? 'bg-blue-600/15 text-blue-300 font-medium'
+                            : 'hover:bg-[#1C1C1E] text-gray-300'
+                        }`}
+                      >
+                        <span className="truncate">{cat}</span>
+                        <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${
+                          isSelected 
+                            ? 'bg-blue-600 border-blue-500 text-white' 
+                            : 'border-[#444] bg-[#1C1C1E]'
+                        }`}>
+                          {isSelected && <Check className="w-3 h-3 stroke-[2.5]" />}
                         </div>
-                      ) : (
-                        'Aucune catégorie disponible'
-                      )}
-                    </div>
-                  ) : (
-                    filteredCategoryList.map((cat) => {
-                      const isSelected = categories.includes(cat);
-                      return (
-                        <div
-                          key={cat}
-                          onClick={() => handleToggleCategory(cat)}
-                          className={`flex items-center justify-between px-2.5 py-1.5 rounded cursor-pointer transition-colors ${
-                            isSelected
-                              ? 'bg-blue-600/15 text-blue-300 font-medium'
-                              : 'hover:bg-[#1C1C1E] text-gray-300'
-                          }`}
-                        >
-                          <span className="truncate">{cat}</span>
-                          <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${
-                            isSelected 
-                              ? 'bg-blue-600 border-blue-500 text-white' 
-                              : 'border-[#444] bg-[#1C1C1E]'
-                          }`}>
-                            {isSelected && <Check className="w-3 h-3 stroke-[2.5]" />}
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-
-                {/* Footer bar */}
-                <div className="flex items-center justify-between pt-2 mt-2 border-t border-[#222224]">
-                  {categories.length > 0 ? (
-                    <button
-                      type="button"
-                      onClick={() => setCategories([])}
-                      className="text-[11px] text-gray-400 hover:text-rose-400 transition-colors"
-                    >
-                      Tout désélectionner
-                    </button>
-                  ) : <span />}
-                  <button
-                    type="button"
-                    onClick={() => setIsCategoryDropdownOpen(false)}
-                    className="px-2.5 py-0.5 rounded bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 text-[11px] font-medium border border-[#333] transition-colors"
-                  >
-                    Fermer
-                  </button>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -601,218 +832,271 @@ export const SongEditor: React.FC = () => {
           {/* Note de scène */}
           <div>
             <label className="block text-xs font-medium text-gray-300 mb-1">
-              Note de Scène / Consignes pour le groupe
+              Note de Scène pour les musiciens
             </label>
             <input
               type="text"
-              placeholder="ex: Solo de guitare après le pont, fin a cappella"
+              placeholder="ex: Solo de guitare après le pont, fin douce"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full bg-[#1C1C1E] border border-[#333] rounded-md px-3 py-1.5 text-xs text-blue-400 focus:outline-none focus:border-blue-500"
+              className="w-full bg-[#1C1C1E] border border-[#333] rounded-lg px-3 py-2 text-xs text-blue-400 focus:outline-none focus:border-blue-500"
             />
           </div>
+
         </div>
       </div>
 
-      {/* Main Split-Screen Editor & Preview */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      {/* Main Workspace: Visual Editor / ChordPro Code + Live Preview */}
+      <div className={`grid grid-cols-1 ${showPreviewPane ? 'lg:grid-cols-12' : 'lg:grid-cols-1'} gap-6`}>
         
-        {/* Left: ChordPro Code Editor & Quick Toolbar */}
-        <div className={`flex flex-col bg-[#111112] border border-[#222224] rounded-lg overflow-hidden shadow-sm ${
-          activePane === 'preview' ? 'hidden lg:flex' : 'flex'
-        }`}>
+        {/* Left Column: Visual Sections List or Code Area */}
+        <div className={`${showPreviewPane ? 'lg:col-span-7' : 'lg:col-span-12'} space-y-5`}>
           
-          {/* Quick Insertion Toolbar */}
-          <div className="bg-[#0A0A0B] border-b border-[#222224] p-2.5">
-            
-            {/* Chord Pills */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-2 scrollbar-none">
-              <span className="text-[10px] uppercase font-semibold text-gray-500 whitespace-nowrap mr-1">
-                Accords :
-              </span>
-              {COMMON_CHORDS.map(ch => (
-                <button
-                  key={ch}
-                  type="button"
-                  onClick={() => handleInsertChord(ch)}
-                  className="px-2 py-0.5 rounded bg-[#1C1C1E] hover:bg-blue-600 hover:text-white text-blue-400 font-mono font-semibold text-xs border border-[#333] hover:border-blue-500 transition-colors shrink-0 active:scale-95"
-                >
-                  [{ch}]
-                </button>
-              ))}
+          {editorMode === 'visual' ? (
+            /* VISUAL SECTIONS INTERACTIVE BUILDER */
+            <div className="space-y-4">
+              
+              {/* Quick Add Section Bar */}
+              <div className="flex items-center justify-between p-3 rounded-xl bg-[#111113] border border-[#222225] gap-2 flex-wrap">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-xs font-bold text-gray-400 uppercase tracking-wider mr-1">
+                    Ajouter une section :
+                  </span>
+                  
+                  <button
+                    type="button"
+                    onClick={() => handleAddNewSection('verse')}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-600/15 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 text-xs font-semibold transition-colors"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>Couplet</span>
+                  </button>
 
-              <button
-                type="button"
-                onClick={() => setShowCustomChordPrompt(!showCustomChordPrompt)}
-                className="px-2 py-0.5 rounded bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 text-xs font-semibold border border-[#333] shrink-0"
-                title="Autre accord"
-              >
-                + Accord
-              </button>
-            </div>
+                  <button
+                    type="button"
+                    onClick={() => handleAddNewSection('chorus')}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-600/15 hover:bg-amber-600/30 text-amber-300 border border-amber-500/30 text-xs font-semibold transition-colors"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>Refrain</span>
+                  </button>
 
-            {/* Custom Chord Prompt Bar */}
-            {showCustomChordPrompt && (
-              <div className="flex items-center gap-2 pt-2 border-t border-[#222224] mt-2">
-                <input
-                  type="text"
-                  placeholder="ex: F#m7b5 ou Dsus2/F#"
-                  value={customChordInput}
-                  onChange={(e) => setCustomChordInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddCustomChord())}
-                  className="bg-[#1C1C1E] border border-[#333] rounded-md px-2.5 py-1 text-xs text-white focus:outline-none focus:border-blue-500"
-                  autoFocus
-                />
-                <button
-                  type="button"
-                  onClick={handleAddCustomChord}
-                  className="px-3 py-1 rounded-md bg-blue-600 text-white text-xs font-semibold"
-                >
-                  Insérer
-                </button>
-              </div>
-            )}
+                  <button
+                    type="button"
+                    onClick={() => handleAddNewSection('bridge')}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-purple-600/15 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 text-xs font-semibold transition-colors"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>Pont</span>
+                  </button>
 
-            {/* Section Directives Pills */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pt-2 border-t border-[#222224] scrollbar-none">
-              <span className="text-[10px] uppercase font-semibold text-gray-500 whitespace-nowrap mr-1">
-                Sections :
-              </span>
-              {[
-                { label: 'Refrain', tag: 'c: Refrain' },
-                { label: 'Couplet 1', tag: 'c: Couplet 1' },
-                { label: 'Couplet 2', tag: 'c: Couplet 2' },
-                { label: 'Pont', tag: 'c: Pont' },
-                { label: 'Intro', tag: 'c: Intro' },
-                { label: 'Fin', tag: 'c: Fin' }
-              ].map(sec => (
-                <button
-                  key={sec.label}
-                  type="button"
-                  onClick={() => handleInsertDirective(sec.tag)}
-                  className="px-2 py-0.5 rounded bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 text-[11px] font-medium border border-[#333] shrink-0"
-                >
-                  &#123;{sec.label}&#125;
-                </button>
-              ))}
+                  <button
+                    type="button"
+                    onClick={() => handleAddNewSection('intro')}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-cyan-600/15 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 text-xs font-semibold transition-colors"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>Intro</span>
+                  </button>
 
-              <button
-                type="button"
-                onClick={handleAutoExtractMetadata}
-                className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded bg-[#1C1C1E] text-blue-400 hover:bg-[#2A2A2D] text-[11px] font-medium border border-[#333] shrink-0"
-                title="Synchroniser le titre et les métadonnées depuis le texte"
-              >
-                <Sparkles className="w-3 h-3" />
-                <span>Auto-sync tags</span>
-              </button>
-            </div>
+                  <button
+                    type="button"
+                    onClick={() => handleAddNewSection('outro')}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-600/15 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 text-xs font-semibold transition-colors"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>Outro</span>
+                  </button>
 
-            {/* Vocal Arrangement Directives Pills */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pt-2 border-t border-[#222224] scrollbar-none">
-              <span className="text-[10px] uppercase font-semibold text-purple-400 flex items-center gap-1 whitespace-nowrap mr-1">
-                <Mic className="w-3 h-3" /> Voix :
-              </span>
-              {[
-                { label: 'Unisson', directive: 'vocal: Unisson', style: 'text-cyan-400 border-cyan-500/30 hover:bg-cyan-950/40' },
-                { label: 'Lead', directive: 'vocal: Lead', style: 'text-amber-400 border-amber-500/30 hover:bg-amber-950/40' },
-                { label: '2e voix', directive: 'vocal: 2e voix', style: 'text-purple-400 border-purple-500/30 hover:bg-purple-950/40' },
-                { label: '3e voix', directive: 'vocal: 3e voix', style: 'text-emerald-400 border-emerald-500/30 hover:bg-emerald-950/40' }
-              ].map(voc => (
-                <button
-                  key={voc.label}
-                  type="button"
-                  onClick={() => handleInsertDirective(voc.directive)}
-                  className={`px-2 py-0.5 rounded bg-[#1C1C1E] text-[11px] font-semibold border ${voc.style} transition-colors shrink-0`}
-                  title={`Insérer la pastille d'arrangement {${voc.directive}}`}
-                >
-                  + {voc.label}
-                </button>
-              ))}
-            </div>
+                  <button
+                    type="button"
+                    onClick={() => handleAddNewSection('instrumental')}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600/15 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-semibold transition-colors"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>Instru</span>
+                  </button>
+                </div>
 
-          </div>
-
-          {/* Text Area */}
-          <textarea
-            ref={textareaRef}
-            rows={18}
-            value={contentChordPro}
-            onChange={(e) => setContentChordPro(e.target.value)}
-            className="w-full flex-1 bg-[#0A0A0B] text-gray-100 font-mono text-xs sm:text-sm p-4 leading-relaxed focus:outline-none resize-none"
-            placeholder="Collez ou écrivez ici votre chant au format ChordPro..."
-          />
-        </div>
-
-        {/* Right: Live Stage Preview */}
-        <div className={`flex flex-col bg-[#111112] border border-[#222224] rounded-lg overflow-hidden shadow-sm ${
-          activePane === 'editor' ? 'hidden lg:flex' : 'flex'
-        }`}>
-          <div className="bg-[#0A0A0B] border-b border-[#222224] px-4 py-2.5 flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-blue-400 flex items-center gap-1.5">
-              <Eye className="w-3.5 h-3.5" />
-              <span>Aperçu Vue Scène en direct</span>
-            </span>
-            <span className="text-[11px] text-gray-400">
-              Tonalité : <strong className="text-blue-400">{key}</strong> • {tempo} BPM
-            </span>
-          </div>
-
-          <div className="p-4 overflow-y-auto max-h-[580px] space-y-4">
-            {previewData.sections.map((sec, sIdx) => (
-              <div 
-                key={sIdx}
-                className={`p-3 rounded-md ${
-                  sec.type === 'chorus' ? 'bg-[#1C1C1E] border-l-2 border-blue-500' : 'bg-[#0A0A0B]'
-                }`}
-              >
-                {(sec.title || (sec.vocals && sec.vocals.length > 0) || sec.vocal) && (
-                  <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
-                    {sec.title ? (
-                      <span className="inline-block text-[10px] uppercase font-bold text-blue-400 px-1.5 py-0.5 rounded bg-[#1C1C1E] border border-[#333]">
-                        {sec.title}
-                      </span>
-                    ) : <div />}
-
-                    {((sec.vocals && sec.vocals.length > 0) || sec.vocal) && (
-                      <div className="flex items-center gap-1 flex-wrap">
-                        {(sec.vocals && sec.vocals.length > 0 ? sec.vocals : [sec.vocal!]).map((voc, vIdx) => {
-                          const vStyle = getVocalBadgeStyle(voc);
-                          return (
-                            <span 
-                              key={vIdx}
-                              className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${vStyle.bg} ${vStyle.border} ${vStyle.text}`}
-                            >
-                              <Mic className={`w-2.5 h-2.5 ${vStyle.icon}`} />
-                              <span>{voc}</span>
-                            </span>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                )}
-                <div className="space-y-2 font-mono text-xs leading-relaxed">
-                  {sec.lines.map((line, lIdx) => (
-                    <div key={lIdx} className="flex flex-wrap items-end gap-x-0.5">
-                      {line.items.map((it, iIdx) => (
-                        <div key={iIdx} className="inline-flex flex-col">
-                          {it.chord && (
-                            <span className="text-blue-400 font-bold leading-none mb-1 text-[0.9em]">
-                              {it.chord}
-                            </span>
-                          )}
-                          <span className="text-gray-200 font-sans">{it.lyrics || ' '}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ))}
+                <div className="text-[11px] text-gray-500">
+                  {visualSections.length} section{visualSections.length > 1 ? 's' : ''}
                 </div>
               </div>
-            ))}
-          </div>
+
+              {/* Sections Cards List */}
+              <div className="space-y-4">
+                {visualSections.map((sec, sIdx) => (
+                  <VisualSectionCard
+                    key={sec.id}
+                    section={sec}
+                    index={sIdx}
+                    totalSections={visualSections.length}
+                    onUpdateSection={handleUpdateSection}
+                    onDuplicateSection={handleDuplicateSection}
+                    onDeleteSection={handleDeleteSection}
+                    onMoveSection={handleMoveSection}
+                    onOpenChordPicker={handleOpenChordPicker}
+                    availableSongChords={songChords}
+                    isDragging={draggedSectionIndex === sIdx}
+                    onDragStart={handleDragStart}
+                    onDragOver={handleDragOver}
+                    onDrop={handleDrop}
+                  />
+                ))}
+              </div>
+
+              {/* Bottom Add Section Button */}
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => handleAddNewSection('verse')}
+                  className="w-full py-3 rounded-xl border border-dashed border-[#333] hover:border-blue-500 text-gray-400 hover:text-blue-400 hover:bg-blue-600/5 transition-all text-xs font-semibold flex items-center justify-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Ajouter une nouvelle section au chant</span>
+                </button>
+              </div>
+
+            </div>
+          ) : (
+            /* CODE CHORDPRO TEXT EDITOR */
+            <div className="bg-[#111113] border border-[#222225] rounded-xl overflow-hidden shadow-sm flex flex-col">
+              <div className="bg-[#161619] px-4 py-2.5 border-b border-[#222225] flex items-center justify-between">
+                <span className="text-xs font-bold text-gray-300 font-mono flex items-center gap-2">
+                  <Code2 className="w-4 h-4 text-blue-400" />
+                  <span>Fichier source ChordPro</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={handleAutoExtractMetadata}
+                  className="flex items-center gap-1 px-2 py-1 rounded bg-[#202024] hover:bg-[#2A2A2E] text-blue-400 text-xs font-medium transition-colors"
+                  title="Synchroniser les métadonnées depuis le texte"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Auto-sync tags</span>
+                </button>
+              </div>
+
+              <textarea
+                ref={textareaRef}
+                rows={22}
+                value={contentChordPro}
+                onChange={(e) => setContentChordPro(e.target.value)}
+                className="w-full bg-[#0B0B0D] text-gray-100 font-mono text-xs sm:text-sm p-4 leading-relaxed focus:outline-none resize-y min-h-[420px]"
+                placeholder="Écrivez ou collez votre chant au format ChordPro..."
+              />
+            </div>
+          )}
+
         </div>
 
+        {/* Right Column: Live Stage Preview */}
+        {showPreviewPane && (
+          <div className="lg:col-span-5 flex flex-col bg-[#111113] border border-[#222225] rounded-xl overflow-hidden shadow-sm sticky top-6 self-start max-h-[85vh]">
+            
+            <div className="bg-[#161619] px-4 py-3 border-b border-[#222225] flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400">
+                  <Eye className="w-3.5 h-3.5" />
+                </div>
+                <span className="text-xs font-bold text-white uppercase tracking-wider">
+                  Aperçu Scène en Direct
+                </span>
+              </div>
+              <span className="text-xs font-mono font-bold text-blue-400 bg-blue-950/40 px-2 py-0.5 rounded border border-blue-800/30">
+                {key} • {tempo} BPM
+              </span>
+            </div>
+
+            {/* Stage Preview Content */}
+            <div className="p-4 overflow-y-auto space-y-4 flex-1">
+              <div className="border-b border-[#222225] pb-3 mb-2">
+                <h2 className="text-lg font-bold text-white">{title || 'Titre du chant'}</h2>
+                {artist && <p className="text-xs text-gray-400">{artist}</p>}
+              </div>
+
+              {livePreviewData.sections.length === 0 ? (
+                <div className="text-center py-12 text-gray-500 text-xs">
+                  Aucun contenu à afficher pour l&apos;instant
+                </div>
+              ) : (
+                livePreviewData.sections.map((sec, sIdx) => (
+                  <div 
+                    key={sIdx}
+                    className={`p-3 rounded-lg ${
+                      sec.type === 'chorus' ? 'bg-[#18181C] border-l-4 border-amber-500' :
+                      sec.type === 'bridge' ? 'bg-[#18181C] border-l-4 border-purple-500' :
+                      sec.type === 'intro' ? 'bg-[#18181C] border-l-4 border-cyan-500' :
+                      'bg-[#141416] border-l-4 border-blue-500'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+                      <span className="text-[11px] uppercase font-bold text-gray-300">
+                        {sec.title || 'Section'}
+                      </span>
+
+                      {sec.vocals && sec.vocals.length > 0 && (
+                        <div className="flex items-center gap-1 flex-wrap">
+                          {sec.vocals.map((voc, vIdx) => {
+                            const vStyle = getVocalBadgeStyle(voc);
+                            return (
+                              <span 
+                                key={vIdx}
+                                className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${vStyle.bg} ${vStyle.border} ${vStyle.text}`}
+                              >
+                                <Mic className={`w-2.5 h-2.5 ${vStyle.icon}`} />
+                                <span>{voc}</span>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-1.5 font-mono text-xs leading-relaxed">
+                      {sec.lines.map((line, lIdx) => {
+                        if (line.type === 'empty') {
+                          return <div key={lIdx} className="h-2" />;
+                        }
+                        return (
+                          <div key={lIdx} className="flex flex-wrap items-end gap-x-1">
+                            {line.items.map((it, iIdx) => (
+                              <div key={iIdx} className="inline-flex flex-col">
+                                {it.chord && (
+                                  <span className="text-blue-400 font-bold leading-none mb-1 text-[0.95em]">
+                                    {it.chord}
+                                  </span>
+                                )}
+                                <span className="text-gray-200 font-sans text-sm">{it.lyrics || '\u00A0'}</span>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+          </div>
+        )}
+
       </div>
+
+      {/* Interactive Chord Picker Modal */}
+      <ChordPickerModal
+        isOpen={chordPickerState.isOpen}
+        onClose={() => setChordPickerState(prev => ({ ...prev, isOpen: false }))}
+        currentChord={chordPickerState.currentChord}
+        onSaveChord={handleSaveChordFromPicker}
+        onDeleteChord={handleDeleteChordFromPicker}
+        availableSongChords={songChords}
+        anchorContext={{
+          lyricsSnippet: chordPickerState.lyricsSnippet,
+          sectionTitle: chordPickerState.sectionTitle
+        }}
+      />
 
     </div>
   );

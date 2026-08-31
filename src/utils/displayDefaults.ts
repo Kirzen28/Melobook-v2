@@ -35,6 +35,10 @@ export const COLOR_PRESETS = [
   { name: 'Ardoise / Blanc', value: '#94a3b8' },
   { name: 'Blanc Pur', value: '#f8fafc' },
   { name: 'Gris Neutre', value: '#64748b' },
+  { name: 'Vert Lime', value: '#84cc16' },
+  { name: 'Teal Profond', value: '#14b8a6' },
+  { name: 'Jaune Moutarde', value: '#ca8a04' },
+  { name: 'Rouge Brique', value: '#b91c1c' },
 ];
 
 export interface SectionTypeMeta {

@@ -11,6 +11,7 @@ import {
   ChevronDown,
   ChevronUp
 } from 'lucide-react';
+import { NumberSelector } from './NumberSelector';
 import { 
   COLOR_PRESETS, 
   SECTION_TYPES_LIST, 
@@ -395,23 +396,13 @@ export const SettingsView: React.FC = () => {
               <div className="space-y-1.5">
                 <div className="flex justify-between items-center text-xs">
                   <span className="font-semibold text-gray-200">Titre de la Chanson</span>
-                  <span className="font-mono text-purple-400 font-bold bg-purple-950/40 px-2 py-0.5 rounded border border-purple-800/30">
-                    {typography.titleSize} px
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min={16}
-                  max={48}
-                  step={1}
-                  value={typography.titleSize}
-                  onChange={(e) => updateTypography('titleSize', Number(e.target.value))}
-                  className="w-full accent-purple-500 cursor-pointer h-2 bg-[#222226] rounded-lg"
-                />
-                <div className="flex justify-between text-[10px] text-gray-500 font-mono">
-                  <span>16 px</span>
-                  <span>Défaut : 26 px</span>
-                  <span>48 px</span>
+                  <NumberSelector
+                    value={typography.titleSize}
+                    min={16}
+                    max={48}
+                    step={1}
+                    onChange={(val) => updateTypography('titleSize', val)}
+                  />
                 </div>
               </div>
 
@@ -419,23 +410,13 @@ export const SettingsView: React.FC = () => {
               <div className="space-y-1.5">
                 <div className="flex justify-between items-center text-xs">
                   <span className="font-semibold text-gray-200">Méta-données</span>
-                  <span className="font-mono text-purple-400 font-bold bg-purple-950/40 px-2 py-0.5 rounded border border-purple-800/30">
-                    {typography.metadataSize} px
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min={10}
-                  max={20}
-                  step={1}
-                  value={typography.metadataSize}
-                  onChange={(e) => updateTypography('metadataSize', Number(e.target.value))}
-                  className="w-full accent-purple-500 cursor-pointer h-2 bg-[#222226] rounded-lg"
-                />
-                <div className="flex justify-between text-[10px] text-gray-500 font-mono">
-                  <span>10 px</span>
-                  <span>Défaut : 12 px</span>
-                  <span>20 px</span>
+                  <NumberSelector
+                    value={typography.metadataSize}
+                    min={10}
+                    max={20}
+                    step={1}
+                    onChange={(val) => updateTypography('metadataSize', val)}
+                  />
                 </div>
               </div>
 
@@ -443,23 +424,13 @@ export const SettingsView: React.FC = () => {
               <div className="space-y-1.5">
                 <div className="flex justify-between items-center text-xs">
                   <span className="font-semibold text-gray-200">En-têtes de Sections</span>
-                  <span className="font-mono text-purple-400 font-bold bg-purple-950/40 px-2 py-0.5 rounded border border-purple-800/30">
-                    {typography.headerSize} px
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min={10}
-                  max={24}
-                  step={1}
-                  value={typography.headerSize}
-                  onChange={(e) => updateTypography('headerSize', Number(e.target.value))}
-                  className="w-full accent-purple-500 cursor-pointer h-2 bg-[#222226] rounded-lg"
-                />
-                <div className="flex justify-between text-[10px] text-gray-500 font-mono">
-                  <span>10 px</span>
-                  <span>Défaut : 12 px</span>
-                  <span>24 px</span>
+                  <NumberSelector
+                    value={typography.headerSize}
+                    min={10}
+                    max={24}
+                    step={1}
+                    onChange={(val) => updateTypography('headerSize', val)}
+                  />
                 </div>
               </div>
 
@@ -467,23 +438,13 @@ export const SettingsView: React.FC = () => {
               <div className="space-y-1.5">
                 <div className="flex justify-between items-center text-xs">
                   <span className="font-semibold text-gray-200">Paroles</span>
-                  <span className="font-mono text-purple-400 font-bold bg-purple-950/40 px-2 py-0.5 rounded border border-purple-800/30">
-                    {typography.lyricsSize} px
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min={12}
-                  max={36}
-                  step={1}
-                  value={typography.lyricsSize}
-                  onChange={(e) => updateTypography('lyricsSize', Number(e.target.value))}
-                  className="w-full accent-purple-500 cursor-pointer h-2 bg-[#222226] rounded-lg"
-                />
-                <div className="flex justify-between text-[10px] text-gray-500 font-mono">
-                  <span>12 px</span>
-                  <span>Défaut : 18 px</span>
-                  <span>36 px</span>
+                  <NumberSelector
+                    value={typography.lyricsSize}
+                    min={12}
+                    max={36}
+                    step={1}
+                    onChange={(val) => updateTypography('lyricsSize', val)}
+                  />
                 </div>
               </div>
 
@@ -491,23 +452,13 @@ export const SettingsView: React.FC = () => {
               <div className="space-y-1.5">
                 <div className="flex justify-between items-center text-xs">
                   <span className="font-semibold text-gray-200">Accords</span>
-                  <span className="font-mono text-purple-400 font-bold bg-purple-950/40 px-2 py-0.5 rounded border border-purple-800/30">
-                    {typography.chordSize} px
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min={11}
-                  max={32}
-                  step={1}
-                  value={typography.chordSize}
-                  onChange={(e) => updateTypography('chordSize', Number(e.target.value))}
-                  className="w-full accent-purple-500 cursor-pointer h-2 bg-[#222226] rounded-lg"
-                />
-                <div className="flex justify-between text-[10px] text-gray-500 font-mono">
-                  <span>11 px</span>
-                  <span>Défaut : 16 px</span>
-                  <span>32 px</span>
+                  <NumberSelector
+                    value={typography.chordSize}
+                    min={11}
+                    max={32}
+                    step={1}
+                    onChange={(val) => updateTypography('chordSize', val)}
+                  />
                 </div>
               </div>
 
@@ -515,23 +466,13 @@ export const SettingsView: React.FC = () => {
               <div className="space-y-1.5 pt-2 border-t border-[#222224]">
                 <div className="flex justify-between items-center text-xs">
                   <span className="font-semibold text-gray-200">Interligne des Paroles</span>
-                  <span className="font-mono text-purple-400 font-bold bg-purple-950/40 px-2 py-0.5 rounded border border-purple-800/30">
-                    {typography.lineSpacing.toFixed(1)}x
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min={1.1}
-                  max={2.2}
-                  step={0.1}
-                  value={typography.lineSpacing}
-                  onChange={(e) => updateTypography('lineSpacing', Number(e.target.value))}
-                  className="w-full accent-purple-500 cursor-pointer h-2 bg-[#222226] rounded-lg"
-                />
-                <div className="flex justify-between text-[10px] text-gray-500 font-mono">
-                  <span>1.1</span>
-                  <span>Défaut : 1.4</span>
-                  <span>2.2</span>
+                  <NumberSelector
+                    value={typography.lineSpacing}
+                    min={1.1}
+                    max={2.2}
+                    step={0.1}
+                    onChange={(val) => updateTypography('lineSpacing', val)}
+                  />
                 </div>
               </div>
 
@@ -585,7 +526,7 @@ export const SettingsView: React.FC = () => {
                     {/* Presets color swatches */}
                     <div className="flex items-center justify-between gap-1 pt-2 border-t border-[#2A2A2E]">
                       <div className="flex items-center gap-1 overflow-x-auto py-1 scrollbar-none">
-                        {COLOR_PRESETS.slice(0, 6).map((preset) => (
+                        {COLOR_PRESETS.slice(0, 10).map((preset) => (
                           <button
                             key={preset.value}
                             onClick={() => updateSectionColor(sec.key, preset.value)}

@@ -1,8 +1,10 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { Song, Setlist } from '../types';
 import { parseDurationToSeconds, formatSetlistDuration, getSongDuration } from '../utils/chordUtils';
 import { SongImportModal } from './SongImportModal';
+import { LanguageVersionModal } from './LanguageVersionModal';
+import { PRESET_LANGUAGES } from '../utils/languageUtils';
 import { 
   DEFAULT_CATEGORY_SUGGESTIONS, 
   getCustomCategories, 
@@ -35,7 +37,9 @@ import {
   Clock,
   Sparkles,
   RotateCcw,
-  Pen
+  Pen,
+  LayoutGrid,
+  List
 } from 'lucide-react';
 
 export const SongList: React.FC = () => {
@@ -54,7 +58,27 @@ export const SongList: React.FC = () => {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedKey, setSelectedKey] = useState<string>('all');
+  const [selectedLanguage, setSelectedLanguage] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'title' | 'artist' | 'tempo' | 'duration' | 'recent'>('title');
+
+  // View mode: 'grid' ou 'alphabetical'
+  const [viewMode, setViewMode] = useState<'grid' | 'alphabetical'>(() => {
+    return (localStorage.getItem('songbook_view_mode') as 'grid' | 'alphabetical') || 'grid';
+  });
+
+  const handleSetViewMode = (mode: 'grid' | 'alphabetical') => {
+    setViewMode(mode);
+    localStorage.setItem('songbook_view_mode', mode);
+  };
+
+  // Active letter indicator for scroll tracking in alphabetical view
+  const [activeLetter, setActiveLetter] = useState<string>('A');
+
+  // Alphabet letters
+  const ALL_LETTERS = useMemo(() => [
+    'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
+    'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '#'
+  ], []);
 
   // Category filter state & custom categories synced via localStorage
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -63,6 +87,9 @@ export const SongList: React.FC = () => {
   const [customCategories, setCustomCategories] = useState<string[]>(() => getCustomCategories());
   const [hiddenCategories, setHiddenCategories] = useState<string[]>(() => getHiddenCategories());
   
+  // Language modal state
+  const [languageModalSong, setLanguageModalSong] = useState<Song | null>(null);
+
   // Quick category management bubble state (per song)
   const [openCategorySongId, setOpenCategorySongId] = useState<string | null>(null);
   const [quickCatInput, setQuickCatInput] = useState('');
@@ -134,6 +161,16 @@ export const SongList: React.FC = () => {
       if (s.key) keys.add(s.key.toUpperCase());
     });
     return Array.from(keys).sort();
+  }, [songs]);
+
+  // Languages list for filtering
+  const availableLanguages = useMemo(() => {
+    const set = new Set<string>();
+    PRESET_LANGUAGES.forEach(l => set.add(l.name));
+    songs.forEach(s => {
+      if (s.language && s.language.trim()) set.add(s.language.trim());
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [songs]);
 
   // Aggregate all unique categories and their song counts
@@ -303,6 +340,13 @@ export const SongList: React.FC = () => {
       if (selectedKey !== 'all' && song.key.toUpperCase() !== selectedKey) {
         return false;
       }
+      // Language filter
+      if (selectedLanguage !== 'all') {
+        const songLang = (song.language || 'Français').toLowerCase();
+        if (songLang !== selectedLanguage.toLowerCase()) {
+          return false;
+        }
+      }
       // Categories filter (support single or multiple selection - union match)
       if (selectedCategories.length > 0) {
         const songCats = (song.tags || []).map(t => t.trim().toLowerCase());
@@ -315,8 +359,9 @@ export const SongList: React.FC = () => {
         const matchTitle = song.title.toLowerCase().includes(q);
         const matchArtist = song.artist.toLowerCase().includes(q);
         const matchLyrics = song.contentChordPro.toLowerCase().includes(q);
+        const matchLanguage = (song.language || '').toLowerCase().includes(q);
         const matchTags = song.tags?.some(t => t.toLowerCase().includes(q));
-        if (!matchTitle && !matchArtist && !matchLyrics && !matchTags) {
+        if (!matchTitle && !matchArtist && !matchLyrics && !matchTags && !matchLanguage) {
           return false;
         }
       }
@@ -329,7 +374,91 @@ export const SongList: React.FC = () => {
       if (sortBy === 'recent') return (b.createdAt || '').localeCompare(a.createdAt || '');
       return 0;
     });
-  }, [songs, selectedKey, selectedCategories, searchQuery, sortBy]);
+  }, [songs, selectedKey, selectedLanguage, selectedCategories, searchQuery, sortBy]);
+
+  // Group songs alphabetically by first letter of title
+  const alphabeticalGroups = useMemo(() => {
+    const sorted = [...filteredSongs].sort((a, b) => 
+      (a.title || '').localeCompare(b.title || '', 'fr', { sensitivity: 'base' })
+    );
+
+    const map = new Map<string, Song[]>();
+    sorted.forEach(song => {
+      const raw = (song.title || '').trim().charAt(0).toUpperCase();
+      const normalized = raw.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const letter = /[A-Z]/.test(normalized) ? normalized : '#';
+      if (!map.has(letter)) {
+        map.set(letter, []);
+      }
+      map.get(letter)!.push(song);
+    });
+
+    const sortedKeys = Array.from(map.keys()).sort((a, b) => {
+      if (a === '#') return 1;
+      if (b === '#') return -1;
+      return a.localeCompare(b);
+    });
+
+    return sortedKeys.map(letter => ({
+      letter,
+      songs: map.get(letter)!
+    }));
+  }, [filteredSongs]);
+
+  const availableLettersSet = useMemo(() => {
+    return new Set(alphabeticalGroups.map(g => g.letter));
+  }, [alphabeticalGroups]);
+
+  // Scroll listener to update active letter when scrolling in alphabetical view
+  useEffect(() => {
+    if (viewMode !== 'alphabetical' || alphabeticalGroups.length === 0) return;
+
+    const handleScroll = () => {
+      const headerOffset = 140;
+      const sections = document.querySelectorAll<HTMLElement>('[data-letter-section]');
+      let current = '';
+
+      sections.forEach(sec => {
+        const rect = sec.getBoundingClientRect();
+        if (rect.top <= headerOffset) {
+          const l = sec.getAttribute('data-letter-section');
+          if (l) current = l;
+        }
+      });
+
+      if (current) {
+        setActiveLetter(current);
+      } else if (sections.length > 0) {
+        const first = sections[0].getAttribute('data-letter-section');
+        if (first) setActiveLetter(first);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [viewMode, alphabeticalGroups]);
+
+  // Scroll smoothly to a target letter
+  const scrollToLetter = (letter: string) => {
+    const elem = document.getElementById(`section-letter-${letter}`);
+    if (elem) {
+      const yOffset = -90;
+      const y = elem.getBoundingClientRect().top + window.pageYOffset + yOffset;
+      window.scrollTo({ top: y, behavior: 'smooth' });
+      setActiveLetter(letter);
+    }
+  };
+
+  // Touch scrubber handler for mobile
+  const handleScrubberTouch = (e: React.TouchEvent<HTMLDivElement>) => {
+    const touch = e.touches[0];
+    const target = document.elementFromPoint(touch.clientX, touch.clientY);
+    const letter = target?.getAttribute('data-letter');
+    if (letter && availableLettersSet.has(letter)) {
+      scrollToLetter(letter);
+    }
+  };
 
   const handleOpenStage = (song: Song) => {
     setSelectedSong(song);
@@ -590,12 +719,12 @@ export const SongList: React.FC = () => {
           )}
         </div>
 
-        <div className="flex items-center gap-1.5 sm:gap-2 w-full md:w-auto flex-nowrap justify-between md:justify-end">
+        <div className="grid grid-cols-2 gap-2 w-full md:flex md:items-center md:gap-2 md:w-auto md:justify-end">
           {/* Category Filter Dropdown */}
-          <div className="relative flex-1 sm:flex-initial min-w-0" ref={categoryFilterRef}>
+          <div className="relative w-full md:w-auto min-w-0" ref={categoryFilterRef}>
             <div
               onClick={() => setIsCategoryFilterOpen(!isCategoryFilterOpen)}
-              className={`h-[34px] bg-[#1C1C1E] border hover:border-[#444] rounded-md px-2 sm:px-2.5 py-1 text-xs text-gray-200 cursor-pointer flex items-center justify-between gap-1 sm:gap-1.5 transition-colors ${
+              className={`h-[34px] w-full bg-[#1C1C1E] border hover:border-[#444] rounded-md px-2 sm:px-2.5 py-1 text-xs text-gray-200 cursor-pointer flex items-center justify-between gap-1 sm:gap-1.5 transition-colors ${
                 selectedCategories.length > 0
                   ? 'border-blue-500/50 bg-blue-950/20'
                   : 'border-[#333]'
@@ -743,7 +872,7 @@ export const SongList: React.FC = () => {
           </div>
 
           {/* Key Filter */}
-          <div className="flex-1 sm:flex-initial min-w-0 h-[34px] flex items-center gap-1 sm:gap-1.5 text-xs text-gray-400 bg-[#1C1C1E] border border-[#333] hover:border-[#444] rounded-md px-2 sm:px-2.5 py-1 transition-colors">
+          <div className="w-full md:w-auto h-[34px] flex items-center gap-1 sm:gap-1.5 text-xs text-gray-400 bg-[#1C1C1E] border border-[#333] hover:border-[#444] rounded-md px-2 sm:px-2.5 py-1 transition-colors">
             <Music className="w-3.5 h-3.5 text-blue-400 shrink-0" />
             <span className="hidden lg:inline text-gray-400">Tonalité:</span>
             <select
@@ -758,8 +887,24 @@ export const SongList: React.FC = () => {
             </select>
           </div>
 
+          {/* Language Filter */}
+          <div className="w-full md:w-auto h-[34px] flex items-center gap-1 sm:gap-1.5 text-xs text-gray-400 bg-[#1C1C1E] border border-[#333] hover:border-[#444] rounded-md px-2 sm:px-2.5 py-1 transition-colors">
+            <Globe className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+            <span className="hidden lg:inline text-gray-400">Langue:</span>
+            <select
+              value={selectedLanguage}
+              onChange={(e) => setSelectedLanguage(e.target.value)}
+              className="w-full bg-transparent text-gray-200 text-[11px] sm:text-xs font-semibold focus:outline-none cursor-pointer truncate"
+            >
+              <option value="all" className="bg-[#111112]">Toutes les langues</option>
+              {availableLanguages.map(lang => (
+                <option key={lang} value={lang} className="bg-[#111112]">{lang}</option>
+              ))}
+            </select>
+          </div>
+
           {/* Sort By */}
-          <div className="flex-1 sm:flex-initial min-w-0 h-[34px] flex items-center gap-1 sm:gap-1.5 text-xs text-gray-400 bg-[#1C1C1E] border border-[#333] hover:border-[#444] rounded-md px-2 sm:px-2.5 py-1 transition-colors">
+          <div className="w-full md:w-auto h-[34px] flex items-center gap-1 sm:gap-1.5 text-xs text-gray-400 bg-[#1C1C1E] border border-[#333] hover:border-[#444] rounded-md px-2 sm:px-2.5 py-1 transition-colors">
             <SlidersHorizontal className="w-3.5 h-3.5 text-blue-400 shrink-0" />
             <span className="hidden lg:inline text-gray-400">Trier:</span>
             <select
@@ -774,41 +919,91 @@ export const SongList: React.FC = () => {
               <option value="recent" className="bg-[#111112]">Plus récents</option>
             </select>
           </div>
+
+          {/* Mode d'affichage : Grille ou Liste Alphabétique */}
+          <div className="col-span-2 md:col-auto flex items-center justify-center bg-[#1C1C1E] border border-[#333] rounded-md p-0.5 h-[34px] shrink-0">
+            <button
+              type="button"
+              onClick={() => handleSetViewMode('grid')}
+              className={`flex-1 md:flex-initial px-2.5 h-full flex items-center justify-center rounded text-xs font-semibold transition-all ${
+                viewMode === 'grid'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+              title="Affichage en grille"
+              aria-label="Affichage en grille"
+            >
+              <LayoutGrid className="w-4 h-4 shrink-0" />
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSetViewMode('alphabetical')}
+              className={`flex-1 md:flex-initial px-2.5 h-full flex items-center justify-center rounded text-xs font-semibold transition-all ${
+                viewMode === 'alphabetical'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+              title="Affichage en liste alphabétique"
+              aria-label="Affichage en liste alphabétique"
+            >
+              <List className="w-4 h-4 shrink-0" />
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Active Category Filter Chips Bar */}
-      {selectedCategories.length > 0 && (
+      {/* Active Filter Chips Bar */}
+      {(selectedCategories.length > 0 || selectedLanguage !== 'all') && (
         <div className="flex items-center flex-wrap gap-1.5 mb-4 px-1">
-          <span className="text-[11px] text-gray-400 flex items-center gap-1 mr-1">
-            <Tag className="w-3 h-3 text-blue-400" />
-            <span>Filtre catégorie{selectedCategories.length > 1 ? 's' : ''} :</span>
-          </span>
-          {selectedCategories.map((cat) => (
-            <span
-              key={cat}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-600/20 border border-blue-500/40 text-blue-300 text-xs font-medium"
-            >
-              <span>{cat}</span>
+          {selectedLanguage !== 'all' && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-600/20 border border-indigo-500/40 text-indigo-300 text-xs font-medium">
+              <Globe className="w-3 h-3" />
+              <span>{selectedLanguage}</span>
               <button
-                onClick={() => toggleCategoryFilter(cat)}
+                onClick={() => setSelectedLanguage('all')}
                 className="hover:text-white transition-colors"
-                title="Supprimer ce filtre"
+                title="Supprimer ce filtre de langue"
               >
                 <X className="w-3 h-3" />
               </button>
             </span>
-          ))}
+          )}
+          {selectedCategories.length > 0 && (
+            <>
+              <span className="text-[11px] text-gray-400 flex items-center gap-1 mr-1">
+                <Tag className="w-3 h-3 text-blue-400" />
+                <span>Filtre catégorie{selectedCategories.length > 1 ? 's' : ''} :</span>
+              </span>
+              {selectedCategories.map((cat) => (
+                <span
+                  key={cat}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-600/20 border border-blue-500/40 text-blue-300 text-xs font-medium"
+                >
+                  <span>{cat}</span>
+                  <button
+                    onClick={() => toggleCategoryFilter(cat)}
+                    className="hover:text-white transition-colors"
+                    title="Supprimer ce filtre"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              ))}
+            </>
+          )}
           <button
-            onClick={() => setSelectedCategories([])}
+            onClick={() => {
+              setSelectedCategories([]);
+              setSelectedLanguage('all');
+            }}
             className="text-[11px] text-gray-400 hover:text-white ml-2 underline"
           >
-            Effacer
+            Tout effacer
           </button>
         </div>
       )}
 
-      {/* Song List Cards */}
+      {/* Song List Cards or Alphabetical List */}
       {filteredSongs.length === 0 ? (
         <div className="text-center py-16 bg-[#111112] rounded-lg border border-[#222224] p-6">
           <Music className="w-10 h-10 text-gray-600 mx-auto mb-3" />
@@ -819,7 +1014,7 @@ export const SongList: React.FC = () => {
               : "Commencez par ajouter votre premier chant ou charger les chants de démonstration."}
           </p>
         </div>
-      ) : (
+      ) : viewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {filteredSongs.map((song) => {
             return (
@@ -829,7 +1024,7 @@ export const SongList: React.FC = () => {
                 className="group relative bg-[#111112] hover:bg-[#151518] border border-[#222224] hover:border-blue-500/40 rounded-lg p-4 transition-all flex flex-col justify-between cursor-pointer shadow-sm hover:shadow-md"
               >
                 <div>
-                  {/* Card Header: Key / BPM / Duration & Action Buttons */}
+                  {/* Card Header: Key / BPM / Duration / Language & Action Buttons */}
                   <div className="flex items-center justify-between gap-2 mb-2.5">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="px-2 py-0.5 rounded bg-[#1C1C1E] border border-[#333] text-gray-200 text-[11px] font-bold">
@@ -851,6 +1046,20 @@ export const SongList: React.FC = () => {
 
                     {/* Quick action buttons in top-right - Icons only */}
                     <div className="flex items-center gap-1 shrink-0">
+                      {/* Quick language versions button */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setLanguageModalSong(song);
+                        }}
+                        className="p-1.5 rounded bg-[#1C1C1E] hover:bg-[#252528] text-gray-300 hover:text-indigo-400 border border-[#333] hover:border-indigo-500/40 transition-colors flex items-center justify-center cursor-pointer"
+                        title="Gérer les langues et versions liées"
+                        aria-label="Versions et langues"
+                      >
+                        <Globe className="w-3.5 h-3.5 text-indigo-400" />
+                      </button>
+
                       <button
                         type="button"
                         onClick={(e) => {
@@ -975,6 +1184,258 @@ export const SongList: React.FC = () => {
               </div>
             );
           })}
+        </div>
+      ) : (
+        /* Alphabetical 1-Column List View */
+        <div className="relative">
+          {/* Top Quick Letters Ribbon */}
+          <div className="flex items-center gap-1 overflow-x-auto pb-2 mb-4 scrollbar-none border-b border-[#222224]">
+            <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider shrink-0 mr-1.5 flex items-center gap-1">
+              <span>Lettres :</span>
+            </span>
+            {alphabeticalGroups.map((group) => {
+              const isActive = activeLetter === group.letter;
+              return (
+                <button
+                  key={group.letter}
+                  type="button"
+                  onClick={() => scrollToLetter(group.letter)}
+                  className={`shrink-0 px-2.5 py-1 rounded-md text-xs font-bold transition-all ${
+                    isActive
+                      ? 'bg-blue-600 text-white shadow-xs scale-105'
+                      : 'bg-[#18181A] text-gray-300 hover:text-white hover:bg-[#252528] border border-[#262629]'
+                  }`}
+                >
+                  {group.letter}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Vertical Alphabet Jump Bar */}
+          <div 
+            className="fixed right-1 sm:right-2 top-24 bottom-16 z-30 flex flex-col justify-center items-center select-none pointer-events-auto"
+            aria-label="Barre alphabétique"
+          >
+            <div 
+              className="bg-[#111112]/95 backdrop-blur-md border border-[#2B2B30] rounded-full py-1.5 px-0.5 sm:px-1 shadow-2xl flex flex-col items-center justify-between h-full max-h-[75vh] overflow-hidden"
+              onTouchMove={handleScrubberTouch}
+            >
+              {ALL_LETTERS.map((letter) => {
+                const hasSongs = availableLettersSet.has(letter);
+                const isActive = activeLetter === letter;
+                return (
+                  <button
+                    key={letter}
+                    type="button"
+                    data-letter={letter}
+                    onClick={() => hasSongs && scrollToLetter(letter)}
+                    disabled={!hasSongs}
+                    className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full text-[9px] sm:text-[10px] font-mono font-bold flex items-center justify-center transition-all ${
+                      isActive
+                        ? 'bg-blue-600 text-white scale-125 shadow-md z-10'
+                        : hasSongs
+                          ? 'text-gray-300 hover:text-white hover:bg-blue-600/30 cursor-pointer'
+                          : 'text-gray-600 opacity-40 cursor-default'
+                    }`}
+                    title={hasSongs ? `Aller à la lettre ${letter}` : `Aucun chant commençant par ${letter}`}
+                  >
+                    {letter}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Single-Column List of Chants */}
+          <div className="space-y-6 pr-6 sm:pr-8">
+            {alphabeticalGroups.map((group) => (
+              <div
+                key={group.letter}
+                id={`section-letter-${group.letter}`}
+                data-letter-section={group.letter}
+                className="scroll-mt-24"
+              >
+                {/* Sticky Letter Header */}
+                <div className="sticky top-16 z-20 py-1.5 px-3 bg-[#0A0A0B]/95 backdrop-blur-md border-b border-[#222224] flex items-center mb-2 rounded-lg">
+                  <span className="w-7 h-7 rounded-md bg-blue-600 text-white font-black text-sm flex items-center justify-center shadow-xs">
+                    {group.letter}
+                  </span>
+                </div>
+
+                {/* 1-column list of songs */}
+                <div className="space-y-1.5">
+                  {group.songs.map((song) => {
+                    const isConfirming = confirmDeleteSongId === song.id;
+                    return (
+                      <div
+                        key={song.id}
+                        onClick={() => handleOpenStage(song)}
+                        className="group bg-[#111112] hover:bg-[#161619] border border-[#222224] hover:border-blue-500/40 rounded-lg p-3 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 cursor-pointer shadow-xs"
+                      >
+                        {/* Song details */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="text-sm font-bold text-white group-hover:text-blue-400 transition-colors">
+                              {song.title}
+                            </h3>
+                            {song.artist && (
+                              <span className="text-xs text-gray-400">
+                                — {song.artist}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Categories */}
+                          {song.tags && song.tags.length > 0 && (
+                            <div className="flex flex-wrap items-center gap-1 mt-1.5" data-category-bubble>
+                              {song.tags.map((cat, idx) => {
+                                const isFiltered = selectedCategories.includes(cat);
+                                return (
+                                  <button
+                                    key={idx}
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toggleCategoryFilter(cat);
+                                    }}
+                                    className={`text-[10px] px-2 py-0.5 rounded border transition-colors flex items-center gap-1 ${
+                                      isFiltered
+                                        ? 'bg-blue-600/20 text-blue-300 border-blue-500/40 font-semibold'
+                                        : 'bg-[#1C1C1E] border-[#222224] text-gray-400 hover:text-gray-200 hover:border-[#333]'
+                                    }`}
+                                    title={`Filtrer par la catégorie "${cat}"`}
+                                  >
+                                    <Tag className="w-2.5 h-2.5 text-blue-400" />
+                                    <span>{cat}</span>
+                                  </button>
+                                );
+                              })}
+
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setOpenCategorySongId(song.id);
+                                  setDeletingCatName(null);
+                                  setQuickCatInput('');
+                                  setQuickCatSearch('');
+                                }}
+                                className="text-[10px] p-1 rounded border transition-all flex items-center justify-center cursor-pointer bg-[#1C1C1E] border-[#222224] text-gray-400 hover:text-blue-400 hover:border-blue-500/40"
+                                title="Gérer les catégories de ce chant"
+                                aria-label="Gérer les catégories de ce chant"
+                              >
+                                <Pen className="w-3 h-3" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Badges & Actions */}
+                        <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                          <div className="flex items-center gap-1.5">
+                            <span className="px-2 py-0.5 rounded bg-[#1C1C1E] border border-[#333] text-gray-200 text-[11px] font-bold">
+                              {song.key || 'C'}
+                            </span>
+                            {song.tempo && (
+                              <span className="px-1.5 py-0.5 rounded bg-[#1C1C1E] border border-[#222224] text-gray-400 text-[10px] font-medium flex items-center gap-1">
+                                <Gauge className="w-2.5 h-2.5 text-blue-400" />
+                                {song.tempo}
+                              </span>
+                            )}
+                            {getSongDuration(song) ? (
+                              <span className="px-1.5 py-0.5 rounded bg-cyan-950/50 border border-cyan-500/30 text-cyan-300 text-[10px] font-medium flex items-center gap-1 font-mono shadow-sm">
+                                <Clock className="w-2.5 h-2.5 text-cyan-400" />
+                                {getSongDuration(song)}
+                              </span>
+                            ) : null}
+                          </div>
+
+                          <div className="flex items-center gap-1 border-l border-[#222224] pl-2">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setLanguageModalSong(song);
+                              }}
+                              className="p-1.5 rounded bg-[#1C1C1E] hover:bg-[#252528] text-gray-300 hover:text-indigo-400 border border-[#333] hover:border-indigo-500/40 transition-colors flex items-center justify-center cursor-pointer"
+                              title="Gérer les langues et versions liées"
+                              aria-label="Versions et langues"
+                            >
+                              <Globe className="w-3.5 h-3.5 text-indigo-400" />
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setAddToSetlistSong(song);
+                                setSelectedSetlistIds(
+                                  setlists.filter(st => st.songIds.includes(song.id)).map(st => st.id)
+                                );
+                                setSetlistSearchQuery('');
+                                setIsCreatingNewSetlist(false);
+                                setNewSetlistName('');
+                                setNewSetlistDate(new Date().toISOString().split('T')[0]);
+                              }}
+                              className="p-1.5 rounded bg-[#1C1C1E] hover:bg-[#252528] text-gray-300 hover:text-blue-400 border border-[#333] hover:border-blue-500/40 transition-colors flex items-center justify-center cursor-pointer"
+                              title="Ajouter ou gérer dans vos setlists"
+                              aria-label="Setlist"
+                            >
+                              <ListPlus className="w-3.5 h-3.5 text-blue-400" />
+                            </button>
+
+                            {currentUser?.role === 'admin' && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEditSong(song);
+                                  }}
+                                  className="p-1.5 rounded bg-[#1C1C1E] hover:bg-[#252528] text-gray-300 hover:text-amber-400 border border-[#333] hover:border-amber-500/40 transition-colors flex items-center justify-center cursor-pointer"
+                                  title="Éditer le chant"
+                                  aria-label="Éditer"
+                                >
+                                  <FileEdit className="w-3.5 h-3.5 text-amber-400" />
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (isConfirming) {
+                                      deleteSong(song.id);
+                                      setConfirmDeleteSongId(null);
+                                    } else {
+                                      setConfirmDeleteSongId(song.id);
+                                    }
+                                  }}
+                                  className={`p-1.5 rounded transition-all flex items-center justify-center cursor-pointer ${
+                                    isConfirming
+                                      ? 'bg-rose-600 hover:bg-rose-700 text-white border border-rose-500 shadow-sm animate-pulse'
+                                      : 'bg-[#1C1C1E] hover:bg-rose-500/20 text-gray-400 hover:text-rose-400 border border-[#333] hover:border-rose-500/40'
+                                  }`}
+                                  title={isConfirming ? "Confirmer la suppression" : "Supprimer le chant"}
+                                  aria-label={isConfirming ? "Confirmer la suppression" : "Supprimer"}
+                                >
+                                  {isConfirming ? (
+                                    <Check className="w-3.5 h-3.5 text-white" />
+                                  ) : (
+                                    <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                                  )}
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -1576,6 +2037,15 @@ export const SongList: React.FC = () => {
         }}
         initialSource={importSource}
       />
+
+      {/* Modal: Language Versions & Relations */}
+      {languageModalSong && (
+        <LanguageVersionModal
+          song={languageModalSong}
+          isOpen={!!languageModalSong}
+          onClose={() => setLanguageModalSong(null)}
+        />
+      )}
 
     </div>
   );

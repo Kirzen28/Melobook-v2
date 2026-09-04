@@ -8,7 +8,6 @@ import {
   ChevronRight, 
   ListMusic, 
   X, 
-  Info, 
   Layers, 
   Music,
   CheckCircle2,
@@ -28,7 +27,6 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
     updateStageSettings
   } = useApp();
 
-  const [showNotesModal, setShowNotesModal] = useState(false);
   const [showPdfModal, setShowPdfModal] = useState(false);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
 
@@ -121,15 +119,6 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
                 <ListMusic className="w-3.5 h-3.5" />
                 <span>{selectedSetlist.name}</span>
               </span>
-              {selectedSetlist.notes && (
-                <button
-                  onClick={() => setShowNotesModal(!showNotesModal)}
-                  className="p-1 rounded bg-[#1C1C1E] text-blue-400 hover:bg-[#2A2A2D] border border-[#333] text-[10px]"
-                  title="Voir les notes de la setlist"
-                >
-                  <Info className="w-3 h-3" />
-                </button>
-              )}
             </div>
             <p className="text-[10px] text-gray-400 hidden sm:block">
               {setlistSongs.length} morceaux • Date : {selectedSetlist.date}
@@ -210,39 +199,11 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
 
       </div>
 
-      {/* Setlist Notes Modal */}
-      {showNotesModal && selectedSetlist.notes && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#111112] border border-[#222224] rounded-lg w-full max-w-md p-5 shadow-2xl">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-xs font-bold text-white flex items-center gap-2">
-                <Info className="w-3.5 h-3.5 text-blue-400" />
-                <span>Notes pour cette Setlist</span>
-              </h3>
-              <button 
-                onClick={() => setShowNotesModal(false)}
-                className="text-gray-400 hover:text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <p className="text-xs text-gray-300 leading-relaxed whitespace-pre-wrap bg-[#1C1C1E] p-3 rounded-md border border-[#333]">
-              {selectedSetlist.notes}
-            </p>
-            <button
-              onClick={() => setShowNotesModal(false)}
-              className="mt-4 w-full py-1.5 rounded-md bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs"
-            >
-              Fermer
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Embedded Active Song Reader */}
       {currentSong && (
         <SongReader
           song={currentSong}
+          setlistId={selectedSetlist.id}
           onBack={onClose}
           onNext={activeSetlistIndex < setlistSongs.length - 1 ? handleNext : undefined}
           onPrev={activeSetlistIndex > 0 ? handlePrev : undefined}

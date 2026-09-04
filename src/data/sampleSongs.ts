@@ -12,6 +12,8 @@ export const SAMPLE_SONGS: Song[] = [
     capo: 0,
     duration: '5:10',
     tags: ['Adoration', 'Grâce', 'Fidélité'],
+    language: 'Français',
+    linkedSongIds: ['song-1-en'],
     notes: 'Intro douce à la guitare acoustique. Monter en puissance au Pont.',
     contentChordPro: `{title: Jésus tu es bon (Goodness of God)}
 {artist: Bethel Music / Jenn Johnson}
@@ -59,6 +61,58 @@ Avec chaque [C]souffle dont je suis [G]rem[D/F#]pli [Em]
 Je chan[C]terai la bonté [D]de mon [G]Dieu`
   },
   {
+    id: 'song-1-en',
+    groupId: 'default-group',
+    title: 'Goodness of God',
+    artist: 'Bethel Music / Jenn Johnson',
+    key: 'G',
+    tempo: 70,
+    timeSignature: '4/4',
+    capo: 0,
+    duration: '5:00',
+    tags: ['Adoration', 'Grâce', 'Fidélité'],
+    language: 'Anglais',
+    linkedSongIds: ['song-1'],
+    notes: 'English version of "Jésus tu es bon".',
+    contentChordPro: `{title: Goodness of God}
+{artist: Bethel Music / Jenn Johnson}
+{key: G}
+{tempo: 70}
+{time: 4/4}
+{duration: 5:00}
+
+{c: Intro}
+[G] [Gsus4] [G] [Gsus4]
+
+{c: Verse 1}
+{vocal: Lead}
+I love You [G]Lord, for Your [C]mercy never [G]fails me
+All my [Em]days, I've been [C]held in Your [D]hands
+From the moment that I [Em]wake up [C]until I lay my [G]head [D/F#] [Em]
+Oh, I will [C]sing of the [D]goodness of [G]God
+
+{c: Chorus}
+{vocal: 2e voix}
+'Cause all my [C]life You have been [G]faithful
+And all my [C]life You have been so, [G]so [D]good
+With every [C]breath that I am [G]able [D/F#] [Em]
+Oh, I will [C]sing of the [D]goodness of [G]God
+
+{c: Verse 2}
+{vocal: Lead}
+I love Your [G]voice, You have [C]led me through the [G]fire
+In the darkest [Em]night, You are [C]close like no [D]other
+I've known You as a [Em]Father, [C]I've known You as a [G]Friend [D/F#] [Em]
+And I have [C]lived in the [D]goodness of [G]God
+
+{c: Bridge}
+{vocal: 3e voix}
+Your [G/B]goodness is running after, it's [C]running after [D]me [G]
+Your [G/B]goodness is running after, it's [C]running after [D]me [G]
+With my [G/B]life laid down, I'm sur[C]rendered now, I give You [D]every[Em]thing
+'Cause Your [G/B]goodness is running after, it's [C]running after [D]me [G]`
+  },
+  {
     id: 'song-2',
     groupId: 'default-group',
     title: 'Comment ne pas te louer',
@@ -69,6 +123,7 @@ Je chan[C]terai la bonté [D]de mon [G]Dieu`
     capo: 0,
     duration: '4:20',
     tags: ['Louange', 'Rythmé', 'Joie', 'Célébration'],
+    language: 'Français',
     notes: 'Tempo dynamique avec clap des mains. Entrée énergique de la basse.',
     contentChordPro: `{title: Comment ne pas te louer}
 {artist: Aurélien Saniko}
@@ -116,6 +171,8 @@ Comment ne [Dm]pas te louer, [G]Seigneur Jé[C]sus !`
     capo: 2,
     duration: '4:45',
     tags: ['Classique', 'Hymne', 'Grâce', 'Méditation'],
+    language: 'Français',
+    linkedSongIds: ['song-3-en'],
     notes: 'Capo 2 (jouer en D pour sonner en E). Valse 3/4.',
     contentChordPro: `{title: Grâce Infinie (Amazing Grace)}
 {artist: John Newton / Chris Tomlin}
@@ -150,6 +207,40 @@ Nous au[E]rons autant de [A]jours pour chan[E]ter
 Sa lou[E]ange pour [B7]l'éter[E]nité`
   },
   {
+    id: 'song-3-en',
+    groupId: 'default-group',
+    title: 'Amazing Grace (My Chains Are Gone)',
+    artist: 'John Newton / Chris Tomlin',
+    key: 'E',
+    tempo: 75,
+    timeSignature: '3/4',
+    capo: 2,
+    duration: '4:30',
+    tags: ['Classique', 'Hymne', 'Grâce'],
+    language: 'Anglais',
+    linkedSongIds: ['song-3'],
+    notes: 'English version of "Grâce Infinie".',
+    contentChordPro: `{title: Amazing Grace (My Chains Are Gone)}
+{artist: John Newton / Chris Tomlin}
+{key: E}
+{tempo: 75}
+{time: 3/4}
+{capo: 2}
+{duration: 4:30}
+
+{c: Verse 1}
+Amazing [E]grace how [A]sweet the [E]sound
+That saved a [E]wretch like [B7]me
+I once was [E]lost, but [A]now I'm [E]found
+Was blind, but [B7]now I [E]see
+
+{c: Chorus}
+My chains are [A]gone, I've been set [E]free
+My God, my [A]Savior has ransomed [E]me [B/D#]
+And like a [C#m]flood His [A]mercy reigns [E]
+Unending [F#m]love, a[B7]mazing [E]grace`
+  },
+  {
     id: 'song-4',
     groupId: 'default-group',
     title: '10 000 Raisons (Mon âme bénis le Seigneur)',
@@ -160,6 +251,8 @@ Sa lou[E]ange pour [B7]l'éter[E]nité`
     capo: 0,
     duration: '5:40',
     tags: ['Louange', 'Culte', 'Psaumes', 'Action de grâce'],
+    language: 'Français',
+    linkedSongIds: ['song-4-en'],
     notes: 'Commencer directement par le refrain doux au piano.',
     contentChordPro: `{title: 10 000 Raisons (Mon âme bénis le Seigneur)}
 {artist: Matt Redman}
@@ -199,6 +292,39 @@ Chante comme [C]jamais, [Em]ô mon [C]â[D]me [Em]
 Je [C]bénis Ton [D]saint Nom [G]`
   },
   {
+    id: 'song-4-en',
+    groupId: 'default-group',
+    title: '10,000 Reasons (Bless the Lord)',
+    artist: 'Matt Redman / Jonas Myrin',
+    key: 'G',
+    tempo: 73,
+    timeSignature: '4/4',
+    capo: 0,
+    duration: '5:30',
+    tags: ['Louange', 'Culte', 'Psaumes'],
+    language: 'Anglais',
+    linkedSongIds: ['song-4'],
+    notes: 'English version of "10 000 Raisons".',
+    contentChordPro: `{title: 10,000 Reasons (Bless the Lord)}
+{artist: Matt Redman}
+{key: G}
+{tempo: 73}
+{time: 4/4}
+{duration: 5:30}
+
+{c: Chorus}
+Bless the [C]Lord O my [G]soul, [D/F#]O my [Em]soul
+[C]Worship His [G]holy [Dsus4]name [D]
+Sing like [C]never be[Em]fore, [C]O [D]my [Em]soul
+I'll [C]worship Your [D]holy [G]name
+
+{c: Verse 1}
+The [C]sun comes up, it's a [G]new day [D]dawning [Em]
+[C]It's time to sing Your [G]song a[D]gain [Em]
+What[C]ever may pass and what[G]ever lies be[D]fore [Em]me
+[C]Let me be singing when the [G]evening [Dsus4]comes [D]`
+  },
+  {
     id: 'song-5',
     groupId: 'default-group',
     title: 'Révélation Song',
@@ -209,6 +335,7 @@ Je [C]bénis Ton [D]saint Nom [G]`
     capo: 0,
     duration: '5:50',
     tags: ['Adoration', 'Trône', 'Majesté', 'Prière'],
+    language: 'Français',
     notes: 'Progression continue: D - Am7 - C - G tout le long du chant.',
     contentChordPro: `{title: Révélation Song}
 {artist: Jennie Lee Riddle / Kari Jobe}
@@ -251,6 +378,7 @@ Seul Roi de [C]sagesse, d'amour et de [G]paix`
     capo: 0,
     duration: '5:30',
     tags: ['Nom de Jésus', 'Puissance', 'Adoration', 'Louange'],
+    language: 'Français',
     notes: 'Monter au Pont avec la batterie complète.',
     contentChordPro: `{title: Ce nom si merveilleux (What a Beautiful Name)}
 {artist: Hillsong Worship}

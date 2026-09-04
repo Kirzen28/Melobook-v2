@@ -119,7 +119,6 @@ export const SetlistPdfModal: React.FC<SetlistPdfModalProps> = ({ setlist, songs
     const lines = [
       `🎵 SETLIST : ${setlist.name.toUpperCase()}`,
       `📅 Date : ${setlist.date || 'Non spécifiée'} | ${durationHeader}`,
-      setlist.notes ? `📝 Consignes : ${setlist.notes}` : '',
       `\n📋 PROGRAMME : ${setlistSongs.length} chants`,
       ...setlistSongs.map((s, i) => {
         const songDur = getSongDuration(s);

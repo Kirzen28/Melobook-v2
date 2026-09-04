@@ -148,16 +148,7 @@ export async function generateSetlistPdf(
     const dateText = `Date : ${setlist.date || 'Non définie'}`;
     const countText = `${setlistSongs.length} Chants`;
     const durText = totalDurationSecs > 0 ? `Durée totale : ${formatSetlistDuration(totalDurationSecs)}` : `Durée est. : ${setlist.targetDuration || 25} min`;
-    doc.text(`${dateText}   •   ${countText}   •   ${durText}`, marginX + 8, currentY + 20);
-
-    // Setlist Notes if present
-    if (setlist.notes) {
-      doc.setFont('helvetica', 'italic');
-      doc.setFontSize(9);
-      doc.setTextColor(colors.text[0], colors.text[1], colors.text[2]);
-      const splitNotes = doc.splitTextToSize(`Consignes : ${setlist.notes}`, contentWidth - 16);
-      doc.text(splitNotes, marginX + 8, currentY + 29);
-    }
+    doc.text(`${dateText}   •   ${countText}   •   ${durText}`, marginX + 8, currentY + 24);
 
     currentY += 46;
 

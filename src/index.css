@@ -13,6 +13,284 @@
   }
 }
 
+/* App-wide Light Mode Styles */
+html.light-theme body {
+  background-color: #F8F9FA !important;
+  color: #18181B !important;
+}
+
+/* Base canvas and surfaces */
+html.light-theme .bg-\[\#0A0A0B\],
+html.light-theme .bg-\[\#0A0A0C\],
+html.light-theme .bg-\[\#0B0B0D\],
+html.light-theme .bg-\[\#0C0C0E\],
+html.light-theme .bg-\[\#0D0D0E\],
+html.light-theme .bg-\[\#0D0D10\],
+html.light-theme [class*="bg-[#0A0A0B]"],
+html.light-theme [class*="bg-[#0C0C0E]"] {
+  background-color: #F8F9FA !important;
+}
+
+/* White containers, headers, modals & card surfaces */
+html.light-theme .bg-\[\#0E0E10\],
+html.light-theme .bg-\[\#101012\],
+html.light-theme .bg-\[\#101014\],
+html.light-theme .bg-\[\#111112\],
+html.light-theme .bg-\[\#111113\],
+html.light-theme .bg-\[\#121214\],
+html.light-theme .bg-\[\#121215\],
+html.light-theme [class*="bg-[#111112]"],
+html.light-theme [class*="bg-[#0E0E10]"],
+html.light-theme [class*="bg-[#101012]"],
+html.light-theme [class*="bg-[#121214]"],
+html.light-theme .settings-header-bar {
+  background-color: #FFFFFF !important;
+}
+
+/* Light gray secondary card/sub-panels */
+html.light-theme .bg-\[\#141416\],
+html.light-theme .bg-\[\#141417\],
+html.light-theme .bg-\[\#141418\],
+html.light-theme .bg-\[\#141419\],
+html.light-theme .bg-\[\#151518\],
+html.light-theme .bg-\[\#161618\],
+html.light-theme .bg-\[\#161619\],
+html.light-theme .bg-\[\#16161A\],
+html.light-theme .bg-\[\#16161c\],
+html.light-theme .bg-\[\#171719\],
+html.light-theme .bg-\[\#17171B\],
+html.light-theme .bg-\[\#18181A\],
+html.light-theme .bg-\[\#18181B\],
+html.light-theme .bg-\[\#18181C\],
+html.light-theme .bg-\[\#181C28\],
+html.light-theme .bg-\[\#1A1A1D\],
+html.light-theme [class*="bg-[#141416]"],
+html.light-theme [class*="bg-[#151518]"],
+html.light-theme [class*="bg-[#161619]"],
+html.light-theme [class*="bg-[#18181A]"],
+html.light-theme [class*="bg-[#18181C]"] {
+  background-color: #F8F9FB !important;
+}
+
+/* Tertiary interactive elements: buttons, pills, chips, inputs */
+html.light-theme .bg-\[\#1C1C1E\],
+html.light-theme .bg-\[\#1C1C1F\],
+html.light-theme .bg-\[\#1C1C20\],
+html.light-theme .bg-\[\#1C1C22\],
+html.light-theme .bg-\[\#1E1E22\],
+html.light-theme .bg-\[\#1F1F23\],
+html.light-theme .bg-\[\#1F1F24\],
+html.light-theme .bg-\[\#202024\],
+html.light-theme .bg-\[\#202025\],
+html.light-theme .bg-\[\#202026\],
+html.light-theme .bg-\[\#222\],
+html.light-theme .bg-\[\#222224\],
+html.light-theme .bg-\[\#222225\],
+html.light-theme .bg-\[\#222226\],
+html.light-theme .bg-\[\#222228\],
+html.light-theme .bg-\[\#242428\],
+html.light-theme .bg-\[\#24242A\],
+html.light-theme .bg-\[\#24242C\],
+html.light-theme .bg-\[\#252528\],
+html.light-theme .bg-\[\#25252A\],
+html.light-theme .bg-\[\#25252D\],
+html.light-theme .bg-\[\#28282C\],
+html.light-theme .bg-\[\#28282E\],
+html.light-theme .bg-\[\#282830\],
+html.light-theme .bg-\[\#282832\],
+html.light-theme .bg-\[\#2A2A2D\],
+html.light-theme .bg-\[\#2A2A2E\],
+html.light-theme .bg-\[\#2A2A30\],
+html.light-theme .bg-\[\#2A2A32\],
+html.light-theme .bg-\[\#2C2C30\],
+html.light-theme .bg-\[\#2C2C32\],
+html.light-theme .bg-\[\#2C2C33\],
+html.light-theme .bg-\[\#2E2E32\],
+html.light-theme .bg-\[\#303036\],
+html.light-theme .bg-\[\#323238\],
+html.light-theme .bg-\[\#333\],
+html.light-theme [class*="bg-[#1C1C1E]"],
+html.light-theme [class*="bg-[#222226]"],
+html.light-theme [class*="bg-[#222225]"],
+html.light-theme [class*="bg-[#2A2A2D]"],
+html.light-theme [class*="bg-[#2A2A2E]"] {
+  background-color: #EEF0F3 !important;
+}
+
+/* Light mode hover backgrounds for buttons */
+html.light-theme [class*="hover:bg-[#0"]:hover,
+html.light-theme [class*="hover:bg-[#1"]:hover,
+html.light-theme [class*="hover:bg-[#2"]:hover,
+html.light-theme [class*="hover:bg-[#3"]:hover {
+  background-color: #E2E6EA !important;
+}
+
+/* Borders in light theme */
+html.light-theme [class*="border-[#1"],
+html.light-theme [class*="border-[#2"],
+html.light-theme [class*="border-[#3"],
+html.light-theme [class*="border-[#4"] {
+  border-color: #E2E6EA !important;
+}
+
+/* Text and typography */
+html.light-theme .text-\[\#E0E0E0\],
+html.light-theme .text-white {
+  color: #111827 !important;
+}
+
+html.light-theme .text-gray-200,
+html.light-theme .text-gray-300 {
+  color: #374151 !important;
+}
+
+html.light-theme .text-gray-400 {
+  color: #4B5563 !important;
+}
+
+html.light-theme .text-gray-500 {
+  color: #6B7280 !important;
+}
+
+/* High contrast accent colors for badges & icons in light mode */
+html.light-theme .text-blue-400 {
+  color: #2563EB !important;
+}
+html.light-theme .text-purple-400 {
+  color: #7C3AED !important;
+}
+html.light-theme .text-amber-400 {
+  color: #D97706 !important;
+}
+html.light-theme .text-amber-300 {
+  color: #B45309 !important;
+}
+html.light-theme .text-emerald-400 {
+  color: #059669 !important;
+}
+html.light-theme .text-teal-400 {
+  color: #0D9488 !important;
+}
+html.light-theme .text-cyan-400 {
+  color: #0891B2 !important;
+}
+html.light-theme .text-pink-400 {
+  color: #DB2777 !important;
+}
+html.light-theme .text-rose-400 {
+  color: #E11D48 !important;
+}
+
+/* Header & navigation */
+html.light-theme header {
+  background-color: rgba(255, 255, 255, 0.96) !important;
+  color: #111827 !important;
+  border-bottom-color: #E2E6EA !important;
+}
+
+/* Inputs, Textareas and Selects */
+html.light-theme input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]),
+html.light-theme textarea,
+html.light-theme select {
+  background-color: #FFFFFF !important;
+  color: #111827 !important;
+  border-color: #CBD5E1 !important;
+}
+
+html.light-theme input::placeholder,
+html.light-theme textarea::placeholder {
+  color: #94A3B8 !important;
+}
+
+html.light-theme option {
+  background-color: #FFFFFF !important;
+  color: #111827 !important;
+}
+
+/* Dedicated NumberSelector components */
+html.light-theme .number-selector-btn {
+  background-color: #E2E6EA !important;
+  color: #1F2937 !important;
+  border-color: #CBD5E1 !important;
+}
+
+html.light-theme .number-selector-btn:hover {
+  background-color: #CBD5E1 !important;
+  color: #111827 !important;
+}
+
+html.light-theme .number-selector-input {
+  background-color: #FFFFFF !important;
+  color: #111827 !important;
+  border-color: #CBD5E1 !important;
+}
+
+/* Dedicated Color Hex Badges */
+html.light-theme .color-hex-badge {
+  background-color: #E2E6EA !important;
+  color: #1F2937 !important;
+  border-color: #CBD5E1 !important;
+}
+
+html.light-theme .color-hex-badge:hover {
+  background-color: #CBD5E1 !important;
+}
+
+/* Dedicated Toggle Group Pills */
+html.light-theme .theme-toggle-group {
+  background-color: #E2E6EA !important;
+  border-color: #CBD5E1 !important;
+}
+
+html.light-theme .theme-toggle-inactive {
+  color: #4B5563 !important;
+}
+
+html.light-theme .theme-toggle-inactive:hover {
+  color: #111827 !important;
+  background-color: #CBD5E1 !important;
+}
+
+/* Maintain crisp white text inside solid colored primary buttons */
+html.light-theme .bg-blue-600,
+html.light-theme .bg-blue-500,
+html.light-theme .bg-purple-600,
+html.light-theme .bg-purple-500,
+html.light-theme .bg-emerald-600,
+html.light-theme .bg-emerald-500,
+html.light-theme .bg-teal-600,
+html.light-theme .bg-rose-600,
+html.light-theme .bg-red-600,
+html.light-theme .bg-cyan-600 {
+  color: #FFFFFF !important;
+}
+
+html.light-theme .bg-blue-600 *,
+html.light-theme .bg-blue-500 *,
+html.light-theme .bg-purple-600 *,
+html.light-theme .bg-purple-500 *,
+html.light-theme .bg-emerald-600 *,
+html.light-theme .bg-emerald-500 *,
+html.light-theme .bg-teal-600 *,
+html.light-theme .bg-rose-600 *,
+html.light-theme .bg-red-600 *,
+html.light-theme .bg-cyan-600 * {
+  color: #FFFFFF !important;
+}
+
+/* Light mode scrollbar */
+html.light-theme ::-webkit-scrollbar-track {
+  background: #F1F3F5;
+}
+
+html.light-theme ::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+}
+
+html.light-theme ::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
 /* Custom Stage & ChordSheet styles */
 .font-chord {
   font-family: var(--font-mono);

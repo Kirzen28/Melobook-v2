@@ -17,10 +17,17 @@ import {
   generateId,
   insertChordInLine,
   cleanUpLineItems,
-  SECTION_TYPES_CONFIG
+  SECTION_TYPES_CONFIG,
+  STANDARD_SECTION_TYPES,
+  getSectionTypeConfig,
+  getCustomSectionTypes,
+  saveCustomSectionType,
+  recomputeSectionTitles
 } from '../utils/visualEditorUtils';
 import { VisualSectionCard } from './editor/VisualSectionCard';
 import { ChordPickerModal } from './editor/ChordPickerModal';
+import { LanguageVersionModal } from './LanguageVersionModal';
+import { PRESET_LANGUAGES, getLanguageMeta, getLinkedSongVersions } from '../utils/languageUtils';
 import { 
   Save, 
   ChevronLeft, 
@@ -31,13 +38,19 @@ import {
   Plus, 
   Check, 
   Tag, 
-  ChevronDown, 
+  ChevronDown,
+  ChevronUp,
+  ChevronsDown,
+  ChevronsUp,
   X, 
   Mic, 
   Layers, 
   Copy, 
-  Trash2,
-  FileText
+  Trash2, 
+  FileText,
+  Globe,
+  Link,
+  ArrowRight
 } from 'lucide-react';
 
 const SAMPLE_TEMPLATE = `{title: Mon Nouveau Chant}
@@ -84,7 +97,8 @@ const DEFAULT_CATEGORY_SUGGESTIONS = [
 export const SongEditor: React.FC = () => {
   const { 
     selectedSong, 
-    songs,
+    setSelectedSong,
+    songs, 
     createSong, 
     updateSong, 
     setActiveTab 
@@ -98,6 +112,9 @@ export const SongEditor: React.FC = () => {
   const [timeSignature, setTimeSignature] = useState(selectedSong?.timeSignature || '4/4');
   const [duration, setDuration] = useState(selectedSong?.duration || '3:30');
   const [capo, setCapo] = useState<number>(selectedSong?.capo || 0);
+  const [language, setLanguage] = useState<string>(selectedSong?.language || 'Français');
+  const [linkedSongIds, setLinkedSongIds] = useState<string[]>(selectedSong?.linkedSongIds || []);
+  const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
   const [categories, setCategories] = useState<string[]>(selectedSong?.tags || []);
   const [notes, setNotes] = useState(selectedSong?.notes || '');
   const [contentChordPro, setContentChordPro] = useState(selectedSong?.contentChordPro || SAMPLE_TEMPLATE);
@@ -111,8 +128,36 @@ export const SongEditor: React.FC = () => {
     return chordProToVisualSections(selectedSong?.contentChordPro || SAMPLE_TEMPLATE);
   });
 
+  // Collapsed Sections state for folding/unfolding section bodies in the editor
+  const [collapsedSectionIds, setCollapsedSectionIds] = useState<Set<string>>(new Set());
+
+  const handleToggleSectionCollapse = (secId: string) => {
+    setCollapsedSectionIds(prev => {
+      const next = new Set(prev);
+      if (next.has(secId)) {
+        next.delete(secId);
+      } else {
+        next.add(secId);
+      }
+      return next;
+    });
+  };
+
+  const handleCollapseAllSections = () => {
+    setCollapsedSectionIds(new Set(visualSections.map(s => s.id)));
+  };
+
+  const handleExpandAllSections = () => {
+    setCollapsedSectionIds(new Set());
+  };
+
   // Drag and Drop state
   const [draggedSectionIndex, setDraggedSectionIndex] = useState<number | null>(null);
+
+  // Custom Section Modal state
+  const [showCustomSectionModal, setShowCustomSectionModal] = useState(false);
+  const [customSectionInput, setCustomSectionInput] = useState('');
+  const [customSectionList, setCustomSectionList] = useState<string[]>(() => getCustomSectionTypes());
 
   // Chord Picker Modal state
   const [chordPickerState, setChordPickerState] = useState<{
@@ -149,11 +194,18 @@ export const SongEditor: React.FC = () => {
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Close category dropdown on outside click
+  // Add section dropdown state
+  const [isAddSectionDropdownOpen, setIsAddSectionDropdownOpen] = useState(false);
+  const addSectionDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdowns on outside click
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(e.target as Node)) {
         setIsCategoryDropdownOpen(false);
+      }
+      if (addSectionDropdownRef.current && !addSectionDropdownRef.current.contains(e.target as Node)) {
+        setIsAddSectionDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -214,6 +266,8 @@ export const SongEditor: React.FC = () => {
       setTimeSignature(selectedSong.timeSignature || '4/4');
       setDuration(selectedSong.duration && selectedSong.duration !== 'auto' ? selectedSong.duration : '3:30');
       setCapo(selectedSong.capo || 0);
+      setLanguage(selectedSong.language || 'Français');
+      setLinkedSongIds(selectedSong.linkedSongIds || []);
       setCategories(selectedSong.tags || []);
       setNotes(selectedSong.notes || '');
       setContentChordPro(selectedSong.contentChordPro);
@@ -226,6 +280,8 @@ export const SongEditor: React.FC = () => {
       setTimeSignature('4/4');
       setDuration('3:30');
       setCapo(0);
+      setLanguage('Français');
+      setLinkedSongIds([]);
       setCategories([]);
       setNotes('');
       setContentChordPro(SAMPLE_TEMPLATE);
@@ -276,8 +332,9 @@ export const SongEditor: React.FC = () => {
     const updatedSections = visualSections.map(sec => 
       sec.id === updatedSection.id ? updatedSection : sec
     );
-    setVisualSections(updatedSections);
-    const newChordPro = visualSectionsToChordPro(updatedSections, {
+    const renumbered = recomputeSectionTitles(updatedSections);
+    setVisualSections(renumbered);
+    const newChordPro = visualSectionsToChordPro(renumbered, {
       title,
       artist,
       key,
@@ -290,22 +347,11 @@ export const SongEditor: React.FC = () => {
   };
 
   // Add a new section
-  const handleAddNewSection = (type: VisualSection['type'] = 'verse') => {
-    const typeLabel = SECTION_TYPES_CONFIG[type]?.label || 'Section';
-    let countOfType = 1;
-    visualSections.forEach(s => {
-      if (s.type === type) countOfType++;
-    });
-
-    let newTitle = typeLabel;
-    if (type === 'verse') {
-      newTitle = `Couplet ${countOfType}`;
-    }
-
+  const handleAddNewSection = (type: VisualSection['type'] = 'verse', customTitle?: string, afterIndex?: number) => {
     const newSection: VisualSection = {
       id: generateId('sec'),
       type,
-      title: newTitle,
+      title: '',
       vocals: [],
       lines: [
         {
@@ -316,9 +362,26 @@ export const SongEditor: React.FC = () => {
       ]
     };
 
-    const updated = [...visualSections, newSection];
-    setVisualSections(updated);
-    setContentChordPro(visualSectionsToChordPro(updated, { title, artist, key, tempo, timeSignature, duration, capo }));
+    const updated = [...visualSections];
+    if (afterIndex !== undefined && afterIndex >= 0 && afterIndex < updated.length) {
+      updated.splice(afterIndex + 1, 0, newSection);
+    } else {
+      updated.push(newSection);
+    }
+    const renumbered = recomputeSectionTitles(updated);
+    setVisualSections(renumbered);
+    setContentChordPro(visualSectionsToChordPro(renumbered, { title, artist, key, tempo, timeSignature, duration, capo }));
+  };
+
+  // Create custom section from modal
+  const handleCreateCustomSection = () => {
+    const trimmed = customSectionInput.trim();
+    if (!trimmed) return;
+    const updated = saveCustomSectionType(trimmed);
+    setCustomSectionList(updated);
+    handleAddNewSection(trimmed, trimmed);
+    setCustomSectionInput('');
+    setShowCustomSectionModal(false);
   };
 
   // Duplicate a section
@@ -340,22 +403,24 @@ export const SongEditor: React.FC = () => {
     const duplicatedSection: VisualSection = {
       id: generateId('sec'),
       type: source.type,
-      title: `${source.title} Bis`,
+      title: source.title,
       vocals: [...source.vocals],
       lines: duplicatedLines
     };
 
     const updated = [...visualSections];
     updated.splice(sourceIndex + 1, 0, duplicatedSection);
-    setVisualSections(updated);
-    setContentChordPro(visualSectionsToChordPro(updated, { title, artist, key, tempo, timeSignature, duration, capo }));
+    const renumbered = recomputeSectionTitles(updated);
+    setVisualSections(renumbered);
+    setContentChordPro(visualSectionsToChordPro(renumbered, { title, artist, key, tempo, timeSignature, duration, capo }));
   };
 
   // Delete a section
   const handleDeleteSection = (sectionId: string) => {
     const updated = visualSections.filter(s => s.id !== sectionId);
-    setVisualSections(updated);
-    setContentChordPro(visualSectionsToChordPro(updated, { title, artist, key, tempo, timeSignature, duration, capo }));
+    const renumbered = recomputeSectionTitles(updated);
+    setVisualSections(renumbered);
+    setContentChordPro(visualSectionsToChordPro(renumbered, { title, artist, key, tempo, timeSignature, duration, capo }));
   };
 
   // Move section by index
@@ -364,8 +429,9 @@ export const SongEditor: React.FC = () => {
     const updated = [...visualSections];
     const [moved] = updated.splice(fromIndex, 1);
     updated.splice(toIndex, 0, moved);
-    setVisualSections(updated);
-    setContentChordPro(visualSectionsToChordPro(updated, { title, artist, key, tempo, timeSignature, duration, capo }));
+    const renumbered = recomputeSectionTitles(updated);
+    setVisualSections(renumbered);
+    setContentChordPro(visualSectionsToChordPro(renumbered, { title, artist, key, tempo, timeSignature, duration, capo }));
   };
 
   // Drag and drop handlers
@@ -509,6 +575,8 @@ export const SongEditor: React.FC = () => {
       duration: resolvedDuration,
       durationMode: 'custom',
       capo: Number(capo) || 0,
+      language: language || 'Français',
+      linkedSongIds: linkedSongIds || [],
       tags: categories,
       notes: notes.trim(),
       contentChordPro: finalChordPro
@@ -629,12 +697,13 @@ export const SongEditor: React.FC = () => {
       </div>
 
       {/* Metadata Form Grid */}
-      <div className="bg-[#111113] border border-[#222225] rounded-xl p-4 sm:p-5 mb-6 shadow-sm">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+      <div className="bg-[#111113] border border-[#222225] rounded-xl p-3 sm:p-3.5 mb-4 shadow-sm space-y-2.5">
+        {/* Row 1: Titre, Artiste & Paramètres musicaux */}
+        <div className="grid grid-cols-12 gap-2.5 items-end">
           
           {/* Titre */}
-          <div>
-            <label className="block text-xs font-medium text-gray-300 mb-1">
+          <div className="col-span-12 sm:col-span-7 lg:col-span-4">
+            <label className="block text-[11px] font-semibold text-gray-400 mb-1">
               Titre du chant *
             </label>
             <input
@@ -642,14 +711,14 @@ export const SongEditor: React.FC = () => {
               placeholder="Entrez le titre du chant"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full bg-[#1C1C1E] border border-[#333] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 font-semibold"
+              className="w-full h-8 bg-[#1C1C1E] border border-[#333] hover:border-[#444] rounded-lg px-2.5 text-xs text-white focus:outline-none focus:border-blue-500 font-semibold transition-colors"
               required
             />
           </div>
 
           {/* Artiste */}
-          <div>
-            <label className="block text-xs font-medium text-gray-300 mb-1">
+          <div className="col-span-12 sm:col-span-5 lg:col-span-3">
+            <label className="block text-[11px] font-semibold text-gray-400 mb-1 truncate">
               Artiste ou Auteur
             </label>
             <input
@@ -657,20 +726,20 @@ export const SongEditor: React.FC = () => {
               placeholder="ex: Bethel Music, Chris Tomlin"
               value={artist}
               onChange={(e) => setArtist(e.target.value)}
-              className="w-full bg-[#1C1C1E] border border-[#333] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500"
+              className="w-full h-8 bg-[#1C1C1E] border border-[#333] hover:border-[#444] rounded-lg px-2.5 text-xs text-white focus:outline-none focus:border-blue-500 transition-colors"
             />
           </div>
 
-          {/* Tonalité, Tempo, Mesure & Durée */}
-          <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
+          {/* Paramètres musicaux : Tonalité, BPM, Mesure & Durée */}
+          <div className="col-span-12 lg:col-span-5 grid grid-cols-4 gap-2">
             <div>
-              <label className="block text-xs font-medium text-gray-300 mb-1 truncate">
+              <label className="block text-[11px] font-semibold text-gray-400 mb-1 truncate text-center">
                 Tonalité
               </label>
               <select
                 value={key}
                 onChange={(e) => setKey(e.target.value)}
-                className="w-full bg-[#1C1C1E] border border-[#333] rounded-lg px-1.5 py-2 text-xs text-blue-400 font-bold focus:outline-none focus:border-blue-500 cursor-pointer text-center"
+                className="w-full h-8 bg-[#1C1C1E] border border-[#333] hover:border-[#444] rounded-lg px-1 text-xs text-blue-400 font-bold focus:outline-none focus:border-blue-500 cursor-pointer text-center transition-colors"
               >
                 {['C', 'C#', 'Db', 'D', 'D#', 'Eb', 'E', 'F', 'F#', 'Gb', 'G', 'G#', 'Ab', 'A', 'A#', 'Bb', 'B', 'Am', 'Em', 'Dm', 'Bm', 'F#m'].map(k => (
                   <option key={k} value={k} className="bg-[#111112] text-gray-200">{k}</option>
@@ -679,8 +748,8 @@ export const SongEditor: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-300 mb-1 truncate">
-                Tempo BPM
+              <label className="block text-[11px] font-semibold text-gray-400 mb-1 truncate text-center">
+                Tempo
               </label>
               <input
                 type="number"
@@ -688,18 +757,18 @@ export const SongEditor: React.FC = () => {
                 max={260}
                 value={tempo}
                 onChange={(e) => setTempo(parseInt(e.target.value, 10) || 100)}
-                className="w-full bg-[#1C1C1E] border border-[#333] rounded-lg px-1 sm:px-2 py-2 text-xs text-white focus:outline-none focus:border-blue-500 text-center font-bold"
+                className="w-full h-8 bg-[#1C1C1E] border border-[#333] hover:border-[#444] rounded-lg px-1 text-xs text-white focus:outline-none focus:border-blue-500 text-center font-bold transition-colors"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-300 mb-1 truncate">
+              <label className="block text-[11px] font-semibold text-gray-400 mb-1 truncate text-center">
                 Mesure
               </label>
               <select
                 value={timeSignature}
                 onChange={(e) => setTimeSignature(e.target.value)}
-                className="w-full bg-[#1C1C1E] border border-[#333] rounded-lg px-1 sm:px-2 py-2 text-xs text-emerald-400 font-medium focus:outline-none focus:border-blue-500 cursor-pointer text-center"
+                className="w-full h-8 bg-[#1C1C1E] border border-[#333] hover:border-[#444] rounded-lg px-1 text-xs text-emerald-400 font-bold focus:outline-none focus:border-blue-500 cursor-pointer text-center transition-colors"
               >
                 {['4/4', '3/4', '6/8', '2/4', '12/8', '5/4'].map(ts => (
                   <option key={ts} value={ts} className="bg-[#111112] text-gray-200">{ts}</option>
@@ -708,7 +777,7 @@ export const SongEditor: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-300 mb-1 truncate">
+              <label className="block text-[11px] font-semibold text-gray-400 mb-1 truncate text-center">
                 Durée
               </label>
               <input
@@ -716,21 +785,79 @@ export const SongEditor: React.FC = () => {
                 placeholder="3:30"
                 value={duration}
                 onChange={(e) => setDuration(e.target.value)}
-                className="w-full bg-[#1C1C1E] border border-[#333] focus:border-cyan-400 rounded-lg px-1 sm:px-2 py-2 text-xs text-cyan-300 font-mono font-bold focus:outline-none text-center"
+                className="w-full h-8 bg-[#1C1C1E] border border-[#333] hover:border-[#444] focus:border-cyan-400 rounded-lg px-1 text-xs text-cyan-300 font-mono font-bold focus:outline-none text-center transition-colors"
               />
             </div>
           </div>
 
         </div>
 
-        {/* Catégories & Notes de scène */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mt-3 pt-3 border-t border-[#222225]">
+        {/* Row 2: Langue, Catégories & Notes de scène */}
+        <div className="grid grid-cols-12 gap-2.5 items-start pt-2 border-t border-[#1F1F23]">
           
-          {/* Multi-Categories Dropdown */}
-          <div className="relative" ref={categoryDropdownRef}>
+          {/* Langue & Relations */}
+          <div className="col-span-12 sm:col-span-6 lg:col-span-3">
             <div className="flex items-center justify-between mb-1">
-              <label className="block text-xs font-medium text-gray-300 flex items-center gap-1.5">
-                <Tag className="w-3.5 h-3.5 text-blue-400" />
+              <label className="text-[11px] font-semibold text-gray-400 flex items-center gap-1.5">
+                <Globe className="w-3 h-3 text-blue-400" />
+                <span>Langue & Versions</span>
+              </label>
+              {selectedSong && (
+                <button
+                  type="button"
+                  onClick={() => setIsLanguageModalOpen(true)}
+                  className="text-[10px] text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1 transition-colors"
+                >
+                  <Link className="w-2.5 h-2.5" />
+                  <span>Relations</span>
+                </button>
+              )}
+            </div>
+
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+              className="w-full h-8 bg-[#1C1C1E] border border-[#333] hover:border-[#444] rounded-lg px-2.5 text-xs text-white focus:outline-none focus:border-blue-500 cursor-pointer font-medium transition-colors"
+            >
+              {PRESET_LANGUAGES.map(lang => (
+                <option key={lang.code} value={lang.name} className="bg-[#111112]">
+                  {lang.name}
+                </option>
+              ))}
+            </select>
+
+            {/* Inline linked versions shortcuts if song exists */}
+            {selectedSong && (() => {
+              const linked = getLinkedSongVersions(selectedSong, songs);
+              if (linked.length === 0) return null;
+              return (
+                <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                  <span className="text-[10px] text-gray-500">Liées :</span>
+                  {linked.map(ls => {
+                    const lMeta = getLanguageMeta(ls.language);
+                    return (
+                      <button
+                        key={ls.id}
+                        type="button"
+                        onClick={() => setSelectedSong(ls)}
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-[#18181C] hover:bg-[#252528] text-gray-300 border border-[#2E2E34] hover:border-blue-500/40 transition-colors"
+                        title={`Basculer sur ${ls.title} - ${lMeta.name}`}
+                      >
+                        <span className={`font-bold ${lMeta.badgeClass.split(' ')[0]}`}>{lMeta.code}</span>
+                        <span className="truncate max-w-[90px]">{ls.title}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* Multi-Categories Dropdown */}
+          <div className="col-span-12 sm:col-span-6 lg:col-span-4 relative" ref={categoryDropdownRef}>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-[11px] font-semibold text-gray-400 flex items-center gap-1.5">
+                <Tag className="w-3 h-3 text-blue-400" />
                 <span>Catégories</span>
               </label>
               {categories.length > 0 && (
@@ -742,15 +869,15 @@ export const SongEditor: React.FC = () => {
 
             <div 
               onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}
-              className="w-full min-h-[38px] bg-[#1C1C1E] border border-[#333] hover:border-[#444] rounded-lg px-3 py-1.5 text-xs text-gray-200 cursor-pointer flex flex-wrap items-center gap-1.5 transition-colors"
+              className="w-full min-h-[32px] bg-[#1C1C1E] border border-[#333] hover:border-[#444] rounded-lg px-2 py-1 text-xs text-gray-200 cursor-pointer flex flex-wrap items-center gap-1 transition-colors"
             >
               {categories.length === 0 ? (
-                <span className="text-gray-500 text-xs">Sélectionner ou créer des catégories</span>
+                <span className="text-gray-500 text-xs">Ajouter des catégories...</span>
               ) : (
                 categories.map((cat) => (
                   <span
                     key={cat}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-600/20 text-blue-300 border border-blue-500/30 text-[11px] font-medium"
+                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-600/20 text-blue-300 border border-blue-500/30 text-[10px] font-medium"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <span>{cat}</span>
@@ -763,16 +890,16 @@ export const SongEditor: React.FC = () => {
                       className="hover:text-white transition-colors"
                       title="Retirer"
                     >
-                      <X className="w-3 h-3" />
+                      <X className="w-2.5 h-2.5" />
                     </button>
                   </span>
                 ))
               )}
-              <ChevronDown className={`w-3.5 h-3.5 text-gray-400 ml-auto transition-transform ${isCategoryDropdownOpen ? 'rotate-180' : ''}`} />
+              <ChevronDown className={`w-3.5 h-3.5 text-gray-400 ml-auto shrink-0 transition-transform ${isCategoryDropdownOpen ? 'rotate-180' : ''}`} />
             </div>
 
             {isCategoryDropdownOpen && (
-              <div className="absolute left-0 right-0 top-full mt-1 bg-[#141416] border border-[#2A2A2D] rounded-xl shadow-2xl z-50 p-3 text-xs animate-in fade-in duration-100">
+              <div className="absolute left-0 right-0 top-full mt-1 bg-[#141416] border border-[#2A2A2D] rounded-xl shadow-2xl z-50 p-2.5 text-xs animate-in fade-in duration-100">
                 <div className="flex items-center gap-1.5 mb-2">
                   <input
                     type="text"
@@ -785,14 +912,14 @@ export const SongEditor: React.FC = () => {
                         handleCreateCategory();
                       }
                     }}
-                    className="flex-1 bg-[#1C1C1E] border border-[#333] rounded-md px-2.5 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                    className="flex-1 bg-[#1C1C1E] border border-[#333] rounded-md px-2 py-1 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
                     autoFocus
                   />
                   {categorySearchQuery.trim() && (
                     <button
                       type="button"
                       onClick={handleCreateCategory}
-                      className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold whitespace-nowrap transition-colors"
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold whitespace-nowrap transition-colors"
                     >
                       <Plus className="w-3 h-3" />
                       <span>Créer</span>
@@ -800,7 +927,7 @@ export const SongEditor: React.FC = () => {
                   )}
                 </div>
 
-                <div className="max-h-48 overflow-y-auto space-y-1 pr-1">
+                <div className="max-h-48 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
                   {filteredCategoryList.map((cat) => {
                     const isSelected = categories.includes(cat);
                     return (
@@ -830,16 +957,19 @@ export const SongEditor: React.FC = () => {
           </div>
 
           {/* Note de scène */}
-          <div>
-            <label className="block text-xs font-medium text-gray-300 mb-1">
-              Note de Scène pour les musiciens
-            </label>
+          <div className="col-span-12 lg:col-span-5">
+            <div className="flex items-center gap-1 mb-1">
+              <label className="text-[11px] font-semibold text-gray-400 flex items-center gap-1.5">
+                <Music className="w-3 h-3 text-amber-400" />
+                <span>Note de scène</span>
+              </label>
+            </div>
             <input
               type="text"
-              placeholder="ex: Solo de guitare après le pont, fin douce"
+              placeholder="ex: Solo de guitare après le pont, fin douce..."
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full bg-[#1C1C1E] border border-[#333] rounded-lg px-3 py-2 text-xs text-blue-400 focus:outline-none focus:border-blue-500"
+              className="w-full h-8 bg-[#1C1C1E] border border-[#333] hover:border-[#444] rounded-lg px-2.5 text-xs text-blue-300 focus:outline-none focus:border-blue-500 transition-colors"
             />
           </div>
 
@@ -856,75 +986,145 @@ export const SongEditor: React.FC = () => {
             /* VISUAL SECTIONS INTERACTIVE BUILDER */
             <div className="space-y-4">
               
-              {/* Quick Add Section Bar */}
-              <div className="flex items-center justify-between p-3 rounded-xl bg-[#111113] border border-[#222225] gap-2 flex-wrap">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-xs font-bold text-gray-400 uppercase tracking-wider mr-1">
-                    Ajouter une section :
-                  </span>
-                  
-                  <button
-                    type="button"
-                    onClick={() => handleAddNewSection('verse')}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-600/15 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 text-xs font-semibold transition-colors"
-                  >
-                    <Plus className="w-3 h-3" />
-                    <span>Couplet</span>
-                  </button>
+              {/* Quick Add Section Dropdown & Global Folding Bar */}
+              <div className="flex items-center justify-between p-3 rounded-xl bg-[#111113] border border-[#222225] gap-3 flex-wrap">
+                <div className="flex items-center gap-2" ref={addSectionDropdownRef}>
+                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                      Ajouter :
+                    </span>
+                    
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setIsAddSectionDropdownOpen(!isAddSectionDropdownOpen)}
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/40 text-xs font-semibold transition-all shadow-sm active:scale-95"
+                      >
+                        <Plus className="w-3.5 h-3.5 text-blue-400" />
+                        <span>Choisir une section...</span>
+                        <ChevronDown className={`w-3.5 h-3.5 text-blue-400/80 transition-transform ${isAddSectionDropdownOpen ? 'rotate-180' : ''}`} />
+                      </button>
 
-                  <button
-                    type="button"
-                    onClick={() => handleAddNewSection('chorus')}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-600/15 hover:bg-amber-600/30 text-amber-300 border border-amber-500/30 text-xs font-semibold transition-colors"
-                  >
-                    <Plus className="w-3 h-3" />
-                    <span>Refrain</span>
-                  </button>
+                      {isAddSectionDropdownOpen && (
+                        <div className="absolute left-0 top-full mt-1.5 z-40 w-64 bg-[#18181C] border border-[#2E2E36] rounded-xl shadow-2xl p-1.5 backdrop-blur-md max-h-80 overflow-y-auto custom-scrollbar">
+                          <div className="px-2 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider border-b border-[#282830] mb-1">
+                            Types de section
+                          </div>
+                          
+                          <div className="space-y-0.5">
+                            {STANDARD_SECTION_TYPES.map(({ key, label }) => {
+                              const conf = SECTION_TYPES_CONFIG[key] || {
+                                badgeBg: 'bg-gray-600/20',
+                                badgeBorder: 'border-gray-500/30',
+                                badgeText: 'text-gray-300'
+                              };
+                              return (
+                                <button
+                                  key={key}
+                                  type="button"
+                                  onClick={() => {
+                                    handleAddNewSection(key as any);
+                                    setIsAddSectionDropdownOpen(false);
+                                  }}
+                                  className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs hover:bg-[#232329] text-gray-200 transition-colors text-left group"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span className={`w-2 h-2 rounded-full ${conf.badgeBg.replace('/20', '')}`} />
+                                    <span className="font-medium group-hover:text-white">{label}</span>
+                                  </div>
+                                  <span className={`text-[10px] px-1.5 py-0.5 rounded border ${conf.badgeBg} ${conf.badgeBorder} ${conf.badgeText}`}>
+                                    + Ajouter
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
 
-                  <button
-                    type="button"
-                    onClick={() => handleAddNewSection('bridge')}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-purple-600/15 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 text-xs font-semibold transition-colors"
-                  >
-                    <Plus className="w-3 h-3" />
-                    <span>Pont</span>
-                  </button>
+                          {/* Custom Sections Saved */}
+                          {customSectionList.length > 0 && (
+                            <div className="pt-2 mt-1 border-t border-[#25252D]">
+                              <div className="px-2 py-1 text-[10px] font-bold text-teal-400 uppercase tracking-wider mb-1">
+                                Sections personnalisées
+                              </div>
+                              <div className="space-y-0.5">
+                                {customSectionList.map((customName) => (
+                                  <button
+                                    key={customName}
+                                    type="button"
+                                    onClick={() => {
+                                      handleAddNewSection(customName, customName);
+                                      setIsAddSectionDropdownOpen(false);
+                                    }}
+                                    className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs hover:bg-[#232329] text-teal-200 transition-colors text-left"
+                                  >
+                                    <span className="font-medium">{customName}</span>
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-teal-600/20 border border-teal-500/30 text-teal-300">
+                                      + Ajouter
+                                    </span>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
 
-                  <button
-                    type="button"
-                    onClick={() => handleAddNewSection('intro')}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-cyan-600/15 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 text-xs font-semibold transition-colors"
-                  >
-                    <Plus className="w-3 h-3" />
-                    <span>Intro</span>
-                  </button>
+                          {/* Option to create a new custom section */}
+                          <div className="pt-1.5 mt-1 border-t border-[#25252D]">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsAddSectionDropdownOpen(false);
+                                setShowCustomSectionModal(true);
+                              }}
+                              className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-semibold text-amber-300 hover:text-amber-200 hover:bg-amber-600/15 border border-dashed border-amber-500/30 transition-colors text-left"
+                            >
+                              <Plus className="w-3.5 h-3.5 text-amber-400" />
+                              <span>Créer une section personnalisée...</span>
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
 
-                  <button
-                    type="button"
-                    onClick={() => handleAddNewSection('outro')}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-600/15 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 text-xs font-semibold transition-colors"
-                  >
-                    <Plus className="w-3 h-3" />
-                    <span>Outro</span>
-                  </button>
+                {/* Global Fold / Unfold Actions & Section Count */}
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center bg-[#18181C] border border-[#2B2B30] rounded-lg p-0.5 text-xs">
+                    <button
+                      type="button"
+                      onClick={handleCollapseAllSections}
+                      className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-colors ${
+                        collapsedSectionIds.size === visualSections.length && visualSections.length > 0
+                          ? 'bg-blue-600 text-white'
+                          : 'text-gray-400 hover:text-white hover:bg-[#252528]'
+                      }`}
+                      title="Replier toutes les sections pour réorganiser ou dupliquer facilement"
+                    >
+                      <ChevronsUp className="w-3.5 h-3.5" />
+                      <span>Tout replier</span>
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => handleAddNewSection('instrumental')}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600/15 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-semibold transition-colors"
-                  >
-                    <Plus className="w-3 h-3" />
-                    <span>Instru</span>
-                  </button>
-                </div>
+                    <button
+                      type="button"
+                      onClick={handleExpandAllSections}
+                      className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-colors ${
+                        collapsedSectionIds.size === 0
+                          ? 'bg-blue-600 text-white'
+                          : 'text-gray-400 hover:text-white hover:bg-[#252528]'
+                      }`}
+                      title="Déplier toutes les sections pour voir paroles et accords"
+                    >
+                      <ChevronsDown className="w-3.5 h-3.5" />
+                      <span>Tout déplier</span>
+                    </button>
+                  </div>
 
-                <div className="text-[11px] text-gray-500">
-                  {visualSections.length} section{visualSections.length > 1 ? 's' : ''}
+                  <div className="text-[11px] font-mono text-gray-400 bg-[#161619] px-2 py-1 rounded-md border border-[#222226]">
+                    {visualSections.length} section{visualSections.length > 1 ? 's' : ''}
+                  </div>
                 </div>
               </div>
 
               {/* Sections Cards List */}
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {visualSections.map((sec, sIdx) => (
                   <VisualSectionCard
                     key={sec.id}
@@ -941,22 +1141,13 @@ export const SongEditor: React.FC = () => {
                     onDragStart={handleDragStart}
                     onDragOver={handleDragOver}
                     onDrop={handleDrop}
+                    isCollapsed={collapsedSectionIds.has(sec.id)}
+                    onToggleCollapse={handleToggleSectionCollapse}
+                    onAddSection={handleAddNewSection}
+                    onOpenCustomSectionModal={() => setShowCustomSectionModal(true)}
                   />
                 ))}
               </div>
-
-              {/* Bottom Add Section Button */}
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={() => handleAddNewSection('verse')}
-                  className="w-full py-3 rounded-xl border border-dashed border-[#333] hover:border-blue-500 text-gray-400 hover:text-blue-400 hover:bg-blue-600/5 transition-all text-xs font-semibold flex items-center justify-center gap-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Ajouter une nouvelle section au chant</span>
-                </button>
-              </div>
-
             </div>
           ) : (
             /* CODE CHORDPRO TEXT EDITOR */
@@ -1097,6 +1288,103 @@ export const SongEditor: React.FC = () => {
           sectionTitle: chordPickerState.sectionTitle
         }}
       />
+
+      {/* Language Version & Relations Modal */}
+      {selectedSong && (
+        <LanguageVersionModal
+          song={selectedSong}
+          isOpen={isLanguageModalOpen}
+          onClose={() => setIsLanguageModalOpen(false)}
+        />
+      )}
+
+      {/* Modal for creating custom section */}
+      {showCustomSectionModal && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-[#18181C] border border-[#2B2B30] rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-[#25252A]">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-teal-500/10 border border-teal-500/30 flex items-center justify-center text-teal-400">
+                  <Plus className="w-4 h-4" />
+                </div>
+                <h3 className="text-base font-bold text-white">Section personnalisée</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCustomSectionModal(false);
+                  setCustomSectionInput('');
+                }}
+                className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-[#25252A] transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <label className="block text-xs font-semibold text-gray-300">
+                Nom du type de section
+              </label>
+              <input
+                type="text"
+                value={customSectionInput}
+                onChange={(e) => setCustomSectionInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleCreateCustomSection();
+                  } else if (e.key === 'Escape') {
+                    setShowCustomSectionModal(false);
+                    setCustomSectionInput('');
+                  }
+                }}
+                placeholder="Ex : Vamp, Descente, Transition, Coda..."
+                className="w-full bg-[#101012] border border-[#333338] focus:border-teal-500 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none"
+                autoFocus
+              />
+
+              {/* Suggestions */}
+              <div className="space-y-1.5 pt-1">
+                <span className="text-[11px] text-gray-400 font-medium">Suggestions :</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {['Vamp', 'Transition', 'Descente', 'Coda', 'Refrain 2', 'Montée', 'Chœur final'].map((sugg) => (
+                    <button
+                      key={sugg}
+                      type="button"
+                      onClick={() => setCustomSectionInput(sugg)}
+                      className="px-2 py-0.5 rounded-md bg-[#222226] hover:bg-[#2A2A30] text-gray-300 hover:text-teal-300 text-xs border border-[#303036] transition-colors"
+                    >
+                      {sugg}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#25252A]">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCustomSectionModal(false);
+                  setCustomSectionInput('');
+                }}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-gray-400 hover:text-white hover:bg-[#25252A] transition-colors"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={handleCreateCustomSection}
+                disabled={!customSectionInput.trim()}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-500 disabled:opacity-40 disabled:cursor-not-allowed text-white shadow-lg transition-colors flex items-center gap-1.5"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Ajouter la section</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

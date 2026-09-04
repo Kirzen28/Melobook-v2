@@ -7,6 +7,7 @@ import { SongEditor } from './components/SongEditor';
 import { SetlistManager } from './components/SetlistManager';
 import { GroupManager } from './components/GroupManager';
 import { SettingsView } from './components/SettingsView';
+import { Tuner } from './components/Tuner';
 import { AuthModal } from './components/AuthModal';
 
 const AppContent: React.FC = () => {
@@ -21,6 +22,7 @@ const AppContent: React.FC = () => {
         {activeTab === 'setlists' && <SetlistManager />}
         {activeTab === 'stage' && <SongReader />}
         {activeTab === 'editor' && <SongEditor />}
+        {activeTab === 'tuner' && <Tuner />}
         {activeTab === 'groups' && <GroupManager />}
         {activeTab === 'settings' && <SettingsView />}
       </main>

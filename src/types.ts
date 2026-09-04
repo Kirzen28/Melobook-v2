@@ -37,9 +37,21 @@ export interface Song {
   folderId?: string | null;
   capo?: number;
   tags?: string[];
+  language?: string;
+  linkedSongIds?: string[];
   notes?: string;
   createdAt?: any;
   updatedAt?: any;
+}
+
+export interface SetlistSongOverride {
+  key?: string;
+  tempo?: number;
+  capo?: number;
+  transposeOffset?: number;
+  duration?: string;
+  notes?: string;
+  sectionRepeats?: Record<number, number>;
 }
 
 export interface Setlist {
@@ -48,8 +60,9 @@ export interface Setlist {
   name: string;
   date: string;
   songIds: string[];
+  songOverrides?: Record<string, SetlistSongOverride>;
   notes?: string;
-  targetDuration?: number; // in minutes
+  targetDuration?: number;
   createdAt?: any;
 }
 
@@ -61,7 +74,7 @@ export interface StageSettings {
   autoScrollSpeed: number; // 1 to 10
   isAutoScrolling: boolean;
   columns: 1 | 2;
-  theme: 'dark' | 'oled' | 'sepia' | 'light';
+  theme: 'dark' | 'oled' | 'sepia' | 'light' | 'system';
   capo: number; // 0 to 7
   showMetronome: boolean;
   soundMetronome: boolean;

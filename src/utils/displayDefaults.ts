@@ -67,14 +67,16 @@ export function getSectionColor(sectionType: string | undefined, colors: Section
   if (!sectionType) return colors.general || '#64748b';
   const norm = sectionType.toLowerCase().replace(/[-_\s]/g, '');
 
+  if (norm.includes('prechorus') || norm.includes('prerefrain') || norm.includes('pre') || norm.includes('pré')) {
+    return colors.preChorus || '#ec4899';
+  }
   if (norm.includes('chorus') || norm.includes('refrain')) {
     return colors.chorus || '#3b82f6';
   }
   if (norm.includes('verse') || norm.includes('couplet')) return colors.verse || '#94a3b8';
   if (norm.includes('bridge') || norm.includes('pont')) return colors.bridge || '#a855f7';
   if (norm.includes('intro')) return colors.intro || '#10b981';
-  if (norm.includes('outro') || norm.includes('fin') || norm.includes('ending')) return colors.outro || '#f43f5e';
-  if (norm.includes('prechorus') || norm.includes('prerefrain')) return colors.preChorus || '#ec4899';
+  if (norm.includes('outro') || norm.includes('fin') || norm.includes('ending') || norm.includes('finale')) return colors.outro || '#f43f5e';
   if (norm.includes('instru') || norm.includes('solo') || norm.includes('interlude')) return colors.instrumental || '#eab308';
   if (norm.includes('tag') || norm.includes('coda')) return colors.tag || '#06b6d4';
 

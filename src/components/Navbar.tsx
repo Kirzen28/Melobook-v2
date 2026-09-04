@@ -18,7 +18,8 @@ import {
   Menu, 
   X, 
   Sliders,
-  Check
+  Check,
+  Gauge
 } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
@@ -127,28 +128,15 @@ export const Navbar: React.FC = () => {
             )}
 
             <button
-              onClick={() => setActiveTab('groups')}
+              onClick={() => setActiveTab('tuner')}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
-                activeTab === 'groups'
+                activeTab === 'tuner'
                   ? 'bg-[#1C1C1E] text-white border border-[#333]'
                   : 'text-gray-400 hover:text-white hover:bg-[#1C1C1E]'
               }`}
             >
-              <Users className="w-3.5 h-3.5 text-blue-400" />
-              <span>Groupe</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('settings')}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
-                activeTab === 'settings'
-                  ? 'bg-[#1C1C1E] text-white border border-[#333]'
-                  : 'text-gray-400 hover:text-white hover:bg-[#1C1C1E]'
-              }`}
-              title="Réglages des polices et couleurs"
-            >
-              <Sliders className="w-3.5 h-3.5 text-purple-400" />
-              <span>Réglages</span>
+              <Gauge className="w-3.5 h-3.5 text-blue-400" />
+              <span>Accordeur</span>
             </button>
           </nav>
 
@@ -345,6 +333,23 @@ export const Navbar: React.FC = () => {
                   )}
 
                   <button
+                    onClick={() => handleNavClick('tuner')}
+                    className={`w-full text-left px-3.5 py-2 flex items-center justify-between transition-colors ${
+                      activeTab === 'tuner'
+                        ? 'bg-[#1C1C1E] text-blue-400 font-semibold'
+                        : 'text-gray-300 hover:bg-[#1C1C1E] hover:text-white'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Gauge className="w-3.5 h-3.5 text-blue-400" />
+                      <span>Accordeur</span>
+                    </div>
+                    {activeTab === 'tuner' && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                    )}
+                  </button>
+
+                  <button
                     onClick={() => handleNavClick('groups')}
                     className={`w-full text-left px-3.5 py-2 flex items-center justify-between transition-colors ${
                       activeTab === 'groups'
@@ -360,6 +365,8 @@ export const Navbar: React.FC = () => {
                       <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
                     )}
                   </button>
+
+
 
                   <button
                     onClick={() => handleNavClick('settings')}

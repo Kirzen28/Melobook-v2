@@ -36,17 +36,24 @@ const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0
 // Initialize Auth
 export const auth = getAuth(app);
 
-// Initialize Firestore with robust multi-tab offline cache
+// Initialize Firestore with robust multi-tab offline cache and force long polling for reliable connection
 let firestoreInstance;
 try {
   firestoreInstance = initializeFirestore(app, {
+    experimentalForceLongPolling: true,
     localCache: persistentLocalCache({
       tabManager: persistentMultipleTabManager()
     })
   }, firebaseConfig.firestoreDatabaseId || undefined);
 } catch (e) {
-  // Fallback to default if already initialized or browser doesn't support
-  firestoreInstance = getFirestore(app, firebaseConfig.firestoreDatabaseId || undefined);
+  try {
+    firestoreInstance = initializeFirestore(app, {
+      experimentalForceLongPolling: true
+    }, firebaseConfig.firestoreDatabaseId || undefined);
+  } catch (e2) {
+    // Fallback to default if already initialized
+    firestoreInstance = getFirestore(app, firebaseConfig.firestoreDatabaseId || undefined);
+  }
 }
 
 export const db = firestoreInstance;

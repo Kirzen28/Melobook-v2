@@ -6,6 +6,7 @@ import {
   transposeChord, 
   metronome,
   updateSectionVocalsInChordPro,
+  updateSectionRepeatInChordPro,
   getVocalBadgeStyle,
   getSongDuration,
   parseDurationToSeconds,
@@ -31,8 +32,10 @@ import {
   VolumeX, 
   Settings2, 
   Music, 
+  Music2,
   FileEdit,
   ArrowUp,
+  ArrowUpDown,
   Sparkles,
   Tag,
   Mic,
@@ -45,10 +48,14 @@ import {
   Trash2,
   Clock,
   Layers,
-  Pencil
+  Pencil,
+  Globe,
+  Repeat
 } from 'lucide-react';
 import { SetlistPdfModal } from './SetlistPdfModal';
 import { ChordModal } from './ChordModal';
+import { LanguageVersionModal } from './LanguageVersionModal';
+import { getLanguageMeta, getLinkedSongVersions } from '../utils/languageUtils';
 
 const PRESET_VOCAL_ROLES = [
   'Unisson', 
@@ -73,6 +80,7 @@ const MINOR_KEYS = ['Cm', 'C#m', 'Dbm', 'Dm', 'D#m', 'Ebm', 'Em', 'Fm', 'F#m', '
 
 interface SongReaderProps {
   song?: Song | null;
+  setlistId?: string;
   onBack?: () => void;
   onNext?: () => void;
   onPrev?: () => void;
@@ -84,6 +92,7 @@ interface SongReaderProps {
 
 export const SongReader: React.FC<SongReaderProps> = ({
   song: propSong,
+  setlistId,
   onBack,
   onNext,
   onPrev,
@@ -93,23 +102,35 @@ export const SongReader: React.FC<SongReaderProps> = ({
   setlistPosition
 }) => {
   const { 
+    songs,
     selectedSong, 
     setSelectedSong,
     updateSong,
+    setlists,
+    selectedSetlist,
+    updateSetlistSongOverride,
+    removeSetlistSongOverride,
     stageSettings, 
     updateStageSettings, 
     displaySettings,
     setActiveTab, 
+    activeTab,
     currentUser 
   } = useApp();
 
-  const song = propSong || selectedSong;
+  const rawSong = propSong || selectedSong;
+  const song = useMemo(() => {
+    if (!rawSong) return null;
+    return songs.find(s => s.id === rawSong.id) || rawSong;
+  }, [songs, rawSong]);
 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [currentBeat, setCurrentBeat] = useState(0);
   const [isMetronomeActive, setIsMetronomeActive] = useState(false);
   const [showSettingsDrawer, setShowSettingsDrawer] = useState(false);
   const [showPdfModal, setShowPdfModal] = useState(false);
+  const [showLanguageModal, setShowLanguageModal] = useState(false);
+  const [showLanguageMenu, setShowLanguageMenu] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
 
   // Interactive Chord Library Modal State
@@ -129,6 +150,8 @@ export const SongReader: React.FC<SongReaderProps> = ({
   } | null>(null);
   const [customVocalInput, setCustomVocalInput] = useState('');
 
+  // Section Repetition Pop-up Modal State removed in favor of direct dropdown
+
   // Minimalist Metadata Pop-up Modals States
   const [showKeyModal, setShowKeyModal] = useState(false);
   const [showTempoModal, setShowTempoModal] = useState(false);
@@ -138,6 +161,23 @@ export const SongReader: React.FC<SongReaderProps> = ({
   const [showDurationModal, setShowDurationModal] = useState(false);
   const [durationModalMode, setDurationModalMode] = useState<'auto' | 'custom'>('auto');
   const [durationModalInput, setDurationModalInput] = useState('');
+
+  // Setlist Context & Overrides Determination
+  const isSetlistMode = Boolean(setlistId || setlistContextName || (selectedSetlist && (activeTab === 'setlists' || activeTab === 'stage')));
+  const currentSetlist = (setlistId ? setlists.find(st => st.id === setlistId) : null) || selectedSetlist;
+  const setlistOverride = (isSetlistMode && currentSetlist && song) ? currentSetlist.songOverrides?.[song.id] : undefined;
+  
+  const hasSetlistOverrides = Boolean(
+    setlistOverride && (
+      setlistOverride.key !== undefined ||
+      setlistOverride.tempo !== undefined ||
+      setlistOverride.capo !== undefined ||
+      setlistOverride.transposeOffset !== undefined ||
+      setlistOverride.duration !== undefined ||
+      setlistOverride.notes !== undefined ||
+      (setlistOverride.sectionRepeats && Object.keys(setlistOverride.sectionRepeats).length > 0)
+    )
+  );
 
   // Tap Tempo state
   const tapTimesRef = useRef<number[]>([]);
@@ -153,7 +193,23 @@ export const SongReader: React.FC<SongReaderProps> = ({
     return parseChordPro(song.contentChordPro);
   }, [song?.contentChordPro]);
 
-  // Extract all unique chords in the current song (with current transposition)
+  // Base parameters
+  const catalogBaseKey = (parsedData?.hasExplicitKey && parsedData.key) || song?.key || parsedData?.key || 'C';
+  const effectiveBaseKey = setlistOverride?.key || catalogBaseKey;
+  const effectiveTransposeOffset = setlistOverride?.transposeOffset !== undefined ? setlistOverride.transposeOffset : stageSettings.transposeOffset;
+  const effectiveTempo = setlistOverride?.tempo || song?.tempo || parsedData?.tempo || 120;
+  const effectiveDuration = setlistOverride?.duration || song?.duration || parsedData?.duration || '3:30';
+  const effectiveNotes = setlistOverride?.notes !== undefined ? setlistOverride.notes : (song?.notes || '');
+  const effectiveCapo = setlistOverride?.capo !== undefined ? setlistOverride.capo : (song?.capo || 0);
+
+  // Semitone difference for live transposed chords
+  const baseKeySemitones = useMemo(() => {
+    return getSemitoneDifference(catalogBaseKey, effectiveBaseKey);
+  }, [catalogBaseKey, effectiveBaseKey]);
+
+  const totalTransposeSemitones = (baseKeySemitones + effectiveTransposeOffset) % 12;
+
+  // Extract all unique chords in the current song
   const allSongChords = useMemo(() => {
     if (!parsedData) return [];
     const set = new Set<string>();
@@ -161,7 +217,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
       sec.lines.forEach(l => {
         l.items.forEach(item => {
           if (item.chord) {
-            const transposed = transposeChord(item.chord, stageSettings.transposeOffset, stageSettings.notation);
+            const transposed = transposeChord(item.chord, totalTransposeSemitones, stageSettings.notation);
             if (transposed && transposed.trim()) {
               set.add(transposed.trim());
             }
@@ -170,7 +226,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
       });
     });
     return Array.from(set);
-  }, [parsedData, stageSettings.transposeOffset, stageSettings.notation]);
+  }, [parsedData, totalTransposeSemitones, stageSettings.notation]);
 
   // Local inline duration, tempo, key & notes state
   const [inlineDurationValue, setInlineDurationValue] = useState<string>('3:30');
@@ -180,16 +236,13 @@ export const SongReader: React.FC<SongReaderProps> = ({
   const [notesInput, setNotesInput] = useState('');
 
   useEffect(() => {
-    if (song) {
-      setInlineDurationValue(song.duration || parsedData?.duration || '3:30');
-      setNotesInput(song.notes || '');
-    }
-  }, [song?.duration, song?.notes, parsedData?.duration]);
+    setInlineDurationValue(effectiveDuration);
+    setNotesInput(effectiveNotes);
+  }, [effectiveDuration, effectiveNotes]);
 
   useEffect(() => {
-    const currentBpm = song?.tempo || parsedData?.tempo || 120;
-    setInlineTempoValue(String(currentBpm));
-  }, [song?.tempo, parsedData?.tempo]);
+    setInlineTempoValue(String(effectiveTempo));
+  }, [effectiveTempo]);
 
   const handleCommitTempo = async () => {
     const parsed = parseInt(inlineTempoValue, 10);
@@ -198,26 +251,33 @@ export const SongReader: React.FC<SongReaderProps> = ({
       setInlineTempoValue(String(clamped));
       await handleUpdateTempo(clamped);
     } else {
-      const fallback = song?.tempo || parsedData?.tempo || 120;
-      setInlineTempoValue(String(fallback));
+      setInlineTempoValue(String(effectiveTempo));
     }
   };
 
   const handleSetDurationCustom = async (newDuration: string) => {
     if (!song) return;
     const trimmed = newDuration.trim() || '3:30';
-    await updateSong(song.id, { duration: trimmed, durationMode: 'custom' });
-    if (selectedSong && selectedSong.id === song.id) {
-      setSelectedSong({ ...selectedSong, duration: trimmed, durationMode: 'custom' });
+    if (isSetlistMode && currentSetlist) {
+      await updateSetlistSongOverride(currentSetlist.id, song.id, { duration: trimmed });
+    } else {
+      await updateSong(song.id, { duration: trimmed, durationMode: 'custom' });
+      if (selectedSong && selectedSong.id === song.id) {
+        setSelectedSong({ ...selectedSong, duration: trimmed, durationMode: 'custom' });
+      }
     }
   };
 
   const handleSaveNotes = async () => {
     if (!song) return;
     const trimmed = notesInput.trim();
-    await updateSong(song.id, { notes: trimmed || undefined });
-    if (selectedSong && selectedSong.id === song.id) {
-      setSelectedSong({ ...selectedSong, notes: trimmed || undefined });
+    if (isSetlistMode && currentSetlist) {
+      await updateSetlistSongOverride(currentSetlist.id, song.id, { notes: trimmed || undefined });
+    } else {
+      await updateSong(song.id, { notes: trimmed || undefined });
+      if (selectedSong && selectedSong.id === song.id) {
+        setSelectedSong({ ...selectedSong, notes: trimmed || undefined });
+      }
     }
     setIsEditingNotes(false);
   };
@@ -225,45 +285,119 @@ export const SongReader: React.FC<SongReaderProps> = ({
   const handleDeleteNotes = async () => {
     if (!song) return;
     setNotesInput('');
-    await updateSong(song.id, { notes: undefined });
-    if (selectedSong && selectedSong.id === song.id) {
-      setSelectedSong({ ...selectedSong, notes: undefined });
+    if (isSetlistMode && currentSetlist) {
+      await updateSetlistSongOverride(currentSetlist.id, song.id, { notes: undefined });
+    } else {
+      await updateSong(song.id, { notes: undefined });
+      if (selectedSong && selectedSong.id === song.id) {
+        setSelectedSong({ ...selectedSong, notes: undefined });
+      }
     }
     setIsEditingNotes(false);
   };
 
   // Key & Transposition Handlers
-  const handleTransposeDelta = (delta: number) => {
-    const newOffset = (stageSettings.transposeOffset + delta) % 12;
-    updateStageSettings({ transposeOffset: newOffset });
+  const handleTransposeDelta = async (delta: number) => {
+    const newOffset = (effectiveTransposeOffset + delta) % 12;
+    if (isSetlistMode && currentSetlist && song) {
+      await updateSetlistSongOverride(currentSetlist.id, song.id, { transposeOffset: newOffset });
+    } else {
+      updateStageSettings({ transposeOffset: newOffset });
+    }
   };
 
-  const handleResetTranspose = () => {
-    updateStageSettings({ transposeOffset: 0 });
+  const handleResetTranspose = async () => {
+    if (isSetlistMode && currentSetlist && song) {
+      await updateSetlistSongOverride(currentSetlist.id, song.id, { transposeOffset: 0 });
+    } else {
+      updateStageSettings({ transposeOffset: 0 });
+    }
   };
 
   const handleSetBaseKey = async (targetKey: string) => {
     if (!song) return;
 
-    // Use explicit key from ChordPro directive if present, else song.key or parsedData key
-    const currentBaseKey = (parsedData?.hasExplicitKey && parsedData.key)
-      ? parsedData.key
-      : (song.key || parsedData?.key || 'C');
+    if (isSetlistMode && currentSetlist) {
+      await updateSetlistSongOverride(currentSetlist.id, song.id, { key: targetKey, transposeOffset: 0 });
+    } else {
+      const currentBaseKey = (parsedData?.hasExplicitKey && parsedData.key)
+        ? parsedData.key
+        : (song.key || parsedData?.key || 'C');
 
-    const semitones = getSemitoneDifference(currentBaseKey, targetKey);
+      const semitones = getSemitoneDifference(currentBaseKey, targetKey);
+      const updatedContent = transposeChordProText(song.contentChordPro, semitones, 'standard', targetKey);
 
-    // Always update ChordPro content to transpose chords and enforce {key: targetKey}
-    const updatedContent = transposeChordProText(song.contentChordPro, semitones, 'standard', targetKey);
-
-    await updateSong(song.id, { key: targetKey, contentChordPro: updatedContent });
-    updateStageSettings({ transposeOffset: 0 });
-    if (selectedSong && selectedSong.id === song.id) {
-      setSelectedSong({ ...selectedSong, key: targetKey, contentChordPro: updatedContent });
+      await updateSong(song.id, { key: targetKey, contentChordPro: updatedContent });
+      updateStageSettings({ transposeOffset: 0 });
+      if (selectedSong && selectedSong.id === song.id) {
+        setSelectedSong({ ...selectedSong, key: targetKey, contentChordPro: updatedContent });
+      }
     }
   };
 
+  // Section Repeat Handler
+  const handleUpdateSectionRepeat = async (sectionIdx: number, newRepeat: number) => {
+    if (!song) return;
+    const clampedRepeat = Math.max(1, Math.min(16, newRepeat));
+
+    if (isSetlistMode && currentSetlist) {
+      const currentRepeats = setlistOverride?.sectionRepeats || {};
+      const updatedRepeats = { ...currentRepeats, [sectionIdx]: clampedRepeat };
+      await updateSetlistSongOverride(currentSetlist.id, song.id, { sectionRepeats: updatedRepeats });
+    } else {
+      const updatedContent = updateSectionRepeatInChordPro(song.contentChordPro, sectionIdx, clampedRepeat);
+      await updateSong(song.id, { contentChordPro: updatedContent });
+      if (selectedSong && selectedSong.id === song.id) {
+        setSelectedSong({ ...selectedSong, contentChordPro: updatedContent });
+      }
+    }
+  };
+
+  // Reset Overrides
+  const handleResetOverridesToDefaults = async () => {
+    if (!isSetlistMode || !currentSetlist || !song) return;
+    await removeSetlistSongOverride(currentSetlist.id, song.id);
+  };
+
+  // Save Overrides to Master Catalog
+  const handleSaveOverridesToMasterCatalog = async () => {
+    if (!isSetlistMode || !currentSetlist || !song) return;
+    const updates: Partial<Song> = {};
+    if (setlistOverride?.tempo) updates.tempo = setlistOverride.tempo;
+    if (setlistOverride?.duration) updates.duration = setlistOverride.duration;
+    if (setlistOverride?.capo !== undefined) updates.capo = setlistOverride.capo;
+    if (setlistOverride?.notes !== undefined) updates.notes = setlistOverride.notes;
+
+    let contentToUpdate = song.contentChordPro;
+
+    if (setlistOverride?.key && setlistOverride.key !== catalogBaseKey) {
+      const semitones = getSemitoneDifference(catalogBaseKey, setlistOverride.key);
+      contentToUpdate = transposeChordProText(contentToUpdate, semitones, 'standard', setlistOverride.key);
+      updates.key = setlistOverride.key;
+    }
+
+    if (setlistOverride?.sectionRepeats) {
+      Object.entries(setlistOverride.sectionRepeats).forEach(([sIdxStr, rep]) => {
+        const sIdx = parseInt(sIdxStr, 10);
+        const repNum = Number(rep);
+        if (!isNaN(sIdx) && !isNaN(repNum) && repNum > 0) {
+          contentToUpdate = updateSectionRepeatInChordPro(contentToUpdate, sIdx, repNum);
+        }
+      });
+    }
+
+    updates.contentChordPro = contentToUpdate;
+
+    await updateSong(song.id, updates);
+    if (selectedSong && selectedSong.id === song.id) {
+      setSelectedSong({ ...selectedSong, ...updates });
+    }
+
+    await removeSetlistSongOverride(currentSetlist.id, song.id);
+  };
+
   // Key & Mode Helpers
-  const rawKey = (parsedData?.hasExplicitKey && parsedData.key) || song?.key || parsedData?.key || 'C';
+  const rawKey = effectiveBaseKey;
   const isCurrentKeyMinor = rawKey.endsWith('m') && rawKey !== 'm' && !rawKey.endsWith('dim');
   const currentRootNote = isCurrentKeyMinor ? rawKey.slice(0, -1) : rawKey;
   const currentMode = isCurrentKeyMinor ? 'mineur' : 'majeur';
@@ -283,10 +417,16 @@ export const SongReader: React.FC<SongReaderProps> = ({
     if (!song) return;
     const clamped = Math.max(30, Math.min(260, newBpm));
     setTempoModalValue(clamped);
-    await updateSong(song.id, { tempo: clamped });
-    if (selectedSong && selectedSong.id === song.id) {
-      setSelectedSong({ ...selectedSong, tempo: clamped });
+
+    if (isSetlistMode && currentSetlist) {
+      await updateSetlistSongOverride(currentSetlist.id, song.id, { tempo: clamped });
+    } else {
+      await updateSong(song.id, { tempo: clamped });
+      if (selectedSong && selectedSong.id === song.id) {
+        setSelectedSong({ ...selectedSong, tempo: clamped });
+      }
     }
+
     if (isMetronomeActive) {
       metronome.setBpm(clamped);
     }
@@ -316,10 +456,14 @@ export const SongReader: React.FC<SongReaderProps> = ({
   const handleUpdateCapo = async (capoVal: number) => {
     if (!song) return;
     const safeCapo = Math.max(0, Math.min(11, capoVal));
-    updateStageSettings({ capo: safeCapo });
-    await updateSong(song.id, { capo: safeCapo });
-    if (selectedSong && selectedSong.id === song.id) {
-      setSelectedSong({ ...selectedSong, capo: safeCapo });
+    if (isSetlistMode && currentSetlist) {
+      await updateSetlistSongOverride(currentSetlist.id, song.id, { capo: safeCapo });
+    } else {
+      updateStageSettings({ capo: safeCapo });
+      await updateSong(song.id, { capo: safeCapo });
+      if (selectedSong && selectedSong.id === song.id) {
+        setSelectedSong({ ...selectedSong, capo: safeCapo });
+      }
     }
   };
 
@@ -333,7 +477,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
   };
 
   // Base key and Transposed key calculations
-  const baseKey = (parsedData?.hasExplicitKey && parsedData.key) || song?.key || parsedData?.key || 'C';
+  const baseKey = effectiveBaseKey;
 
   // Base Key display formatted according to current notation system
   const baseKeyDisplay = useMemo(() => {
@@ -346,9 +490,9 @@ export const SongReader: React.FC<SongReaderProps> = ({
   // Transposed Key display (only when transposeOffset !== 0)
   const transposedKeyDisplay = useMemo(() => {
     if (!baseKey) return '';
-    if (stageSettings.transposeOffset === 0) return '';
-    return transposeChord(baseKey, stageSettings.transposeOffset, stageSettings.notation);
-  }, [baseKey, stageSettings.transposeOffset, stageSettings.notation]);
+    if (effectiveTransposeOffset === 0) return '';
+    return transposeChord(baseKey, effectiveTransposeOffset, stageSettings.notation);
+  }, [baseKey, effectiveTransposeOffset, stageSettings.notation]);
 
   const currentKeyDisplay = transposedKeyDisplay || baseKeyDisplay;
 
@@ -589,12 +733,17 @@ export const SongReader: React.FC<SongReaderProps> = ({
   }
 
   // Theme backgrounds
+  const isSystemLight = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+  const effectiveTheme = stageSettings.theme === 'system'
+    ? (isSystemLight ? 'light' : 'dark')
+    : (stageSettings.theme || 'dark');
+
   const themeClasses = {
     dark: 'bg-[#0A0A0B] text-[#E0E0E0]',
     oled: 'bg-black text-[#E0E0E0]',
     sepia: 'bg-[#1C1814] text-[#F3EAD8]',
     light: 'bg-[#F4F4F5] text-[#111112]'
-  }[stageSettings.theme];
+  }[effectiveTheme as 'dark' | 'oled' | 'sepia' | 'light'] || 'bg-[#0A0A0B] text-[#E0E0E0]';
 
   return (
     <div className={`fixed inset-0 top-16 md:top-16 z-30 flex flex-col ${themeClasses} select-none transition-colors`}>
@@ -630,29 +779,6 @@ export const SongReader: React.FC<SongReaderProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-            {/* Notation Selection (Do-Ré-Mi vs ABC) */}
-            <div className="flex items-center gap-2">
-              <span className="text-gray-400 font-medium">Notation :</span>
-              <div className="flex items-center gap-1 bg-[#1C1C1E] p-0.5 rounded-md border border-[#333]">
-                <button
-                  onClick={() => updateStageSettings({ notation: 'latin' })}
-                  className={`px-2.5 py-1 rounded font-semibold transition-all ${
-                    stageSettings.notation === 'latin' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  Do Ré Mi
-                </button>
-                <button
-                  onClick={() => updateStageSettings({ notation: 'standard' })}
-                  className={`px-2.5 py-1 rounded font-semibold transition-all ${
-                    stageSettings.notation === 'standard' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  A B C
-                </button>
-              </div>
-            </div>
-
             {/* Chords Visibility */}
             <div className="flex items-center gap-2">
               <span className="text-gray-400 font-medium">Accords :</span>
@@ -707,47 +833,6 @@ export const SongReader: React.FC<SongReaderProps> = ({
               </div>
             </div>
 
-            {/* Columns Toggle */}
-            <div className="flex items-center gap-2">
-              <span className="text-gray-400 font-medium">Colonnes :</span>
-              <div className="flex items-center gap-1 bg-[#1C1C1E] p-0.5 rounded-md border border-[#333]">
-                <button
-                  onClick={() => updateStageSettings({ columns: 1 })}
-                  className={`px-2.5 py-1 rounded font-semibold transition-all ${
-                    stageSettings.columns === 1 ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  1 Col
-                </button>
-                <button
-                  onClick={() => updateStageSettings({ columns: 2 })}
-                  className={`px-2.5 py-1 rounded font-semibold transition-all ${
-                    stageSettings.columns === 2 ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  2 Col
-                </button>
-              </div>
-            </div>
-
-            {/* Theme Palette */}
-            <div className="flex items-center gap-2">
-              <span className="text-gray-400 font-medium">Ambiance :</span>
-              <div className="flex items-center gap-1 bg-[#1C1C1E] p-0.5 rounded-md border border-[#333]">
-                {(['dark', 'oled', 'sepia', 'light'] as const).map(th => (
-                  <button
-                    key={th}
-                    onClick={() => updateStageSettings({ theme: th })}
-                    className={`px-2.5 py-1 rounded font-semibold capitalize transition-all ${
-                      stageSettings.theme === th ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-gray-200'
-                    }`}
-                  >
-                    {th}
-                  </button>
-                ))}
-              </div>
-            </div>
-
             {/* PDF & Edit Actions */}
             <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto flex-wrap pt-1 sm:pt-0 border-t sm:border-t-0 border-[#222224]">
               <button
@@ -786,6 +871,53 @@ export const SongReader: React.FC<SongReaderProps> = ({
           
           {/* Song Sheet Header */}
           <div className="border-b border-[#222224] pb-4 mb-6">
+            {/* Setlist Context Banner (Isolated modifications notice) */}
+            {isSetlistMode && currentSetlist && (
+              <div className="mb-4 p-3 rounded-xl bg-[#141419] border border-blue-500/30 flex flex-wrap items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2.5">
+                  <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse shrink-0" />
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-blue-300 uppercase tracking-wider">
+                        Setlist : {currentSetlist.name}
+                      </span>
+                      {hasSetlistOverrides && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-950/60 border border-amber-500/50 text-amber-300">
+                          Modifications isolées actives
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-gray-400">
+                      Toutes les modifications dans cette vue sont conservées pour cette setlist uniquement et ne changent pas le répertoire par défaut.
+                    </p>
+                  </div>
+                </div>
+
+                {hasSetlistOverrides && (
+                  <div className="flex items-center gap-1.5 ml-auto">
+                    <button
+                      type="button"
+                      onClick={handleResetOverridesToDefaults}
+                      className="px-2.5 py-1 rounded-lg bg-[#1C1C22] hover:bg-[#282830] text-gray-300 hover:text-white border border-[#333] text-xs font-medium transition-colors flex items-center gap-1"
+                      title="Rétablir les valeurs par défaut du répertoire"
+                    >
+                      <RotateCcw className="w-3 h-3 text-gray-400" />
+                      <span>Rétablir défaut</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveOverridesToMasterCatalog}
+                      className="px-2.5 py-1 rounded-lg bg-blue-600/90 hover:bg-blue-600 text-white text-xs font-semibold shadow-sm transition-colors flex items-center gap-1"
+                      title="Appliquer définitivement ces modifications à la fiche du chant dans le répertoire"
+                    >
+                      <Check className="w-3 h-3" />
+                      <span>Enregistrer dans répertoire</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="flex items-start justify-between gap-3 mb-3">
               {/* Left: Title & Artist */}
               <div className="flex-1 min-w-0 pr-2">
@@ -797,12 +929,107 @@ export const SongReader: React.FC<SongReaderProps> = ({
                   </div>
                 )}
 
-                <h1 
-                  className="font-bold tracking-tight text-white leading-tight break-words mb-1"
-                  style={{ fontSize: `${displaySettings.typography.titleSize}px` }}
-                >
-                  {parsedData.title || song.title}
-                </h1>
+                <div className="flex items-center flex-wrap gap-2.5 mb-1">
+                  <h1 
+                    className="font-bold tracking-tight text-white leading-tight break-words"
+                    style={{ fontSize: `${displaySettings.typography.titleSize}px` }}
+                  >
+                    {parsedData.title || song.title}
+                  </h1>
+
+                  {/* Liste dépliante : Langue et versions du chant à la suite du titre */}
+                  {(() => {
+                    const lMeta = getLanguageMeta(song.language);
+                    const linkedVersions = getLinkedSongVersions(song, songs);
+
+                    return (
+                      <div className="relative inline-block">
+                        <button
+                          type="button"
+                          onClick={() => setShowLanguageMenu(!showLanguageMenu)}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md border text-xs font-semibold transition-all shadow-sm hover:brightness-110 active:scale-95 cursor-pointer ${lMeta.badgeClass}`}
+                          title="Versions disponibles"
+                        >
+                          <Globe className="w-3.5 h-3.5 shrink-0 opacity-80" />
+                          <span>{lMeta.name}</span>
+                          {linkedVersions.length > 0 && (
+                            <span className="bg-white/20 text-white text-[10px] px-1 py-0.2 rounded font-bold">
+                              +{linkedVersions.length}
+                            </span>
+                          )}
+                          <ChevronDown className={`w-3 h-3 transition-transform ${showLanguageMenu ? 'rotate-180' : ''}`} />
+                        </button>
+
+                        {showLanguageMenu && (
+                          <>
+                            <div 
+                              className="fixed inset-0 z-40" 
+                              onClick={() => setShowLanguageMenu(false)} 
+                            />
+                            <div className="absolute left-0 top-full mt-1.5 z-50 w-64 bg-[#18181C] border border-[#2E2E36] rounded-xl shadow-2xl p-2.5 backdrop-blur-md">
+                              {/* En-tête */}
+                              <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider px-1 pb-1.5 border-b border-[#282830] mb-2 flex items-center justify-between">
+                                <span>Versions disponibles</span>
+                                {linkedVersions.length > 0 && (
+                                  <span className="text-[10px] font-mono font-normal text-indigo-400 bg-indigo-950/60 px-1.5 py-0.5 rounded border border-indigo-500/30">
+                                    {linkedVersions.length}
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Autres versions liées disponibles */}
+                              {linkedVersions.length > 0 ? (
+                                <div className="max-h-48 overflow-y-auto space-y-1 pr-0.5 custom-scrollbar">
+                                  {linkedVersions.map((lv) => {
+                                    const lvMeta = getLanguageMeta(lv.language);
+                                    return (
+                                      <button
+                                        key={lv.id}
+                                        type="button"
+                                        onClick={() => {
+                                          setSelectedSong(lv);
+                                          setShowLanguageMenu(false);
+                                        }}
+                                        className="w-full py-1.5 px-2 rounded-lg bg-[#141416] hover:bg-[#202026] text-gray-300 hover:text-white transition-colors flex items-center justify-between text-xs border border-[#26262E] cursor-pointer text-left group"
+                                      >
+                                        <div className="flex items-center gap-1.5 min-w-0">
+                                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${lvMeta.badgeClass}`}>
+                                            {lvMeta.name}
+                                          </span>
+                                          <span className="truncate group-hover:text-blue-300">{lv.title}</span>
+                                        </div>
+                                        <span className="text-[10px] text-blue-400 shrink-0 ml-1 font-medium">Afficher</span>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              ) : (
+                                <div className="py-2.5 px-2 text-center text-xs text-gray-400 bg-[#141416] rounded-lg border border-[#26262E]">
+                                  Aucune autre version disponible
+                                </div>
+                              )}
+
+                              {/* Bouton pour ouvrir la fenêtre complète de gestion des versions */}
+                              <div className="pt-2 mt-2 border-t border-[#282830]">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setShowLanguageMenu(false);
+                                    setShowLanguageModal(true);
+                                  }}
+                                  className="w-full py-1.5 px-2 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                                >
+                                  <Plus className="w-3.5 h-3.5" />
+                                  <span>Gérer les versions</span>
+                                </button>
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
                 {song.artist && (
                   <div 
                     className="text-gray-300 font-medium break-words"
@@ -831,7 +1058,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
 
             {/* Single Line Toolbar: Stylized Inline Controls for Tonalité, Transpose, Tempo, Durée, Mesure & Catégories */}
             <div className="flex items-center gap-2 flex-wrap text-xs">
-              {/* Tonalité : Menu déroulant liste à 2 colonnes (Majeur / Mineur) */}
+              {/* Tonalité : Menu déroulant liste à 2 colonnes */}
               <div className="relative inline-block">
                 <button
                   type="button"
@@ -844,7 +1071,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                   <span className="text-gray-400 font-sans text-xs hidden sm:inline">Tonalité :</span>
                   <span className="text-blue-400 font-bold font-mono text-xs">{baseKeyDisplay}</span>
                   {stageSettings.transposeOffset !== 0 && transposedKeyDisplay && (
-                    <span className="text-amber-400 font-bold font-mono text-xs">({transposedKeyDisplay})</span>
+                    <span className="text-amber-400 font-bold font-mono text-xs ml-1">{transposedKeyDisplay}</span>
                   )}
                   <ChevronDown className="w-3 h-3 text-blue-400/80" />
                 </button>
@@ -933,7 +1160,8 @@ export const SongReader: React.FC<SongReaderProps> = ({
                 }`}
                 style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
               >
-                <span className="text-amber-400/90 font-sans text-xs shrink-0">Transpose :</span>
+                <ArrowUpDown className="w-3.5 h-3.5 text-amber-400 shrink-0" title="Transposition" />
+                <span className="text-amber-400/90 font-sans text-xs shrink-0 hidden sm:inline">Transpose :</span>
                 
                 <div className="flex items-center gap-1">
                   <button
@@ -1047,7 +1275,8 @@ export const SongReader: React.FC<SongReaderProps> = ({
                 className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-[#141416] border border-[#242428] text-gray-300 font-mono shadow-sm"
                 style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
               >
-                <span className="text-purple-400/80 font-sans text-xs shrink-0">Mesure :</span>
+                <Music2 className="w-3.5 h-3.5 text-purple-400 shrink-0" title="Mesure" />
+                <span className="text-purple-400/80 font-sans text-xs shrink-0 hidden sm:inline">Mesure :</span>
 
                 {/* Direct Signature Select Dropdown avec uniquement les chiffrages */}
                 <div className="relative inline-flex items-center">
@@ -1068,20 +1297,6 @@ export const SongReader: React.FC<SongReaderProps> = ({
                 </div>
               </div>
 
-              {/* Bouton Dictionnaire / Diagrammes d'accords */}
-              <button
-                type="button"
-                onClick={() => setChordModalData({
-                  isOpen: true,
-                  chord: allSongChords[0] || currentRootNote || 'C'
-                })}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#141416] hover:bg-[#1C1C20] border border-[#242428] hover:border-blue-500/50 text-gray-300 hover:text-blue-300 font-mono shadow-sm transition-all cursor-pointer"
-                style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
-                title="Ouvrir le dictionnaire d'accords guitare et piano"
-              >
-                <Layers className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                <span className="text-gray-300 font-sans text-xs hidden sm:inline">Accords</span>
-              </button>
 
               {/* Bouton Note / Instructions si aucune note n'est encore rédigée */}
               {!song.notes && !isEditingNotes && (
@@ -1099,6 +1314,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                   <span className="text-gray-300 font-sans text-xs hidden sm:inline">Note</span>
                 </button>
               )}
+
 
               {/* Categories / Tags : sur sa propre ligne en mobile et à la suite sur écran large */}
               {song.tags && song.tags.length > 0 && (
@@ -1200,6 +1416,9 @@ export const SongReader: React.FC<SongReaderProps> = ({
           <div className={stageSettings.columns === 2 ? 'grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6' : 'space-y-6'}>
             {parsedData.sections.map((section, sIdx) => {
               const secColor = getSectionColor(section.type, displaySettings.sectionColors);
+              const sectionRepeat = (setlistOverride?.sectionRepeats && setlistOverride.sectionRepeats[sIdx] !== undefined)
+                ? setlistOverride.sectionRepeats[sIdx]
+                : (section.repeat || 1);
 
               return (
                 <div 
@@ -1212,33 +1431,61 @@ export const SongReader: React.FC<SongReaderProps> = ({
                     backgroundColor: `${secColor}0D`
                   }}
                 >
-                  {/* Section Title Header & Vocal Arrangement Pastille */}
+                  {/* Section Title Header & Vocal Arrangement Pastille & Repeat Badge */}
                   <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
-                    {section.title ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const vocalsList = section.vocals && section.vocals.length > 0
-                            ? section.vocals
-                            : section.vocal ? [section.vocal] : [];
-                          setVocalModalSection({
-                            index: sIdx,
-                            title: section.title || `Section ${sIdx + 1}`,
-                            vocals: vocalsList
-                          });
-                        }}
-                        className="inline-block font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border shadow-xs text-left hover:brightness-125 transition-all cursor-pointer"
-                        style={{
-                          fontSize: `${displaySettings.typography.headerSize}px`,
-                          color: secColor,
-                          borderColor: `${secColor}50`,
-                          backgroundColor: `${secColor}1C`
-                        }}
-                        title="Cliquer pour gérer l'arrangement vocal de cette section"
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {section.title ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const vocalsList = section.vocals && section.vocals.length > 0
+                              ? section.vocals
+                              : section.vocal ? [section.vocal] : [];
+                            setVocalModalSection({
+                              index: sIdx,
+                              title: section.title || `Section ${sIdx + 1}`,
+                              vocals: vocalsList
+                            });
+                          }}
+                          className="inline-block font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border shadow-xs text-left hover:brightness-125 transition-all cursor-pointer"
+                          style={{
+                            fontSize: `${displaySettings.typography.headerSize}px`,
+                            color: secColor,
+                            borderColor: `${secColor}50`,
+                            backgroundColor: `${secColor}1C`
+                          }}
+                          title="Cliquer pour gérer l'arrangement vocal de cette section"
+                        >
+                          {section.title}
+                        </button>
+                      ) : <div />}
+
+                      {/* Section Repeat Selector */}
+                      <div 
+                        onClick={(e) => e.stopPropagation()}
+                        className={`flex items-center gap-1 px-2 py-0.5 rounded border transition-colors ${
+                          sectionRepeat > 1 
+                            ? 'bg-emerald-950/40 border-emerald-500/50 text-emerald-300' 
+                            : 'bg-[#18181B] border-[#2B2B30] text-gray-400 hover:border-gray-600'
+                        }`}
                       >
-                        {section.title}
-                      </button>
-                    ) : <div />}
+                        <Repeat className={`w-3 h-3 ${sectionRepeat > 1 ? 'text-emerald-400' : 'text-gray-500'} shrink-0`} />
+                        <select
+                          value={sectionRepeat}
+                          onChange={(e) => handleUpdateSectionRepeat(sIdx, parseInt(e.target.value, 10))}
+                          className={`bg-transparent text-xs font-bold font-mono focus:outline-none cursor-pointer ${
+                            sectionRepeat > 1 ? 'text-emerald-300' : 'text-gray-400 hover:text-gray-200'
+                          }`}
+                          title="Nombre de répétitions pour cette section"
+                        >
+                          {[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 16].map((n) => (
+                            <option key={n} value={n} className="bg-[#141416] text-white">
+                              x{n}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
 
                     {/* Pastilles Arrangement Vocal alignées côte à côte */}
                     <div className="flex items-center gap-1.5 flex-wrap">
@@ -1320,7 +1567,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                         <div key={lIdx} className="flex flex-wrap items-end gap-x-0.5">
                           {line.items.map((item, iIdx) => {
                             const transposedChord = item.chord 
-                              ? transposeChord(item.chord, stageSettings.transposeOffset, stageSettings.notation) 
+                              ? transposeChord(item.chord, totalTransposeSemitones, stageSettings.notation) 
                               : '';
 
                             return (
@@ -1573,6 +1820,8 @@ export const SongReader: React.FC<SongReaderProps> = ({
         </div>
       )}
 
+
+
       {/* Chord Library Modal */}
       <ChordModal
         isOpen={chordModalData.isOpen}
@@ -1582,6 +1831,15 @@ export const SongReader: React.FC<SongReaderProps> = ({
         notation={stageSettings.notation}
         onSelectChord={(ch) => setChordModalData(prev => ({ ...prev, chord: ch }))}
       />
+
+      {/* Language Version & Relations Modal */}
+      {song && (
+        <LanguageVersionModal
+          song={song}
+          isOpen={showLanguageModal}
+          onClose={() => setShowLanguageModal(false)}
+        />
+      )}
 
     </div>
   );

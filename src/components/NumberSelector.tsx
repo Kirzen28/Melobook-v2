@@ -34,8 +34,10 @@ export const NumberSelector: React.FC<NumberSelectorProps> = ({ value, min, max,
   return (
     <div className="flex items-center gap-2">
       <button
+        type="button"
         onClick={handleDecrement}
-        className="p-1 rounded bg-[#222226] hover:bg-[#333] text-gray-300 border border-[#333]"
+        className="number-selector-btn p-1.5 rounded bg-[#222226] hover:bg-[#333] text-gray-300 border border-[#333] transition-colors cursor-pointer"
+        aria-label="Diminuer"
       >
         <Minus className="w-3 h-3" />
       </button>
@@ -46,11 +48,13 @@ export const NumberSelector: React.FC<NumberSelectorProps> = ({ value, min, max,
         min={min}
         max={max}
         step={step}
-        className="w-16 bg-[#1C1C1E] border border-[#333] rounded px-2 py-1 text-center text-xs text-white focus:outline-none focus:border-purple-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+        className="number-selector-input w-16 bg-[#1C1C1E] border border-[#333] rounded px-2 py-1 text-center text-xs text-white focus:outline-none focus:border-purple-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none font-medium"
       />
       <button
+        type="button"
         onClick={handleIncrement}
-        className="p-1 rounded bg-[#222226] hover:bg-[#333] text-gray-300 border border-[#333]"
+        className="number-selector-btn p-1.5 rounded bg-[#222226] hover:bg-[#333] text-gray-300 border border-[#333] transition-colors cursor-pointer"
+        aria-label="Augmenter"
       >
         <Plus className="w-3 h-3" />
       </button>

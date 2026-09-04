@@ -174,9 +174,10 @@ export interface ParsedLine {
 
 export interface ParsedSection {
   title?: string;
-  type: 'verse' | 'chorus' | 'bridge' | 'intro' | 'outro' | 'instrumental' | 'tag' | 'general';
-  vocals?: string[]; // array of vocal parts e.g. ['Unisson', '2e voix']
-  vocal?: string; // legacy or joined string e.g. 'Unisson'
+  type: 'verse' | 'chorus' | 'bridge' | 'pre_chorus' | 'intro' | 'outro' | 'solo' | 'interlude' | 'instrumental' | 'tag' | 'finale' | 'general' | string;
+  vocals?: string[];
+  vocal?: string;
+  repeat?: number;
   lines: ParsedLine[];
 }
 
@@ -306,60 +307,80 @@ export function getVocalBadgeStyle(voc: string) {
   };
 }
 
-// Helper to extract vocal arrangement tags from string (e.g. "Refrain [Unisson]", "Refrain [Unisson, 2e voix]", "Refrain | Lead")
-export function extractVocalTag(input: string): { cleanTitle: string; vocals: string[]; vocal?: string } {
-  if (!input) return { cleanTitle: '', vocals: [] };
-  
-  // Check for brackets at end: e.g. "Refrain [Unisson, 2e voix]" or "Couplet [Lead]"
-  const bracketMatch = input.match(/^(.*?)\s*\[(.*?)\]\s*$/);
-  if (bracketMatch) {
-    const rawVocals = bracketMatch[2].split(',').map(s => s.trim()).filter(Boolean);
-    if (rawVocals.length > 0) {
-      return {
-        cleanTitle: bracketMatch[1].trim(),
-        vocals: rawVocals,
-        vocal: rawVocals.join(', ')
-      };
-    }
-  }
-
-  // Check for parentheses at end: e.g. "Refrain (Unisson)"
-  const parenMatch = input.match(/^(.*?)\s*\((.*?)\)\s*$/);
-  if (parenMatch) {
-    const content = parenMatch[2].trim();
-    const commonVocalKeywords = ['unisson', 'lead', 'voix', 'choeur', 'chœur', 'harmonie', 'soprano', 'alto', 'ténor', 'tenor', 'basse', 'tous', 'femmes', 'hommes', 'solo', 'duo', 'a cappella'];
-    if (commonVocalKeywords.some(kw => content.toLowerCase().includes(kw))) {
-      const rawVocals = content.split(',').map(s => s.trim()).filter(Boolean);
-      return {
-        cleanTitle: parenMatch[1].trim(),
-        vocals: rawVocals,
-        vocal: rawVocals.join(', ')
-      };
-    }
-  }
-
-  // Check for pipe: e.g. "Refrain | Unisson"
-  const pipeMatch = input.match(/^(.*?)\s*\|\s*(.*)$/);
-  if (pipeMatch) {
-    const rawVocals = pipeMatch[2].split(',').map(s => s.trim()).filter(Boolean);
-    if (rawVocals.length > 0) {
-      return {
-        cleanTitle: pipeMatch[1].trim(),
-        vocals: rawVocals,
-        vocal: rawVocals.join(', ')
-      };
-    }
-  }
-
-  return { cleanTitle: input.trim(), vocals: [] };
+export interface SectionMetaResult {
+  cleanTitle: string;
+  vocals: string[];
+  vocal?: string;
+  repeat: number;
 }
 
-// Update vocal arrangements for a given section inside raw ChordPro text
-export function updateSectionVocalsInChordPro(chordProText: string, targetSectionIndex: number, newVocals: string[]): string {
+// Helper to extract vocal arrangement and repetition tags from string
+// e.g. "Refrain [x2, Unisson]", "Couplet 1 [x3]", "Refrain x2", "Pont [2x]"
+export function extractVocalTag(input: string): SectionMetaResult {
+  if (!input) return { cleanTitle: '', vocals: [], repeat: 1 };
+  
+  let clean = input.trim();
+  let vocals: string[] = [];
+  let repeat = 1;
+
+  // 1. Check for brackets at end: e.g. "Refrain [x2, Unisson]" or "Couplet [x3]"
+  const bracketMatch = clean.match(/^(.*?)\s*\[(.*?)\]\s*$/);
+  if (bracketMatch) {
+    clean = bracketMatch[1].trim();
+    const bracketItems = bracketMatch[2].split(',').map(s => s.trim()).filter(Boolean);
+    
+    bracketItems.forEach(item => {
+      const repMatch = item.match(/^x?\s*(\d+)\s*x?$/i);
+      if (repMatch) {
+        const parsedRep = parseInt(repMatch[1], 10);
+        if (parsedRep > 0) repeat = parsedRep;
+      } else {
+        vocals.push(item);
+      }
+    });
+  }
+
+  // 2. Check for pipe: e.g. "Refrain | x2 | Unisson"
+  if (clean.includes('|')) {
+    const parts = clean.split('|').map(s => s.trim()).filter(Boolean);
+    clean = parts[0];
+    for (let i = 1; i < parts.length; i++) {
+      const p = parts[i];
+      const repMatch = p.match(/^x?\s*(\d+)\s*x?$/i);
+      if (repMatch) {
+        const parsedRep = parseInt(repMatch[1], 10);
+        if (parsedRep > 0) repeat = parsedRep;
+      } else {
+        vocals.push(p);
+      }
+    }
+  }
+
+  // 3. Check for standalone x2, x3, 2x, 3x at end of title: e.g. "Couplet 1 x2", "Refrain 2x"
+  const suffixRepMatch = clean.match(/^(.*?)\s+(?:x\s*(\d+)|(\d+)\s*x)\s*$/i);
+  if (suffixRepMatch) {
+    clean = suffixRepMatch[1].trim();
+    const num = parseInt(suffixRepMatch[2] || suffixRepMatch[3], 10);
+    if (num > 0) repeat = num;
+  }
+
+  return {
+    cleanTitle: clean,
+    vocals,
+    vocal: vocals.length > 0 ? vocals.join(', ') : undefined,
+    repeat: repeat || 1
+  };
+}
+
+// Update vocal arrangements and repetition count for a given section inside raw ChordPro text
+export function updateSectionMetaInChordPro(
+  chordProText: string, 
+  targetSectionIndex: number, 
+  options: { newVocals?: string[]; newRepeat?: number; newTitle?: string }
+): string {
   const rawLines = chordProText.split('\n');
   let currentSectionIdx = -1;
   let sectionHeaderLineIdx = -1;
-  let hasEncounteredSectionStart = false;
 
   for (let i = 0; i < rawLines.length; i++) {
     const trimmed = rawLines[i].trim();
@@ -380,8 +401,6 @@ export function updateSectionVocalsInChordPro(chordProText: string, targetSectio
     }
   }
 
-  const vocalsString = newVocals.filter(Boolean).join(', ');
-
   // If section header was found
   if (sectionHeaderLineIdx !== -1) {
     const origLine = rawLines[sectionHeaderLineIdx].trim();
@@ -390,12 +409,24 @@ export function updateSectionVocalsInChordPro(chordProText: string, targetSectio
     const tag = (colonIndex !== -1 ? directive.slice(0, colonIndex) : directive).trim();
     const val = colonIndex !== -1 ? directive.slice(colonIndex + 1).trim() : '';
 
-    const { cleanTitle } = extractVocalTag(val);
-    const newTitle = cleanTitle || (tag.toLowerCase().includes('chorus') || tag.toLowerCase() === 'soc' ? 'Refrain' : tag.toLowerCase().includes('verse') || tag.toLowerCase() === 'sov' ? 'Couplet' : tag.toLowerCase().includes('bridge') || tag.toLowerCase() === 'sob' ? 'Pont' : 'Section');
+    const currentMeta = extractVocalTag(val);
+    const finalTitle = options.newTitle !== undefined ? options.newTitle : currentMeta.cleanTitle;
+    const finalVocals = options.newVocals !== undefined ? options.newVocals : currentMeta.vocals;
+    const finalRepeat = options.newRepeat !== undefined ? options.newRepeat : currentMeta.repeat;
+
+    const newTitle = finalTitle || (tag.toLowerCase().includes('chorus') || tag.toLowerCase() === 'soc' ? 'Refrain' : tag.toLowerCase().includes('verse') || tag.toLowerCase() === 'sov' ? 'Couplet' : tag.toLowerCase().includes('bridge') || tag.toLowerCase() === 'sob' ? 'Pont' : 'Section');
+
+    const metaTags: string[] = [];
+    if (finalRepeat > 1) {
+      metaTags.push(`x${finalRepeat}`);
+    }
+    finalVocals.forEach(v => {
+      if (v && v.trim()) metaTags.push(v.trim());
+    });
 
     let newLine = '';
-    if (vocalsString) {
-      newLine = `{${tag}: ${newTitle} [${vocalsString}]}`;
+    if (metaTags.length > 0) {
+      newLine = `{${tag}: ${newTitle} [${metaTags.join(', ')}]}`;
     } else {
       newLine = `{${tag}: ${newTitle}}`;
     }
@@ -404,10 +435,15 @@ export function updateSectionVocalsInChordPro(chordProText: string, targetSectio
     return rawLines.join('\n');
   }
 
-  // If section was general / without header at section 0
+  // If section was general without header at section 0
   if (targetSectionIndex === 0 && rawLines.length > 0) {
-    if (vocalsString) {
-      // Add a header at the first content line (after metadata)
+    const metaTags: string[] = [];
+    if (options.newRepeat && options.newRepeat > 1) metaTags.push(`x${options.newRepeat}`);
+    if (options.newVocals) {
+      options.newVocals.forEach(v => { if (v && v.trim()) metaTags.push(v.trim()); });
+    }
+
+    if (metaTags.length > 0 || options.newTitle) {
       let insertIdx = 0;
       for (let i = 0; i < rawLines.length; i++) {
         const line = rawLines[i].trim();
@@ -417,12 +453,24 @@ export function updateSectionVocalsInChordPro(chordProText: string, targetSectio
           break;
         }
       }
-      rawLines.splice(insertIdx, 0, `{c: Section [${vocalsString}]}`);
+      const title = options.newTitle || 'Section';
+      const metaStr = metaTags.length > 0 ? ` [${metaTags.join(', ')}]` : '';
+      rawLines.splice(insertIdx, 0, `{c: ${title}${metaStr}}`);
       return rawLines.join('\n');
     }
   }
 
   return chordProText;
+}
+
+// Update vocal arrangements for a given section inside raw ChordPro text
+export function updateSectionVocalsInChordPro(chordProText: string, targetSectionIndex: number, newVocals: string[]): string {
+  return updateSectionMetaInChordPro(chordProText, targetSectionIndex, { newVocals });
+}
+
+// Update repetition count for a given section inside raw ChordPro text
+export function updateSectionRepeatInChordPro(chordProText: string, targetSectionIndex: number, newRepeat: number): string {
+  return updateSectionMetaInChordPro(chordProText, targetSectionIndex, { newRepeat });
 }
 
 // Convert ChordPro string into structured sections for visual stage presentation
@@ -481,16 +529,20 @@ export function parseChordPro(chordProText: string): ParsedSongData {
         const rawVocals = value.split(',').map(s => s.trim()).filter(Boolean);
         currentSection.vocals = Array.from(new Set([...(currentSection.vocals || []), ...rawVocals]));
         currentSection.vocal = currentSection.vocals.join(', ');
+      } else if (tag === 'repeat' || tag === 'repetition' || tag === 'rep' || tag === 'fois') {
+        const parsedRep = parseInt(value, 10);
+        if (parsedRep > 0) currentSection.repeat = parsedRep;
       } else if (tag === 'start_of_chorus' || tag === 'soc') {
         if (currentSection.lines.length > 0) {
           sections.push(currentSection);
         }
-        const { cleanTitle, vocals, vocal } = extractVocalTag(value || 'Refrain');
+        const { cleanTitle, vocals, vocal, repeat } = extractVocalTag(value || 'Refrain');
         currentSection = {
           title: cleanTitle || 'Refrain',
           type: 'chorus',
           vocals,
           vocal,
+          repeat,
           lines: []
         };
       } else if (tag === 'end_of_chorus' || tag === 'eoc') {
@@ -502,12 +554,13 @@ export function parseChordPro(chordProText: string): ParsedSongData {
         if (currentSection.lines.length > 0) {
           sections.push(currentSection);
         }
-        const { cleanTitle, vocals, vocal } = extractVocalTag(value || 'Pont');
+        const { cleanTitle, vocals, vocal, repeat } = extractVocalTag(value || 'Pont');
         currentSection = {
           title: cleanTitle || 'Pont',
           type: 'bridge',
           vocals,
           vocal,
+          repeat,
           lines: []
         };
       } else if (tag === 'end_of_bridge' || tag === 'eob') {
@@ -519,12 +572,13 @@ export function parseChordPro(chordProText: string): ParsedSongData {
         if (currentSection.lines.length > 0) {
           sections.push(currentSection);
         }
-        const { cleanTitle, vocals, vocal } = extractVocalTag(value || 'Couplet');
+        const { cleanTitle, vocals, vocal, repeat } = extractVocalTag(value || 'Couplet');
         currentSection = {
           title: cleanTitle || 'Couplet',
           type: 'verse',
           vocals,
           vocal,
+          repeat,
           lines: []
         };
       } else if (tag === 'end_of_verse' || tag === 'eov') {
@@ -534,16 +588,34 @@ export function parseChordPro(chordProText: string): ParsedSongData {
         currentSection = { type: 'general', lines: [] };
       } else if (tag === 'comment' || tag === 'c') {
         // Section header comment detection (e.g. {c: Couplet 1}, {c: Refrain}, {c: Pont})
-        const { cleanTitle, vocals, vocal } = extractVocalTag(value);
+        const { cleanTitle, vocals, vocal, repeat } = extractVocalTag(value);
         const lowerVal = cleanTitle.toLowerCase();
         let secType: ParsedSection['type'] = 'general';
-        if (lowerVal.includes('refrain') || lowerVal.includes('chorus')) secType = 'chorus';
-        else if (lowerVal.includes('couplet') || lowerVal.includes('verse')) secType = 'verse';
-        else if (lowerVal.includes('pont') || lowerVal.includes('bridge')) secType = 'bridge';
-        else if (lowerVal.includes('intro')) secType = 'intro';
-        else if (lowerVal.includes('outro') || lowerVal.includes('fin')) secType = 'outro';
-        else if (lowerVal.includes('interlude') || lowerVal.includes('instru')) secType = 'instrumental';
-        else if (lowerVal.includes('tag')) secType = 'tag';
+        if (lowerVal.includes('pré') || lowerVal.includes('pre') || lowerVal.includes('prerefrain') || lowerVal.includes('pre-chorus') || lowerVal.includes('prechorus')) {
+          secType = 'pre_chorus';
+        } else if (lowerVal.includes('refrain') || lowerVal.includes('chorus')) {
+          secType = 'chorus';
+        } else if (lowerVal.includes('couplet') || lowerVal.includes('verse')) {
+          secType = 'verse';
+        } else if (lowerVal.includes('pont') || lowerVal.includes('bridge')) {
+          secType = 'bridge';
+        } else if (lowerVal.includes('intro')) {
+          secType = 'intro';
+        } else if (lowerVal.includes('finale')) {
+          secType = 'finale';
+        } else if (lowerVal.includes('outro') || lowerVal.includes('fin')) {
+          secType = 'outro';
+        } else if (lowerVal.includes('solo')) {
+          secType = 'solo';
+        } else if (lowerVal.includes('interlude')) {
+          secType = 'interlude';
+        } else if (lowerVal.includes('instru')) {
+          secType = 'instrumental';
+        } else if (lowerVal.includes('tag') || lowerVal.includes('coda')) {
+          secType = 'tag';
+        } else if (cleanTitle && cleanTitle.trim()) {
+          secType = cleanTitle.trim();
+        }
 
         if (currentSection.lines.length > 0) {
           sections.push(currentSection);
@@ -553,6 +625,7 @@ export function parseChordPro(chordProText: string): ParsedSongData {
           type: secType,
           vocals,
           vocal,
+          repeat,
           lines: []
         };
       }

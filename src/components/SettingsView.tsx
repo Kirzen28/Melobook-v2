@@ -9,7 +9,11 @@ import {
   Palette, 
   Eye, 
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Music,
+  Sun,
+  Moon,
+  Monitor
 } from 'lucide-react';
 import { NumberSelector } from './NumberSelector';
 import { 
@@ -19,6 +23,7 @@ import {
   getSectionColor 
 } from '../utils/displayDefaults';
 import { SectionColors, SongTypographySettings } from '../types';
+import { transposeChord } from '../utils/chordUtils';
 
 export const SettingsView: React.FC = () => {
   const { 
@@ -59,11 +64,16 @@ export const SettingsView: React.FC = () => {
     });
   };
 
+  const isSystemLight = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+  const effectivePreviewTheme = stageSettings.theme === 'system'
+    ? (isSystemLight ? 'light' : 'dark')
+    : (stageSettings.theme || 'dark');
+
   return (
     <div className="h-[calc(100vh-64px)] flex flex-col bg-[#0A0A0B] text-white overflow-hidden">
       
       {/* Top Header Bar */}
-      <div className="border-b border-[#222224] bg-[#111112]/90 backdrop-blur-md px-4 sm:px-8 py-3 flex items-center justify-between shrink-0 z-30">
+      <div className="settings-header-bar border-b border-[#222224] bg-[#111112]/90 backdrop-blur-md px-4 sm:px-8 py-3 flex items-center justify-between shrink-0 z-30">
         <div className="flex items-center gap-3">
           <button
             onClick={() => setActiveTab('repertoire')}
@@ -83,23 +93,6 @@ export const SettingsView: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
-          {/* Quick Theme Switcher */}
-          <div className="hidden sm:flex items-center gap-1 bg-[#18181A] p-1 rounded-lg border border-[#262629]">
-            {(['dark', 'oled', 'sepia', 'light'] as const).map((thm) => (
-              <button
-                key={thm}
-                onClick={() => updateStageSettings({ theme: thm })}
-                className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider transition-all ${
-                  stageSettings.theme === thm
-                    ? 'bg-purple-600 text-white shadow-sm'
-                    : 'text-gray-400 hover:text-gray-200'
-                }`}
-              >
-                {thm}
-              </button>
-            ))}
-          </div>
-
           <button
             onClick={handleReset}
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 hover:text-white border border-[#333] text-xs font-semibold transition-all active:scale-95"
@@ -162,20 +155,26 @@ export const SettingsView: React.FC = () => {
           {/* Song Preview Content Box */}
           {!isMobilePreviewCollapsed && (
             <div 
-              className="p-4 overflow-y-auto max-h-[34vh] sm:max-h-[38vh] lg:max-h-[calc(100vh-190px)] lg:flex-1 space-y-4 bg-[#0E0E10]"
+              className={`p-4 overflow-y-auto max-h-[34vh] sm:max-h-[38vh] lg:max-h-[calc(100vh-190px)] lg:flex-1 space-y-4 transition-colors ${
+                effectivePreviewTheme === 'light' ? 'bg-[#FFFFFF] text-[#18181B]' : 'bg-[#0E0E10] text-gray-100'
+              }`}
               style={{ lineHeight: typography.lineSpacing }}
             >
               {/* Song Header Preview */}
               <div className="border-b border-[#222224] pb-2.5 flex flex-col sm:flex-row sm:items-end justify-between gap-2">
                 <div className="flex-1 min-w-0">
                   <h3 
-                    className="font-bold tracking-tight text-white leading-tight break-words"
+                    className={`font-bold tracking-tight leading-tight break-words ${
+                      effectivePreviewTheme === 'light' ? 'text-[#18181B]' : 'text-white'
+                    }`}
                     style={{ fontSize: `${typography.titleSize}px` }}
                   >
                     {selectedSong ? selectedSong.title : 'Grâce Infinie'}
                   </h3>
                   <div 
-                    className="text-gray-300 font-medium break-words mt-0.5"
+                    className={`font-medium break-words mt-0.5 ${
+                      effectivePreviewTheme === 'light' ? 'text-gray-600' : 'text-gray-300'
+                    }`}
                     style={{ fontSize: `${typography.metadataSize}px` }}
                   >
                     {selectedSong?.artist || 'John Newton'}
@@ -183,14 +182,18 @@ export const SettingsView: React.FC = () => {
                 </div>
 
                 <div 
-                  className="flex flex-wrap items-center gap-2 shrink-0 self-start sm:self-auto bg-[#141416] border border-[#242428] px-2.5 py-1 rounded-lg font-mono text-gray-300 shadow-sm"
+                  className={`flex flex-wrap items-center gap-2 shrink-0 self-start sm:self-auto px-2.5 py-1 rounded-lg font-mono shadow-sm ${
+                    effectivePreviewTheme === 'light'
+                      ? 'bg-gray-100 border border-gray-300 text-gray-700'
+                      : 'bg-[#141416] border border-[#242428] text-gray-300'
+                  }`}
                   style={{ fontSize: `${typography.metadataSize}px` }}
                 >
                   <div className="flex items-center gap-1">
                     <span className="text-gray-400">Tonalité :</span>
-                    <strong className="text-blue-400">G</strong>
+                    <strong className="text-blue-500">G</strong>
                   </div>
-                  <span className="text-gray-600">•</span>
+                  <span className="text-gray-400">•</span>
                   <strong>72 BPM</strong>
                 </div>
               </div>
@@ -223,14 +226,14 @@ export const SettingsView: React.FC = () => {
                   <div className="inline-flex flex-col mr-2">
                     {stageSettings.showChords && (
                       <span 
-                        className="font-mono font-bold text-blue-400 leading-none mb-1"
+                        className="font-mono font-bold text-blue-500 leading-none mb-1"
                         style={{ fontSize: `${typography.chordSize}px` }}
                       >
-                        G
+                        {transposeChord('G', 0, stageSettings.notation)}
                       </span>
                     )}
                     <span 
-                      className="text-[#E0E0E0] font-sans"
+                      className={`font-sans ${effectivePreviewTheme === 'light' ? 'text-[#18181B]' : 'text-[#E0E0E0]'}`}
                       style={{ fontSize: `${typography.lyricsSize}px` }}
                     >
                       Grâce infinie, au son si doux
@@ -240,14 +243,14 @@ export const SettingsView: React.FC = () => {
                   <div className="inline-flex flex-col">
                     {stageSettings.showChords && (
                       <span 
-                        className="font-mono font-bold text-blue-400 leading-none mb-1"
+                        className="font-mono font-bold text-blue-500 leading-none mb-1"
                         style={{ fontSize: `${typography.chordSize}px` }}
                       >
-                        C&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;G
+                        {transposeChord('C', 0, stageSettings.notation)}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{transposeChord('G', 0, stageSettings.notation)}
                       </span>
                     )}
                     <span 
-                      className="text-[#E0E0E0] font-sans"
+                      className={`font-sans ${effectivePreviewTheme === 'light' ? 'text-[#18181B]' : 'text-[#E0E0E0]'}`}
                       style={{ fontSize: `${typography.lyricsSize}px` }}
                     >
                       qui sauva un rebelle comme moi !
@@ -284,14 +287,14 @@ export const SettingsView: React.FC = () => {
                   <div className="inline-flex flex-col mr-2">
                     {stageSettings.showChords && (
                       <span 
-                        className="font-mono font-bold text-blue-400 leading-none mb-1"
+                        className="font-mono font-bold text-blue-500 leading-none mb-1"
                         style={{ fontSize: `${typography.chordSize}px` }}
                       >
-                        Em&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;D
+                        {transposeChord('Em', 0, stageSettings.notation)}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{transposeChord('D', 0, stageSettings.notation)}
                       </span>
                     )}
                     <span 
-                      className="text-[#E0E0E0] font-sans"
+                      className={`font-sans ${effectivePreviewTheme === 'light' ? 'text-[#18181B]' : 'text-[#E0E0E0]'}`}
                       style={{ fontSize: `${typography.lyricsSize}px` }}
                     >
                       J'étais perdu mais je suis retrouvé,
@@ -301,14 +304,14 @@ export const SettingsView: React.FC = () => {
                   <div className="inline-flex flex-col">
                     {stageSettings.showChords && (
                       <span 
-                        className="font-mono font-bold text-blue-400 leading-none mb-1"
+                        className="font-mono font-bold text-blue-500 leading-none mb-1"
                         style={{ fontSize: `${typography.chordSize}px` }}
                       >
-                        G&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;D7&nbsp;&nbsp;&nbsp;G
+                        {transposeChord('G', 0, stageSettings.notation)}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{transposeChord('D7', 0, stageSettings.notation)}&nbsp;&nbsp;&nbsp;{transposeChord('G', 0, stageSettings.notation)}
                       </span>
                     )}
                     <span 
-                      className="text-[#E0E0E0] font-sans"
+                      className={`font-sans ${effectivePreviewTheme === 'light' ? 'text-[#18181B]' : 'text-[#E0E0E0]'}`}
                       style={{ fontSize: `${typography.lyricsSize}px` }}
                     >
                       Aveugle et maintenant je vois.
@@ -345,14 +348,14 @@ export const SettingsView: React.FC = () => {
                   <div className="inline-flex flex-col">
                     {stageSettings.showChords && (
                       <span 
-                        className="font-mono font-bold text-blue-400 leading-none mb-1"
+                        className="font-mono font-bold text-blue-500 leading-none mb-1"
                         style={{ fontSize: `${typography.chordSize}px` }}
                       >
-                        C&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;G/B
+                        {transposeChord('C', 0, stageSettings.notation)}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{transposeChord('G/B', 0, stageSettings.notation)}
                       </span>
                     )}
                     <span 
-                      className="text-[#E0E0E0] font-sans"
+                      className={`font-sans ${effectivePreviewTheme === 'light' ? 'text-[#18181B]' : 'text-[#E0E0E0]'}`}
                       style={{ fontSize: `${typography.lyricsSize}px` }}
                     >
                       Quand nous serons là-haut depuis dix mille ans,
@@ -377,7 +380,138 @@ export const SettingsView: React.FC = () => {
         {/* SCROLLABLE SETTINGS PANEL (BELOW ON MOBILE, LEFT ON DESKTOP) */}
         <div className="flex-1 w-full lg:w-7/12 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 pb-24">
           
-          {/* 1. TYPOGRAPHY / FONT SIZES SECTION */}
+          {/* 1. STAGE DISPLAY & NOTATION SETTINGS */}
+          <div className="bg-[#111112] border border-[#222224] rounded-xl p-4 sm:p-5 shadow-sm">
+            <div className="flex items-center gap-2.5 pb-3 mb-4 border-b border-[#222224]">
+              <div className="w-7 h-7 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+                <Music className="w-4 h-4" />
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-white">
+                  Affichage Scène & Notation
+                </h2>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              
+              {/* Notation Selection */}
+              <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex flex-col justify-between gap-2.5">
+                <div>
+                  <span className="text-xs font-bold text-gray-200 block">Notation</span>
+                  <span className="text-[11px] text-gray-400">Accords latins ou internationaux</span>
+                </div>
+                <div className="theme-toggle-group flex items-center gap-1 bg-[#121214] p-0.5 rounded-lg border border-[#2B2B30]">
+                  <button
+                    type="button"
+                    onClick={() => updateStageSettings({ notation: 'latin' })}
+                    className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                      stageSettings.notation === 'latin'
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'theme-toggle-inactive text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    Do Ré Mi
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateStageSettings({ notation: 'standard' })}
+                    className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                      stageSettings.notation === 'standard'
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'theme-toggle-inactive text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    A B C
+                  </button>
+                </div>
+              </div>
+
+              {/* Columns Toggle */}
+              <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex flex-col justify-between gap-2.5">
+                <div>
+                  <span className="text-xs font-bold text-gray-200 block">Colonnes</span>
+                  <span className="text-[11px] text-gray-400">Colonnes en mode scène</span>
+                </div>
+                <div className="theme-toggle-group flex items-center gap-1 bg-[#121214] p-0.5 rounded-lg border border-[#2B2B30]">
+                  <button
+                    type="button"
+                    onClick={() => updateStageSettings({ columns: 1 })}
+                    className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                      stageSettings.columns === 1
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'theme-toggle-inactive text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    1 Col
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateStageSettings({ columns: 2 })}
+                    className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                      stageSettings.columns === 2
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'theme-toggle-inactive text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    2 Col
+                  </button>
+                </div>
+              </div>
+
+              {/* Theme Mode Toggle */}
+              <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex flex-col justify-between gap-2.5">
+                <div>
+                  <span className="text-xs font-bold text-gray-200 block">Thème</span>
+                  <span className="text-[11px] text-gray-400">Sombre, clair ou système</span>
+                </div>
+                <div className="theme-toggle-group flex items-center gap-1 bg-[#121214] p-0.5 rounded-lg border border-[#2B2B30]">
+                  <button
+                    type="button"
+                    onClick={() => updateStageSettings({ theme: 'dark' })}
+                    className={`flex-1 py-1.5 rounded-md text-xs font-semibold flex items-center justify-center gap-1 transition-all ${
+                      stageSettings.theme === 'dark'
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'theme-toggle-inactive text-gray-400 hover:text-white'
+                    }`}
+                    title="Mode sombre"
+                  >
+                    <Moon className="w-3.5 h-3.5 shrink-0" />
+                    <span>Sombre</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateStageSettings({ theme: 'light' })}
+                    className={`flex-1 py-1.5 rounded-md text-xs font-semibold flex items-center justify-center gap-1 transition-all ${
+                      stageSettings.theme === 'light'
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'theme-toggle-inactive text-gray-400 hover:text-white'
+                    }`}
+                    title="Mode clair"
+                  >
+                    <Sun className="w-3.5 h-3.5 shrink-0" />
+                    <span>Clair</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateStageSettings({ theme: 'system' })}
+                    className={`flex-1 py-1.5 rounded-md text-xs font-semibold flex items-center justify-center gap-1 transition-all ${
+                      stageSettings.theme === 'system'
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'theme-toggle-inactive text-gray-400 hover:text-white'
+                    }`}
+                    title="Synchronisé avec le système"
+                  >
+                    <Monitor className="w-3.5 h-3.5 shrink-0" />
+                    <span>Système</span>
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          {/* 2. TYPOGRAPHY / FONT SIZES SECTION */}
           <div className="bg-[#111112] border border-[#222224] rounded-xl p-4 sm:p-5 shadow-sm">
             <div className="flex items-center gap-2.5 pb-3 mb-4 border-b border-[#222224]">
               <div className="w-7 h-7 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
@@ -543,7 +677,7 @@ export const SettingsView: React.FC = () => {
 
                       {/* Custom Color Picker input */}
                       <label 
-                        className="cursor-pointer flex items-center gap-1 px-2 py-0.5 rounded bg-[#222225] hover:bg-[#2C2C30] text-[10px] font-mono text-gray-300 border border-[#3A3A3E]"
+                        className="color-hex-badge cursor-pointer flex items-center gap-1 px-2 py-0.5 rounded bg-[#222225] hover:bg-[#2C2C30] text-[10px] font-mono text-gray-300 border border-[#3A3A3E] transition-colors"
                         title="Choisir une couleur hexadécimale personnalisée"
                       >
                         <input

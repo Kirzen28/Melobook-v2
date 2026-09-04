@@ -4,6 +4,7 @@ import {
   Group, 
   Song, 
   Setlist, 
+  SetlistSongOverride,
   StageSettings, 
   DisplaySettings, 
   SongTypographySettings, 
@@ -61,8 +62,8 @@ interface AppContextType {
   currentGroup: Group | null;
   songs: Song[];
   setlists: Setlist[];
-  activeTab: 'repertoire' | 'setlists' | 'stage' | 'groups' | 'editor' | 'settings';
-  setActiveTab: (tab: 'repertoire' | 'setlists' | 'stage' | 'groups' | 'editor' | 'settings') => void;
+  activeTab: 'repertoire' | 'setlists' | 'stage' | 'groups' | 'editor' | 'settings' | 'tuner';
+  setActiveTab: (tab: 'repertoire' | 'setlists' | 'stage' | 'groups' | 'editor' | 'settings' | 'tuner') => void;
   selectedSong: Song | null;
   setSelectedSong: (song: Song | null) => void;
   selectedSetlist: Setlist | null;
@@ -85,10 +86,15 @@ interface AppContextType {
   createSong: (songData: Omit<Song, 'id' | 'groupId' | 'createdAt' | 'updatedAt'>) => Promise<string>;
   updateSong: (id: string, songData: Partial<Song>) => Promise<void>;
   deleteSong: (id: string) => Promise<void>;
+  linkSongs: (songId1: string, songId2: string) => Promise<void>;
+  unlinkSongs: (songId1: string, songId2: string) => Promise<void>;
+  createLanguageVersion: (sourceSongId: string, targetLanguage: string, customTitle?: string) => Promise<string>;
   
   createSetlist: (setlistData: Omit<Setlist, 'id' | 'groupId' | 'createdAt'>) => Promise<string>;
   updateSetlist: (id: string, setlistData: Partial<Setlist>) => Promise<void>;
   deleteSetlist: (id: string) => Promise<void>;
+  updateSetlistSongOverride: (setlistId: string, songId: string, override: Partial<SetlistSongOverride>) => Promise<void>;
+  removeSetlistSongOverride: (setlistId: string, songId: string) => Promise<void>;
   
   createGroup: (name: string, description?: string) => Promise<string>;
   joinGroup: (inviteCode: string) => Promise<boolean>;
@@ -103,7 +109,7 @@ const AppContext = createContext<AppContextType | null>(null);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Navigation & Selection
-  const [activeTab, setActiveTab] = useState<'repertoire' | 'setlists' | 'stage' | 'groups' | 'editor' | 'settings'>('repertoire');
+  const [activeTab, setActiveTab] = useState<'repertoire' | 'setlists' | 'stage' | 'groups' | 'editor' | 'settings' | 'tuner'>('repertoire');
   const [selectedSong, setSelectedSong] = useState<Song | null>(SAMPLE_SONGS[0]);
   const [selectedSetlist, setSelectedSetlist] = useState<Setlist | null>(null);
   const [activeSetlistIndex, setActiveSetlistIndex] = useState<number>(0);
@@ -251,6 +257,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return updated;
     });
   }, []);
+
+  // Sync theme mode (dark, light, system) with document root
+  useEffect(() => {
+    const applyTheme = () => {
+      const currentTheme = stageSettings.theme || 'dark';
+      let isLight = false;
+
+      if (currentTheme === 'light') {
+        isLight = true;
+      } else if (currentTheme === 'system') {
+        isLight = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+      }
+
+      if (isLight) {
+        document.documentElement.classList.add('light-theme');
+        document.documentElement.classList.remove('dark-theme');
+      } else {
+        document.documentElement.classList.remove('light-theme');
+        document.documentElement.classList.add('dark-theme');
+      }
+    };
+
+    applyTheme();
+
+    if (stageSettings.theme === 'system' && typeof window !== 'undefined' && window.matchMedia) {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: light)');
+      const handleChange = () => applyTheme();
+      mediaQuery.addEventListener('change', handleChange);
+      return () => mediaQuery.removeEventListener('change', handleChange);
+    }
+  }, [stageSettings.theme]);
 
   // Save cache to localStorage for true offline support
   useEffect(() => {
@@ -453,6 +490,159 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [selectedSong?.id, songs]);
 
+  const linkSongs = useCallback(async (songId1: string, songId2: string) => {
+    if (!songId1 || !songId2 || songId1 === songId2) return;
+
+    setSongs(prev => {
+      const song1 = prev.find(s => s.id === songId1);
+      const song2 = prev.find(s => s.id === songId2);
+      if (!song1 || !song2) return prev;
+
+      const group1 = new Set<string>([songId1, ...(song1.linkedSongIds || [])]);
+      const group2 = new Set<string>([songId2, ...(song2.linkedSongIds || [])]);
+      const allMerged = Array.from(new Set([...group1, ...group2]));
+
+      return prev.map(s => {
+        if (allMerged.includes(s.id)) {
+          return {
+            ...s,
+            linkedSongIds: allMerged.filter(id => id !== s.id)
+          };
+        }
+        return s;
+      });
+    });
+
+    setSelectedSong(prev => {
+      if (!prev) return null;
+      if (prev.id === songId1 || prev.id === songId2) {
+        const otherId = prev.id === songId1 ? songId2 : songId1;
+        const currentLinks = prev.linkedSongIds || [];
+        if (!currentLinks.includes(otherId)) {
+          return { ...prev, linkedSongIds: [...currentLinks, otherId] };
+        }
+      }
+      return prev;
+    });
+
+    try {
+      const song1 = songs.find(s => s.id === songId1);
+      const song2 = songs.find(s => s.id === songId2);
+      if (song1 && song2) {
+        const group1 = new Set<string>([songId1, ...(song1.linkedSongIds || [])]);
+        const group2 = new Set<string>([songId2, ...(song2.linkedSongIds || [])]);
+        const allMerged = Array.from(new Set([...group1, ...group2]));
+
+        for (const sId of allMerged) {
+          const linksForSong = allMerged.filter(id => id !== sId);
+          await setDoc(doc(db, 'songs', sId), { linkedSongIds: linksForSong, updatedAt: serverTimestamp() }, { merge: true });
+        }
+      }
+    } catch (e) {
+      console.warn('Updated links locally:', e);
+    }
+  }, [songs]);
+
+  const unlinkSongs = useCallback(async (songId1: string, songId2: string) => {
+    if (!songId1 || !songId2 || songId1 === songId2) return;
+
+    setSongs(prev => {
+      const song1 = prev.find(s => s.id === songId1);
+      const peersOf1 = new Set<string>([songId1, ...(song1?.linkedSongIds || [])]);
+
+      return prev.map(s => {
+        if (peersOf1.has(s.id)) {
+          const newLinks = (s.linkedSongIds || []).filter(id => id !== songId2);
+          return { ...s, linkedSongIds: newLinks };
+        }
+        if (s.id === songId2) {
+          const newLinks = (s.linkedSongIds || []).filter(id => !peersOf1.has(id));
+          return { ...s, linkedSongIds: newLinks };
+        }
+        return s;
+      });
+    });
+
+    setSelectedSong(prev => {
+      if (!prev) return null;
+      if (prev.id === songId1) {
+        return {
+          ...prev,
+          linkedSongIds: (prev.linkedSongIds || []).filter(id => id !== songId2)
+        };
+      }
+      if (prev.id === songId2) {
+        return {
+          ...prev,
+          linkedSongIds: (prev.linkedSongIds || []).filter(id => id !== songId1)
+        };
+      }
+      return prev;
+    });
+
+    try {
+      const song1 = songs.find(s => s.id === songId1);
+      const peersOf1 = new Set<string>([songId1, ...(song1?.linkedSongIds || [])]);
+
+      if (song1) {
+        const newLinks1 = (song1.linkedSongIds || []).filter(id => id !== songId2);
+        await setDoc(doc(db, 'songs', songId1), { linkedSongIds: newLinks1, updatedAt: serverTimestamp() }, { merge: true });
+      }
+
+      const song2 = songs.find(s => s.id === songId2);
+      if (song2) {
+        const newLinks2 = (song2.linkedSongIds || []).filter(id => !peersOf1.has(id));
+        await setDoc(doc(db, 'songs', songId2), { linkedSongIds: newLinks2, updatedAt: serverTimestamp() }, { merge: true });
+      }
+
+      for (const peerId of peersOf1) {
+        if (peerId !== songId1 && peerId !== songId2) {
+          const peer = songs.find(s => s.id === peerId);
+          if (peer && (peer.linkedSongIds || []).includes(songId2)) {
+            const peerLinks = (peer.linkedSongIds || []).filter(id => id !== songId2);
+            await setDoc(doc(db, 'songs', peerId), { linkedSongIds: peerLinks, updatedAt: serverTimestamp() }, { merge: true });
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Unlinked songs locally:', e);
+    }
+  }, [songs]);
+
+  const createLanguageVersion = useCallback(async (sourceSongId: string, targetLanguage: string, customTitle?: string) => {
+    const sourceSong = songs.find(s => s.id === sourceSongId);
+    if (!sourceSong) throw new Error('Source song not found');
+
+    const newTitle = customTitle?.trim() || `${sourceSong.title} - ${targetLanguage}`;
+    const newSongData: Omit<Song, 'id' | 'groupId' | 'createdAt' | 'updatedAt'> = {
+      title: newTitle,
+      artist: sourceSong.artist,
+      key: sourceSong.key,
+      tempo: sourceSong.tempo,
+      timeSignature: sourceSong.timeSignature,
+      duration: sourceSong.duration,
+      durationMode: sourceSong.durationMode,
+      capo: sourceSong.capo,
+      tags: sourceSong.tags ? [...sourceSong.tags] : [],
+      language: targetLanguage,
+      linkedSongIds: [sourceSongId, ...(sourceSong.linkedSongIds || []).filter(id => id !== sourceSongId)],
+      notes: sourceSong.notes ? `Version ${targetLanguage}. ${sourceSong.notes}` : `Version ${targetLanguage}`,
+      contentChordPro: sourceSong.contentChordPro
+    };
+
+    const newId = await createSong(newSongData);
+    
+    // Bidirectionally link with source song and all already linked versions
+    await linkSongs(sourceSongId, newId);
+    if (sourceSong.linkedSongIds && sourceSong.linkedSongIds.length > 0) {
+      for (const linkedId of sourceSong.linkedSongIds) {
+        await linkSongs(linkedId, newId);
+      }
+    }
+
+    return newId;
+  }, [songs, createSong, linkSongs]);
+
   // Setlist Actions
   const createSetlist = useCallback(async (setlistData: Omit<Setlist, 'id' | 'groupId' | 'createdAt'>) => {
     const groupId = currentGroup?.id || 'default-group';
@@ -500,6 +690,66 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await deleteDoc(doc(db, 'setlists', id));
     } catch (e) {
       console.warn('Deleted setlist locally:', e);
+    }
+  }, [selectedSetlist?.id]);
+
+  const updateSetlistSongOverride = useCallback(async (setlistId: string, songId: string, override: Partial<SetlistSongOverride>) => {
+    let updatedOverrides: Record<string, SetlistSongOverride> = {};
+
+    setSetlists(prev => prev.map(st => {
+      if (st.id !== setlistId) return st;
+      const currentOverrides = st.songOverrides || {};
+      const songOverride = { ...(currentOverrides[songId] || {}), ...override };
+      const newOverrides = { ...currentOverrides, [songId]: songOverride };
+      updatedOverrides = newOverrides;
+      return { ...st, songOverrides: newOverrides };
+    }));
+
+    if (selectedSetlist?.id === setlistId) {
+      setSelectedSetlist(prev => {
+        if (!prev) return null;
+        const currentOverrides = prev.songOverrides || {};
+        const songOverride = { ...(currentOverrides[songId] || {}), ...override };
+        return {
+          ...prev,
+          songOverrides: { ...currentOverrides, [songId]: songOverride }
+        };
+      });
+    }
+
+    try {
+      const docRef = doc(db, 'setlists', setlistId);
+      await updateDoc(docRef, { songOverrides: updatedOverrides });
+    } catch (e) {
+      console.warn('Updated setlist song override locally:', e);
+    }
+  }, [selectedSetlist?.id]);
+
+  const removeSetlistSongOverride = useCallback(async (setlistId: string, songId: string) => {
+    let updatedOverrides: Record<string, SetlistSongOverride> = {};
+
+    setSetlists(prev => prev.map(st => {
+      if (st.id !== setlistId) return st;
+      const currentOverrides = { ...(st.songOverrides || {}) };
+      delete currentOverrides[songId];
+      updatedOverrides = currentOverrides;
+      return { ...st, songOverrides: currentOverrides };
+    }));
+
+    if (selectedSetlist?.id === setlistId) {
+      setSelectedSetlist(prev => {
+        if (!prev) return null;
+        const currentOverrides = { ...(prev.songOverrides || {}) };
+        delete currentOverrides[songId];
+        return { ...prev, songOverrides: currentOverrides };
+      });
+    }
+
+    try {
+      const docRef = doc(db, 'setlists', setlistId);
+      await updateDoc(docRef, { songOverrides: updatedOverrides });
+    } catch (e) {
+      console.warn('Removed setlist song override locally:', e);
     }
   }, [selectedSetlist?.id]);
 
@@ -634,9 +884,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createSong,
       updateSong,
       deleteSong,
+      linkSongs,
+      unlinkSongs,
+      createLanguageVersion,
       createSetlist,
       updateSetlist,
       deleteSetlist,
+      updateSetlistSongOverride,
+      removeSetlistSongOverride,
       createGroup,
       joinGroup,
       switchGroup,

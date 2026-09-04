@@ -9,7 +9,8 @@ import {
   DisplaySettings, 
   SongTypographySettings, 
   SectionColors, 
-  UserRole 
+  UserRole,
+  SyncStatus 
 } from '../types';
 import { DEFAULT_DISPLAY_SETTINGS } from '../utils/displayDefaults';
 import { 
@@ -77,6 +78,9 @@ interface AppContextType {
   resetDisplaySettings: () => void;
   isOffline: boolean;
   isOnline: boolean;
+  syncStatus: SyncStatus;
+  lastSyncedAt: Date | null;
+  syncNow: () => Promise<void>;
   isAuthModalOpen: boolean;
   setIsAuthModalOpen: (open: boolean) => void;
   isInstallable: boolean;
@@ -206,13 +210,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Network & PWA status
   const [isOnline, setIsOnline] = useState(typeof window !== 'undefined' ? navigator.onLine : true);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>(typeof window !== 'undefined' && !navigator.onLine ? 'offline' : 'synced');
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(new Date());
   const [deferredInstallPrompt, setDeferredInstallPrompt] = useState<any>(null);
   const [isInstallable, setIsInstallable] = useState(false);
 
+  // Manual sync trigger
+  const syncNow = useCallback(async () => {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setIsOnline(false);
+      setSyncStatus('offline');
+      return;
+    }
+    setSyncStatus('syncing');
+    try {
+      await new Promise(resolve => setTimeout(resolve, 750));
+      setSyncStatus('synced');
+      setLastSyncedAt(new Date());
+    } catch (e) {
+      setSyncStatus('error');
+    }
+  }, []);
+
   // PWA Install and Online Listener
   useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
+    const handleOnline = () => {
+      setIsOnline(true);
+      setSyncStatus('syncing');
+      setTimeout(() => {
+        setSyncStatus('synced');
+        setLastSyncedAt(new Date());
+      }, 1000);
+    };
+    const handleOffline = () => {
+      setIsOnline(false);
+      setSyncStatus('offline');
+    };
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
@@ -877,6 +910,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       resetDisplaySettings,
       isOffline: !isOnline,
       isOnline,
+      syncStatus,
+      lastSyncedAt,
+      syncNow,
       isAuthModalOpen,
       setIsAuthModalOpen,
       isInstallable,

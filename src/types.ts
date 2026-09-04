@@ -1,5 +1,7 @@
 export type UserRole = 'admin' | 'member';
 
+export type SyncStatus = 'synced' | 'syncing' | 'offline' | 'error';
+
 export type NotationSystem = 'standard' | 'latin';
 
 export type VocalArrangementType = 'Unisson' | 'Lead' | '2e voix' | '3e voix';

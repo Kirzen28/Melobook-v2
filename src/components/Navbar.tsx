@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
+import { motion } from 'motion/react';
 import { useApp } from '../context/AppContext';
+import { SyncStatusBadge } from './SyncStatusBadge';
 import { 
   Music2, 
   ListMusic, 
@@ -76,39 +78,60 @@ export const Navbar: React.FC = () => {
           </div>
 
           {/* Center Navigation Tabs (Desktop & Tablet) */}
-          <nav className="hidden md:flex items-center gap-1 bg-[#0A0A0B] p-1 rounded-lg border border-[#222224]">
+          <nav className="hidden md:flex items-center gap-1 bg-[#0A0A0B] p-1 rounded-lg border border-[#222224] relative">
             <button
               onClick={() => setActiveTab('repertoire')}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+              className={`relative z-10 flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
                 activeTab === 'repertoire'
-                  ? 'bg-[#1C1C1E] text-white border border-[#333]'
-                  : 'text-gray-400 hover:text-white hover:bg-[#1C1C1E]'
+                  ? 'text-white'
+                  : 'text-gray-400 hover:text-white'
               }`}
             >
+              {activeTab === 'repertoire' && (
+                <motion.span
+                  layoutId="active-nav-indicator"
+                  className="absolute inset-0 bg-[#1C1C1E] rounded-md border border-[#333] -z-10 shadow-sm"
+                  transition={{ type: 'spring', stiffness: 450, damping: 35 }}
+                />
+              )}
               <Music2 className="w-3.5 h-3.5 text-blue-400" />
               <span>Bibliothèque</span>
             </button>
 
             <button
               onClick={() => setActiveTab('setlists')}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+              className={`relative z-10 flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
                 activeTab === 'setlists'
-                  ? 'bg-[#1C1C1E] text-white border border-[#333]'
-                  : 'text-gray-400 hover:text-white hover:bg-[#1C1C1E]'
+                  ? 'text-white'
+                  : 'text-gray-400 hover:text-white'
               }`}
             >
+              {activeTab === 'setlists' && (
+                <motion.span
+                  layoutId="active-nav-indicator"
+                  className="absolute inset-0 bg-[#1C1C1E] rounded-md border border-[#333] -z-10 shadow-sm"
+                  transition={{ type: 'spring', stiffness: 450, damping: 35 }}
+                />
+              )}
               <ListMusic className="w-3.5 h-3.5 text-blue-400" />
               <span>Setlists</span>
             </button>
 
             <button
               onClick={() => setActiveTab('stage')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all ${
+              className={`relative z-10 flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
                 activeTab === 'stage'
-                  ? 'bg-blue-600 text-white shadow-sm shadow-blue-900/20'
-                  : 'text-gray-400 hover:text-white hover:bg-[#1C1C1E]'
+                  ? 'text-white'
+                  : 'text-gray-400 hover:text-white'
               }`}
             >
+              {activeTab === 'stage' && (
+                <motion.span
+                  layoutId="active-nav-indicator"
+                  className="absolute inset-0 bg-blue-600 rounded-md -z-10 shadow-sm shadow-blue-900/30"
+                  transition={{ type: 'spring', stiffness: 450, damping: 35 }}
+                />
+              )}
               <PlayCircle className="w-3.5 h-3.5 text-white" />
               <span>Vue Scène</span>
             </button>
@@ -116,12 +139,19 @@ export const Navbar: React.FC = () => {
             {currentUser?.role === 'admin' && (
               <button
                 onClick={() => setActiveTab('editor')}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                className={`relative z-10 flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
                   activeTab === 'editor'
-                    ? 'bg-[#1C1C1E] text-white border border-[#333]'
-                    : 'text-gray-400 hover:text-white hover:bg-[#1C1C1E]'
+                    ? 'text-white'
+                    : 'text-gray-400 hover:text-white'
                 }`}
               >
+                {activeTab === 'editor' && (
+                  <motion.span
+                    layoutId="active-nav-indicator"
+                    className="absolute inset-0 bg-[#1C1C1E] rounded-md border border-[#333] -z-10 shadow-sm"
+                    transition={{ type: 'spring', stiffness: 450, damping: 35 }}
+                  />
+                )}
                 <FileEdit className="w-3.5 h-3.5 text-blue-400" />
                 <span>Éditeur</span>
               </button>
@@ -129,12 +159,19 @@ export const Navbar: React.FC = () => {
 
             <button
               onClick={() => setActiveTab('tuner')}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+              className={`relative z-10 flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
                 activeTab === 'tuner'
-                  ? 'bg-[#1C1C1E] text-white border border-[#333]'
-                  : 'text-gray-400 hover:text-white hover:bg-[#1C1C1E]'
+                  ? 'text-white'
+                  : 'text-gray-400 hover:text-white'
               }`}
             >
+              {activeTab === 'tuner' && (
+                <motion.span
+                  layoutId="active-nav-indicator"
+                  className="absolute inset-0 bg-[#1C1C1E] rounded-md border border-[#333] -z-10 shadow-sm"
+                  transition={{ type: 'spring', stiffness: 450, damping: 35 }}
+                />
+              )}
               <Gauge className="w-3.5 h-3.5 text-blue-400" />
               <span>Accordeur</span>
             </button>
@@ -155,27 +192,8 @@ export const Navbar: React.FC = () => {
               </button>
             )}
 
-            {/* Online / Offline Status Badge (Desktop only) */}
-            <div 
-              className={`hidden md:flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium border ${
-                isOffline 
-                  ? 'bg-[#1C1C1E] border-amber-500/30 text-amber-300' 
-                  : 'bg-[#1C1C1E] border-[#333] text-gray-400'
-              }`}
-              title={isOffline ? "Mode hors-ligne actif (cache local)" : "Connecté au Cloud Firestore"}
-            >
-              {isOffline ? (
-                <>
-                  <WifiOff className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Hors-ligne</span>
-                </>
-              ) : (
-                <>
-                  <Wifi className="w-3.5 h-3.5 text-blue-400" />
-                  <span>En ligne</span>
-                </>
-              )}
-            </div>
+            {/* Synchronization Status Badge (Desktop & Mobile) */}
+            <SyncStatusBadge />
 
             {/* User Account / Auth Menu (Visible on Desktop & Mobile to the left of hamburger) */}
             <div className="relative">

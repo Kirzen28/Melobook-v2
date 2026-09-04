@@ -228,13 +228,16 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
 
   const typeConfig = getSectionTypeConfig(section.type, section.title);
 
-  // Compute selected option label to adapt select element width to the word length
-  const selectedTypeLabel = useMemo(() => {
+  // Compute selected option label with automatic numbering if multiple sections of this type exist
+  const selectedDisplayLabel = useMemo(() => {
+    if (section.title && section.title.trim()) {
+      return section.title;
+    }
     const std = STANDARD_SECTION_TYPES.find(t => t.key === section.type);
     if (std) return std.label;
     if (section.type && section.type !== 'general') return section.type;
     return 'Autre';
-  }, [section.type]);
+  }, [section.title, section.type]);
 
   // Compute merged custom types including any existing custom type in this section
   const mergedCustomTypes = useMemo(() => {
@@ -848,28 +851,52 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
               <select
                 value={section.type}
                 onChange={(e) => handleTypeChange(e.target.value)}
-                style={{ width: `${selectedTypeLabel.length + 8}ch` }}
+                style={{ width: `${Math.max(10, selectedDisplayLabel.length + 6)}ch` }}
                 className={`min-w-0 max-w-full pl-2.5 pr-6 py-1 rounded text-xs font-bold font-mono uppercase tracking-wider border cursor-pointer focus:outline-none transition-all ${typeConfig.badgeBg} ${typeConfig.badgeBorder} ${typeConfig.badgeText}`}
               >
                 <optgroup label="Sections standards">
-                  <option value="verse" className="bg-[#141416] text-blue-300">Couplet</option>
-                  <option value="chorus" className="bg-[#141416] text-amber-300">Refrain</option>
-                  <option value="pre_chorus" className="bg-[#141416] text-pink-300">Pré refrain</option>
-                  <option value="bridge" className="bg-[#141416] text-purple-300">Pont</option>
-                  <option value="intro" className="bg-[#141416] text-cyan-300">Intro</option>
-                  <option value="outro" className="bg-[#141416] text-rose-300">Outro</option>
-                  <option value="solo" className="bg-[#141416] text-orange-300">Solo</option>
-                  <option value="interlude" className="bg-[#141416] text-indigo-300">Interlude</option>
-                  <option value="instrumental" className="bg-[#141416] text-emerald-300">Instrumental</option>
-                  <option value="tag" className="bg-[#141416] text-fuchsia-300">Tag</option>
-                  <option value="finale" className="bg-[#141416] text-red-300">Finale</option>
-                  <option value="general" className="bg-[#141416] text-gray-300">Autre</option>
+                  <option value="verse" className="bg-[#141416] text-blue-300">
+                    {section.type === 'verse' ? selectedDisplayLabel : 'Couplet'}
+                  </option>
+                  <option value="chorus" className="bg-[#141416] text-amber-300">
+                    {section.type === 'chorus' ? selectedDisplayLabel : 'Refrain'}
+                  </option>
+                  <option value="pre_chorus" className="bg-[#141416] text-pink-300">
+                    {section.type === 'pre_chorus' ? selectedDisplayLabel : 'Pré refrain'}
+                  </option>
+                  <option value="bridge" className="bg-[#141416] text-purple-300">
+                    {section.type === 'bridge' ? selectedDisplayLabel : 'Pont'}
+                  </option>
+                  <option value="intro" className="bg-[#141416] text-cyan-300">
+                    {section.type === 'intro' ? selectedDisplayLabel : 'Intro'}
+                  </option>
+                  <option value="outro" className="bg-[#141416] text-rose-300">
+                    {section.type === 'outro' ? selectedDisplayLabel : 'Outro'}
+                  </option>
+                  <option value="solo" className="bg-[#141416] text-orange-300">
+                    {section.type === 'solo' ? selectedDisplayLabel : 'Solo'}
+                  </option>
+                  <option value="interlude" className="bg-[#141416] text-indigo-300">
+                    {section.type === 'interlude' ? selectedDisplayLabel : 'Interlude'}
+                  </option>
+                  <option value="instrumental" className="bg-[#141416] text-emerald-300">
+                    {section.type === 'instrumental' ? selectedDisplayLabel : 'Instrumental'}
+                  </option>
+                  <option value="tag" className="bg-[#141416] text-fuchsia-300">
+                    {section.type === 'tag' ? selectedDisplayLabel : 'Tag'}
+                  </option>
+                  <option value="finale" className="bg-[#141416] text-red-300">
+                    {section.type === 'finale' ? selectedDisplayLabel : 'Finale'}
+                  </option>
+                  <option value="general" className="bg-[#141416] text-gray-300">
+                    {section.type === 'general' ? selectedDisplayLabel : 'Autre'}
+                  </option>
                 </optgroup>
                 {mergedCustomTypes.length > 0 && (
                   <optgroup label="Sections personnalisées">
                     {mergedCustomTypes.map((ct) => (
                       <option key={ct} value={ct} className="bg-[#141416] text-teal-300">
-                        {ct}
+                        {section.type === ct ? selectedDisplayLabel : ct}
                       </option>
                     ))}
                   </optgroup>
@@ -881,11 +908,6 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
                 </optgroup>
               </select>
             )}
-
-            {/* Section Title: automatic, read-only */}
-            <span className="text-xs font-bold text-gray-200 px-1.5 py-0.5 select-none">
-              {section.title}
-            </span>
           </div>
 
           {/* Fold and Unfold Toggle Button */}

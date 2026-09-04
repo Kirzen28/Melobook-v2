@@ -1,7 +1,9 @@
 {
   "name": "Melobook",
   "description": "Application PWA complète de gestion de chants et de setlists au format ChordPro pour musiciens et groupes, avec mode scène, transposition en temps réel, auto-scroll et synchronisation.",
-  "requestFramePermissions": [],
+  "requestFramePermissions": [
+    "microphone"
+  ],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
 

@@ -587,31 +587,30 @@ export function parseChordPro(chordProText: string): ParsedSongData {
         }
         currentSection = { type: 'general', lines: [] };
       } else if (tag === 'comment' || tag === 'c') {
-        // Section header comment detection (e.g. {c: Couplet 1}, {c: Refrain}, {c: Pont})
+        // Section header comment detection (e.g. {c: Couplet 1}, {c: Verse 1}, {c: V1}, {c: Refrain}, {c: C1}, {c: Pont})
         const { cleanTitle, vocals, vocal, repeat } = extractVocalTag(value);
-        const lowerVal = cleanTitle.toLowerCase();
+        const lowerVal = cleanTitle.trim().toLowerCase();
         let secType: ParsedSection['type'] = 'general';
-        if (lowerVal.includes('pré') || lowerVal.includes('pre') || lowerVal.includes('prerefrain') || lowerVal.includes('pre-chorus') || lowerVal.includes('prechorus')) {
+
+        if (/^(?:pre[- ]?chorus|pr[ée][- ]?refrain|pc\d*|pr\d*)$/i.test(lowerVal) || lowerVal.includes('pré') || lowerVal.includes('pre') || lowerVal.includes('prerefrain') || lowerVal.includes('pre-chorus') || lowerVal.includes('prechorus')) {
           secType = 'pre_chorus';
-        } else if (lowerVal.includes('refrain') || lowerVal.includes('chorus')) {
+        } else if (/^(?:c\d+|r\d+|chorus|refrain)$/i.test(lowerVal) || lowerVal.includes('refrain') || lowerVal.includes('chorus')) {
           secType = 'chorus';
-        } else if (lowerVal.includes('couplet') || lowerVal.includes('verse')) {
+        } else if (/^(?:v\d+|verse|couplet|strophe)$/i.test(lowerVal) || lowerVal.includes('couplet') || lowerVal.includes('verse') || lowerVal.includes('strophe')) {
           secType = 'verse';
-        } else if (lowerVal.includes('pont') || lowerVal.includes('bridge')) {
+        } else if (/^(?:b\d+|p\d+|bridge|pont)$/i.test(lowerVal) || lowerVal.includes('pont') || lowerVal.includes('bridge')) {
           secType = 'bridge';
-        } else if (lowerVal.includes('intro')) {
+        } else if (/^(?:in|intro\d*)$/i.test(lowerVal) || lowerVal.includes('intro')) {
           secType = 'intro';
-        } else if (lowerVal.includes('finale')) {
-          secType = 'finale';
-        } else if (lowerVal.includes('outro') || lowerVal.includes('fin')) {
+        } else if (/^(?:outro\d*|out|fin\d*|finale\d*)$/i.test(lowerVal) || lowerVal.includes('finale') || lowerVal.includes('outro') || lowerVal.includes('fin')) {
           secType = 'outro';
-        } else if (lowerVal.includes('solo')) {
+        } else if (/^(?:s\d+|solo\d*)$/i.test(lowerVal) || lowerVal.includes('solo')) {
           secType = 'solo';
-        } else if (lowerVal.includes('interlude')) {
+        } else if (/^(?:int\d*|interlude\d*)$/i.test(lowerVal) || lowerVal.includes('interlude')) {
           secType = 'interlude';
-        } else if (lowerVal.includes('instru')) {
+        } else if (/^(?:inst\d*|instrumental\d*|instru\d*)$/i.test(lowerVal) || lowerVal.includes('instru') || lowerVal.includes('instrumental')) {
           secType = 'instrumental';
-        } else if (lowerVal.includes('tag') || lowerVal.includes('coda')) {
+        } else if (/^(?:tag\d*|coda\d*|t\d*)$/i.test(lowerVal) || lowerVal.includes('tag') || lowerVal.includes('coda')) {
           secType = 'tag';
         } else if (cleanTitle && cleanTitle.trim()) {
           secType = cleanTitle.trim();

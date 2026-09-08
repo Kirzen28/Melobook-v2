@@ -31,8 +31,6 @@ export interface VisualSection {
   id: string;
   type: VisualSectionType;
   title: string;
-  simplifiedTitle?: string;
-  isRepeated?: boolean;
   vocals: string[];
   repeat?: number;
   lines: VisualLine[];

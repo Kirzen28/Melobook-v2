@@ -29,7 +29,8 @@ import {
   ArrowRight,
   FileDown,
   Share2,
-  GripVertical
+  GripVertical,
+  Pencil
 } from 'lucide-react';
 
 export const SetlistManager: React.FC = () => {
@@ -57,6 +58,13 @@ export const SetlistManager: React.FC = () => {
   const [isAddSongModalOpen, setIsAddSongModalOpen] = useState(false);
   const [confirmDeleteSetlistId, setConfirmDeleteSetlistId] = useState<string | null>(null);
   const [pdfModalSetlist, setPdfModalSetlist] = useState<Setlist | null>(null);
+
+  // Edit setlist metadata state
+  const [editingSetlist, setEditingSetlist] = useState<Setlist | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editDate, setEditDate] = useState('');
+  const [editTargetDuration, setEditTargetDuration] = useState(25);
+  const [editNotes, setEditNotes] = useState('');
 
   // Drag-and-Drop state for song reordering
   const [draggedSongIndex, setDraggedSongIndex] = useState<number | null>(null);
@@ -102,6 +110,44 @@ export const SetlistManager: React.FC = () => {
 
     setNewSetName('');
     setIsCreateModalOpen(false);
+  };
+
+  // Open Edit Metadata Modal
+  const handleOpenEditModal = (st: Setlist) => {
+    setEditingSetlist(st);
+    setEditName(st.name || '');
+    setEditDate(st.date || new Date().toISOString().split('T')[0]);
+    setEditTargetDuration(st.targetDuration || 25);
+    setEditNotes(st.notes || '');
+  };
+
+  // Save edited setlist metadata
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingSetlist || !editName.trim()) return;
+
+    const trimmedName = editName.trim();
+    const durationNum = Number(editTargetDuration) || 20;
+    const trimmedNotes = editNotes.trim();
+
+    await updateSetlist(editingSetlist.id, {
+      name: trimmedName,
+      date: editDate,
+      targetDuration: durationNum,
+      notes: trimmedNotes
+    });
+
+    if (selectedSetlist?.id === editingSetlist.id) {
+      setSelectedSetlist({
+        ...selectedSetlist,
+        name: trimmedName,
+        date: editDate,
+        targetDuration: durationNum,
+        notes: trimmedNotes
+      });
+    }
+
+    setEditingSetlist(null);
   };
 
   // Reorder songs in setlist via index swap
@@ -333,12 +379,25 @@ export const SetlistManager: React.FC = () => {
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2.5 flex-wrap">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <h3 className={`text-base font-bold truncate transition-colors ${
                           isExpanded ? 'text-blue-300' : 'text-white'
                         }`}>
                           {st.name}
                         </h3>
+                        {currentUser?.role === 'admin' && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenEditModal(st);
+                            }}
+                            className="p-1 rounded-md text-gray-400 hover:text-blue-400 hover:bg-blue-500/15 border border-transparent hover:border-blue-500/30 transition-all active:scale-90"
+                            title="Modifier les métadonnées"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
 
                       {/* Metadata row */}
@@ -377,11 +436,23 @@ export const SetlistManager: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Right Actions: PDF, Live Mode, Delete */}
+                  {/* Right Actions: Edit, PDF, Live Mode, Delete */}
                   <div 
                     className="flex items-center gap-2 shrink-0 self-start md:self-center"
                     onClick={(e) => e.stopPropagation()}
                   >
+                    {currentUser?.role === 'admin' && (
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditModal(st)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-200 hover:text-white border border-[#333] text-xs font-semibold shadow-sm transition-all active:scale-95"
+                        title="Modifier les métadonnées"
+                      >
+                        <Pencil className="w-3.5 h-3.5 text-blue-400" />
+                        <span className="hidden sm:inline">Modifier</span>
+                      </button>
+                    )}
+
                     <button
                       onClick={() => setPdfModalSetlist(st)}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-200 hover:text-white border border-[#333] text-xs font-semibold shadow-sm transition-all active:scale-95"
@@ -443,9 +514,6 @@ export const SetlistManager: React.FC = () => {
                     <div>
                       <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                         <div className="flex items-center gap-2">
-                          <h4 className="text-xs font-bold uppercase tracking-wider text-gray-300">
-                            Morceaux de la setlist : {st.songIds.length}
-                          </h4>
                           {currentUser?.role === 'admin' && st.songIds.length > 1 && (
                             <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-medium text-blue-400/80 bg-blue-950/40 px-2 py-0.5 rounded border border-blue-800/40">
                               <GripVertical className="w-3 h-3 text-blue-400" />
@@ -460,7 +528,7 @@ export const SetlistManager: React.FC = () => {
                               setSelectedSetlist(st);
                               setIsAddSongModalOpen(true);
                             }}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold transition-all shadow-sm active:scale-95"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold transition-all shadow-sm active:scale-95 ml-auto"
                           >
                             <Plus className="w-3.5 h-3.5" />
                             <span>Ajouter un chant</span>
@@ -589,6 +657,27 @@ export const SetlistManager: React.FC = () => {
                           })}
                         </div>
                       )}
+                      {st.notes && (
+                        <div className="mt-3 p-3.5 bg-[#121215] border border-[#222226] rounded-lg text-xs text-gray-300">
+                          <div className="flex items-center justify-between gap-2 mb-1.5">
+                            <div className="text-[11px] font-bold text-gray-400 flex items-center gap-1.5">
+                              <Info className="w-3.5 h-3.5 text-blue-400" />
+                              <span>Notes et déroulé</span>
+                            </div>
+                            {currentUser?.role === 'admin' && (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditModal(st)}
+                                className="text-[11px] text-blue-400 hover:text-blue-300 font-medium hover:underline flex items-center gap-1"
+                              >
+                                <Pencil className="w-3 h-3" />
+                                <span>Modifier</span>
+                              </button>
+                            )}
+                          </div>
+                          <div className="whitespace-pre-wrap font-sans text-gray-300 leading-relaxed">{st.notes}</div>
+                        </div>
+                      )}
                     </div>
 
                   </div>
@@ -702,6 +791,102 @@ export const SetlistManager: React.FC = () => {
           songs={songs}
           onClose={() => setPdfModalSetlist(null)}
         />
+      )}
+
+      {/* Modal: Edit Setlist Metadata */}
+      {editingSetlist && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#111112] border border-[#222224] rounded-xl w-full max-w-md p-5 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between mb-4 pb-3 border-b border-[#222224]">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <Pencil className="w-4 h-4 text-blue-400" />
+                <span>Modifier les métadonnées de la setlist</span>
+              </h3>
+              <button 
+                type="button"
+                onClick={() => setEditingSetlist(null)}
+                className="text-gray-400 hover:text-white p-1 rounded-md hover:bg-[#1C1C1E] transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEdit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-300 mb-1">
+                  Nom de la setlist *
+                </label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full bg-[#1C1C1E] border border-[#333] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 transition-colors"
+                  autoFocus
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-300 mb-1">
+                    Date de l'événement
+                  </label>
+                  <input
+                    type="date"
+                    value={editDate}
+                    onChange={(e) => setEditDate(e.target.value)}
+                    className="w-full bg-[#1C1C1E] border border-[#333] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 transition-colors"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-300 mb-1">
+                    Durée cible en minutes
+                  </label>
+                  <input
+                    type="number"
+                    min={5}
+                    max={300}
+                    value={editTargetDuration}
+                    onChange={(e) => setEditTargetDuration(parseInt(e.target.value, 10) || 20)}
+                    className="w-full bg-[#1C1C1E] border border-[#333] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 transition-colors"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-300 mb-1">
+                  Notes et indications pour le groupe
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="Ordre particulier, conducteur, transitions..."
+                  value={editNotes}
+                  onChange={(e) => setEditNotes(e.target.value)}
+                  className="w-full bg-[#1C1C1E] border border-[#333] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 transition-colors resize-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#222224]">
+                <button
+                  type="button"
+                  onClick={() => setEditingSetlist(null)}
+                  className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-gray-400 hover:bg-[#1C1C1E] transition-colors"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  disabled={!editName.trim()}
+                  className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-50 transition-all shadow-sm active:scale-95 flex items-center gap-1.5"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Enregistrer</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
     </div>

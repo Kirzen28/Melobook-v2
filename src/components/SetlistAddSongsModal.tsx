@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Song, Setlist } from '../types';
-import { getSongDuration } from '../utils/chordUtils';
+import { getSongDuration, stripParentheses } from '../utils/chordUtils';
 import { 
   DEFAULT_CATEGORY_SUGGESTIONS, 
   getCustomCategories, 
@@ -791,7 +791,7 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
                       <h4 className={`text-xs sm:text-sm font-bold truncate transition-colors ${
                         isChecked ? 'text-blue-300' : 'text-white group-hover:text-blue-400'
                       }`}>
-                        {song.title}
+                        {stripParentheses(song.title)}
                       </h4>
                       <p className="text-[11px] text-gray-400 truncate mt-0.5">
                         {song.artist || 'Auteur inconnu'}
@@ -987,7 +987,7 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
                                 <h4 className={`text-xs sm:text-sm font-bold truncate transition-colors ${
                                   isChecked ? 'text-blue-300' : 'text-white group-hover:text-blue-400'
                                 }`}>
-                                  {song.title}
+                                  {stripParentheses(song.title)}
                                 </h4>
                                 <p className="text-[11px] text-gray-400 truncate mt-0.5">
                                   {song.artist || 'Auteur inconnu'}

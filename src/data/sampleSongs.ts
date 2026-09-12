@@ -4,23 +4,23 @@ export const SAMPLE_SONGS: Song[] = [
   {
     id: 'song-1',
     groupId: 'default-group',
-    title: 'Jésus tu es bon (Goodness of God)',
-    artist: 'Bethel Music / Jenn Johnson (Adapt. FR)',
+    title: 'Jésus tu es bon',
+    artist: 'Bethel Music / Jenn Johnson',
     key: 'G',
     tempo: 70,
     timeSignature: '4/4',
     capo: 0,
-    duration: '5:10',
+    duration: '05:10',
     tags: ['Adoration', 'Grâce', 'Fidélité'],
     language: 'Français',
     linkedSongIds: ['song-1-en'],
     notes: 'Intro douce à la guitare acoustique. Monter en puissance au Pont.',
-    contentChordPro: `{title: Jésus tu es bon (Goodness of God)}
+    contentChordPro: `{title: Jésus tu es bon}
 {artist: Bethel Music / Jenn Johnson}
 {key: G}
 {tempo: 70}
 {time: 4/4}
-{duration: 5:10}
+{duration: 05:10}
 
 {c: Intro}
 [G] [Gsus4] [G] [Gsus4]
@@ -69,7 +69,7 @@ Je chan[C]terai la bonté [D]de mon [G]Dieu`
     tempo: 70,
     timeSignature: '4/4',
     capo: 0,
-    duration: '5:00',
+    duration: '05:00',
     tags: ['Adoration', 'Grâce', 'Fidélité'],
     language: 'Anglais',
     linkedSongIds: ['song-1'],
@@ -79,7 +79,7 @@ Je chan[C]terai la bonté [D]de mon [G]Dieu`
 {key: G}
 {tempo: 70}
 {time: 4/4}
-{duration: 5:00}
+{duration: 05:00}
 
 {c: Intro}
 [G] [Gsus4] [G] [Gsus4]
@@ -121,7 +121,7 @@ With my [G/B]life laid down, I'm sur[C]rendered now, I give You [D]every[Em]thin
     tempo: 118,
     timeSignature: '4/4',
     capo: 0,
-    duration: '4:20',
+    duration: '04:20',
     tags: ['Louange', 'Rythmé', 'Joie', 'Célébration'],
     language: 'Français',
     notes: 'Tempo dynamique avec clap des mains. Entrée énergique de la basse.',
@@ -130,7 +130,7 @@ With my [G/B]life laid down, I'm sur[C]rendered now, I give You [D]every[Em]thin
 {key: C}
 {tempo: 118}
 {time: 4/4}
-{duration: 4:20}
+{duration: 04:20}
 
 {c: Refrain}
 Comment ne [C]pas te louer, [G]Seigneur Jésus !
@@ -163,24 +163,24 @@ Comment ne [Dm]pas te louer, [G]Seigneur Jé[C]sus !`
   {
     id: 'song-3',
     groupId: 'default-group',
-    title: 'Grâce Infinie (Amazing Grace)',
+    title: 'Grâce Infinie',
     artist: 'John Newton / Chris Tomlin',
     key: 'E',
     tempo: 75,
     timeSignature: '3/4',
     capo: 2,
-    duration: '4:45',
+    duration: '04:45',
     tags: ['Classique', 'Hymne', 'Grâce', 'Méditation'],
     language: 'Français',
     linkedSongIds: ['song-3-en'],
-    notes: 'Capo 2 (jouer en D pour sonner en E). Valse 3/4.',
-    contentChordPro: `{title: Grâce Infinie (Amazing Grace)}
+    notes: 'Capo 2 valse 3/4.',
+    contentChordPro: `{title: Grâce Infinie}
 {artist: John Newton / Chris Tomlin}
 {key: E}
 {tempo: 75}
 {time: 3/4}
 {capo: 2}
-{duration: 4:45}
+{duration: 04:45}
 
 {c: Couplet 1}
 Grâce in[E]finie du [A]Seigneur [E]Dieu
@@ -209,24 +209,24 @@ Sa lou[E]ange pour [B7]l'éter[E]nité`
   {
     id: 'song-3-en',
     groupId: 'default-group',
-    title: 'Amazing Grace (My Chains Are Gone)',
+    title: 'Amazing Grace',
     artist: 'John Newton / Chris Tomlin',
     key: 'E',
     tempo: 75,
     timeSignature: '3/4',
     capo: 2,
-    duration: '4:30',
+    duration: '04:30',
     tags: ['Classique', 'Hymne', 'Grâce'],
     language: 'Anglais',
     linkedSongIds: ['song-3'],
-    notes: 'English version of "Grâce Infinie".',
-    contentChordPro: `{title: Amazing Grace (My Chains Are Gone)}
+    notes: 'English version of Grâce Infinie.',
+    contentChordPro: `{title: Amazing Grace}
 {artist: John Newton / Chris Tomlin}
 {key: E}
 {tempo: 75}
 {time: 3/4}
 {capo: 2}
-{duration: 4:30}
+{duration: 04:30}
 
 {c: Verse 1}
 Amazing [E]grace how [A]sweet the [E]sound
@@ -243,23 +243,23 @@ Unending [F#m]love, a[B7]mazing [E]grace`
   {
     id: 'song-4',
     groupId: 'default-group',
-    title: '10 000 Raisons (Mon âme bénis le Seigneur)',
+    title: '10 000 Raisons',
     artist: 'Matt Redman / Jonas Myrin',
     key: 'G',
     tempo: 73,
     timeSignature: '4/4',
     capo: 0,
-    duration: '5:40',
+    duration: '05:40',
     tags: ['Louange', 'Culte', 'Psaumes', 'Action de grâce'],
     language: 'Français',
     linkedSongIds: ['song-4-en'],
     notes: 'Commencer directement par le refrain doux au piano.',
-    contentChordPro: `{title: 10 000 Raisons (Mon âme bénis le Seigneur)}
+    contentChordPro: `{title: 10 000 Raisons}
 {artist: Matt Redman}
 {key: G}
 {tempo: 73}
 {time: 4/4}
-{duration: 5:40}
+{duration: 05:40}
 
 {c: Refrain}
 {vocal: Unisson}
@@ -294,23 +294,23 @@ Je [C]bénis Ton [D]saint Nom [G]`
   {
     id: 'song-4-en',
     groupId: 'default-group',
-    title: '10,000 Reasons (Bless the Lord)',
+    title: '10,000 Reasons',
     artist: 'Matt Redman / Jonas Myrin',
     key: 'G',
     tempo: 73,
     timeSignature: '4/4',
     capo: 0,
-    duration: '5:30',
+    duration: '05:30',
     tags: ['Louange', 'Culte', 'Psaumes'],
     language: 'Anglais',
     linkedSongIds: ['song-4'],
-    notes: 'English version of "10 000 Raisons".',
-    contentChordPro: `{title: 10,000 Reasons (Bless the Lord)}
+    notes: 'English version of 10 000 Raisons.',
+    contentChordPro: `{title: 10,000 Reasons}
 {artist: Matt Redman}
 {key: G}
 {tempo: 73}
 {time: 4/4}
-{duration: 5:30}
+{duration: 05:30}
 
 {c: Chorus}
 Bless the [C]Lord O my [G]soul, [D/F#]O my [Em]soul
@@ -333,7 +333,7 @@ What[C]ever may pass and what[G]ever lies be[D]fore [Em]me
     tempo: 62,
     timeSignature: '4/4',
     capo: 0,
-    duration: '5:50',
+    duration: '05:50',
     tags: ['Adoration', 'Trône', 'Majesté', 'Prière'],
     language: 'Français',
     notes: 'Progression continue: D - Am7 - C - G tout le long du chant.',
@@ -342,7 +342,7 @@ What[C]ever may pass and what[G]ever lies be[D]fore [Em]me
 {key: D}
 {tempo: 62}
 {time: 4/4}
-{duration: 5:50}
+{duration: 05:50}
 
 {c: Intro}
 [D] [Am7] [C] [G]
@@ -370,22 +370,22 @@ Seul Roi de [C]sagesse, d'amour et de [G]paix`
   {
     id: 'song-6',
     groupId: 'default-group',
-    title: 'Ce nom si merveilleux (What a Beautiful Name)',
+    title: 'Ce nom si merveilleux',
     artist: 'Hillsong Worship',
     key: 'D',
     tempo: 68,
     timeSignature: '4/4',
     capo: 0,
-    duration: '5:30',
+    duration: '05:30',
     tags: ['Nom de Jésus', 'Puissance', 'Adoration', 'Louange'],
     language: 'Français',
     notes: 'Monter au Pont avec la batterie complète.',
-    contentChordPro: `{title: Ce nom si merveilleux (What a Beautiful Name)}
+    contentChordPro: `{title: Ce nom si merveilleux}
 {artist: Hillsong Worship}
 {key: D}
 {tempo: 68}
 {time: 4/4}
-{duration: 5:30}
+{duration: 05:30}
 
 {c: Couplet 1}
 Tu étais [D]la Parole au commencement

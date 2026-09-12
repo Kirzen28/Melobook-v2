@@ -158,19 +158,24 @@ export const SyncStatusBadge: React.FC = () => {
           {/* Quick Metrics */}
           <div className="mt-3 grid grid-cols-2 gap-2 text-[11px]">
             <div className="p-2 rounded bg-[#18181B] border border-[#26262A] flex items-center gap-2">
-              <HardDrive className="w-3.5 h-3.5 text-gray-400" />
+              <HardDrive className="w-3.5 h-3.5 text-blue-400" />
               <div>
-                <p className="text-gray-400 text-[10px]">Cache local</p>
-                <p className="font-bold text-gray-200">{songs.length} chants</p>
+                <p className="text-gray-400 text-[10px]">Service Worker</p>
+                <p className="font-bold text-gray-200">{songs.length} chants prêts</p>
               </div>
             </div>
             <div className="p-2 rounded bg-[#18181B] border border-[#26262A] flex items-center gap-2">
-              <Database className="w-3.5 h-3.5 text-gray-400" />
+              <Database className="w-3.5 h-3.5 text-emerald-400" />
               <div>
-                <p className="text-gray-400 text-[10px]">Listes prêtes</p>
-                <p className="font-bold text-gray-200">{setlists.length} listes</p>
+                <p className="text-gray-400 text-[10px]">Setlists</p>
+                <p className="font-bold text-gray-200">{setlists.length} disponibles</p>
               </div>
             </div>
+          </div>
+
+          <div className="mt-2.5 px-2 py-1.5 rounded bg-[#18181B]/70 border border-[#26262A] text-[10px] text-gray-400 flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
+            <span>Chants et setlists consultés mis en cache pour un accès hors connexion</span>
           </div>
 
           {/* Last sync time */}

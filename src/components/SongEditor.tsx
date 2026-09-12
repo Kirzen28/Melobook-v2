@@ -5,7 +5,8 @@ import {
   parseChordPro, 
   getVocalBadgeStyle,
   formatSecondsToMinutes, 
-  parseDurationToSeconds
+  parseDurationToSeconds,
+  formatDurationToMMSS
 } from '../utils/chordUtils';
 import { 
   VisualSection, 
@@ -110,7 +111,7 @@ export const SongEditor: React.FC = () => {
   const [key, setKey] = useState(selectedSong?.key || 'C');
   const [tempo, setTempo] = useState<number>(selectedSong?.tempo || 100);
   const [timeSignature, setTimeSignature] = useState(selectedSong?.timeSignature || '4/4');
-  const [duration, setDuration] = useState(selectedSong?.duration || '3:30');
+  const [duration, setDuration] = useState(selectedSong?.duration ? formatDurationToMMSS(selectedSong.duration) : '03:30');
   const [capo, setCapo] = useState<number>(selectedSong?.capo || 0);
   const [language, setLanguage] = useState<string>(selectedSong?.language || 'Français');
   const [linkedSongIds, setLinkedSongIds] = useState<string[]>(selectedSong?.linkedSongIds || []);
@@ -264,7 +265,7 @@ export const SongEditor: React.FC = () => {
       setKey(selectedSong.key || 'C');
       setTempo(selectedSong.tempo || 100);
       setTimeSignature(selectedSong.timeSignature || '4/4');
-      setDuration(selectedSong.duration && selectedSong.duration !== 'auto' ? selectedSong.duration : '3:30');
+      setDuration(selectedSong.duration && selectedSong.duration !== 'auto' ? formatDurationToMMSS(selectedSong.duration) : '03:30');
       setCapo(selectedSong.capo || 0);
       setLanguage(selectedSong.language || 'Français');
       setLinkedSongIds(selectedSong.linkedSongIds || []);
@@ -551,7 +552,7 @@ export const SongEditor: React.FC = () => {
     }
 
     setIsSaving(true);
-    const resolvedDuration = duration.trim() || '3:30';
+    const resolvedDuration = formatDurationToMMSS(duration.trim() || '03:30');
 
     // Ensure ChordPro content is up to date
     const finalChordPro = editorMode === 'visual'
@@ -782,9 +783,14 @@ export const SongEditor: React.FC = () => {
               </label>
               <input
                 type="text"
-                placeholder="3:30"
+                placeholder="03:30"
                 value={duration}
                 onChange={(e) => setDuration(e.target.value)}
+                onBlur={() => {
+                  if (duration.trim()) {
+                    setDuration(formatDurationToMMSS(duration));
+                  }
+                }}
                 className="w-full h-8 bg-[#1C1C1E] border border-[#333] hover:border-[#444] focus:border-cyan-400 rounded-lg px-1 text-xs text-cyan-300 font-mono font-bold focus:outline-none text-center transition-colors"
               />
             </div>

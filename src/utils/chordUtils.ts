@@ -688,7 +688,7 @@ export function parseChordPro(chordProText: string): ParsedSongData {
     hasExplicitKey,
     tempo,
     timeSignature,
-    duration: duration || undefined,
+    duration: duration ? formatDurationToMMSS(duration) : undefined,
     capo,
     sections,
     rawChordPro: chordProText
@@ -798,7 +798,25 @@ export function calculateSongAutoDuration(
 }
 
 /**
- * Extract or resolve duration from song object or its ChordPro text.
+ * Format any duration string or number of seconds into strictly MM:SS format.
+ * Examples:
+ * - 270 -> "04:30"
+ * - "4:30" -> "04:30"
+ * - "04:30" -> "04:30"
+ * - "25 min 30 s" -> "25:30"
+ * - "5 min" -> "05:00"
+ * - "1:15:20" -> "75:20"
+ */
+export function formatDurationToMMSS(duration?: string | number | { duration?: string; contentChordPro?: string } | null): string {
+  const totalSecs = parseDurationToSeconds(duration);
+  if (!totalSecs || totalSecs <= 0) return '00:00';
+  const mins = Math.floor(totalSecs / 60);
+  const secs = totalSecs % 60;
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+}
+
+/**
+ * Extract or resolve duration from song object or its ChordPro text formatted as MM:SS.
  */
 export function getSongDuration(song?: { 
   duration?: string; 
@@ -809,19 +827,21 @@ export function getSongDuration(song?: {
 } | null): string {
   if (!song) return '';
 
+  let raw = '';
   if (song.duration && song.duration.trim() && song.duration !== 'auto') {
-    return song.duration.trim();
-  }
-
-  // Check if directive contains explicit manual duration tag
-  if (song.contentChordPro) {
+    raw = song.duration.trim();
+  } else if (song.contentChordPro) {
     const match = song.contentChordPro.match(/\{(?:duration|dur|d|duree|durée|time_duration)\s*:\s*([^}]+)\}/i);
     if (match && match[1] && match[1].trim() && match[1].trim().toLowerCase() !== 'auto') {
-      return match[1].trim();
+      raw = match[1].trim();
     }
   }
 
-  return '3:30';
+  if (!raw) {
+    raw = '03:30';
+  }
+
+  return formatDurationToMMSS(raw);
 }
 
 /**
@@ -834,7 +854,7 @@ export function isSongDurationAuto(song?: { duration?: string; durationMode?: 'a
 /**
  * Parse any duration string into total seconds.
  * Supports:
- * - "4:30" or "04:30" -> 270
+ * - "04:30", "4:30", "04::30" -> 270
  * - "1:15:30" -> 4530
  * - "4m30s", "4 min 30 s", "4min 30", "4m" -> 270
  * - "270", "270s" -> 270
@@ -846,15 +866,20 @@ export function parseDurationToSeconds(duration?: string | number | { duration?:
 
   let str = '';
   if (typeof duration === 'object') {
-    str = getSongDuration(duration);
+    if (duration.duration && duration.duration.trim() && duration.duration !== 'auto') {
+      str = duration.duration.trim().toLowerCase();
+    } else if (duration.contentChordPro) {
+      const match = duration.contentChordPro.match(/\{(?:duration|dur|d|duree|durée|time_duration)\s*:\s*([^}]+)\}/i);
+      if (match && match[1]) str = match[1].trim().toLowerCase();
+    }
   } else {
     str = String(duration).trim().toLowerCase();
   }
   if (!str) return 0;
 
-  // Format "hh:mm:ss" or "mm:ss"
+  // Format "hh:mm:ss" or "mm:ss" or "mm::ss"
   if (str.includes(':')) {
-    const parts = str.split(':').map(p => parseInt(p.trim(), 10) || 0);
+    const parts = str.split(/:+/).map(p => parseInt(p.trim(), 10) || 0);
     if (parts.length === 2) {
       // [minutes, seconds]
       return Math.max(0, parts[0] * 60 + parts[1]);
@@ -883,41 +908,18 @@ export function parseDurationToSeconds(duration?: string | number | { duration?:
 }
 
 /**
- * Format seconds to standard "m:ss" (e.g. 270 -> "4:30", 3665 -> "1:01:05")
+ * Format seconds to standard MM:SS
  */
 export function formatSecondsToMinutes(seconds: number): string {
-  if (!seconds || seconds <= 0) return '0:00';
-  const hrs = Math.floor(seconds / 3600);
-  const mins = Math.floor((seconds % 3600) / 60);
-  const secs = Math.floor(seconds % 60);
-
-  if (hrs > 0) {
-    return `${hrs}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  }
-  return `${mins}:${secs.toString().padStart(2, '0')}`;
+  return formatDurationToMMSS(seconds);
 }
 
 /**
- * Format total setlist duration in a friendly natural string
- * e.g. "25 min 30 s" or "1 h 15 min"
+ * Format total setlist duration in standard MM:SS
+ * e.g. 1530 -> "25:30", 300 -> "05:00"
  */
 export function formatSetlistDuration(totalSeconds: number): string {
-  if (!totalSeconds || totalSeconds <= 0) return '0 min';
-  const hrs = Math.floor(totalSeconds / 3600);
-  const mins = Math.floor((totalSeconds % 3600) / 60);
-  const secs = Math.floor(totalSeconds % 60);
-
-  if (hrs > 0) {
-    if (mins === 0) return `${hrs} h`;
-    return `${hrs} h ${mins} min`;
-  }
-
-  if (mins > 0) {
-    if (secs === 0) return `${mins} min`;
-    return `${mins} min ${secs} s`;
-  }
-
-  return `${secs} s`;
+  return formatDurationToMMSS(totalSeconds);
 }
 
 // Web Audio API Metronome Synth
@@ -1013,3 +1015,8 @@ class MetronomeEngine {
 }
 
 export const metronome = new MetronomeEngine();
+
+export function stripParentheses(text: string): string {
+  if (!text) return '';
+  return text.replace(/\s*\([^)]*\)/g, '').trim();
+}

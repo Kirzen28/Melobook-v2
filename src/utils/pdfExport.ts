@@ -147,8 +147,8 @@ export async function generateSetlistPdf(
     const totalDurationSecs = setlistSongs.reduce((acc, s) => acc + parseDurationToSeconds(s), 0);
     const dateText = `Date : ${setlist.date || 'Non définie'}`;
     const countText = `${setlistSongs.length} Chants`;
-    const durText = totalDurationSecs > 0 ? `Durée totale : ${formatSetlistDuration(totalDurationSecs)}` : `Durée est. : ${setlist.targetDuration || 25} min`;
-    doc.text(`${dateText}   •   ${countText}   •   ${durText}`, marginX + 8, currentY + 24);
+    const durText = totalDurationSecs > 0 ? `   •   Durée : ${formatSetlistDuration(totalDurationSecs)}` : '';
+    doc.text(`${dateText}   •   ${countText}${durText}`, marginX + 8, currentY + 24);
 
     currentY += 46;
 

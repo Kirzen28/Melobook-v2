@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { useApp } from '../context/AppContext';
-import { SyncStatusBadge } from './SyncStatusBadge';
 import { 
   Music2, 
   ListMusic, 
@@ -21,7 +20,10 @@ import {
   X, 
   Sliders,
   Check,
-  Gauge
+  Gauge,
+  RefreshCw,
+  AlertCircle,
+  Cloud
 } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
@@ -36,16 +38,91 @@ export const Navbar: React.FC = () => {
     isInstallable, 
     promptInstall, 
     setIsAuthModalOpen, 
-    handleSignOut
+    handleSignOut,
+    syncStatus,
+    lastSyncedAt,
+    syncNow
   } = useApp();
 
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setIsUserMenuOpen(false);
+      }
+    };
+    if (isUserMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isUserMenuOpen]);
 
   const handleNavClick = (tab: any) => {
     setActiveTab(tab);
     setIsMobileMenuOpen(false);
   };
+
+  const formatLastSync = (date: Date | null) => {
+    if (!date) return 'Jamais';
+    const now = new Date();
+    const diffSec = Math.floor((now.getTime() - date.getTime()) / 1000);
+    if (diffSec < 15) return "À l'instant";
+    if (diffSec < 60) return `Il y a ${diffSec}s`;
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return `Il y a ${diffMin} min`;
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    return `Aujourd'hui à ${hours}:${minutes}`;
+  };
+
+  const syncConfig = {
+    synced: {
+      label: 'Synchronisé',
+      colorBadge: 'bg-emerald-950/60 border-emerald-500/40 text-emerald-300',
+      dotColor: 'bg-emerald-400',
+      icon: Check,
+      spin: false,
+      title: 'Données synchronisées'
+    },
+    syncing: {
+      label: 'Synchronisation...',
+      colorBadge: 'bg-blue-950/60 border-blue-500/40 text-blue-300',
+      dotColor: 'bg-blue-400',
+      icon: RefreshCw,
+      spin: true,
+      title: 'Synchronisation en cours'
+    },
+    offline: {
+      label: 'Hors-ligne',
+      colorBadge: 'bg-amber-950/60 border-amber-500/40 text-amber-300',
+      dotColor: 'bg-amber-400',
+      icon: WifiOff,
+      spin: false,
+      title: 'Mode hors-ligne actif'
+    },
+    error: {
+      label: 'Erreur',
+      colorBadge: 'bg-rose-950/60 border-rose-500/40 text-rose-300',
+      dotColor: 'bg-rose-500',
+      icon: AlertCircle,
+      spin: false,
+      title: 'Erreur de synchronisation'
+    }
+  }[syncStatus] || {
+    label: 'Synchronisé',
+    colorBadge: 'bg-emerald-950/60 border-emerald-500/40 text-emerald-300',
+    dotColor: 'bg-emerald-400',
+    icon: Check,
+    spin: false,
+    title: 'Données synchronisées'
+  };
+
+  const SyncIconComponent = syncConfig.icon;
 
   return (
     <header className="sticky top-0 z-40 bg-[#111112]/95 backdrop-blur-md border-b border-[#222224] text-[#E0E0E0] select-none">
@@ -77,7 +154,7 @@ export const Navbar: React.FC = () => {
             </div>
           </div>
 
-          {/* Center Navigation Tabs (Desktop & Tablet) */}
+          {/* Navigation principale */}
           <nav className="hidden md:flex items-center gap-1 bg-[#0A0A0B] p-1 rounded-lg border border-[#222224] relative">
             <button
               onClick={() => setActiveTab('repertoire')}
@@ -177,10 +254,10 @@ export const Navbar: React.FC = () => {
             </button>
           </nav>
 
-          {/* Right Action Tools (Desktop & Tablet) */}
+          {/* Outils d'action */}
           <div className="flex items-center gap-1.5 sm:gap-2">
             
-            {/* PWA Install Button (Desktop) */}
+            {/* Bouton d'installation PWA */}
             {isInstallable && (
               <button
                 onClick={promptInstall}
@@ -192,28 +269,34 @@ export const Navbar: React.FC = () => {
               </button>
             )}
 
-            {/* Synchronization Status Badge (Desktop & Mobile) */}
-            <SyncStatusBadge />
-
-            {/* User Account / Auth Menu (Visible on Desktop & Mobile to the left of hamburger) */}
-            <div className="relative">
+            {/* Bouton profil avec indicateur de synchronisation intégré */}
+            <div className="relative" ref={userMenuRef}>
               <button
                 onClick={() => {
                   setIsUserMenuOpen(!isUserMenuOpen);
                   if (isMobileMenuOpen) setIsMobileMenuOpen(false);
                 }}
-                className="w-8 h-8 rounded-full bg-[#1C1C1E] hover:bg-[#2A2A2D] border border-[#333] hover:border-blue-500/50 flex items-center justify-center text-white font-bold text-xs transition-all shadow-sm active:scale-95 cursor-pointer"
-                title={currentUser?.displayName ? currentUser.displayName : "Mon compte"}
+                className="relative w-8 h-8 rounded-full bg-[#1C1C1E] hover:bg-[#2A2A2D] border border-[#333] hover:border-blue-500/50 flex items-center justify-center text-white font-bold text-xs transition-all shadow-sm active:scale-95 cursor-pointer select-none"
+                title={currentUser?.displayName ? `${currentUser.displayName} - ${syncConfig.label}` : `Mon compte - ${syncConfig.label}`}
+                aria-label="Profil et état de synchronisation"
               >
-                {currentUser?.displayName ? currentUser.displayName.charAt(0).toUpperCase() : 'M'}
+                <span>{currentUser?.displayName ? currentUser.displayName.charAt(0).toUpperCase() : 'M'}</span>
+
+                {/* Pastille indiquant la synchronisation directement sur le bouton profil */}
+                <span className="absolute -bottom-0.5 -right-0.5 flex h-3 w-3 pointer-events-none">
+                  {syncStatus === 'syncing' && (
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                  )}
+                  <span className={`relative inline-flex rounded-full h-3 w-3 border-2 border-[#111112] ${syncConfig.dotColor}`}></span>
+                </span>
               </button>
 
               {isUserMenuOpen && (
                 <div 
-                  className="absolute right-0 mt-2 w-56 bg-[#111112] border border-[#222224] rounded-lg shadow-2xl py-1.5 z-50 text-xs animate-in fade-in zoom-in-95 duration-100"
-                  onClick={() => setIsUserMenuOpen(false)}
+                  className="absolute right-0 mt-2 w-64 bg-[#111112] border border-[#222224] rounded-xl shadow-2xl py-1.5 z-50 text-xs animate-in fade-in zoom-in-95 duration-100 divide-y divide-[#222224]"
                 >
-                  <div className="px-3.5 py-2 border-b border-[#222224]">
+                  {/* Informations profil */}
+                  <div className="px-3.5 py-2.5">
                     <p className="font-semibold text-white truncate">{currentUser?.displayName || 'Musicien'}</p>
                     <p className="text-[11px] text-gray-400 truncate">{currentUser?.email || 'Non connecté'}</p>
                     <span className="inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#1C1C1E] text-blue-400 border border-[#333]">
@@ -221,39 +304,101 @@ export const Navbar: React.FC = () => {
                     </span>
                   </div>
 
-                  <button
-                    onClick={() => handleNavClick('groups')}
-                    className="w-full text-left px-3.5 py-2 flex items-center gap-2.5 text-gray-300 hover:bg-[#1C1C1E] hover:text-white transition-colors"
-                  >
-                    <Users className="w-3.5 h-3.5 text-blue-400" />
-                    <span>Groupe</span>
-                  </button>
+                  {/* Bouton et état de synchronisation dans le menu profil */}
+                  <div className="p-2.5 bg-[#141417]">
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <div className="flex items-center gap-1.5 text-gray-300 font-medium text-[11px]">
+                        <Cloud className="w-3.5 h-3.5 text-blue-400" />
+                        <span>Synchronisation</span>
+                      </div>
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold border ${syncConfig.colorBadge}`}>
+                        <SyncIconComponent className={`w-3 h-3 ${syncConfig.spin ? 'animate-spin' : ''}`} />
+                        <span>{syncConfig.label}</span>
+                      </span>
+                    </div>
 
-                  <button
-                    onClick={() => handleNavClick('settings')}
-                    className="w-full text-left px-3.5 py-2 flex items-center gap-2.5 text-gray-300 hover:bg-[#1C1C1E] hover:text-white transition-colors"
-                  >
-                    <Sliders className="w-3.5 h-3.5 text-purple-400" />
-                    <span>Réglages</span>
-                  </button>
+                    <div className="text-[10px] text-gray-400 flex items-center justify-between mb-2.5 px-0.5">
+                      <span>Dernière mise à jour :</span>
+                      <span className="text-gray-200 font-medium">{formatLastSync(lastSyncedAt)}</span>
+                    </div>
 
-                  <button
-                    onClick={() => setIsAuthModalOpen(true)}
-                    className="w-full text-left px-3.5 py-2 flex items-center gap-2.5 text-gray-300 hover:bg-[#1C1C1E] hover:text-white transition-colors border-t border-[#222224]"
-                  >
-                    <UserIcon className="w-3.5 h-3.5 text-blue-400" />
-                    <span>{currentUser ? 'Changer de compte' : 'Se connecter'}</span>
-                  </button>
-
-                  {currentUser && (
                     <button
-                      onClick={handleSignOut}
-                      className="w-full text-left px-3.5 py-2 flex items-center gap-2.5 text-rose-400 hover:bg-rose-500/10 transition-colors border-t border-[#222224]"
+                      type="button"
+                      disabled={syncStatus === 'syncing' || isOffline}
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        await syncNow();
+                      }}
+                      className={`w-full py-1.5 px-2.5 rounded-lg flex items-center justify-center gap-1.5 text-xs font-semibold transition-all select-none ${
+                        isOffline
+                          ? 'bg-[#1C1C1E] border border-[#2D2D30] text-gray-500 cursor-not-allowed'
+                          : syncStatus === 'syncing'
+                            ? 'bg-blue-600/30 text-blue-300 border border-blue-500/30 cursor-wait'
+                            : 'bg-blue-600 hover:bg-blue-500 text-white shadow-sm active:scale-98 cursor-pointer'
+                      }`}
                     >
-                      <LogOut className="w-3.5 h-3.5" />
-                      <span>Déconnexion</span>
+                      <RefreshCw className={`w-3.5 h-3.5 ${syncStatus === 'syncing' ? 'animate-spin' : ''}`} />
+                      <span>
+                        {isOffline
+                          ? 'Indisponible hors-ligne'
+                          : syncStatus === 'syncing'
+                            ? 'Synchronisation...'
+                            : 'Synchroniser maintenant'}
+                      </span>
                     </button>
-                  )}
+                  </div>
+
+                  {/* Liens de navigation */}
+                  <div className="py-1">
+                    <button
+                      onClick={() => {
+                        handleNavClick('groups');
+                        setIsUserMenuOpen(false);
+                      }}
+                      className="w-full text-left px-3.5 py-2 flex items-center gap-2.5 text-gray-300 hover:bg-[#1C1C1E] hover:text-white transition-colors cursor-pointer"
+                    >
+                      <Users className="w-3.5 h-3.5 text-blue-400" />
+                      <span>Groupe</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        handleNavClick('settings');
+                        setIsUserMenuOpen(false);
+                      }}
+                      className="w-full text-left px-3.5 py-2 flex items-center gap-2.5 text-gray-300 hover:bg-[#1C1C1E] hover:text-white transition-colors cursor-pointer"
+                    >
+                      <Sliders className="w-3.5 h-3.5 text-purple-400" />
+                      <span>Réglages</span>
+                    </button>
+                  </div>
+
+                  {/* Actions de compte */}
+                  <div className="py-1">
+                    <button
+                      onClick={() => {
+                        setIsAuthModalOpen(true);
+                        setIsUserMenuOpen(false);
+                      }}
+                      className="w-full text-left px-3.5 py-2 flex items-center gap-2.5 text-gray-300 hover:bg-[#1C1C1E] hover:text-white transition-colors cursor-pointer"
+                    >
+                      <UserIcon className="w-3.5 h-3.5 text-blue-400" />
+                      <span>{currentUser ? 'Changer de compte' : 'Se connecter'}</span>
+                    </button>
+
+                    {currentUser && (
+                      <button
+                        onClick={() => {
+                          handleSignOut();
+                          setIsUserMenuOpen(false);
+                        }}
+                        className="w-full text-left px-3.5 py-2 flex items-center gap-2.5 text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                      >
+                        <LogOut className="w-3.5 h-3.5" />
+                        <span>Déconnexion</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

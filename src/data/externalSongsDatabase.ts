@@ -2,7 +2,7 @@ export interface ExternalSongItem {
   id: string;
   title: string;
   artist: string;
-  source: 'Shir.fr' | 'WorshipTogether' | 'Ultimate Guitar' | 'LaCuerda' | 'JEM / Recueils' | 'CCLI Praise';
+  source: 'Shir.fr' | 'WorshipTogether' | 'Ultimate Guitar' | 'LaCuerda' | 'JEM / Recueils' | 'CCLI Praise' | string;
   key: string;
   tempo: number;
   timeSignature?: string;
@@ -10,6 +10,8 @@ export interface ExternalSongItem {
   snippet: string;
   contentChordPro: string;
   url?: string;
+  tabUrl?: string;
+  pageTitle?: string;
 }
 
 export const EXTERNAL_SONGS_DATABASE: ExternalSongItem[] = [
@@ -155,47 +157,67 @@ The [C]end draws [G]near and my [D]time has [Em]come
   },
   {
     id: 'ext-shir-3',
-    title: 'Pour Toi (Je veux vivre pour Toi)',
+    title: 'Pour qui tu es',
     artist: 'Dan Luiten',
     source: 'Shir.fr',
-    key: 'A',
-    tempo: 125,
+    key: 'D',
+    tempo: 75,
     timeSignature: '4/4',
-    tags: ['Louange', 'Célébration', 'Joie', 'Engagement'],
-    snippet: 'Mon cœur s\'enflamme pour Ta maison, j\'élève les mains en adoration...',
-    url: 'https://shir.fr',
-    contentChordPro: `{title: Pour Toi}
+    tags: ['Louange', 'Adoration', 'Consécration'],
+    snippet: 'Prosterné à tes pieds, je viens, Jésus, devant toi, adorer, magnifier...',
+    url: 'http://shir.fr/wiki/Pour_qui_tu_es_%E2%80%94_Dan_Luiten',
+    contentChordPro: `{title: Pour qui tu es}
 {artist: Dan Luiten}
-{key: A}
-{tempo: 125}
+{key: D}
+{tempo: 75}
 {time: 4/4}
 
 {c: Intro}
-[F#m] [D] [A] [E]
+[G] [D] [A] [Bm] [G] [D] [A]
 
 {c: Couplet 1}
-[F#m]Mon cœur s'enflamme pour [D]Ta maison
-[A]J'élève les mains en a[E]doration
-[F#m]Tout ce que j'ai est à [D]Toi Seigneur
-[A]Reçois l'offrande de [E]tout mon cœur
-
-{c: Pré-refrain}
-[Bm]Je veux crier au [D]monde entier
-[A]Que Tu es le seul Sau[E]veur
-[Bm]Rien ne pourra m'em[D]pêcher
-De louer [E]Ta grandeur !
+[G]Prosterné [D]à [A/C#]tes pi[Bm]eds, je vi[G]ens, Jés[D]us, devant[Asus4] toi,[A]
+[G]Adorer, [D]ma[A/C#]gnifi[Bm]er celu[G]i qui s’e[D]st sacr[Asus4]ifié.[A]
+Quitta[Em]nt ton père po[Bm]ur la terre, tu [G]as laiss[D]é ta gl[Asus4]oire[A]
+Et, [Em]au calvaire, tu t’e[Bm]s offert ; tu [G]es le ro[D]i de gl[Asus4]oire.[A]
 
 {c: Refrain}
-Je veux vivre pour [A]Toi, brûler pour [E]Toi
-Marcher dans Tes [F#m]voies, n'avoir d'yeux que pour [D]Toi
-Je chanterai pour [A]Toi, danserai pour [E]Toi
-Mon Dieu et mon [F#m]Roi, je vivrai pour [D]Toi !
+Pour qui t[G]u es, j’é[Dsus4]lève ton saint nom.[D]
+Pour qui t[G]u es, je veux [Bm]te donner la gl[A/C#]oire.[D]
+Pour qui t[G]u es, j’a[Dsus4]pporte mes louanges.[D]
+Tu es le [G]roi, le [A]roi de gloire, Jés[D]us.`
+  },
+  {
+    id: 'ext-shir-3b',
+    title: 'Emmanuel',
+    artist: 'Dan Luiten, Jérémie Poulet',
+    source: 'Shir.fr',
+    key: 'C',
+    tempo: 72,
+    timeSignature: '4/4',
+    tags: ['Louange', 'Adoration', 'Noël'],
+    snippet: 'À l’agneau de Dieu, qui est assis dans les cieux, soient honneur et gloire...',
+    url: 'http://shir.fr/wiki/Emmanuel_%E2%80%94_Dan_Luiten_%E2%80%93_J%C3%A9r%C3%A9mie_Poulet',
+    contentChordPro: `{title: Emmanuel}
+{artist: Dan Luiten, Jérémie Poulet}
+{key: C}
+{tempo: 72}
+{time: 4/4}
 
-{c: Pont}
-[D]Plus de Toi et [E]moins de moi
-[F#m]Que Ton règne vienne en [A/C#]moi
-[D]Tout pour Ta gloire, [E]Seigneur Jésus
-[F#m]À Toi la victoire, [E]le salut !`
+{c: Intro}
+[C] [G/B] [Am] [F]
+
+{c: Couplet 1}
+[C]À l’agneau de [C9]Dieu, qui est [F]assis dans les [G2]cieux,
+[C]Soient honneur et [C9]gloire : il rem[F]porta la vic[Gsus4]toir[G]e.
+[Am]Que tout ge[F]nou fléchisse devant le [G]grand [E/G#]roi ;
+[Am]Que de nos [F]cœurs jaillisse : Allélu[Gsus4]ia !
+
+{c: Refrain}
+Emmanu[C]el, Emmanu[Am]el,
+Dieu avec [F]nous, venu par[G]mi nous.
+Emmanu[C]el, Emmanu[Am]el,
+Sois magni[F]fié, Jésus notre [G]roi.`
   },
   {
     id: 'ext-jem-1',

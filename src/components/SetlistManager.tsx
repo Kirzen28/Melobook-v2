@@ -8,7 +8,8 @@ import {
   parseDurationToSeconds, 
   formatSetlistDuration, 
   formatSecondsToMinutes,
-  getSongDuration 
+  getSongDuration,
+  stripParentheses 
 } from '../utils/chordUtils';
 import { 
   ListMusic, 
@@ -423,15 +424,6 @@ export const SetlistManager: React.FC = () => {
                             </span>
                           </>
                         )}
-
-                        {st.targetDuration ? (
-                          <>
-                            <span className="text-gray-600">•</span>
-                            <span className="text-[11px] text-gray-400">
-                              Cible : <strong className="text-gray-200">{st.targetDuration} min</strong>
-                            </span>
-                          </>
-                        ) : null}
                       </div>
                     </div>
                   </div>
@@ -441,18 +433,6 @@ export const SetlistManager: React.FC = () => {
                     className="flex items-center gap-2 shrink-0 self-start md:self-center"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    {currentUser?.role === 'admin' && (
-                      <button
-                        type="button"
-                        onClick={() => handleOpenEditModal(st)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-200 hover:text-white border border-[#333] text-xs font-semibold shadow-sm transition-all active:scale-95"
-                        title="Modifier les métadonnées"
-                      >
-                        <Pencil className="w-3.5 h-3.5 text-blue-400" />
-                        <span className="hidden sm:inline">Modifier</span>
-                      </button>
-                    )}
-
                     <button
                       onClick={() => setPdfModalSetlist(st)}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-200 hover:text-white border border-[#333] text-xs font-semibold shadow-sm transition-all active:scale-95"
@@ -473,6 +453,7 @@ export const SetlistManager: React.FC = () => {
 
                     {currentUser?.role === 'admin' && (
                       <button
+                        type="button"
                         onClick={() => {
                           if (confirmDeleteSetlistId === st.id) {
                             deleteSetlist(st.id);
@@ -484,23 +465,18 @@ export const SetlistManager: React.FC = () => {
                             setConfirmDeleteSetlistId(st.id);
                           }
                         }}
-                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-all ${
+                        className={`p-2 rounded-lg border text-xs font-medium transition-all flex items-center justify-center ${
                           confirmDeleteSetlistId === st.id
                             ? 'bg-rose-600 hover:bg-rose-700 text-white border-rose-500 shadow-sm font-bold animate-pulse'
                             : 'bg-[#1C1C1E] hover:bg-rose-500/20 text-gray-400 hover:text-rose-400 border-[#333] hover:border-rose-500/40'
                         }`}
                         title={confirmDeleteSetlistId === st.id ? "Confirmer la suppression" : "Supprimer la setlist"}
+                        aria-label={confirmDeleteSetlistId === st.id ? "Confirmer la suppression" : "Supprimer la setlist"}
                       >
                         {confirmDeleteSetlistId === st.id ? (
-                          <>
-                            <Check className="w-3.5 h-3.5 text-white" />
-                            <span>Confirmer</span>
-                          </>
+                          <Check className="w-3.5 h-3.5 text-white" />
                         ) : (
-                          <>
-                            <Trash2 className="w-3.5 h-3.5 text-rose-400" />
-                            <span className="hidden sm:inline">Supprimer</span>
-                          </>
+                          <Trash2 className="w-3.5 h-3.5 text-rose-400" />
                         )}
                       </button>
                     )}
@@ -619,7 +595,7 @@ export const SetlistManager: React.FC = () => {
                                     title="Ouvrir les détails de ce chant"
                                   >
                                     <h5 className="text-xs sm:text-sm font-bold text-white group-hover:text-blue-300 truncate transition-colors">
-                                      {song.title}
+                                      {stripParentheses(song.title)}
                                     </h5>
                                     <p className="text-[11px] text-gray-400 truncate flex items-center gap-1.5 flex-wrap mt-0.5">
                                       <span>{song.artist || 'Auteur inconnu'}</span>
@@ -722,32 +698,16 @@ export const SetlistManager: React.FC = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs font-medium text-gray-300 mb-1">
-                    Date
-                  </label>
-                  <input
-                    type="date"
-                    value={newSetDate}
-                    onChange={(e) => setNewSetDate(e.target.value)}
-                    className="w-full bg-[#1C1C1E] border border-[#333] rounded-md px-3 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-300 mb-1">
-                    Durée estimée en minutes
-                  </label>
-                  <input
-                    type="number"
-                    min={5}
-                    max={240}
-                    value={newSetDuration}
-                    onChange={(e) => setNewSetDuration(parseInt(e.target.value, 10) || 20)}
-                    className="w-full bg-[#1C1C1E] border border-[#333] rounded-md px-3 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
-                  />
-                </div>
+              <div className="mb-3">
+                <label className="block text-xs font-medium text-gray-300 mb-1">
+                  Date
+                </label>
+                <input
+                  type="date"
+                  value={newSetDate}
+                  onChange={(e) => setNewSetDate(e.target.value)}
+                  className="w-full bg-[#1C1C1E] border border-[#333] rounded-md px-3 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                />
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#222224]">
@@ -826,32 +786,16 @@ export const SetlistManager: React.FC = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-300 mb-1">
-                    Date de l'événement
-                  </label>
-                  <input
-                    type="date"
-                    value={editDate}
-                    onChange={(e) => setEditDate(e.target.value)}
-                    className="w-full bg-[#1C1C1E] border border-[#333] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 transition-colors"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-300 mb-1">
-                    Durée cible en minutes
-                  </label>
-                  <input
-                    type="number"
-                    min={5}
-                    max={300}
-                    value={editTargetDuration}
-                    onChange={(e) => setEditTargetDuration(parseInt(e.target.value, 10) || 20)}
-                    className="w-full bg-[#1C1C1E] border border-[#333] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 transition-colors"
-                  />
-                </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-300 mb-1">
+                  Date de l'événement
+                </label>
+                <input
+                  type="date"
+                  value={editDate}
+                  onChange={(e) => setEditDate(e.target.value)}
+                  className="w-full bg-[#1C1C1E] border border-[#333] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 transition-colors"
+                />
               </div>
 
               <div>

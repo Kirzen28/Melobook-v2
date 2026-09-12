@@ -1,17 +1,19 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useApp } from '../context/AppContext';
 import { parseDurationToSeconds, formatSetlistDuration, getSongDuration } from '../utils/chordUtils';
+import { cacheSetlistInWorker } from '../utils/pwaCache';
 import { SongReader } from './SongReader';
 import { SetlistPdfModal } from './SetlistPdfModal';
+import { SongQrModal } from './SongQrModal';
+import { BatteryIndicator } from './BatteryIndicator';
 import { 
-  ChevronLeft, 
-  ChevronRight, 
   ListMusic, 
   X, 
   Layers, 
   Music,
   CheckCircle2,
-  FileDown
+  FileDown,
+  QrCode
 } from 'lucide-react';
 
 interface LiveSetlistPlayerProps {
@@ -24,10 +26,13 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
     songs, 
     activeSetlistIndex, 
     setActiveSetlistIndex,
-    updateStageSettings
+    updateStageSettings,
+    stageSettings,
+    currentGroup
   } = useApp();
 
   const [showPdfModal, setShowPdfModal] = useState(false);
+  const [showSongQrModal, setShowSongQrModal] = useState(false);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
 
   // Ordered list of songs in this setlist
@@ -37,6 +42,12 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
       .map(id => songs.find(s => s.id === id))
       .filter((s): s is typeof songs[0] => s !== undefined);
   }, [selectedSetlist, songs]);
+
+  useEffect(() => {
+    if (selectedSetlist) {
+      cacheSetlistInWorker(selectedSetlist, setlistSongs);
+    }
+  }, [selectedSetlist, setlistSongs]);
 
   const currentSong = setlistSongs[activeSetlistIndex] || null;
 
@@ -95,32 +106,38 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
 
   return (
     <div 
-      className="fixed inset-0 top-16 z-30 bg-[#0A0A0B] flex flex-col text-[#E0E0E0]"
+      className="fixed inset-0 top-16 z-30 bg-[#0A0A0B] flex flex-col text-[#E0E0E0] overflow-hidden"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
       {/* Live Setlist Top Navigation Bar */}
-      <div className="no-print bg-[#111112]/98 border-b border-[#222224] px-3 sm:px-6 py-2 flex items-center justify-between gap-3 shadow-sm z-40">
+      <div className="no-print bg-[#111112]/98 border-b border-[#222224] px-3 sm:px-6 py-2 flex items-center justify-between gap-3 shadow-sm z-40 shrink-0">
         
         {/* Left: Close & Setlist info */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 min-w-0">
           <button
             onClick={onClose}
-            className="p-1.5 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 hover:text-white border border-[#333] text-xs font-medium flex items-center gap-1.5 transition-colors"
+            className="p-1.5 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 hover:text-white border border-[#333] text-xs font-medium flex items-center gap-1.5 transition-colors shrink-0"
             title="Quitter le mode Live"
           >
             <X className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Quitter Live</span>
           </button>
 
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-blue-400 uppercase tracking-wider flex items-center gap-1">
-                <ListMusic className="w-3.5 h-3.5" />
-                <span>{selectedSetlist.name}</span>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-xs font-bold text-blue-400 uppercase tracking-wider flex items-center gap-1 truncate">
+                <ListMusic className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">{selectedSetlist.name}</span>
+              </span>
+              <span 
+                className="px-1.5 py-0.5 rounded text-[11px] font-mono font-medium bg-[#1C1C1E] text-gray-300 border border-[#333] shrink-0 select-none"
+                title={`${activeSetlistIndex + 1} / ${setlistSongs.length}`}
+              >
+                {activeSetlistIndex + 1}/{setlistSongs.length}
               </span>
             </div>
-            <p className="text-[10px] text-gray-400 hidden sm:block">
+            <p className="text-[10px] text-gray-400 hidden sm:block truncate">
               {setlistSongs.length} morceaux • Date : {selectedSetlist.date}
               {(() => {
                 const totalSecs = setlistSongs.reduce((acc, s) => acc + parseDurationToSeconds(s), 0);
@@ -130,48 +147,20 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
           </div>
         </div>
 
-        {/* Center: Song Jump Dropdown / Navigator */}
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={handlePrev}
-            disabled={activeSetlistIndex === 0}
-            className="p-1.5 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] disabled:opacity-30 text-gray-200 border border-[#333] transition-all active:scale-95"
-            title="Chant précédent"
-          >
-            <ChevronLeft className="w-3.5 h-3.5" />
-          </button>
+        {/* Right: Next Song Quick Peek, QR Code & PDF Export */}
+        <div className="flex items-center gap-2 text-right shrink-0">
+          {currentSong && (
+            <button
+              type="button"
+              onClick={() => setShowSongQrModal(true)}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 hover:text-white border border-[#333] text-xs font-medium transition-colors cursor-pointer"
+              title="Partager le chant via QR Code"
+            >
+              <QrCode className="w-3.5 h-3.5 text-cyan-400" />
+              <span className="hidden sm:inline">QR Code</span>
+            </button>
+          )}
 
-          {/* Song selector dropdown */}
-          <select
-            value={activeSetlistIndex}
-            onChange={(e) => {
-              setActiveSetlistIndex(parseInt(e.target.value, 10));
-              updateStageSettings({ isAutoScrolling: false });
-            }}
-            className="bg-[#1C1C1E] text-gray-100 font-semibold text-xs border border-[#333] rounded-md px-3 py-1.5 focus:outline-none cursor-pointer max-w-[200px] sm:max-w-[340px] truncate"
-          >
-            {setlistSongs.map((s, idx) => {
-              const dur = getSongDuration(s);
-              return (
-                <option key={s.id} value={idx} className="bg-[#111112] text-gray-200">
-                  {idx + 1}. {s.title} ({s.key} • {s.tempo} BPM{dur ? ` • ${dur}` : ''})
-                </option>
-              );
-            })}
-          </select>
-
-          <button
-            onClick={handleNext}
-            disabled={activeSetlistIndex === setlistSongs.length - 1}
-            className="p-1.5 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] disabled:opacity-30 text-gray-200 border border-[#333] transition-all active:scale-95"
-            title="Chant suivant"
-          >
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-
-        {/* Right: Next Song Quick Peek & PDF Export */}
-        <div className="flex items-center gap-2 text-right">
           <button
             onClick={() => setShowPdfModal(true)}
             className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 hover:text-white border border-[#333] text-xs font-medium transition-colors"
@@ -195,23 +184,32 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
               </span>
             )}
           </div>
+
+          {/* Indicateur de batterie pour la scène */}
+          {stageSettings.showBatteryIndicator !== false && (
+            <div className="pl-1 border-l border-[#28282E] shrink-0">
+              <BatteryIndicator />
+            </div>
+          )}
         </div>
 
       </div>
 
       {/* Embedded Active Song Reader */}
       {currentSong && (
-        <SongReader
-          song={currentSong}
-          setlistId={selectedSetlist.id}
-          onBack={onClose}
-          onNext={activeSetlistIndex < setlistSongs.length - 1 ? handleNext : undefined}
-          onPrev={activeSetlistIndex > 0 ? handlePrev : undefined}
-          hasNext={activeSetlistIndex < setlistSongs.length - 1}
-          hasPrev={activeSetlistIndex > 0}
-          setlistContextName={selectedSetlist.name}
-          setlistPosition={{ current: activeSetlistIndex + 1, total: setlistSongs.length }}
-        />
+        <div className="flex-1 min-h-0 relative flex flex-col overflow-hidden">
+          <SongReader
+            song={currentSong}
+            setlistId={selectedSetlist.id}
+            onBack={onClose}
+            onNext={activeSetlistIndex < setlistSongs.length - 1 ? handleNext : undefined}
+            onPrev={activeSetlistIndex > 0 ? handlePrev : undefined}
+            hasNext={activeSetlistIndex < setlistSongs.length - 1}
+            hasPrev={activeSetlistIndex > 0}
+            setlistContextName={selectedSetlist.name}
+            setlistPosition={{ current: activeSetlistIndex + 1, total: setlistSongs.length }}
+          />
+        </div>
       )}
 
       {/* PDF Export & Share Modal */}
@@ -220,6 +218,15 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
           setlist={selectedSetlist}
           songs={songs}
           onClose={() => setShowPdfModal(false)}
+        />
+      )}
+
+      {/* QR Code Share Modal for current song */}
+      {showSongQrModal && currentSong && (
+        <SongQrModal
+          song={currentSong}
+          onClose={() => setShowSongQrModal(false)}
+          currentGroup={currentGroup}
         />
       )}
     </div>

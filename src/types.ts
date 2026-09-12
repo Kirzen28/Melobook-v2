@@ -80,6 +80,7 @@ export interface StageSettings {
   capo: number; // 0 to 7
   showMetronome: boolean;
   soundMetronome: boolean;
+  showBatteryIndicator?: boolean;
 }
 
 export interface SongTypographySettings {

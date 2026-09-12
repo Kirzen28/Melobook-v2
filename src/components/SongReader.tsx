@@ -11,16 +11,20 @@ import {
   getSongDuration,
   parseDurationToSeconds,
   formatSecondsToMinutes,
+  formatDurationToMMSS,
   LATIN_NOTES,
   getSemitoneDifference,
-  transposeChordProText
+  transposeChordProText,
+  stripParentheses
 } from '../utils/chordUtils';
+import { cacheSongInWorker } from '../utils/pwaCache';
 import { getSectionColor } from '../utils/displayDefaults';
 import { 
   Play, 
   Pause, 
   RotateCcw, 
   ChevronLeft, 
+  ChevronRight, 
   Maximize2, 
   Minimize2, 
   Eye, 
@@ -50,11 +54,15 @@ import {
   Layers,
   Pencil,
   Globe,
-  Repeat
+  Repeat,
+  QrCode,
+  Battery
 } from 'lucide-react';
 import { SetlistPdfModal } from './SetlistPdfModal';
 import { ChordModal } from './ChordModal';
 import { LanguageVersionModal } from './LanguageVersionModal';
+import { SongQrModal } from './SongQrModal';
+import { BatteryIndicator } from './BatteryIndicator';
 import { getLanguageMeta, getLinkedSongVersions } from '../utils/languageUtils';
 
 const PRESET_VOCAL_ROLES = [
@@ -115,7 +123,8 @@ export const SongReader: React.FC<SongReaderProps> = ({
     displaySettings,
     setActiveTab, 
     activeTab,
-    currentUser 
+    currentUser,
+    currentGroup
   } = useApp();
 
   const rawSong = propSong || selectedSong;
@@ -124,11 +133,18 @@ export const SongReader: React.FC<SongReaderProps> = ({
     return songs.find(s => s.id === rawSong.id) || rawSong;
   }, [songs, rawSong]);
 
+  useEffect(() => {
+    if (song) {
+      cacheSongInWorker(song);
+    }
+  }, [song]);
+
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [currentBeat, setCurrentBeat] = useState(0);
   const [isMetronomeActive, setIsMetronomeActive] = useState(false);
   const [showSettingsDrawer, setShowSettingsDrawer] = useState(false);
   const [showPdfModal, setShowPdfModal] = useState(false);
+  const [showQrModal, setShowQrModal] = useState(false);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [showLanguageMenu, setShowLanguageMenu] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
@@ -198,7 +214,8 @@ export const SongReader: React.FC<SongReaderProps> = ({
   const effectiveBaseKey = setlistOverride?.key || catalogBaseKey;
   const effectiveTransposeOffset = setlistOverride?.transposeOffset !== undefined ? setlistOverride.transposeOffset : stageSettings.transposeOffset;
   const effectiveTempo = setlistOverride?.tempo || song?.tempo || parsedData?.tempo || 120;
-  const effectiveDuration = setlistOverride?.duration || song?.duration || parsedData?.duration || '3:30';
+  const rawDuration = setlistOverride?.duration || song?.duration || parsedData?.duration || '03:30';
+  const effectiveDuration = useMemo(() => formatDurationToMMSS(rawDuration), [rawDuration]);
   const effectiveNotes = setlistOverride?.notes !== undefined ? setlistOverride.notes : (song?.notes || '');
   const effectiveCapo = setlistOverride?.capo !== undefined ? setlistOverride.capo : (song?.capo || 0);
 
@@ -229,7 +246,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
   }, [parsedData, totalTransposeSemitones, stageSettings.notation]);
 
   // Local inline duration, tempo, key & notes state
-  const [inlineDurationValue, setInlineDurationValue] = useState<string>('3:30');
+  const [inlineDurationValue, setInlineDurationValue] = useState<string>('03:30');
   const [inlineTempoValue, setInlineTempoValue] = useState<string>('120');
   const [showKeyMenu, setShowKeyMenu] = useState(false);
   const [isEditingNotes, setIsEditingNotes] = useState(false);
@@ -257,13 +274,14 @@ export const SongReader: React.FC<SongReaderProps> = ({
 
   const handleSetDurationCustom = async (newDuration: string) => {
     if (!song) return;
-    const trimmed = newDuration.trim() || '3:30';
+    const formatted = formatDurationToMMSS(newDuration.trim() || '03:30');
+    setInlineDurationValue(formatted);
     if (isSetlistMode && currentSetlist) {
-      await updateSetlistSongOverride(currentSetlist.id, song.id, { duration: trimmed });
+      await updateSetlistSongOverride(currentSetlist.id, song.id, { duration: formatted });
     } else {
-      await updateSong(song.id, { duration: trimmed, durationMode: 'custom' });
+      await updateSong(song.id, { duration: formatted, durationMode: 'custom' });
       if (selectedSong && selectedSong.id === song.id) {
-        setSelectedSong({ ...selectedSong, duration: trimmed, durationMode: 'custom' });
+        setSelectedSong({ ...selectedSong, duration: formatted, durationMode: 'custom' });
       }
     }
   };
@@ -745,8 +763,13 @@ export const SongReader: React.FC<SongReaderProps> = ({
     light: 'bg-[#F4F4F5] text-[#111112]'
   }[effectiveTheme as 'dark' | 'oled' | 'sepia' | 'light'] || 'bg-[#0A0A0B] text-[#E0E0E0]';
 
+  const isEmbedded = Boolean(propSong || setlistId || onBack);
+  const containerClasses = isEmbedded
+    ? 'relative flex-1 w-full h-full min-h-0'
+    : 'fixed inset-0 top-16 md:top-16 z-30';
+
   return (
-    <div className={`fixed inset-0 top-16 md:top-16 z-30 flex flex-col ${themeClasses} select-none transition-colors`}>
+    <div className={`${containerClasses} flex flex-col ${themeClasses} select-none transition-colors`}>
       
       {/* Progress Bar for Auto-Scroll */}
       <div className="no-print w-full h-0.5 bg-[#222224] overflow-hidden">
@@ -755,6 +778,13 @@ export const SongReader: React.FC<SongReaderProps> = ({
           style={{ width: `${scrollProgress}%` }}
         />
       </div>
+
+      {/* Indicateur de batterie dans le coin de l'interface en mode scène */}
+      {!isEmbedded && stageSettings.showBatteryIndicator !== false && (
+        <div className="no-print absolute top-2.5 right-3 sm:top-3 sm:right-5 z-40 pointer-events-auto">
+          <BatteryIndicator />
+        </div>
+      )}
 
       {/* Settings Drawer (Overlay) */}
       {showSettingsDrawer && (
@@ -770,8 +800,8 @@ export const SongReader: React.FC<SongReaderProps> = ({
             </div>
             <button
               onClick={() => setShowSettingsDrawer(false)}
-              className="flex items-center gap-1 px-2 py-1 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-400 hover:text-white border border-[#333] transition-colors"
-              title="Fermer les réglages (Échap)"
+              className="flex items-center gap-1 px-2 py-1 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-400 hover:text-white border border-[#333] transition-colors cursor-pointer"
+              title="Fermer les réglages"
             >
               <X className="w-3.5 h-3.5" />
               <span className="text-[11px] font-medium hidden sm:inline">Fermer</span>
@@ -799,6 +829,32 @@ export const SongReader: React.FC<SongReaderProps> = ({
                   }`}
                 >
                   <EyeOff className="w-3.5 h-3.5" />
+                  <span>Masquer</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Battery Indicator Toggle */}
+            <div className="flex items-center gap-2">
+              <span className="text-gray-400 font-medium">Batterie scène :</span>
+              <div className="flex items-center gap-1 bg-[#1C1C1E] p-0.5 rounded-md border border-[#333]">
+                <button
+                  type="button"
+                  onClick={() => updateStageSettings({ showBatteryIndicator: true })}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded font-semibold transition-all cursor-pointer ${
+                    stageSettings.showBatteryIndicator !== false ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  <Battery className="w-3.5 h-3.5" />
+                  <span>Afficher</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => updateStageSettings({ showBatteryIndicator: false })}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded font-semibold transition-all cursor-pointer ${
+                    stageSettings.showBatteryIndicator === false ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
+                  }`}
+                >
                   <span>Masquer</span>
                 </button>
               </div>
@@ -833,11 +889,22 @@ export const SongReader: React.FC<SongReaderProps> = ({
               </div>
             </div>
 
-            {/* PDF & Edit Actions */}
+            {/* Actions : QR Code, PDF & Edit */}
             <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto flex-wrap pt-1 sm:pt-0 border-t sm:border-t-0 border-[#222224]">
               <button
+                type="button"
+                onClick={() => setShowQrModal(true)}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-1 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] text-cyan-300 hover:text-cyan-200 border border-cyan-500/30 font-medium text-xs transition-colors cursor-pointer"
+                title="Partager via QR Code"
+              >
+                <QrCode className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                <span>Partager via QR Code</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setShowPdfModal(true)}
-                className="flex-1 sm:flex-none flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-1 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-200 border border-[#333] font-medium text-xs transition-colors"
+                className="flex-1 sm:flex-none flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-1 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-200 border border-[#333] font-medium text-xs transition-colors cursor-pointer"
                 title="Exporter cette partition en PDF"
               >
                 <FileDown className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
@@ -871,70 +938,15 @@ export const SongReader: React.FC<SongReaderProps> = ({
           
           {/* Song Sheet Header */}
           <div className="border-b border-[#222224] pb-4 mb-6">
-            {/* Setlist Context Banner (Isolated modifications notice) */}
-            {isSetlistMode && currentSetlist && (
-              <div className="mb-4 p-3 rounded-xl bg-[#141419] border border-blue-500/30 flex flex-wrap items-center justify-between gap-2.5">
-                <div className="flex items-center gap-2.5">
-                  <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse shrink-0" />
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-blue-300 uppercase tracking-wider">
-                        Setlist : {currentSetlist.name}
-                      </span>
-                      {hasSetlistOverrides && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-950/60 border border-amber-500/50 text-amber-300">
-                          Modifications isolées actives
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-[11px] text-gray-400">
-                      Toutes les modifications dans cette vue sont conservées pour cette setlist uniquement et ne changent pas le répertoire par défaut.
-                    </p>
-                  </div>
-                </div>
-
-                {hasSetlistOverrides && (
-                  <div className="flex items-center gap-1.5 ml-auto">
-                    <button
-                      type="button"
-                      onClick={handleResetOverridesToDefaults}
-                      className="px-2.5 py-1 rounded-lg bg-[#1C1C22] hover:bg-[#282830] text-gray-300 hover:text-white border border-[#333] text-xs font-medium transition-colors flex items-center gap-1"
-                      title="Rétablir les valeurs par défaut du répertoire"
-                    >
-                      <RotateCcw className="w-3 h-3 text-gray-400" />
-                      <span>Rétablir défaut</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleSaveOverridesToMasterCatalog}
-                      className="px-2.5 py-1 rounded-lg bg-blue-600/90 hover:bg-blue-600 text-white text-xs font-semibold shadow-sm transition-colors flex items-center gap-1"
-                      title="Appliquer définitivement ces modifications à la fiche du chant dans le répertoire"
-                    >
-                      <Check className="w-3 h-3" />
-                      <span>Enregistrer dans répertoire</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-
             <div className="flex items-start justify-between gap-3 mb-3">
               {/* Left: Title & Artist */}
               <div className="flex-1 min-w-0 pr-2">
-                {setlistPosition && (
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <span className="px-2 py-0.5 rounded bg-[#1C1C1E] border border-[#333] text-blue-400 text-xs font-bold font-mono">
-                      Morceau {setlistPosition.current} sur {setlistPosition.total}
-                    </span>
-                  </div>
-                )}
-
                 <div className="flex items-center flex-wrap gap-2.5 mb-1">
                   <h1 
                     className="font-bold tracking-tight text-white leading-tight break-words"
                     style={{ fontSize: `${displaySettings.typography.titleSize}px` }}
                   >
-                    {parsedData.title || song.title}
+                    {stripParentheses(parsedData.title || song.title)}
                   </h1>
 
                   {/* Liste dépliante : Langue et versions du chant à la suite du titre */}
@@ -1040,20 +1052,32 @@ export const SongReader: React.FC<SongReaderProps> = ({
                 )}
               </div>
 
-              {/* Right: Bouton Réglages */}
-              <button
-                type="button"
-                onClick={() => setShowSettingsDrawer(!showSettingsDrawer)}
-                className={`shrink-0 flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all shadow-sm ${
-                  showSettingsDrawer
-                    ? 'bg-blue-600 border-blue-500 text-white shadow-blue-500/20'
-                    : 'bg-[#1C1C1E] hover:bg-[#28282C] border-[#333] hover:border-[#444] text-gray-200 hover:text-white'
-                }`}
-                title="Ouvrir les options et réglages du chant"
-              >
-                <Settings2 className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Réglages</span>
-              </button>
+              {/* Right: Boutons Réglages et Partage QR */}
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowQrModal(true)}
+                  className="flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg border border-[#333] hover:border-cyan-500/50 bg-[#1C1C1E] hover:bg-[#25252A] text-gray-200 hover:text-white text-xs font-semibold shadow-sm transition-all active:scale-95 cursor-pointer"
+                  title="Partager via QR Code"
+                >
+                  <QrCode className="w-3.5 h-3.5 text-cyan-400" />
+                  <span className="hidden sm:inline">Partager via QR Code</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowSettingsDrawer(!showSettingsDrawer)}
+                  className={`flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all shadow-sm cursor-pointer ${
+                    showSettingsDrawer
+                      ? 'bg-blue-600 border-blue-500 text-white shadow-blue-500/20'
+                      : 'bg-[#1C1C1E] hover:bg-[#28282C] border-[#333] hover:border-[#444] text-gray-200 hover:text-white'
+                  }`}
+                  title="Ouvrir les options et réglages du chant"
+                >
+                  <Settings2 className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Réglages</span>
+                </button>
+              </div>
             </div>
 
             {/* Single Line Toolbar: Stylized Inline Controls for Tonalité, Transpose, Tempo, Durée, Mesure & Catégories */}
@@ -1264,9 +1288,9 @@ export const SongReader: React.FC<SongReaderProps> = ({
                       (e.target as HTMLInputElement).blur();
                     }
                   }}
-                  placeholder="3:30"
+                  placeholder="03:30"
                   className="w-14 bg-[#18181C] hover:bg-[#222228] text-cyan-300 font-bold font-mono text-xs border border-cyan-500/30 focus:border-cyan-400 rounded-md px-1.5 py-0.5 text-center focus:outline-none shadow-sm transition-all"
-                  title="Cliquer pour entrer ou modifier la durée (ex: 3:30)"
+                  title="Cliquer pour entrer ou modifier la durée ex: 03:30"
                 />
               </div>
 
@@ -1634,20 +1658,25 @@ export const SongReader: React.FC<SongReaderProps> = ({
         {/* Setlist Next/Prev if in a setlist */}
         {hasPrev && onPrev && (
           <button
+            type="button"
             onClick={onPrev}
-            className="px-3 py-2 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-200 border border-[#333] shadow-lg text-xs font-semibold transition-all active:scale-95"
+            className="p-2.5 rounded-lg bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-200 border border-[#333] shadow-lg backdrop-blur-md transition-all active:scale-95 flex items-center justify-center cursor-pointer"
+            title="Chant précédent"
+            aria-label="Chant précédent"
           >
-            Précédent
+            <ChevronLeft className="w-4 h-4" />
           </button>
         )}
 
         {hasNext && onNext && (
           <button
+            type="button"
             onClick={onNext}
-            className="px-3.5 py-2 rounded-md bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-900/20 text-xs font-semibold transition-all active:scale-95 flex items-center gap-1.5"
+            className="p-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-900/20 backdrop-blur-md transition-all active:scale-95 flex items-center justify-center cursor-pointer"
+            title="Chant suivant"
+            aria-label="Chant suivant"
           >
-            <span>Suivant</span>
-            <ChevronLeft className="w-3.5 h-3.5 rotate-180" />
+            <ChevronRight className="w-4 h-4" />
           </button>
         )}
       </div>
@@ -1838,6 +1867,16 @@ export const SongReader: React.FC<SongReaderProps> = ({
           song={song}
           isOpen={showLanguageModal}
           onClose={() => setShowLanguageModal(false)}
+        />
+      )}
+
+      {/* QR Code Share Modal */}
+      {showQrModal && song && (
+        <SongQrModal
+          song={song}
+          onClose={() => setShowQrModal(false)}
+          currentGroup={currentGroup}
+          transposedKey={transposedKeyDisplay}
         />
       )}
 

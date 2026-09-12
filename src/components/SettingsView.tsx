@@ -16,6 +16,7 @@ import {
   Monitor,
   Maximize2,
   Minimize2,
+  Battery,
   X
 } from 'lucide-react';
 import { NumberSelector } from './NumberSelector';
@@ -767,6 +768,39 @@ export const SettingsView: React.FC = () => {
                   >
                     <Monitor className="w-3.5 h-3.5 shrink-0" />
                     <span>Système</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Battery Indicator Toggle */}
+              <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex flex-col justify-between gap-2.5">
+                <div>
+                  <span className="text-xs font-bold text-gray-200 block">Indicateur de batterie</span>
+                  <span className="text-[11px] text-gray-400">Niveau de charge en mode scène</span>
+                </div>
+                <div className="theme-toggle-group flex items-center gap-1 bg-[#121214] p-0.5 rounded-lg border border-[#2B2B30]">
+                  <button
+                    type="button"
+                    onClick={() => updateStageSettings({ showBatteryIndicator: true })}
+                    className={`flex-1 py-1.5 rounded-md text-xs font-semibold flex items-center justify-center gap-1 transition-all cursor-pointer ${
+                      stageSettings.showBatteryIndicator !== false
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'theme-toggle-inactive text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    <Battery className="w-3.5 h-3.5 shrink-0" />
+                    <span>Activé</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateStageSettings({ showBatteryIndicator: false })}
+                    className={`flex-1 py-1.5 rounded-md text-xs font-semibold flex items-center justify-center gap-1 transition-all cursor-pointer ${
+                      stageSettings.showBatteryIndicator === false
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'theme-toggle-inactive text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    <span>Désactivé</span>
                   </button>
                 </div>
               </div>

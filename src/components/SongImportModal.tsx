@@ -75,6 +75,7 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
   const [isSearchingOnline, setIsSearchingOnline] = useState(false);
   const [onlineResults, setOnlineResults] = useState<ExternalSongItem[]>([]);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const [loadingSongId, setLoadingSongId] = useState<string | null>(null);
 
   // Preview drawer / modal for a song
   const [previewSong, setPreviewSong] = useState<ExternalSongItem | null>(null);
@@ -177,20 +178,82 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
     });
   }, [searchQuery, selectedSource]);
 
-  // Combined results (local + online AI search)
+  // Combined results with priority given to real external site queries
   const allResults = useMemo(() => {
-    const combined = [...localFilteredResults];
-    onlineResults.forEach(online => {
-      if (!combined.some(c => c.title.toLowerCase() === online.title.toLowerCase() && c.artist.toLowerCase() === online.artist.toLowerCase())) {
-        combined.push(online);
+    if (onlineResults.length > 0) {
+      if (selectedSource === 'Shir.fr') {
+        return onlineResults;
       }
-    });
-    return combined;
-  }, [localFilteredResults, onlineResults]);
+      const combined = [...onlineResults];
+      localFilteredResults.forEach(local => {
+        if (!combined.some(c => c.title.toLowerCase() === local.title.toLowerCase() && c.artist.toLowerCase() === local.artist.toLowerCase())) {
+          combined.push(local);
+        }
+      });
+      return combined;
+    }
+    return localFilteredResults;
+  }, [localFilteredResults, onlineResults, selectedSource]);
 
-  // Trigger Online Search via Server API / AI
-  const handlePerformOnlineSearch = async () => {
-    if (!searchQuery.trim()) return;
+  // Ensure full ChordPro content is loaded for a song before previewing or importing
+  const ensureSongLoaded = async (songItem: ExternalSongItem): Promise<ExternalSongItem> => {
+    if (songItem.contentChordPro && songItem.contentChordPro.trim().length > 25) {
+      return songItem;
+    }
+
+    try {
+      const pageTitle = (songItem as any).pageTitle || songItem.title;
+      const tabUrl = (songItem as any).tabUrl || (songItem as any).url;
+      const response = await fetch('/api/external-song-detail', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pageTitle,
+          tabUrl,
+          source: songItem.source
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data?.ok && data?.song) {
+          const enriched: ExternalSongItem = {
+            ...songItem,
+            title: data.song.title || songItem.title,
+            artist: data.song.artist || songItem.artist,
+            key: data.song.key || songItem.key,
+            tempo: data.song.tempo || songItem.tempo,
+            tags: data.song.tags || songItem.tags,
+            contentChordPro: data.song.contentChordPro || songItem.contentChordPro
+          };
+
+          setOnlineResults(prev => prev.map(s => s.id === songItem.id ? enriched : s));
+          return enriched;
+        }
+      }
+    } catch (e) {
+      console.warn('Impossible de charger les détails du chant:', e);
+    }
+    return songItem;
+  };
+
+  // Open Preview with full ChordPro fetched
+  const handleOpenPreview = async (songItem: ExternalSongItem) => {
+    setLoadingSongId(songItem.id);
+    try {
+      const fullSong = await ensureSongLoaded(songItem);
+      setPreviewSong(fullSong);
+    } finally {
+      setLoadingSongId(null);
+    }
+  };
+
+  // Trigger Online Search via Server API directly querying site directories
+  const handlePerformOnlineSearch = async (overrideQuery?: string, overrideSource?: string) => {
+    const q = (overrideQuery !== undefined ? overrideQuery : searchQuery).trim();
+    if (!q) return;
+    const src = overrideSource !== undefined ? overrideSource : selectedSource;
+
     setIsSearchingOnline(true);
     setSearchError(null);
 
@@ -199,24 +262,24 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          query: searchQuery.trim(),
-          source: selectedSource === 'all' ? undefined : selectedSource
+          query: q,
+          source: src === 'all' ? undefined : src
         })
       });
 
+      const data = await response.json().catch(() => ({}));
+
       if (!response.ok) {
-        throw new Error(`Erreur réseau (${response.status})`);
+        throw new Error(data.error || 'Erreur lors de la recherche sur les répertoires externes');
       }
 
-      const data = await response.json();
       if (data.results && Array.isArray(data.results)) {
         setOnlineResults(data.results);
       }
     } catch (err: any) {
-      console.warn('Recherche en ligne indisponible ou erreur:', err);
-      // Fallback is already displaying local results
+      console.warn('Recherche externe indisponible ou erreur:', err);
       if (localFilteredResults.length === 0) {
-        setSearchError('Recherche en ligne momentanément limitée. Aucun résultat local trouvé.');
+        setSearchError(err?.message || 'Recherche externe momentanément indisponible.');
       }
     } finally {
       setIsSearchingOnline(false);
@@ -227,14 +290,15 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
   const handleImportSingleSong = async (songItem: ExternalSongItem) => {
     setImportingId(songItem.id);
     try {
+      const fullSong = await ensureSongLoaded(songItem);
       await onImportSong({
-        title: songItem.title,
-        artist: songItem.artist,
-        key: songItem.key || 'C',
-        tempo: songItem.tempo || 100,
-        timeSignature: songItem.timeSignature || '4/4',
-        tags: songItem.tags || [],
-        contentChordPro: songItem.contentChordPro
+        title: fullSong.title,
+        artist: fullSong.artist,
+        key: fullSong.key || 'C',
+        tempo: fullSong.tempo || 100,
+        timeSignature: fullSong.timeSignature || '4/4',
+        tags: fullSong.tags || [],
+        contentChordPro: fullSong.contentChordPro
       });
 
       setImportedIds(prev => [...prev, songItem.id]);
@@ -249,19 +313,20 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
   const handleImportAndEditSong = async (songItem: ExternalSongItem) => {
     setImportingId(songItem.id);
     try {
+      const fullSong = await ensureSongLoaded(songItem);
       if (onImportAndEdit) {
         await onImportAndEdit({
-          title: songItem.title,
-          artist: songItem.artist,
-          key: songItem.key || 'C',
-          tempo: songItem.tempo || 100,
-          timeSignature: songItem.timeSignature || '4/4',
-          tags: songItem.tags || [],
-          contentChordPro: songItem.contentChordPro
+          title: fullSong.title,
+          artist: fullSong.artist,
+          key: fullSong.key || 'C',
+          tempo: fullSong.tempo || 100,
+          timeSignature: fullSong.timeSignature || '4/4',
+          tags: fullSong.tags || [],
+          contentChordPro: fullSong.contentChordPro
         });
         onClose();
       } else {
-        await handleImportSingleSong(songItem);
+        await handleImportSingleSong(fullSong);
       }
     } catch (err) {
       console.error(err);
@@ -448,7 +513,7 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
                     <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                     <input
                       type="text"
-                      placeholder="Rechercher par titre, artiste, paroles (ex: Ce nom si merveilleux, 10,000 Reasons, Dan Luiten...)"
+                      placeholder="Rechercher par titre, artiste, paroles : Ce nom si merveilleux, 10,000 Reasons, Dan Luiten..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="w-full bg-[#18181A] border border-[#333] hover:border-[#444] rounded-lg pl-10 pr-9 py-2.5 text-xs sm:text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors shadow-inner"
@@ -493,7 +558,12 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
                       <button
                         key={src.id}
                         type="button"
-                        onClick={() => setSelectedSource(src.id)}
+                        onClick={() => {
+                          setSelectedSource(src.id);
+                          if (searchQuery.trim()) {
+                            handlePerformOnlineSearch(searchQuery.trim(), src.id);
+                          }
+                        }}
                         className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium whitespace-nowrap transition-all border ${
                           isSelected
                             ? `${src.color} border-blue-500 font-semibold shadow-sm`
@@ -519,6 +589,7 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
                       type="button"
                       onClick={() => {
                         setSearchQuery(sug);
+                        handlePerformOnlineSearch(sug, selectedSource);
                       }}
                       className="text-[11px] px-2 py-0.5 rounded bg-[#18181A] hover:bg-[#222226] text-gray-300 hover:text-blue-300 border border-[#2A2A2D] transition-colors"
                     >
@@ -542,7 +613,7 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
               <div className="space-y-2.5">
                 <div className="flex items-center justify-between text-xs text-gray-400 px-1">
                   <span>
-                    Chants trouvés ({allResults.length})
+                    Chants trouvés : {allResults.length}
                   </span>
                   <span className="text-[11px] text-gray-500">
                     Cliquez sur &quot;Importer&quot; pour ajouter directement à votre bibliothèque
@@ -561,12 +632,12 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
                     {searchQuery && (
                       <button
                         type="button"
-                        onClick={handlePerformOnlineSearch}
+                        onClick={() => handlePerformOnlineSearch()}
                         disabled={isSearchingOnline}
                         className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-md transition-colors"
                       >
                         <Sparkles className="w-3.5 h-3.5" />
-                        <span>Lancer une recherche approfondie sur le web</span>
+                        <span>Lancer une recherche approfondie</span>
                       </button>
                     )}
                   </div>
@@ -575,6 +646,7 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
                     {allResults.map((song) => {
                       const isImported = importedIds.includes(song.id);
                       const isImporting = importingId === song.id;
+                      const isLoadingDetails = loadingSongId === song.id;
 
                       return (
                         <div
@@ -634,11 +706,16 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
                             {/* Preview Button */}
                             <button
                               type="button"
-                              onClick={() => setPreviewSong(song)}
-                              className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 text-xs font-medium border border-[#333] transition-colors"
-                              title="Aperçu des accords & paroles"
+                              onClick={() => handleOpenPreview(song)}
+                              disabled={isLoadingDetails}
+                              className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 text-xs font-medium border border-[#333] transition-colors disabled:opacity-50"
+                              title="Aperçu des accords et paroles"
                             >
-                              <Eye className="w-3.5 h-3.5 text-blue-400" />
+                              {isLoadingDetails ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-400" />
+                              ) : (
+                                <Eye className="w-3.5 h-3.5 text-blue-400" />
+                              )}
                               <span>Aperçu</span>
                             </button>
 
@@ -646,8 +723,8 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
                             <button
                               type="button"
                               onClick={() => handleImportAndEditSong(song)}
-                              disabled={isImporting}
-                              className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-200 text-xs font-medium border border-[#333] transition-colors"
+                              disabled={isImporting || isLoadingDetails}
+                              className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-200 text-xs font-medium border border-[#333] transition-colors disabled:opacity-50"
                               title="Importer et ouvrir l'éditeur"
                             >
                               <Edit3 className="w-3.5 h-3.5 text-amber-400" />
@@ -658,7 +735,7 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
                             <button
                               type="button"
                               onClick={() => handleImportSingleSong(song)}
-                              disabled={isImporting || isImported}
+                              disabled={isImporting || isImported || isLoadingDetails}
                               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all shadow-sm ${
                                 isImported
                                   ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/40'
@@ -677,7 +754,7 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
                                 </>
                               ) : (
                                 <>
-                                  <FileUp className="w-3.5 h-3.5" />
+                                  <Plus className="w-3.5 h-3.5" />
                                   <span>Importer</span>
                                 </>
                               )}
@@ -697,92 +774,33 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
           {activeTab === 'manual' && (
             <div className="space-y-4">
               
-              {/* Format selection */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setManualSource('chordpro')}
-                  className={`p-2.5 rounded-lg border text-left transition-all ${
-                    manualSource === 'chordpro'
-                      ? 'bg-[#1C1C1E] border-blue-500 text-white shadow-sm'
-                      : 'bg-[#0A0A0B] border-[#222224] text-gray-400 hover:text-gray-200'
-                  }`}
-                >
-                  <div className="flex items-center gap-1.5 font-semibold text-xs text-blue-400 mb-0.5">
-                    <FileCode className="w-3.5 h-3.5" />
-                    <span>Fichiers ChordPro (.pro, .cho)</span>
-                  </div>
-                  <div className="text-[10px] text-gray-500">
-                    Fichiers ou balises [C]
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setManualSource('shir')}
-                  className={`p-2.5 rounded-lg border text-left transition-all ${
-                    manualSource === 'shir'
-                      ? 'bg-[#1C1C1E] border-blue-500 text-white shadow-sm'
-                      : 'bg-[#0A0A0B] border-[#222224] text-gray-400 hover:text-gray-200'
-                  }`}
-                >
-                  <div className="flex items-center gap-1.5 font-semibold text-xs text-blue-400 mb-0.5">
-                    <BookOpen className="w-3.5 h-3.5" />
-                    <span>Coller depuis Shir.fr</span>
-                  </div>
-                  <div className="text-[10px] text-gray-500">
-                    Recueil de louange chrétien
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setManualSource('webchords')}
-                  className={`p-2.5 rounded-lg border text-left transition-all ${
-                    manualSource === 'webchords'
-                      ? 'bg-[#1C1C1E] border-blue-500 text-white shadow-sm'
-                      : 'bg-[#0A0A0B] border-[#222224] text-gray-400 hover:text-gray-200'
-                  }`}
-                >
-                  <div className="flex items-center gap-1.5 font-semibold text-xs text-blue-400 mb-0.5">
-                    <Globe className="w-3.5 h-3.5" />
-                    <span>Sites Web (Accords 2 lignes)</span>
-                  </div>
-                  <div className="text-[10px] text-gray-500">
-                    LaCuerda, Ultimate-Guitar, etc.
-                  </div>
-                </button>
-              </div>
-
               {/* Local File upload box */}
-              {manualSource === 'chordpro' && (
-                <div className="p-3.5 bg-[#0A0A0B] border border-[#222224] rounded-lg flex flex-col sm:flex-row items-center justify-between gap-3">
-                  <div>
-                    <span className="text-xs font-semibold text-white block">
-                      Téléverser des fichiers locaux (.cho, .pro, .txt, .crd)
-                    </span>
-                    <span className="text-[11px] text-gray-400">
-                      Importez un ou plusieurs fichiers simultanément
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] text-white border border-[#333] text-xs font-semibold transition-colors whitespace-nowrap"
-                  >
-                    <Upload className="w-3.5 h-3.5 text-blue-400" />
-                    <span>Choisir fichier(s)...</span>
-                  </button>
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleFileUpload}
-                    multiple
-                    accept=".cho,.pro,.chopro,.txt,.crd"
-                    className="hidden"
-                  />
+              <div className="p-3.5 bg-[#0A0A0B] border border-[#222224] rounded-lg flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div>
+                  <span className="text-xs font-semibold text-white block">
+                    Téléverser des fichiers locaux (.cho, .pro, .txt, .crd)
+                  </span>
+                  <span className="text-[11px] text-gray-400">
+                    Importez un ou plusieurs fichiers simultanément
+                  </span>
                 </div>
-              )}
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] text-white border border-[#333] text-xs font-semibold transition-colors whitespace-nowrap"
+                >
+                  <Upload className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Choisir fichier(s)...</span>
+                </button>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileUpload}
+                  multiple
+                  accept=".cho,.pro,.chopro,.txt,.crd"
+                  className="hidden"
+                />
+              </div>
 
               {importedFileCount > 0 && (
                 <div className="p-2.5 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-medium flex items-center gap-2">
@@ -829,7 +847,7 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-medium text-gray-300 mb-1">Tempo (BPM)</label>
+                  <label className="block text-[11px] font-medium text-gray-300 mb-1">Tempo en BPM</label>
                   <input
                     type="number"
                     min={40}
@@ -853,11 +871,7 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
                   rows={8}
                   value={manualText}
                   onChange={(e) => setManualText(e.target.value)}
-                  placeholder={
-                    manualSource === 'chordpro'
-                      ? "{title: Mon Chant}\n{artist: Louange}\n{key: G}\n\n[G]Voici le premier [C]accord..."
-                      : "Couplet 1:\n  G           C\nDans ta présence Seigneur\n  D           G\nJe trouve la paix..."
-                  }
+                  placeholder="{title: Mon Chant}\n{artist: Louange}\n{key: G}\n\n[G]Voici le premier [C]accord...\n\nOu collez directement vos paroles avec les accords au-dessus pour une conversion automatique."
                   className="w-full bg-[#0A0A0B] font-mono text-xs text-gray-100 border border-[#333] rounded-md p-3 focus:outline-none focus:border-blue-500 leading-relaxed"
                 />
               </div>

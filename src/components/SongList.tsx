@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { Song, Setlist } from '../types';
-import { parseDurationToSeconds, formatSetlistDuration, getSongDuration } from '../utils/chordUtils';
+import { parseDurationToSeconds, formatSetlistDuration, getSongDuration, stripParentheses } from '../utils/chordUtils';
 import { SongImportModal } from './SongImportModal';
 import { LanguageVersionModal } from './LanguageVersionModal';
 import { PRESET_LANGUAGES } from '../utils/languageUtils';
@@ -21,14 +21,13 @@ import {
   ListPlus, 
   Music, 
   Tag, 
-  SlidersHorizontal, 
+  User, 
   Check, 
   X,
   Gauge,
   ChevronDown,
   Globe,
   FileCode,
-  BookOpen,
   FileUp,
   Calendar,
   ArrowUpDown,
@@ -53,20 +52,49 @@ export const SongList: React.FC = () => {
     updateSong,
     updateSetlist,
     createSetlist,
-    createSong
+    createSong,
+    importSong
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedKey, setSelectedKey] = useState<string>('all');
-  const [selectedLanguage, setSelectedLanguage] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'title' | 'artist' | 'tempo' | 'duration' | 'recent'>('title');
 
-  // View mode: 'grid' ou 'alphabetical'
+  // Key filter state (multi-select dropdown with checkboxes)
+  const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
+  const [isKeyFilterOpen, setIsKeyFilterOpen] = useState(false);
+  const [keyFilterSearch, setKeyFilterSearch] = useState('');
+
+  // Language filter state (multi-select dropdown with checkboxes)
+  const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
+  const [isLanguageFilterOpen, setIsLanguageFilterOpen] = useState(false);
+  const [languageFilterSearch, setLanguageFilterSearch] = useState('');
+
+  // Mode affichage: grille ou alphabetique avec alphabetique par defaut
   const [viewMode, setViewMode] = useState<'grid' | 'alphabetical'>(() => {
-    return (localStorage.getItem('songbook_view_mode') as 'grid' | 'alphabetical') || 'grid';
+    const saved = localStorage.getItem('songbook_view_mode');
+    if (saved === 'grid' || saved === 'alphabetical') {
+      return saved;
+    }
+    return 'alphabetical';
   });
 
+  const [isMobile, setIsMobile] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return window.innerWidth < 768;
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const effectiveViewMode: 'grid' | 'alphabetical' = isMobile ? 'alphabetical' : viewMode;
+
   const handleSetViewMode = (mode: 'grid' | 'alphabetical') => {
+    if (isMobile && mode === 'grid') return;
     setViewMode(mode);
     localStorage.setItem('songbook_view_mode', mode);
   };
@@ -86,6 +114,11 @@ export const SongList: React.FC = () => {
   const [categoryFilterSearch, setCategoryFilterSearch] = useState('');
   const [customCategories, setCustomCategories] = useState<string[]>(() => getCustomCategories());
   const [hiddenCategories, setHiddenCategories] = useState<string[]>(() => getHiddenCategories());
+
+  // Author filter state (multi-select dropdown with checkboxes)
+  const [selectedAuthors, setSelectedAuthors] = useState<string[]>([]);
+  const [isAuthorFilterOpen, setIsAuthorFilterOpen] = useState(false);
+  const [authorFilterSearch, setAuthorFilterSearch] = useState('');
   
   // Language modal state
   const [languageModalSong, setLanguageModalSong] = useState<Song | null>(null);
@@ -96,7 +129,21 @@ export const SongList: React.FC = () => {
   const [quickCatSearch, setQuickCatSearch] = useState('');
   const [deletingCatName, setDeletingCatName] = useState<string | null>(null);
 
+  // Multi-select mode state
+  const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
+  const [selectedSongIds, setSelectedSongIds] = useState<string[]>([]);
+  const [isAssignCategoryModalOpen, setIsAssignCategoryModalOpen] = useState(false);
+  const [multiCategoryInput, setMultiCategoryInput] = useState('');
+  const [multiCategorySearch, setMultiCategorySearch] = useState('');
+  const [isAssignSetlistModalOpen, setIsAssignSetlistModalOpen] = useState(false);
+  const [multiSetlistNameInput, setMultiSetlistNameInput] = useState('');
+  const [multiSetlistDateInput, setMultiSetlistDateInput] = useState(new Date().toISOString().split('T')[0]);
+  const [multiSetlistSearch, setMultiSetlistSearch] = useState('');
+
   const categoryFilterRef = useRef<HTMLDivElement>(null);
+  const authorFilterRef = useRef<HTMLDivElement>(null);
+  const keyFilterRef = useRef<HTMLDivElement>(null);
+  const languageFilterRef = useRef<HTMLDivElement>(null);
   const importDropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdowns on outside click
@@ -105,6 +152,15 @@ export const SongList: React.FC = () => {
       const target = e.target as HTMLElement;
       if (categoryFilterRef.current && !categoryFilterRef.current.contains(target)) {
         setIsCategoryFilterOpen(false);
+      }
+      if (authorFilterRef.current && !authorFilterRef.current.contains(target)) {
+        setIsAuthorFilterOpen(false);
+      }
+      if (keyFilterRef.current && !keyFilterRef.current.contains(target)) {
+        setIsKeyFilterOpen(false);
+      }
+      if (languageFilterRef.current && !languageFilterRef.current.contains(target)) {
+        setIsLanguageFilterOpen(false);
       }
       if (importDropdownRef.current && !importDropdownRef.current.contains(target)) {
         setIsImportDropdownOpen(false);
@@ -116,6 +172,24 @@ export const SongList: React.FC = () => {
           setOpenCategorySongId(null);
           setDeletingCatName(null);
         }
+        if (isAssignCategoryModalOpen) {
+          setIsAssignCategoryModalOpen(false);
+          setMultiCategoryInput('');
+          setMultiCategorySearch('');
+        }
+        if (isAssignSetlistModalOpen) {
+          setIsAssignSetlistModalOpen(false);
+          setMultiSetlistNameInput('');
+          setMultiSetlistSearch('');
+        }
+        if (isMultiSelectMode) {
+          setIsMultiSelectMode(false);
+          setSelectedSongIds([]);
+        }
+        setIsCategoryFilterOpen(false);
+        setIsAuthorFilterOpen(false);
+        setIsKeyFilterOpen(false);
+        setIsLanguageFilterOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -124,7 +198,7 @@ export const SongList: React.FC = () => {
       document.removeEventListener('mousedown', handleClickOutside);
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [openCategorySongId]);
+  }, [openCategorySongId, isAssignCategoryModalOpen, isAssignSetlistModalOpen, isMultiSelectMode]);
   
   // Setlist modal state (Search, Sort, Multi-select, Quick-create)
   const [addToSetlistSong, setAddToSetlistSong] = useState<Song | null>(null);
@@ -154,24 +228,71 @@ export const SongList: React.FC = () => {
   const [isImportDropdownOpen, setIsImportDropdownOpen] = useState(false);
   const [importSource, setImportSource] = useState<'search' | 'chordpro' | 'shir' | 'webchords'>('search');
 
-  // Key list for filtering
-  const availableKeys = useMemo(() => {
-    const keys = new Set<string>();
+  // Key filter counts and filtering logic
+  const allKeysWithCounts = useMemo(() => {
+    const counts = new Map<string, number>();
     songs.forEach(s => {
-      if (s.key) keys.add(s.key.toUpperCase());
+      const k = (s.key || '').trim().toUpperCase();
+      const keyName = k || 'Sans tonalité';
+      counts.set(keyName, (counts.get(keyName) || 0) + 1);
     });
-    return Array.from(keys).sort();
+
+    return Array.from(counts.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => {
+        if (a.name === 'Sans tonalité') return 1;
+        if (b.name === 'Sans tonalité') return -1;
+        return a.name.localeCompare(b.name);
+      });
   }, [songs]);
 
-  // Languages list for filtering
-  const availableLanguages = useMemo(() => {
-    const set = new Set<string>();
-    PRESET_LANGUAGES.forEach(l => set.add(l.name));
+  const filteredKeysInDropdown = useMemo(() => {
+    if (!keyFilterSearch.trim()) return allKeysWithCounts;
+    const q = keyFilterSearch.toLowerCase().trim();
+    return allKeysWithCounts.filter(k => k.name.toLowerCase().includes(q));
+  }, [allKeysWithCounts, keyFilterSearch]);
+
+  const toggleKeyFilter = (keyName: string) => {
+    setSelectedKeys(prev =>
+      prev.includes(keyName) ? prev.filter(k => k !== keyName) : [...prev, keyName]
+    );
+  };
+
+  // Language filter counts and filtering logic
+  const allLanguagesWithCounts = useMemo(() => {
+    const counts = new Map<string, number>();
     songs.forEach(s => {
-      if (s.language && s.language.trim()) set.add(s.language.trim());
+      const l = (s.language || '').trim();
+      const langName = l || 'Français';
+      counts.set(langName, (counts.get(langName) || 0) + 1);
     });
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
+
+    PRESET_LANGUAGES.forEach(pl => {
+      if (!counts.has(pl.name)) {
+        counts.set(pl.name, 0);
+      }
+    });
+
+    return Array.from(counts.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => {
+        if (a.name === 'Non spécifiée') return 1;
+        if (b.name === 'Non spécifiée') return -1;
+        return a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' });
+      });
   }, [songs]);
+
+  const filteredLanguagesInDropdown = useMemo(() => {
+    if (!languageFilterSearch.trim()) return allLanguagesWithCounts;
+    const q = languageFilterSearch.toLowerCase().trim();
+    return allLanguagesWithCounts.filter(l => l.name.toLowerCase().includes(q));
+  }, [allLanguagesWithCounts, languageFilterSearch]);
+
+  const toggleLanguageFilter = (langName: string) => {
+    setSelectedLanguages(prev =>
+      prev.includes(langName) ? prev.filter(l => l !== langName) : [...prev, langName]
+    );
+  };
 
   // Aggregate all unique categories and their song counts
   const allCategoriesWithCounts = useMemo(() => {
@@ -237,6 +358,36 @@ export const SongList: React.FC = () => {
   const toggleCategoryFilter = (catName: string) => {
     setSelectedCategories(prev =>
       prev.includes(catName) ? prev.filter(c => c !== catName) : [...prev, catName]
+    );
+  };
+
+  // Author filter counts and filtering logic
+  const allAuthorsWithCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    songs.forEach(s => {
+      const author = (s.artist || '').trim();
+      const key = author || 'Sans auteur';
+      counts.set(key, (counts.get(key) || 0) + 1);
+    });
+
+    return Array.from(counts.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => {
+        if (a.name === 'Sans auteur') return 1;
+        if (b.name === 'Sans auteur') return -1;
+        return a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' });
+      });
+  }, [songs]);
+
+  const filteredAuthorsInDropdown = useMemo(() => {
+    if (!authorFilterSearch.trim()) return allAuthorsWithCounts;
+    const q = authorFilterSearch.toLowerCase().trim();
+    return allAuthorsWithCounts.filter(a => a.name.toLowerCase().includes(q));
+  }, [allAuthorsWithCounts, authorFilterSearch]);
+
+  const toggleAuthorFilter = (authorName: string) => {
+    setSelectedAuthors(prev =>
+      prev.includes(authorName) ? prev.filter(a => a !== authorName) : [...prev, authorName]
     );
   };
 
@@ -336,21 +487,33 @@ export const SongList: React.FC = () => {
   // Filtered & Sorted Songs
   const filteredSongs = useMemo(() => {
     return songs.filter(song => {
-      // Key filter
-      if (selectedKey !== 'all' && song.key.toUpperCase() !== selectedKey) {
-        return false;
+      // Key filter (support single or multiple selection with checkboxes)
+      if (selectedKeys.length > 0) {
+        const songKey = (song.key || '').trim().toUpperCase();
+        const effectiveKey = songKey || 'Sans tonalité';
+        const hasMatch = selectedKeys.some(k => effectiveKey.toUpperCase() === k.toUpperCase());
+        if (!hasMatch) return false;
       }
-      // Language filter
-      if (selectedLanguage !== 'all') {
-        const songLang = (song.language || 'Français').toLowerCase();
-        if (songLang !== selectedLanguage.toLowerCase()) {
-          return false;
-        }
+      // Language filter (support single or multiple selection with checkboxes)
+      if (selectedLanguages.length > 0) {
+        const songLang = (song.language || 'Français').trim();
+        const effectiveLang = songLang || 'Non spécifiée';
+        const hasMatch = selectedLanguages.some(l => effectiveLang.toLowerCase() === l.toLowerCase());
+        if (!hasMatch) return false;
       }
       // Categories filter (support single or multiple selection - union match)
       if (selectedCategories.length > 0) {
         const songCats = (song.tags || []).map(t => t.trim().toLowerCase());
         const hasMatch = selectedCategories.some(cat => songCats.includes(cat.trim().toLowerCase()));
+        if (!hasMatch) return false;
+      }
+      // Authors filter (support single or multiple selection with checkboxes)
+      if (selectedAuthors.length > 0) {
+        const songAuthor = (song.artist || '').trim();
+        const effectiveAuthor = songAuthor || 'Sans auteur';
+        const hasMatch = selectedAuthors.some(author => 
+          effectiveAuthor.toLowerCase() === author.toLowerCase()
+        );
         if (!hasMatch) return false;
       }
       // Search query
@@ -367,24 +530,39 @@ export const SongList: React.FC = () => {
       }
       return true;
     }).sort((a, b) => {
-      if (sortBy === 'title') return a.title.localeCompare(b.title);
-      if (sortBy === 'artist') return a.artist.localeCompare(b.artist);
+      if (sortBy === 'title') return (a.title || '').localeCompare(b.title || '', 'fr', { sensitivity: 'base' });
+      if (sortBy === 'artist') {
+        const artistA = (a.artist || '').trim();
+        const artistB = (b.artist || '').trim();
+        const comp = artistA.localeCompare(artistB, 'fr', { sensitivity: 'base' });
+        if (comp !== 0) return comp;
+        return (a.title || '').localeCompare(b.title || '', 'fr', { sensitivity: 'base' });
+      }
       if (sortBy === 'tempo') return (a.tempo || 0) - (b.tempo || 0);
       if (sortBy === 'duration') return parseDurationToSeconds(b) - parseDurationToSeconds(a);
       if (sortBy === 'recent') return (b.createdAt || '').localeCompare(a.createdAt || '');
       return 0;
     });
-  }, [songs, selectedKey, selectedLanguage, selectedCategories, searchQuery, sortBy]);
+  }, [songs, selectedKeys, selectedLanguages, selectedCategories, selectedAuthors, searchQuery, sortBy]);
 
-  // Group songs alphabetically by first letter of title
+  // Group songs alphabetically by first letter of title or author
   const alphabeticalGroups = useMemo(() => {
-    const sorted = [...filteredSongs].sort((a, b) => 
-      (a.title || '').localeCompare(b.title || '', 'fr', { sensitivity: 'base' })
-    );
+    const isArtistSort = sortBy === 'artist';
+    const sorted = [...filteredSongs].sort((a, b) => {
+      if (isArtistSort) {
+        const artistA = (a.artist || '').trim();
+        const artistB = (b.artist || '').trim();
+        const comp = artistA.localeCompare(artistB, 'fr', { sensitivity: 'base' });
+        if (comp !== 0) return comp;
+        return (a.title || '').localeCompare(b.title || '', 'fr', { sensitivity: 'base' });
+      }
+      return (a.title || '').localeCompare(b.title || '', 'fr', { sensitivity: 'base' });
+    });
 
     const map = new Map<string, Song[]>();
     sorted.forEach(song => {
-      const raw = (song.title || '').trim().charAt(0).toUpperCase();
+      const sourceStr = isArtistSort ? ((song.artist || '').trim() || 'Sans auteur') : (song.title || '');
+      const raw = sourceStr.trim().charAt(0).toUpperCase();
       const normalized = raw.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
       const letter = /[A-Z]/.test(normalized) ? normalized : '#';
       if (!map.has(letter)) {
@@ -403,7 +581,7 @@ export const SongList: React.FC = () => {
       letter,
       songs: map.get(letter)!
     }));
-  }, [filteredSongs]);
+  }, [filteredSongs, sortBy]);
 
   const availableLettersSet = useMemo(() => {
     return new Set(alphabeticalGroups.map(g => g.letter));
@@ -411,7 +589,7 @@ export const SongList: React.FC = () => {
 
   // Scroll listener to update active letter when scrolling in alphabetical view
   useEffect(() => {
-    if (viewMode !== 'alphabetical' || alphabeticalGroups.length === 0) return;
+    if (effectiveViewMode !== 'alphabetical' || alphabeticalGroups.length === 0) return;
 
     const handleScroll = () => {
       const headerOffset = 140;
@@ -437,7 +615,7 @@ export const SongList: React.FC = () => {
     window.addEventListener('scroll', handleScroll, { passive: true });
     handleScroll();
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [viewMode, alphabeticalGroups]);
+  }, [effectiveViewMode, alphabeticalGroups]);
 
   // Scroll smoothly to a target letter
   const scrollToLetter = (letter: string) => {
@@ -557,6 +735,406 @@ export const SongList: React.FC = () => {
     }
   };
 
+  // Multi-Select and Long Press State & Handlers
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isLongPressTriggeredRef = useRef(false);
+  const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
+  const lastTouchTimeRef = useRef(0);
+
+  const startLongPress = (songId: string, clientX: number, clientY: number) => {
+    if (isMultiSelectMode) return;
+    isLongPressTriggeredRef.current = false;
+    touchStartPosRef.current = { x: clientX, y: clientY };
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+    }
+    longPressTimerRef.current = setTimeout(() => {
+      isLongPressTriggeredRef.current = true;
+      setIsMultiSelectMode(true);
+      setSelectedSongIds(prev => prev.includes(songId) ? prev : [...prev, songId]);
+      if (typeof window !== 'undefined' && 'vibrate' in navigator) {
+        try {
+          navigator.vibrate(50);
+        } catch {
+          // ignore
+        }
+      }
+    }, 450);
+  };
+
+  const cancelLongPress = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const handleTouchStart = (songId: string, e: React.TouchEvent) => {
+    lastTouchTimeRef.current = Date.now();
+    if (e.touches.length > 0) {
+      startLongPress(songId, e.touches[0].clientX, e.touches[0].clientY);
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!longPressTimerRef.current || !touchStartPosRef.current || e.touches.length === 0) return;
+    const dx = Math.abs(e.touches[0].clientX - touchStartPosRef.current.x);
+    const dy = Math.abs(e.touches[0].clientY - touchStartPosRef.current.y);
+    if (dx > 10 || dy > 10) {
+      cancelLongPress();
+    }
+  };
+
+  const handleMouseDown = (songId: string, e: React.MouseEvent) => {
+    // Avoid double trigger if mouse event immediately follows touch
+    if (Date.now() - lastTouchTimeRef.current < 800) return;
+    startLongPress(songId, e.clientX, e.clientY);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!longPressTimerRef.current || !touchStartPosRef.current) return;
+    const dx = Math.abs(e.clientX - touchStartPosRef.current.x);
+    const dy = Math.abs(e.clientY - touchStartPosRef.current.y);
+    if (dx > 10 || dy > 10) {
+      cancelLongPress();
+    }
+  };
+
+  const toggleSongSelection = (songId: string) => {
+    setSelectedSongIds(prev =>
+      prev.includes(songId) ? prev.filter(id => id !== songId) : [...prev, songId]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedSongIds.length === filteredSongs.length && filteredSongs.length > 0) {
+      setSelectedSongIds([]);
+    } else {
+      setSelectedSongIds(filteredSongs.map(s => s.id));
+    }
+  };
+
+  const handleCardClick = (song: Song, e: React.MouseEvent) => {
+    if (isLongPressTriggeredRef.current) {
+      isLongPressTriggeredRef.current = false;
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    if (isMultiSelectMode) {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleSongSelection(song.id);
+      return;
+    }
+    handleOpenStage(song);
+  };
+
+  // Filter categories for the multi-assign category modal
+  const filteredMultiCategories = useMemo(() => {
+    if (!multiCategorySearch.trim()) return allCategoriesWithCounts;
+    const q = multiCategorySearch.toLowerCase().trim();
+    return allCategoriesWithCounts.filter(c => c.name.toLowerCase().includes(q));
+  }, [allCategoriesWithCounts, multiCategorySearch]);
+
+  // Filter setlists for the multi-assign setlist modal
+  const filteredMultiSetlists = useMemo(() => {
+    if (!multiSetlistSearch.trim()) return setlists;
+    const q = multiSetlistSearch.toLowerCase().trim();
+    return setlists.filter(st => st.name.toLowerCase().includes(q));
+  }, [setlists, multiSetlistSearch]);
+
+  // Assign a category (new or existing) to all selected songs
+  const handleAssignCategoryToSelected = async (catName: string) => {
+    const trimmed = catName.trim();
+    if (!trimmed || selectedSongIds.length === 0) return;
+
+    if (hiddenCategories.includes(trimmed)) {
+      const updatedHidden = hiddenCategories.filter(c => c !== trimmed);
+      setHiddenCategories(updatedHidden);
+      saveHiddenCategories(updatedHidden);
+    }
+
+    if (!customCategories.includes(trimmed)) {
+      const updated = [...customCategories, trimmed];
+      setCustomCategories(updated);
+      saveCustomCategories(updated);
+    }
+
+    for (const songId of selectedSongIds) {
+      const target = songs.find(s => s.id === songId);
+      if (target) {
+        const currentTags = target.tags || [];
+        if (!currentTags.some(t => t.trim().toLowerCase() === trimmed.toLowerCase())) {
+          await updateSong(songId, { tags: [...currentTags, trimmed] });
+        }
+      }
+    }
+
+    setIsAssignCategoryModalOpen(false);
+    setIsMultiSelectMode(false);
+    setSelectedSongIds([]);
+    setMultiCategoryInput('');
+    setMultiCategorySearch('');
+  };
+
+  // Create a new setlist and assign all selected songs to it
+  const handleCreateAndAssignSetlist = async () => {
+    const trimmed = multiSetlistNameInput.trim();
+    if (!trimmed || selectedSongIds.length === 0) return;
+
+    await createSetlist({
+      name: trimmed,
+      date: multiSetlistDateInput || new Date().toISOString().split('T')[0],
+      songIds: selectedSongIds,
+      songs: []
+    });
+
+    setIsAssignSetlistModalOpen(false);
+    setIsMultiSelectMode(false);
+    setSelectedSongIds([]);
+    setMultiSetlistNameInput('');
+    setMultiSetlistDateInput(new Date().toISOString().split('T')[0]);
+    setMultiSetlistSearch('');
+  };
+
+  // Assign all selected songs to an existing setlist
+  const handleAssignToExistingSetlist = async (setlistId: string) => {
+    if (selectedSongIds.length === 0) return;
+    const targetSetlist = setlists.find(st => st.id === setlistId);
+    if (!targetSetlist) return;
+
+    const existingIds = targetSetlist.songIds || [];
+    const songsToAdd = selectedSongIds.filter(id => !existingIds.includes(id));
+    const newSongIds = [...existingIds, ...songsToAdd];
+
+    await updateSetlist(setlistId, { songIds: newSongIds });
+
+    setIsAssignSetlistModalOpen(false);
+    setIsMultiSelectMode(false);
+    setSelectedSongIds([]);
+    setMultiSetlistNameInput('');
+    setMultiSetlistSearch('');
+  };
+
+  // Reusable unified Song Card Renderer
+  const renderSongCard = (song: Song) => {
+    const isSelected = selectedSongIds.includes(song.id);
+    const isConfirming = confirmDeleteSongId === song.id;
+
+    return (
+      <div
+        key={song.id}
+        id={`song-card-${song.id}`}
+        onTouchStart={(e) => handleTouchStart(song.id, e)}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={cancelLongPress}
+        onTouchCancel={cancelLongPress}
+        onMouseDown={(e) => handleMouseDown(song.id, e)}
+        onMouseMove={handleMouseMove}
+        onMouseUp={cancelLongPress}
+        onMouseLeave={cancelLongPress}
+        onClick={(e) => handleCardClick(song, e)}
+        className={`group relative border rounded-lg p-4 transition-all flex flex-col justify-between cursor-pointer shadow-sm hover:shadow-md select-none ${
+          isSelected
+            ? 'bg-blue-950/30 border-blue-500 ring-2 ring-blue-500/40 shadow-blue-900/20'
+            : 'bg-[#111112] hover:bg-[#151518] border-[#222224] hover:border-blue-500/40'
+        }`}
+      >
+        <div>
+          {/* Header of card: Checkbox / Key / BPM / Duration and Quick Actions */}
+          <div className="flex items-center justify-between gap-2 mb-2.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {isMultiSelectMode && (
+                <div
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleSongSelection(song.id);
+                  }}
+                  className={`w-5 h-5 rounded flex items-center justify-center border transition-all cursor-pointer mr-0.5 shrink-0 ${
+                    isSelected
+                      ? 'bg-blue-600 border-blue-500 text-white shadow-xs ring-2 ring-blue-500/30'
+                      : 'bg-[#1C1C1E] border-[#444] text-transparent hover:border-blue-400'
+                  }`}
+                >
+                  <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                </div>
+              )}
+              <span
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleKeyFilter((song.key || 'C').toUpperCase());
+                }}
+                title={`Filtrer par la tonalité ${(song.key || 'C').toUpperCase()}`}
+                className={`px-2 py-0.5 rounded border text-[11px] font-bold cursor-pointer transition-colors ${
+                  selectedKeys.includes((song.key || 'C').toUpperCase())
+                    ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
+                    : 'bg-[#1C1C1E] border-[#333] text-gray-200 hover:border-amber-500/40 hover:text-amber-300'
+                }`}
+              >
+                {song.key || 'C'}
+              </span>
+              {song.tempo && (
+                <span className="px-1.5 py-0.5 rounded bg-[#1C1C1E] border border-[#222224] text-gray-400 text-[10px] font-medium flex items-center gap-1">
+                  <Gauge className="w-2.5 h-2.5 text-blue-400" />
+                  {song.tempo}
+                </span>
+              )}
+              {getSongDuration(song) ? (
+                <span className="px-1.5 py-0.5 rounded bg-cyan-950/50 border border-cyan-500/30 text-cyan-300 text-[10px] font-medium flex items-center gap-1 font-mono shadow-sm">
+                  <Clock className="w-2.5 h-2.5 text-cyan-400" />
+                  {getSongDuration(song)}
+                </span>
+              ) : null}
+            </div>
+
+            {/* Quick Action buttons */}
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLanguageModalSong(song);
+                }}
+                className="p-1.5 rounded bg-[#1C1C1E] hover:bg-[#252528] text-gray-300 hover:text-indigo-400 border border-[#333] hover:border-indigo-500/40 transition-colors flex items-center justify-center cursor-pointer"
+                title="Gérer les langues et versions liées"
+                aria-label="Versions et langues"
+              >
+                <Globe className="w-3.5 h-3.5 text-indigo-400" />
+              </button>
+
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setAddToSetlistSong(song);
+                  setSelectedSetlistIds(
+                    setlists.filter(st => st.songIds.includes(song.id)).map(st => st.id)
+                  );
+                  setSetlistSearchQuery('');
+                  setIsCreatingNewSetlist(false);
+                  setNewSetlistName('');
+                  setNewSetlistDate(new Date().toISOString().split('T')[0]);
+                }}
+                className="p-1.5 rounded bg-[#1C1C1E] hover:bg-[#252528] text-gray-300 hover:text-blue-400 border border-[#333] hover:border-blue-500/40 transition-colors flex items-center justify-center cursor-pointer"
+                title="Ajouter ou gérer dans vos setlists"
+                aria-label="Setlist"
+              >
+                <ListPlus className="w-3.5 h-3.5 text-blue-400" />
+              </button>
+
+              {currentUser?.role === 'admin' && (
+                <>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleEditSong(song);
+                    }}
+                    className="p-1.5 rounded bg-[#1C1C1E] hover:bg-[#252528] text-gray-300 hover:text-amber-400 border border-[#333] hover:border-amber-500/40 transition-colors flex items-center justify-center cursor-pointer"
+                    title="Éditer le chant"
+                    aria-label="Éditer"
+                  >
+                    <FileEdit className="w-3.5 h-3.5 text-amber-400" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (isConfirming) {
+                        deleteSong(song.id);
+                        setConfirmDeleteSongId(null);
+                      } else {
+                        setConfirmDeleteSongId(song.id);
+                      }
+                    }}
+                    className={`p-1.5 rounded transition-all flex items-center justify-center cursor-pointer ${
+                      isConfirming
+                        ? 'bg-rose-600 hover:bg-rose-700 text-white border border-rose-500 shadow-sm animate-pulse'
+                        : 'bg-[#1C1C1E] hover:bg-rose-500/20 text-gray-400 hover:text-rose-400 border border-[#333] hover:border-rose-500/40'
+                    }`}
+                    title={isConfirming ? "Confirmer la suppression" : "Supprimer le chant"}
+                    aria-label={isConfirming ? "Confirmer la suppression" : "Supprimer"}
+                  >
+                    {isConfirming ? (
+                      <Check className="w-3.5 h-3.5 text-white" />
+                    ) : (
+                      <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                    )}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Title and Artist */}
+          <h3 className="text-sm font-bold text-white group-hover:text-blue-400 transition-colors line-clamp-1">
+            {stripParentheses(song.title)}
+          </h3>
+          <p 
+            onClick={(e) => {
+              if (song.artist) {
+                e.stopPropagation();
+                toggleAuthorFilter(song.artist);
+              }
+            }}
+            title={song.artist ? `Filtrer par ${song.artist}` : undefined}
+            className={`text-xs font-medium line-clamp-1 mt-0.5 transition-colors cursor-pointer ${
+              selectedAuthors.includes(song.artist) || sortBy === 'artist' 
+                ? 'text-blue-400 font-semibold' 
+                : 'text-gray-400 hover:text-blue-300'
+            }`}
+          >
+            {song.artist || 'Auteur inconnu'}
+          </p>
+
+          {/* Categories and Pen Button */}
+          <div className="flex flex-wrap items-center gap-1 mt-2.5 relative" data-category-bubble>
+            {song.tags && song.tags.map((cat, idx) => {
+              const isFiltered = selectedCategories.includes(cat);
+              return (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleCategoryFilter(cat);
+                  }}
+                  className={`text-[10px] px-2 py-0.5 rounded border transition-colors flex items-center gap-1 ${
+                    isFiltered
+                      ? 'bg-blue-600/20 text-blue-300 border-blue-500/40 font-semibold'
+                      : 'bg-[#1C1C1E] border-[#222224] text-gray-400 hover:text-gray-200 hover:border-[#333]'
+                  }`}
+                  title={`Filtrer par la catégorie ${cat}`}
+                >
+                  <Tag className="w-2.5 h-2.5 text-blue-400" />
+                  <span>{cat}</span>
+                </button>
+              );
+            })}
+
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setOpenCategorySongId(song.id);
+                setDeletingCatName(null);
+                setQuickCatInput('');
+                setQuickCatSearch('');
+              }}
+              className="text-[10px] p-1 rounded border transition-all flex items-center justify-center cursor-pointer bg-[#1C1C1E] border-[#222224] text-gray-400 hover:text-blue-400 hover:border-blue-500/40"
+              title="Gérer les catégories de ce chant"
+              aria-label="Gérer les catégories de ce chant"
+            >
+              <Pen className="w-3 h-3" />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // Open import modal for specific option
   const handleOpenImport = (source: 'search' | 'chordpro' | 'shir' | 'webchords' = 'search') => {
     setImportSource(source);
@@ -626,62 +1204,52 @@ export const SongList: React.FC = () => {
                   </div>
                 </button>
 
-                {/* Option 2: ChordPro Files */}
+                {/* Option 2: Files & Manual Paste */}
                 <button
                   onClick={() => handleOpenImport('chordpro')}
-                  className="w-full text-left px-3.5 py-2 hover:bg-[#1C1C1E] flex items-start gap-2.5 transition-colors group"
+                  className="w-full text-left px-3.5 py-2.5 hover:bg-[#1C1C1E] flex items-start gap-2.5 transition-colors group"
                 >
                   <div className="p-1.5 rounded bg-[#1C1C1E] border border-[#333] text-blue-400 mt-0.5 group-hover:border-blue-500">
                     <FileCode className="w-4 h-4" />
                   </div>
                   <div>
                     <div className="font-semibold text-white group-hover:text-blue-400">
-                      Fichiers ChordPro .pro, .cho, .txt
+                      Fichiers & Copier-Coller
                     </div>
                     <p className="text-[11px] text-gray-400 mt-0.5">
-                      Glisser-déposer ou code ChordPro avec balises <code className="text-blue-400">[C]</code>
-                    </p>
-                  </div>
-                </button>
-
-                {/* Option 3: Shir.fr */}
-                <button
-                  onClick={() => handleOpenImport('shir')}
-                  className="w-full text-left px-3.5 py-2 hover:bg-[#1C1C1E] flex items-start gap-2.5 transition-colors group"
-                >
-                  <div className="p-1.5 rounded bg-[#1C1C1E] border border-[#333] text-blue-400 mt-0.5 group-hover:border-blue-500">
-                    <BookOpen className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="font-semibold text-white group-hover:text-blue-400">
-                      Coller depuis Shir.fr
-                    </div>
-                    <p className="text-[11px] text-gray-400 mt-0.5">
-                      Chants francophones & hébreux avec auto-formatage
-                    </p>
-                  </div>
-                </button>
-
-                {/* Option 4: Web Chords Sites */}
-                <button
-                  onClick={() => handleOpenImport('webchords')}
-                  className="w-full text-left px-3.5 py-2 hover:bg-[#1C1C1E] flex items-start gap-2.5 transition-colors group"
-                >
-                  <div className="p-1.5 rounded bg-[#1C1C1E] border border-[#333] text-blue-400 mt-0.5 group-hover:border-blue-500">
-                    <Globe className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="font-semibold text-white group-hover:text-blue-400">
-                      Sites d'accords comme Ultimate ou LaCuerda
-                    </div>
-                    <p className="text-[11px] text-gray-400 mt-0.5">
-                      Convertit automatiquement les accords superposés au-dessus des paroles
+                      Fichiers locaux ou saisie directe de paroles et accords
                     </p>
                   </div>
                 </button>
               </div>
             )}
           </div>
+
+          {/* Multi-selection toggle button */}
+          <button
+            type="button"
+            onClick={() => {
+              setIsMultiSelectMode(!isMultiSelectMode);
+              if (isMultiSelectMode) {
+                setSelectedSongIds([]);
+              }
+            }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold border transition-all cursor-pointer ${
+              isMultiSelectMode
+                ? 'bg-blue-600 text-white border-blue-500 shadow-sm'
+                : 'bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-200 border-[#333]'
+            }`}
+            title="Activer ou désactiver la sélection multiple"
+          >
+            <CheckSquare className="w-3.5 h-3.5 text-blue-400" />
+            <span className="hidden sm:inline">Sélection multiple</span>
+            <span className="sm:hidden">Sélection</span>
+            {selectedSongIds.length > 0 && (
+              <span className="ml-1 px-1.5 py-0.2 rounded-full bg-blue-500 text-white text-[10px] font-bold">
+                {selectedSongIds.length}
+              </span>
+            )}
+          </button>
 
           {/* Nouveau Chant */}
           {currentUser?.role === 'admin' && (
@@ -871,62 +1439,406 @@ export const SongList: React.FC = () => {
             )}
           </div>
 
-          {/* Key Filter */}
-          <div className="w-full md:w-auto h-[34px] flex items-center gap-1 sm:gap-1.5 text-xs text-gray-400 bg-[#1C1C1E] border border-[#333] hover:border-[#444] rounded-md px-2 sm:px-2.5 py-1 transition-colors">
-            <Music className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-            <span className="hidden lg:inline text-gray-400">Tonalité:</span>
-            <select
-              value={selectedKey}
-              onChange={(e) => setSelectedKey(e.target.value)}
-              className="w-full bg-transparent text-gray-200 text-[11px] sm:text-xs font-semibold focus:outline-none cursor-pointer truncate"
+          {/* Author Filter Dropdown */}
+          <div className="relative w-full md:w-auto min-w-0" ref={authorFilterRef}>
+            <div
+              onClick={() => setIsAuthorFilterOpen(!isAuthorFilterOpen)}
+              className={`h-[34px] w-full bg-[#1C1C1E] border hover:border-[#444] rounded-md px-2 sm:px-2.5 py-1 text-xs text-gray-200 cursor-pointer flex items-center justify-between gap-1 sm:gap-1.5 transition-colors ${
+                selectedAuthors.length > 0
+                  ? 'border-blue-500/50 bg-blue-950/20'
+                  : 'border-[#333]'
+              }`}
             >
-              <option value="all" className="bg-[#111112]">Toutes</option>
-              {availableKeys.map(k => (
-                <option key={k} value={k} className="bg-[#111112]">{k}</option>
-              ))}
-            </select>
+              <div className="flex items-center gap-1 sm:gap-1.5 min-w-0 truncate">
+                <User className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                {selectedAuthors.length === 0 ? (
+                  <span className="text-gray-300 truncate text-[11px] sm:text-xs">Auteurs</span>
+                ) : (
+                  <span className="text-blue-300 font-semibold truncate text-[11px] sm:text-xs">
+                    {selectedAuthors.length === 1 ? selectedAuthors[0] : `${selectedAuthors.length} aut.`}
+                  </span>
+                )}
+              </div>
+              
+              <ChevronDown className={`w-3 h-3 text-gray-400 shrink-0 transition-transform ml-0.5 ${isAuthorFilterOpen ? 'rotate-180' : ''}`} />
+            </div>
+
+            {/* Dropdown Popover */}
+            {isAuthorFilterOpen && (
+              <div className="absolute left-0 mt-1.5 w-72 sm:w-80 max-w-[calc(100vw-2rem)] bg-[#141416] border border-[#2A2A2D] rounded-lg shadow-2xl p-2.5 z-50 text-xs">
+                
+                {/* Header with Title & Selection Counter */}
+                <div className="flex items-center justify-between mb-2 px-0.5">
+                  <div className="flex items-center gap-1.5 font-semibold text-white text-xs">
+                    <User className="w-3.5 h-3.5 text-blue-400" />
+                    <span>Auteurs</span>
+                  </div>
+                  {selectedAuthors.length > 0 ? (
+                    <span className="text-[11px] text-blue-400 font-semibold">
+                      {selectedAuthors.length} sélectionné{selectedAuthors.length > 1 ? 's' : ''}
+                    </span>
+                  ) : (
+                    <span className="text-[11px] text-gray-500">Tous</span>
+                  )}
+                </div>
+
+                {/* Search Field */}
+                <div className="flex items-center gap-1.5 mb-2">
+                  <input
+                    type="text"
+                    placeholder="Rechercher un auteur..."
+                    value={authorFilterSearch}
+                    onChange={(e) => setAuthorFilterSearch(e.target.value)}
+                    className="flex-1 bg-[#1C1C1E] border border-[#333] rounded px-2.5 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                    autoFocus
+                  />
+                  {authorFilterSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setAuthorFilterSearch('')}
+                      className="text-gray-400 hover:text-white p-1"
+                      title="Effacer la recherche"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Author List with checkboxes */}
+                <div className="max-h-52 overflow-y-auto space-y-1 pr-1">
+                  {filteredAuthorsInDropdown.length === 0 ? (
+                    <div className="py-3 text-center text-gray-500 text-xs">
+                      Aucun auteur trouvé
+                    </div>
+                  ) : (
+                    filteredAuthorsInDropdown.map((authorItem) => {
+                      const isSelected = selectedAuthors.includes(authorItem.name);
+                      return (
+                        <div
+                          key={authorItem.name}
+                          onClick={() => toggleAuthorFilter(authorItem.name)}
+                          className={`flex items-center justify-between px-2.5 py-1.5 rounded cursor-pointer transition-colors ${
+                            isSelected
+                              ? 'bg-blue-600/15 text-blue-300 font-medium'
+                              : 'hover:bg-[#1C1C1E] text-gray-300'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 truncate pr-2">
+                            <span className="truncate">{authorItem.name}</span>
+                            {authorItem.count > 0 && (
+                              <span className="text-[10px] text-gray-400 bg-[#0A0A0B] px-1.5 py-0.2 rounded border border-[#222224]">
+                                {authorItem.count}
+                              </span>
+                            )}
+                          </div>
+                          <div className={`w-4 h-4 rounded shrink-0 flex items-center justify-center border transition-colors ${
+                            isSelected 
+                              ? 'bg-blue-600 border-blue-500 text-white' 
+                              : 'border-[#444] bg-[#1C1C1E]'
+                          }`}>
+                            {isSelected && <Check className="w-3 h-3 stroke-[2.5]" />}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Footer bar */}
+                <div className="flex items-center justify-between pt-2 mt-2 border-t border-[#222224]">
+                  {selectedAuthors.length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedAuthors([])}
+                      className="text-[11px] text-gray-400 hover:text-rose-400 transition-colors"
+                    >
+                      Tout désélectionner
+                    </button>
+                  ) : (
+                    <span />
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setIsAuthorFilterOpen(false)}
+                    className="px-3 py-1 rounded bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 text-[11px] font-medium border border-[#333] transition-colors"
+                  >
+                    Fermer
+                  </button>
+                </div>
+
+              </div>
+            )}
           </div>
 
-          {/* Language Filter */}
-          <div className="w-full md:w-auto h-[34px] flex items-center gap-1 sm:gap-1.5 text-xs text-gray-400 bg-[#1C1C1E] border border-[#333] hover:border-[#444] rounded-md px-2 sm:px-2.5 py-1 transition-colors">
-            <Globe className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-            <span className="hidden lg:inline text-gray-400">Langue:</span>
-            <select
-              value={selectedLanguage}
-              onChange={(e) => setSelectedLanguage(e.target.value)}
-              className="w-full bg-transparent text-gray-200 text-[11px] sm:text-xs font-semibold focus:outline-none cursor-pointer truncate"
+          {/* Key Filter Dropdown with Checkboxes */}
+          <div className="relative w-full md:w-auto min-w-0" ref={keyFilterRef}>
+            <div
+              onClick={() => setIsKeyFilterOpen(!isKeyFilterOpen)}
+              className={`h-[34px] w-full bg-[#1C1C1E] border hover:border-[#444] rounded-md px-2 sm:px-2.5 py-1 text-xs text-gray-200 cursor-pointer flex items-center justify-between gap-1 sm:gap-1.5 transition-colors ${
+                selectedKeys.length > 0
+                  ? 'border-amber-500/50 bg-amber-950/20'
+                  : 'border-[#333]'
+              }`}
             >
-              <option value="all" className="bg-[#111112]">Toutes les langues</option>
-              {availableLanguages.map(lang => (
-                <option key={lang} value={lang} className="bg-[#111112]">{lang}</option>
-              ))}
-            </select>
+              <div className="flex items-center gap-1 sm:gap-1.5 min-w-0 truncate">
+                <Music className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                {selectedKeys.length === 0 ? (
+                  <span className="text-gray-300 truncate text-[11px] sm:text-xs">Tonalités</span>
+                ) : (
+                  <span className="text-amber-300 font-semibold truncate text-[11px] sm:text-xs">
+                    {selectedKeys.length === 1 ? selectedKeys[0] : `${selectedKeys.length} ton.`}
+                  </span>
+                )}
+              </div>
+              
+              <ChevronDown className={`w-3 h-3 text-gray-400 shrink-0 transition-transform ml-0.5 ${isKeyFilterOpen ? 'rotate-180' : ''}`} />
+            </div>
+
+            {/* Dropdown Popover */}
+            {isKeyFilterOpen && (
+              <div className="absolute left-0 mt-1.5 w-64 sm:w-72 max-w-[calc(100vw-2rem)] bg-[#141416] border border-[#2A2A2D] rounded-lg shadow-2xl p-2.5 z-50 text-xs">
+                
+                {/* Header with Title & Selection Counter */}
+                <div className="flex items-center justify-between mb-2 px-0.5">
+                  <div className="flex items-center gap-1.5 font-semibold text-white text-xs">
+                    <Music className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Tonalités</span>
+                  </div>
+                  {selectedKeys.length > 0 ? (
+                    <span className="text-[11px] text-amber-400 font-semibold">
+                      {selectedKeys.length} sélectionnée{selectedKeys.length > 1 ? 's' : ''}
+                    </span>
+                  ) : (
+                    <span className="text-[11px] text-gray-500">Toutes</span>
+                  )}
+                </div>
+
+                {/* Search Field */}
+                <div className="flex items-center gap-1.5 mb-2">
+                  <input
+                    type="text"
+                    placeholder="Rechercher une tonalité..."
+                    value={keyFilterSearch}
+                    onChange={(e) => setKeyFilterSearch(e.target.value)}
+                    className="flex-1 bg-[#1C1C1E] border border-[#333] rounded px-2.5 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-amber-500"
+                    autoFocus
+                  />
+                  {keyFilterSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setKeyFilterSearch('')}
+                      className="text-gray-400 hover:text-white p-1"
+                      title="Effacer la recherche"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Keys List with checkboxes */}
+                <div className="max-h-52 overflow-y-auto space-y-1 pr-1">
+                  {filteredKeysInDropdown.length === 0 ? (
+                    <div className="py-3 text-center text-gray-500 text-xs">
+                      Aucune tonalité trouvée
+                    </div>
+                  ) : (
+                    filteredKeysInDropdown.map((keyItem) => {
+                      const isSelected = selectedKeys.includes(keyItem.name);
+                      return (
+                        <div
+                          key={keyItem.name}
+                          onClick={() => toggleKeyFilter(keyItem.name)}
+                          className={`flex items-center justify-between px-2.5 py-1.5 rounded cursor-pointer transition-colors ${
+                            isSelected
+                              ? 'bg-amber-500/15 text-amber-300 font-medium'
+                              : 'hover:bg-[#1C1C1E] text-gray-300'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 truncate pr-2">
+                            <span className="truncate font-semibold">{keyItem.name}</span>
+                            {keyItem.count > 0 && (
+                              <span className="text-[10px] text-gray-400 bg-[#0A0A0B] px-1.5 py-0.2 rounded border border-[#222224]">
+                                {keyItem.count}
+                              </span>
+                            )}
+                          </div>
+                          <div className={`w-4 h-4 rounded shrink-0 flex items-center justify-center border transition-colors ${
+                            isSelected 
+                              ? 'bg-amber-500 border-amber-400 text-black font-bold' 
+                              : 'border-[#444] bg-[#1C1C1E]'
+                          }`}>
+                            {isSelected && <Check className="w-3 h-3 stroke-[2.5]" />}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Footer bar */}
+                <div className="flex items-center justify-between pt-2 mt-2 border-t border-[#222224]">
+                  {selectedKeys.length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedKeys([])}
+                      className="text-[11px] text-gray-400 hover:text-rose-400 transition-colors"
+                    >
+                      Tout désélectionner
+                    </button>
+                  ) : (
+                    <span />
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setIsKeyFilterOpen(false)}
+                    className="px-3 py-1 rounded bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 text-[11px] font-medium border border-[#333] transition-colors"
+                  >
+                    Fermer
+                  </button>
+                </div>
+
+              </div>
+            )}
           </div>
 
-          {/* Sort By */}
-          <div className="w-full md:w-auto h-[34px] flex items-center gap-1 sm:gap-1.5 text-xs text-gray-400 bg-[#1C1C1E] border border-[#333] hover:border-[#444] rounded-md px-2 sm:px-2.5 py-1 transition-colors">
-            <SlidersHorizontal className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-            <span className="hidden lg:inline text-gray-400">Trier:</span>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
-              className="w-full bg-transparent text-gray-200 text-[11px] sm:text-xs font-semibold focus:outline-none cursor-pointer truncate"
+          {/* Language Filter Dropdown with Checkboxes */}
+          <div className="relative w-full md:w-auto min-w-0" ref={languageFilterRef}>
+            <div
+              onClick={() => setIsLanguageFilterOpen(!isLanguageFilterOpen)}
+              className={`h-[34px] w-full bg-[#1C1C1E] border hover:border-[#444] rounded-md px-2 sm:px-2.5 py-1 text-xs text-gray-200 cursor-pointer flex items-center justify-between gap-1 sm:gap-1.5 transition-colors ${
+                selectedLanguages.length > 0
+                  ? 'border-indigo-500/50 bg-indigo-950/20'
+                  : 'border-[#333]'
+              }`}
             >
-              <option value="title" className="bg-[#111112]">Titre A-Z</option>
-              <option value="artist" className="bg-[#111112]">Artiste</option>
-              <option value="tempo" className="bg-[#111112]">Tempo BPM</option>
-              <option value="duration" className="bg-[#111112]">Durée plus longs</option>
-              <option value="recent" className="bg-[#111112]">Plus récents</option>
-            </select>
+              <div className="flex items-center gap-1 sm:gap-1.5 min-w-0 truncate">
+                <Globe className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                {selectedLanguages.length === 0 ? (
+                  <span className="text-gray-300 truncate text-[11px] sm:text-xs">Langues</span>
+                ) : (
+                  <span className="text-indigo-300 font-semibold truncate text-[11px] sm:text-xs">
+                    {selectedLanguages.length === 1 ? selectedLanguages[0] : `${selectedLanguages.length} lang.`}
+                  </span>
+                )}
+              </div>
+              
+              <ChevronDown className={`w-3 h-3 text-gray-400 shrink-0 transition-transform ml-0.5 ${isLanguageFilterOpen ? 'rotate-180' : ''}`} />
+            </div>
+
+            {/* Dropdown Popover */}
+            {isLanguageFilterOpen && (
+              <div className="absolute left-0 mt-1.5 w-64 sm:w-72 max-w-[calc(100vw-2rem)] bg-[#141416] border border-[#2A2A2D] rounded-lg shadow-2xl p-2.5 z-50 text-xs">
+                
+                {/* Header with Title & Selection Counter */}
+                <div className="flex items-center justify-between mb-2 px-0.5">
+                  <div className="flex items-center gap-1.5 font-semibold text-white text-xs">
+                    <Globe className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>Langues</span>
+                  </div>
+                  {selectedLanguages.length > 0 ? (
+                    <span className="text-[11px] text-indigo-400 font-semibold">
+                      {selectedLanguages.length} sélectionnée{selectedLanguages.length > 1 ? 's' : ''}
+                    </span>
+                  ) : (
+                    <span className="text-[11px] text-gray-500">Toutes</span>
+                  )}
+                </div>
+
+                {/* Search Field */}
+                <div className="flex items-center gap-1.5 mb-2">
+                  <input
+                    type="text"
+                    placeholder="Rechercher une langue..."
+                    value={languageFilterSearch}
+                    onChange={(e) => setLanguageFilterSearch(e.target.value)}
+                    className="flex-1 bg-[#1C1C1E] border border-[#333] rounded px-2.5 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                    autoFocus
+                  />
+                  {languageFilterSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setLanguageFilterSearch('')}
+                      className="text-gray-400 hover:text-white p-1"
+                      title="Effacer la recherche"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Languages List with checkboxes */}
+                <div className="max-h-52 overflow-y-auto space-y-1 pr-1">
+                  {filteredLanguagesInDropdown.length === 0 ? (
+                    <div className="py-3 text-center text-gray-500 text-xs">
+                      Aucune langue trouvée
+                    </div>
+                  ) : (
+                    filteredLanguagesInDropdown.map((langItem) => {
+                      const isSelected = selectedLanguages.includes(langItem.name);
+                      return (
+                        <div
+                          key={langItem.name}
+                          onClick={() => toggleLanguageFilter(langItem.name)}
+                          className={`flex items-center justify-between px-2.5 py-1.5 rounded cursor-pointer transition-colors ${
+                            isSelected
+                              ? 'bg-indigo-600/15 text-indigo-300 font-medium'
+                              : 'hover:bg-[#1C1C1E] text-gray-300'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 truncate pr-2">
+                            <span className="truncate">{langItem.name}</span>
+                            {langItem.count > 0 && (
+                              <span className="text-[10px] text-gray-400 bg-[#0A0A0B] px-1.5 py-0.2 rounded border border-[#222224]">
+                                {langItem.count}
+                              </span>
+                            )}
+                          </div>
+                          <div className={`w-4 h-4 rounded shrink-0 flex items-center justify-center border transition-colors ${
+                            isSelected 
+                              ? 'bg-indigo-600 border-indigo-500 text-white' 
+                              : 'border-[#444] bg-[#1C1C1E]'
+                          }`}>
+                            {isSelected && <Check className="w-3 h-3 stroke-[2.5]" />}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Footer bar */}
+                <div className="flex items-center justify-between pt-2 mt-2 border-t border-[#222224]">
+                  {selectedLanguages.length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedLanguages([])}
+                      className="text-[11px] text-gray-400 hover:text-rose-400 transition-colors"
+                    >
+                      Tout désélectionner
+                    </button>
+                  ) : (
+                    <span />
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setIsLanguageFilterOpen(false)}
+                    className="px-3 py-1 rounded bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 text-[11px] font-medium border border-[#333] transition-colors"
+                  >
+                    Fermer
+                  </button>
+                </div>
+
+              </div>
+            )}
           </div>
 
-          {/* Mode d'affichage : Grille ou Liste Alphabétique */}
-          <div className="col-span-2 md:col-auto flex items-center justify-center bg-[#1C1C1E] border border-[#333] rounded-md p-0.5 h-[34px] shrink-0">
+          {/* Mode affichage: Grille ou Liste Alphabetique sur grand ecran */}
+          <div className="hidden md:flex items-center justify-center bg-[#1C1C1E] border border-[#333] rounded-md p-0.5 h-[34px] shrink-0">
             <button
               type="button"
               onClick={() => handleSetViewMode('grid')}
-              className={`flex-1 md:flex-initial px-2.5 h-full flex items-center justify-center rounded text-xs font-semibold transition-all ${
-                viewMode === 'grid'
+              className={`px-2.5 h-full flex items-center justify-center rounded text-xs font-semibold transition-all ${
+                effectiveViewMode === 'grid'
                   ? 'bg-blue-600 text-white shadow-xs'
                   : 'text-gray-400 hover:text-white'
               }`}
@@ -938,8 +1850,8 @@ export const SongList: React.FC = () => {
             <button
               type="button"
               onClick={() => handleSetViewMode('alphabetical')}
-              className={`flex-1 md:flex-initial px-2.5 h-full flex items-center justify-center rounded text-xs font-semibold transition-all ${
-                viewMode === 'alphabetical'
+              className={`px-2.5 h-full flex items-center justify-center rounded text-xs font-semibold transition-all ${
+                effectiveViewMode === 'alphabetical'
                   ? 'bg-blue-600 text-white shadow-xs'
                   : 'text-gray-400 hover:text-white'
               }`}
@@ -953,26 +1865,59 @@ export const SongList: React.FC = () => {
       </div>
 
       {/* Active Filter Chips Bar */}
-      {(selectedCategories.length > 0 || selectedLanguage !== 'all') && (
+      {(selectedCategories.length > 0 || selectedAuthors.length > 0 || selectedKeys.length > 0 || selectedLanguages.length > 0) && (
         <div className="flex items-center flex-wrap gap-1.5 mb-4 px-1">
-          {selectedLanguage !== 'all' && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-600/20 border border-indigo-500/40 text-indigo-300 text-xs font-medium">
-              <Globe className="w-3 h-3" />
-              <span>{selectedLanguage}</span>
-              <button
-                onClick={() => setSelectedLanguage('all')}
-                className="hover:text-white transition-colors"
-                title="Supprimer ce filtre de langue"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            </span>
+          {selectedKeys.length > 0 && (
+            <>
+              <span className="text-[11px] text-gray-400 flex items-center gap-1 mr-1">
+                <Music className="w-3 h-3 text-amber-400" />
+                <span>Tonalité{selectedKeys.length > 1 ? 's' : ''} :</span>
+              </span>
+              {selectedKeys.map((k) => (
+                <span
+                  key={k}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-medium"
+                >
+                  <span>{k}</span>
+                  <button
+                    onClick={() => toggleKeyFilter(k)}
+                    className="hover:text-white transition-colors"
+                    title="Supprimer ce filtre de tonalité"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              ))}
+            </>
+          )}
+          {selectedLanguages.length > 0 && (
+            <>
+              <span className="text-[11px] text-gray-400 flex items-center gap-1 mr-1 ml-1">
+                <Globe className="w-3 h-3 text-indigo-400" />
+                <span>Langue{selectedLanguages.length > 1 ? 's' : ''} :</span>
+              </span>
+              {selectedLanguages.map((lang) => (
+                <span
+                  key={lang}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-600/20 border border-indigo-500/40 text-indigo-300 text-xs font-medium"
+                >
+                  <span>{lang}</span>
+                  <button
+                    onClick={() => toggleLanguageFilter(lang)}
+                    className="hover:text-white transition-colors"
+                    title="Supprimer ce filtre de langue"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              ))}
+            </>
           )}
           {selectedCategories.length > 0 && (
             <>
-              <span className="text-[11px] text-gray-400 flex items-center gap-1 mr-1">
+              <span className="text-[11px] text-gray-400 flex items-center gap-1 mr-1 ml-1">
                 <Tag className="w-3 h-3 text-blue-400" />
-                <span>Filtre catégorie{selectedCategories.length > 1 ? 's' : ''} :</span>
+                <span>Catégorie{selectedCategories.length > 1 ? 's' : ''} :</span>
               </span>
               {selectedCategories.map((cat) => (
                 <span
@@ -991,10 +1936,35 @@ export const SongList: React.FC = () => {
               ))}
             </>
           )}
+          {selectedAuthors.length > 0 && (
+            <>
+              <span className="text-[11px] text-gray-400 flex items-center gap-1 mr-1 ml-1">
+                <User className="w-3 h-3 text-blue-400" />
+                <span>Auteur{selectedAuthors.length > 1 ? 's' : ''} :</span>
+              </span>
+              {selectedAuthors.map((author) => (
+                <span
+                  key={author}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-600/20 border border-blue-500/40 text-blue-300 text-xs font-medium"
+                >
+                  <span>{author}</span>
+                  <button
+                    onClick={() => toggleAuthorFilter(author)}
+                    className="hover:text-white transition-colors"
+                    title="Supprimer ce filtre d'auteur"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              ))}
+            </>
+          )}
           <button
             onClick={() => {
               setSelectedCategories([]);
-              setSelectedLanguage('all');
+              setSelectedAuthors([]);
+              setSelectedKeys([]);
+              setSelectedLanguages([]);
             }}
             className="text-[11px] text-gray-400 hover:text-white ml-2 underline"
           >
@@ -1009,12 +1979,12 @@ export const SongList: React.FC = () => {
           <Music className="w-10 h-10 text-gray-600 mx-auto mb-3" />
           <h3 className="text-sm font-bold text-gray-300">Aucun chant trouvé</h3>
           <p className="text-xs text-gray-500 mt-1 max-w-sm mx-auto">
-            {searchQuery || selectedKey !== 'all' || selectedCategories.length > 0
+            {searchQuery || selectedKeys.length > 0 || selectedLanguages.length > 0 || selectedCategories.length > 0 || selectedAuthors.length > 0
               ? "Essayez de modifier vos critères de recherche ou vos filtres."
               : "Commencez par ajouter votre premier chant ou charger les chants de démonstration."}
           </p>
         </div>
-      ) : viewMode === 'grid' ? (
+      ) : effectiveViewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {filteredSongs.map((song) => {
             return (
@@ -1027,7 +1997,18 @@ export const SongList: React.FC = () => {
                   {/* Card Header: Key / BPM / Duration / Language & Action Buttons */}
                   <div className="flex items-center justify-between gap-2 mb-2.5">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="px-2 py-0.5 rounded bg-[#1C1C1E] border border-[#333] text-gray-200 text-[11px] font-bold">
+                      <span
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleKeyFilter((song.key || 'C').toUpperCase());
+                        }}
+                        title={`Filtrer par la tonalité ${(song.key || 'C').toUpperCase()}`}
+                        className={`px-2 py-0.5 rounded border text-[11px] font-bold cursor-pointer transition-colors ${
+                          selectedKeys.includes((song.key || 'C').toUpperCase())
+                            ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
+                            : 'bg-[#1C1C1E] border-[#333] text-gray-200 hover:border-amber-500/40 hover:text-amber-300'
+                        }`}
+                      >
                         {song.key || 'C'}
                       </span>
                       {song.tempo && (
@@ -1132,9 +2113,22 @@ export const SongList: React.FC = () => {
 
                   {/* Title & Artist */}
                   <h3 className="text-sm font-bold text-white group-hover:text-blue-400 transition-colors line-clamp-1">
-                    {song.title}
+                    {stripParentheses(song.title)}
                   </h3>
-                  <p className="text-xs text-gray-400 font-medium line-clamp-1 mt-0.5">
+                  <p 
+                    onClick={(e) => {
+                      if (song.artist) {
+                        e.stopPropagation();
+                        toggleAuthorFilter(song.artist);
+                      }
+                    }}
+                    title={song.artist ? `Filtrer par ${song.artist}` : undefined}
+                    className={`text-xs font-medium line-clamp-1 mt-0.5 transition-colors cursor-pointer ${
+                      selectedAuthors.includes(song.artist) || sortBy === 'artist' 
+                        ? 'text-blue-400 font-semibold' 
+                        : 'text-gray-400 hover:text-blue-300'
+                    }`}
+                  >
                     {song.artist || 'Auteur inconnu'}
                   </p>
 
@@ -1257,176 +2251,203 @@ export const SongList: React.FC = () => {
                 className="scroll-mt-24"
               >
                 {/* Sticky Letter Header */}
-                <div className="sticky top-16 z-20 py-1.5 px-3 bg-[#0A0A0B]/95 backdrop-blur-md border-b border-[#222224] flex items-center mb-2 rounded-lg">
-                  <span className="w-7 h-7 rounded-md bg-blue-600 text-white font-black text-sm flex items-center justify-center shadow-xs">
-                    {group.letter}
-                  </span>
+                <div className="sticky top-16 z-20 py-1.5 px-3 bg-[#0A0A0B]/95 backdrop-blur-md border-b border-[#222224] flex items-center justify-between mb-2 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <span className="w-7 h-7 rounded-md bg-blue-600 text-white font-black text-sm flex items-center justify-center shadow-xs">
+                      {group.letter}
+                    </span>
+                    {sortBy === 'artist' && (
+                      <span className="text-xs text-gray-400 font-medium">
+                        Auteurs commençant par {group.letter}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
-                {/* 1-column list of songs */}
-                <div className="space-y-1.5">
+                {/* List of songs */}
+                <div className="space-y-3">
                   {group.songs.map((song) => {
                     const isConfirming = confirmDeleteSongId === song.id;
                     return (
                       <div
                         key={song.id}
+                        id={`song-card-${song.id}`}
                         onClick={() => handleOpenStage(song)}
-                        className="group bg-[#111112] hover:bg-[#161619] border border-[#222224] hover:border-blue-500/40 rounded-lg p-3 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 cursor-pointer shadow-xs"
+                        className="group relative bg-[#111112] hover:bg-[#151518] border border-[#222224] hover:border-blue-500/40 rounded-lg p-4 transition-all flex flex-col justify-between cursor-pointer shadow-sm hover:shadow-md"
                       >
-                        {/* Song details */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <h3 className="text-sm font-bold text-white group-hover:text-blue-400 transition-colors">
-                              {song.title}
-                            </h3>
-                            {song.artist && (
-                              <span className="text-xs text-gray-400">
-                                — {song.artist}
+                        <div>
+                          {/* Entête de carte : Tonalité / BPM / Durée et Boutons d'actions */}
+                          <div className="flex items-center justify-between gap-2 mb-2.5">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleKeyFilter((song.key || 'C').toUpperCase());
+                                }}
+                                title={`Filtrer par la tonalité ${(song.key || 'C').toUpperCase()}`}
+                                className={`px-2 py-0.5 rounded border text-[11px] font-bold cursor-pointer transition-colors ${
+                                  selectedKeys.includes((song.key || 'C').toUpperCase())
+                                    ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
+                                    : 'bg-[#1C1C1E] border-[#333] text-gray-200 hover:border-amber-500/40 hover:text-amber-300'
+                                }`}
+                              >
+                                {song.key || 'C'}
                               </span>
-                            )}
-                          </div>
+                              {song.tempo && (
+                                <span className="px-1.5 py-0.5 rounded bg-[#1C1C1E] border border-[#222224] text-gray-400 text-[10px] font-medium flex items-center gap-1">
+                                  <Gauge className="w-2.5 h-2.5 text-blue-400" />
+                                  {song.tempo}
+                                </span>
+                              )}
+                              {getSongDuration(song) ? (
+                                <span className="px-1.5 py-0.5 rounded bg-cyan-950/50 border border-cyan-500/30 text-cyan-300 text-[10px] font-medium flex items-center gap-1 font-mono shadow-sm">
+                                  <Clock className="w-2.5 h-2.5 text-cyan-400" />
+                                  {getSongDuration(song)}
+                                </span>
+                              ) : null}
+                            </div>
 
-                          {/* Categories */}
-                          {song.tags && song.tags.length > 0 && (
-                            <div className="flex flex-wrap items-center gap-1 mt-1.5" data-category-bubble>
-                              {song.tags.map((cat, idx) => {
-                                const isFiltered = selectedCategories.includes(cat);
-                                return (
-                                  <button
-                                    key={idx}
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      toggleCategoryFilter(cat);
-                                    }}
-                                    className={`text-[10px] px-2 py-0.5 rounded border transition-colors flex items-center gap-1 ${
-                                      isFiltered
-                                        ? 'bg-blue-600/20 text-blue-300 border-blue-500/40 font-semibold'
-                                        : 'bg-[#1C1C1E] border-[#222224] text-gray-400 hover:text-gray-200 hover:border-[#333]'
-                                    }`}
-                                    title={`Filtrer par la catégorie "${cat}"`}
-                                  >
-                                    <Tag className="w-2.5 h-2.5 text-blue-400" />
-                                    <span>{cat}</span>
-                                  </button>
-                                );
-                              })}
+                            {/* Boutons d'actions rapides en haut à droite */}
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setLanguageModalSong(song);
+                                }}
+                                className="p-1.5 rounded bg-[#1C1C1E] hover:bg-[#252528] text-gray-300 hover:text-indigo-400 border border-[#333] hover:border-indigo-500/40 transition-colors flex items-center justify-center cursor-pointer"
+                                title="Gérer les langues et versions liées"
+                                aria-label="Versions et langues"
+                              >
+                                <Globe className="w-3.5 h-3.5 text-indigo-400" />
+                              </button>
 
                               <button
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setOpenCategorySongId(song.id);
-                                  setDeletingCatName(null);
-                                  setQuickCatInput('');
-                                  setQuickCatSearch('');
+                                  setAddToSetlistSong(song);
+                                  setSelectedSetlistIds(
+                                    setlists.filter(st => st.songIds.includes(song.id)).map(st => st.id)
+                                  );
+                                  setSetlistSearchQuery('');
+                                  setIsCreatingNewSetlist(false);
+                                  setNewSetlistName('');
+                                  setNewSetlistDate(new Date().toISOString().split('T')[0]);
                                 }}
-                                className="text-[10px] p-1 rounded border transition-all flex items-center justify-center cursor-pointer bg-[#1C1C1E] border-[#222224] text-gray-400 hover:text-blue-400 hover:border-blue-500/40"
-                                title="Gérer les catégories de ce chant"
-                                aria-label="Gérer les catégories de ce chant"
+                                className="p-1.5 rounded bg-[#1C1C1E] hover:bg-[#252528] text-gray-300 hover:text-blue-400 border border-[#333] hover:border-blue-500/40 transition-colors flex items-center justify-center cursor-pointer"
+                                title="Ajouter ou gérer dans vos setlists"
+                                aria-label="Setlist"
                               >
-                                <Pen className="w-3 h-3" />
+                                <ListPlus className="w-3.5 h-3.5 text-blue-400" />
                               </button>
-                            </div>
-                          )}
-                        </div>
 
-                        {/* Badges & Actions */}
-                        <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                          <div className="flex items-center gap-1.5">
-                            <span className="px-2 py-0.5 rounded bg-[#1C1C1E] border border-[#333] text-gray-200 text-[11px] font-bold">
-                              {song.key || 'C'}
-                            </span>
-                            {song.tempo && (
-                              <span className="px-1.5 py-0.5 rounded bg-[#1C1C1E] border border-[#222224] text-gray-400 text-[10px] font-medium flex items-center gap-1">
-                                <Gauge className="w-2.5 h-2.5 text-blue-400" />
-                                {song.tempo}
-                              </span>
-                            )}
-                            {getSongDuration(song) ? (
-                              <span className="px-1.5 py-0.5 rounded bg-cyan-950/50 border border-cyan-500/30 text-cyan-300 text-[10px] font-medium flex items-center gap-1 font-mono shadow-sm">
-                                <Clock className="w-2.5 h-2.5 text-cyan-400" />
-                                {getSongDuration(song)}
-                              </span>
-                            ) : null}
+                              {currentUser?.role === 'admin' && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleEditSong(song);
+                                    }}
+                                    className="p-1.5 rounded bg-[#1C1C1E] hover:bg-[#252528] text-gray-300 hover:text-amber-400 border border-[#333] hover:border-amber-500/40 transition-colors flex items-center justify-center cursor-pointer"
+                                    title="Éditer le chant"
+                                    aria-label="Éditer"
+                                  >
+                                    <FileEdit className="w-3.5 h-3.5 text-amber-400" />
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (isConfirming) {
+                                        deleteSong(song.id);
+                                        setConfirmDeleteSongId(null);
+                                      } else {
+                                        setConfirmDeleteSongId(song.id);
+                                      }
+                                    }}
+                                    className={`p-1.5 rounded transition-all flex items-center justify-center cursor-pointer ${
+                                      isConfirming
+                                        ? 'bg-rose-600 hover:bg-rose-700 text-white border border-rose-500 shadow-sm animate-pulse'
+                                        : 'bg-[#1C1C1E] hover:bg-rose-500/20 text-gray-400 hover:text-rose-400 border border-[#333] hover:border-rose-500/40'
+                                    }`}
+                                    title={isConfirming ? "Confirmer la suppression" : "Supprimer le chant"}
+                                    aria-label={isConfirming ? "Confirmer la suppression" : "Supprimer"}
+                                  >
+                                    {isConfirming ? (
+                                      <Check className="w-3.5 h-3.5 text-white" />
+                                    ) : (
+                                      <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                                    )}
+                                  </button>
+                                </>
+                              )}
+                            </div>
                           </div>
 
-                          <div className="flex items-center gap-1 border-l border-[#222224] pl-2">
-                            <button
-                              type="button"
-                              onClick={(e) => {
+                          {/* Titre et Artiste */}
+                          <h3 className="text-sm font-bold text-white group-hover:text-blue-400 transition-colors line-clamp-1">
+                            {stripParentheses(song.title)}
+                          </h3>
+                          <p 
+                            onClick={(e) => {
+                              if (song.artist) {
                                 e.stopPropagation();
-                                setLanguageModalSong(song);
-                              }}
-                              className="p-1.5 rounded bg-[#1C1C1E] hover:bg-[#252528] text-gray-300 hover:text-indigo-400 border border-[#333] hover:border-indigo-500/40 transition-colors flex items-center justify-center cursor-pointer"
-                              title="Gérer les langues et versions liées"
-                              aria-label="Versions et langues"
-                            >
-                              <Globe className="w-3.5 h-3.5 text-indigo-400" />
-                            </button>
+                                toggleAuthorFilter(song.artist);
+                              }
+                            }}
+                            title={song.artist ? `Filtrer par ${song.artist}` : undefined}
+                            className={`text-xs font-medium line-clamp-1 mt-0.5 transition-colors cursor-pointer ${
+                              selectedAuthors.includes(song.artist) || sortBy === 'artist' 
+                                ? 'text-blue-400 font-semibold' 
+                                : 'text-gray-400 hover:text-blue-300'
+                            }`}
+                          >
+                            {song.artist || 'Auteur inconnu'}
+                          </p>
 
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setAddToSetlistSong(song);
-                                setSelectedSetlistIds(
-                                  setlists.filter(st => st.songIds.includes(song.id)).map(st => st.id)
-                                );
-                                setSetlistSearchQuery('');
-                                setIsCreatingNewSetlist(false);
-                                setNewSetlistName('');
-                                setNewSetlistDate(new Date().toISOString().split('T')[0]);
-                              }}
-                              className="p-1.5 rounded bg-[#1C1C1E] hover:bg-[#252528] text-gray-300 hover:text-blue-400 border border-[#333] hover:border-blue-500/40 transition-colors flex items-center justify-center cursor-pointer"
-                              title="Ajouter ou gérer dans vos setlists"
-                              aria-label="Setlist"
-                            >
-                              <ListPlus className="w-3.5 h-3.5 text-blue-400" />
-                            </button>
-
-                            {currentUser?.role === 'admin' && (
-                              <>
+                          {/* Catégories et Bouton Crayon */}
+                          <div className="flex flex-wrap items-center gap-1 mt-2.5 relative" data-category-bubble>
+                            {song.tags && song.tags.map((cat, idx) => {
+                              const isFiltered = selectedCategories.includes(cat);
+                              return (
                                 <button
+                                  key={idx}
                                   type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleEditSong(song);
+                                    toggleCategoryFilter(cat);
                                   }}
-                                  className="p-1.5 rounded bg-[#1C1C1E] hover:bg-[#252528] text-gray-300 hover:text-amber-400 border border-[#333] hover:border-amber-500/40 transition-colors flex items-center justify-center cursor-pointer"
-                                  title="Éditer le chant"
-                                  aria-label="Éditer"
-                                >
-                                  <FileEdit className="w-3.5 h-3.5 text-amber-400" />
-                                </button>
-
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (isConfirming) {
-                                      deleteSong(song.id);
-                                      setConfirmDeleteSongId(null);
-                                    } else {
-                                      setConfirmDeleteSongId(song.id);
-                                    }
-                                  }}
-                                  className={`p-1.5 rounded transition-all flex items-center justify-center cursor-pointer ${
-                                    isConfirming
-                                      ? 'bg-rose-600 hover:bg-rose-700 text-white border border-rose-500 shadow-sm animate-pulse'
-                                      : 'bg-[#1C1C1E] hover:bg-rose-500/20 text-gray-400 hover:text-rose-400 border border-[#333] hover:border-rose-500/40'
+                                  className={`text-[10px] px-2 py-0.5 rounded border transition-colors flex items-center gap-1 ${
+                                    isFiltered
+                                      ? 'bg-blue-600/20 text-blue-300 border-blue-500/40 font-semibold'
+                                      : 'bg-[#1C1C1E] border-[#222224] text-gray-400 hover:text-gray-200 hover:border-[#333]'
                                   }`}
-                                  title={isConfirming ? "Confirmer la suppression" : "Supprimer le chant"}
-                                  aria-label={isConfirming ? "Confirmer la suppression" : "Supprimer"}
+                                  title={`Filtrer par la catégorie ${cat}`}
                                 >
-                                  {isConfirming ? (
-                                    <Check className="w-3.5 h-3.5 text-white" />
-                                  ) : (
-                                    <Trash2 className="w-3.5 h-3.5 text-rose-400" />
-                                  )}
+                                  <Tag className="w-2.5 h-2.5 text-blue-400" />
+                                  <span>{cat}</span>
                                 </button>
-                              </>
-                            )}
+                              );
+                            })}
+
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenCategorySongId(song.id);
+                                setDeletingCatName(null);
+                                setQuickCatInput('');
+                                setQuickCatSearch('');
+                              }}
+                              className="text-[10px] p-1 rounded border transition-all flex items-center justify-center cursor-pointer bg-[#1C1C1E] border-[#222224] text-gray-400 hover:text-blue-400 hover:border-blue-500/40"
+                              title="Gérer les catégories de ce chant"
+                              aria-label="Gérer les catégories de ce chant"
+                            >
+                              <Pen className="w-3 h-3" />
+                            </button>
                           </div>
                         </div>
                       </div>
@@ -2021,10 +3042,16 @@ export const SongList: React.FC = () => {
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
         onImportSong={async (songData) => {
-          await createSong(songData);
+          const newId = await importSong(songData);
+          setSearchQuery('');
+          setSelectedCategories([]);
+          setSelectedAuthors([]);
+          setSelectedKeys([]);
+          setSelectedLanguages([]);
+          return newId;
         }}
         onImportAndEdit={async (songData) => {
-          const newId = await createSong(songData);
+          const newId = await importSong(songData);
           const createdSong: Song = {
             ...songData,
             id: newId,
@@ -2032,6 +3059,11 @@ export const SongList: React.FC = () => {
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
           };
+          setSearchQuery('');
+          setSelectedCategories([]);
+          setSelectedAuthors([]);
+          setSelectedKeys([]);
+          setSelectedLanguages([]);
           setSelectedSong(createdSong);
           setActiveTab('editor');
         }}

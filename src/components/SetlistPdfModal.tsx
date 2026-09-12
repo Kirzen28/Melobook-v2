@@ -114,11 +114,11 @@ export const SetlistPdfModal: React.FC<SetlistPdfModalProps> = ({ setlist, songs
   // Copy plain text summary for chat apps
   const handleCopyTextSummary = () => {
     const totalSecs = setlistSongs.reduce((acc, s) => acc + parseDurationToSeconds(s), 0);
-    const durationHeader = totalSecs > 0 ? `Durée totale : ${formatSetlistDuration(totalSecs)}` : `Durée est. : ${setlist.targetDuration || 25} min`;
+    const durationHeader = totalSecs > 0 ? ` | Durée : ${formatSetlistDuration(totalSecs)}` : '';
 
     const lines = [
       `🎵 SETLIST : ${setlist.name.toUpperCase()}`,
-      `📅 Date : ${setlist.date || 'Non spécifiée'} | ${durationHeader}`,
+      `📅 Date : ${setlist.date || 'Non spécifiée'}${durationHeader}`,
       `\n📋 PROGRAMME : ${setlistSongs.length} chants`,
       ...setlistSongs.map((s, i) => {
         const songDur = getSongDuration(s);

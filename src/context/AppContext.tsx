@@ -32,6 +32,12 @@ import {
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { SAMPLE_SONGS, SAMPLE_SETLISTS } from '../data/sampleSongs';
 import { getSongDuration } from '../utils/chordUtils';
+import { 
+  registerServiceWorker, 
+  cacheSongInWorker, 
+  cacheSetlistInWorker, 
+  cacheAllDataInWorker 
+} from '../utils/pwaCache';
 
 const DEFAULT_GROUP: Group = {
   id: 'default-group',
@@ -53,7 +59,8 @@ const DEFAULT_STAGE_SETTINGS: StageSettings = {
   theme: 'dark',
   capo: 0,
   showMetronome: false,
-  soundMetronome: false
+  soundMetronome: false,
+  showBatteryIndicator: true
 };
 
 interface AppContextType {
@@ -88,6 +95,7 @@ interface AppContextType {
   
   // Actions
   createSong: (songData: Omit<Song, 'id' | 'groupId' | 'createdAt' | 'updatedAt'>) => Promise<string>;
+  importSong: (songData: Omit<Song, 'id' | 'groupId' | 'createdAt' | 'updatedAt'>) => Promise<string>;
   updateSong: (id: string, songData: Partial<Song>) => Promise<void>;
   deleteSong: (id: string) => Promise<void>;
   linkSongs: (songId1: string, songId2: string) => Promise<void>;
@@ -129,44 +137,82 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return {
       uid: 'demo-admin-uid',
       email: 'musicien@songbook.pro',
-      displayName: 'Alexandre (Chef de Louange)',
+      displayName: 'Alexandre',
       currentGroupId: 'default-group',
       role: 'admin'
     };
   });
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
+  // Helper to read deleted item IDs so sample items are not restored if explicitly deleted by user
+  const getDeletedSongIds = (): Set<string> => {
+    if (typeof window === 'undefined') return new Set();
+    try {
+      const raw = localStorage.getItem('songbook_deleted_song_ids');
+      return new Set(raw ? JSON.parse(raw) : []);
+    } catch {
+      return new Set();
+    }
+  };
+
+  const getDeletedSetlistIds = (): Set<string> => {
+    if (typeof window === 'undefined') return new Set();
+    try {
+      const raw = localStorage.getItem('songbook_deleted_setlist_ids');
+      return new Set(raw ? JSON.parse(raw) : []);
+    } catch {
+      return new Set();
+    }
+  };
+
   // Groups & Data
   const [groups, setGroups] = useState<Group[]>([DEFAULT_GROUP]);
   const [currentGroup, setCurrentGroup] = useState<Group | null>(DEFAULT_GROUP);
   const [songs, setSongs] = useState<Song[]>(() => {
+    const deletedIds = getDeletedSongIds();
     const saved = localStorage.getItem('songbook_cached_songs');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map((s: Song) => {
+          const loaded = parsed.map((s: Song) => {
             const resolvedDuration = s.duration || getSongDuration(s) || SAMPLE_SONGS.find(sm => sm.id === s.id || sm.title.toLowerCase() === s.title?.toLowerCase())?.duration;
             return resolvedDuration ? { ...s, duration: resolvedDuration } : s;
           });
+          const missingSamples = SAMPLE_SONGS.filter(sm => !deletedIds.has(sm.id) && !loaded.some((ls: Song) => ls.id === sm.id));
+          return [...loaded, ...missingSamples];
         }
       } catch (e) {}
     }
-    return SAMPLE_SONGS;
+    return SAMPLE_SONGS.filter(sm => !deletedIds.has(sm.id));
   });
   const [setlists, setSetlists] = useState<Setlist[]>(() => {
+    const deletedSetlistIds = getDeletedSetlistIds();
     const saved = localStorage.getItem('songbook_cached_setlists');
     if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const missingSamples = SAMPLE_SETLISTS.filter(st => !deletedSetlistIds.has(st.id) && !parsed.some((ps: Setlist) => ps.id === st.id));
+          return [...parsed, ...missingSamples];
+        }
+      } catch (e) {}
     }
-    return SAMPLE_SETLISTS;
+    return SAMPLE_SETLISTS.filter(st => !deletedSetlistIds.has(st.id));
   });
 
   // Stage view custom settings
   const [stageSettings, setStageSettings] = useState<StageSettings>(() => {
     const saved = localStorage.getItem('songbook_stage_settings');
     if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
+      try {
+        const parsed = JSON.parse(saved);
+        return {
+          ...DEFAULT_STAGE_SETTINGS,
+          ...parsed,
+          showBatteryIndicator: parsed.showBatteryIndicator !== undefined ? parsed.showBatteryIndicator : true
+        };
+      } catch (e) {}
     }
     return DEFAULT_STAGE_SETTINGS;
   });
@@ -256,12 +302,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     window.addEventListener('beforeinstallprompt', handleBeforeInstall);
 
-    // Register Service Worker
-    if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
-      navigator.serviceWorker.register('/sw.js').catch(err => {
-        console.log('SW registration error:', err);
-      });
-    }
+    // Register Service Worker pour acces complet hors-ligne
+    registerServiceWorker();
 
     return () => {
       window.removeEventListener('online', handleOnline);
@@ -269,6 +311,55 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
     };
   }, []);
+
+  // Mise en cache du chant consulte
+  useEffect(() => {
+    if (selectedSong) {
+      cacheSongInWorker(selectedSong);
+    }
+  }, [selectedSong]);
+
+  // Mise en cache de la setlist consultee et de ses partitions
+  useEffect(() => {
+    if (selectedSetlist) {
+      const setlistSongs = selectedSetlist.songIds
+        .map(id => songs.find(s => s.id === id))
+        .filter((s): s is Song => Boolean(s));
+      cacheSetlistInWorker(selectedSetlist, setlistSongs);
+    }
+  }, [selectedSetlist, songs]);
+
+  // Sauvegarde globale de l ensemble du repertoire dans le cache du service worker
+  useEffect(() => {
+    if (songs.length > 0 || setlists.length > 0) {
+      cacheAllDataInWorker(songs, setlists);
+    }
+  }, [songs, setlists]);
+
+  // Deep linking for song shared via QR Code or direct link
+  useEffect(() => {
+    if (typeof window === 'undefined' || songs.length === 0) return;
+
+    try {
+      const params = new URLSearchParams(window.location.search);
+      let targetSongId = params.get('songId') || params.get('song');
+
+      if (!targetSongId && window.location.hash) {
+        const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+        targetSongId = hashParams.get('songId') || hashParams.get('song');
+      }
+
+      if (targetSongId) {
+        const found = songs.find(s => s.id === targetSongId);
+        if (found) {
+          setSelectedSong(found);
+          setActiveTab('stage');
+        }
+      }
+    } catch (e) {
+      console.error('Erreur lecture lien direct chant :', e);
+    }
+  }, [songs]);
 
   const promptInstall = useCallback(() => {
     if (deferredInstallPrompt) {
@@ -378,23 +469,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // 1. Sync Songs
     const qSongs = query(collection(db, 'songs'), where('groupId', '==', targetGroupId));
     const unsubSongs = onSnapshot(qSongs, (snapshot) => {
+      const deletedIds = getDeletedSongIds();
+      const loadedSongs: Song[] = [];
       if (!snapshot.empty) {
-        const loadedSongs: Song[] = [];
         snapshot.forEach((d) => {
           const raw = { id: d.id, ...d.data() } as Song;
           const resolvedDuration = raw.duration || getSongDuration(raw) || SAMPLE_SONGS.find(sm => sm.id === raw.id || sm.title.toLowerCase() === raw.title?.toLowerCase())?.duration;
           loadedSongs.push(resolvedDuration ? { ...raw, duration: resolvedDuration } : raw);
         });
-        setSongs(loadedSongs);
-        if (selectedSong && !loadedSongs.find(s => s.id === selectedSong.id)) {
-          setSelectedSong(loadedSongs[0] || null);
-        }
-      } else {
-        // If empty in Firestore for default group, use sample data
-        if (targetGroupId === 'default-group' && songs.length === 0) {
-          setSongs(SAMPLE_SONGS);
-        }
       }
+
+      setSongs(prev => {
+        const songMap = new Map<string, Song>();
+
+        // 1. Preserve all existing songs already in state
+        prev.forEach(s => {
+          if (!deletedIds.has(s.id)) {
+            songMap.set(s.id, s);
+          }
+        });
+
+        // 2. Add or update songs loaded from Firestore
+        loadedSongs.forEach(s => {
+          if (!deletedIds.has(s.id)) {
+            songMap.set(s.id, s);
+          }
+        });
+
+        // 3. For default group, make sure sample songs remain present
+        if (targetGroupId === 'default-group') {
+          SAMPLE_SONGS.forEach(s => {
+            if (!deletedIds.has(s.id) && !songMap.has(s.id)) {
+              songMap.set(s.id, s);
+            }
+          });
+        }
+
+        const merged = Array.from(songMap.values());
+        return merged;
+      });
     }, (error) => {
       console.warn('Firestore songs snapshot notice:', error.message);
     });
@@ -402,15 +515,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // 2. Sync Setlists
     const qSetlists = query(collection(db, 'setlists'), where('groupId', '==', targetGroupId));
     const unsubSetlists = onSnapshot(qSetlists, (snapshot) => {
+      const deletedSetlistIds = getDeletedSetlistIds();
+      const loadedSetlists: Setlist[] = [];
       if (!snapshot.empty) {
-        const loadedSetlists: Setlist[] = [];
         snapshot.forEach((d) => {
           loadedSetlists.push({ id: d.id, ...d.data() } as Setlist);
         });
-        setSetlists(loadedSetlists);
-      } else if (targetGroupId === 'default-group' && setlists.length === 0) {
-        setSetlists(SAMPLE_SETLISTS);
       }
+
+      setSetlists(prev => {
+        const setlistMap = new Map<string, Setlist>();
+
+        // 1. Preserve existing setlists in state
+        prev.forEach(st => {
+          if (!deletedSetlistIds.has(st.id)) {
+            setlistMap.set(st.id, st);
+          }
+        });
+
+        // 2. Add or update setlists from Firestore
+        loadedSetlists.forEach(st => {
+          if (!deletedSetlistIds.has(st.id)) {
+            setlistMap.set(st.id, st);
+          }
+        });
+
+        // 3. For default group, ensure sample setlists remain present
+        if (targetGroupId === 'default-group') {
+          SAMPLE_SETLISTS.forEach(st => {
+            if (!deletedSetlistIds.has(st.id) && !setlistMap.has(st.id)) {
+              setlistMap.set(st.id, st);
+            }
+          });
+        }
+
+        return Array.from(setlistMap.values());
+      });
     }, (error) => {
       console.warn('Firestore setlists snapshot notice:', error.message);
     });
@@ -475,8 +615,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updatedAt: new Date().toISOString()
     };
 
-    // Optimistic local update
-    setSongs(prev => [newSong, ...prev]);
+    // Optimistic local update: explicitly add to existing library without replacing
+    setSongs(prev => {
+      const filtered = prev.filter(s => s.id !== newId);
+      return [newSong, ...filtered];
+    });
     setSelectedSong(newSong);
 
     // Save to Firestore
@@ -489,6 +632,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     return newId;
   }, [currentGroup?.id]);
+
+  // Dedicated importSong action that explicitly appends imported songs to the existing library
+  const importSong = useCallback(async (songData: Omit<Song, 'id' | 'groupId' | 'createdAt' | 'updatedAt'>) => {
+    return await createSong(songData);
+  }, [createSong]);
 
   const updateSong = useCallback(async (id: string, songData: Partial<Song>) => {
     // Optimistic local update
@@ -506,6 +654,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [selectedSong?.id]);
 
   const deleteSong = useCallback(async (id: string) => {
+    try {
+      const currentDeleted = new Set<string>(JSON.parse(localStorage.getItem('songbook_deleted_song_ids') || '[]'));
+      currentDeleted.add(id);
+      localStorage.setItem('songbook_deleted_song_ids', JSON.stringify(Array.from(currentDeleted)));
+    } catch (e) {}
+
     setSongs(prev => prev.filter(s => s.id !== id));
     if (selectedSong?.id === id) {
       setSelectedSong(songs.find(s => s.id !== id) || null);
@@ -714,6 +868,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [selectedSetlist?.id]);
 
   const deleteSetlist = useCallback(async (id: string) => {
+    try {
+      const currentDeleted = new Set<string>(JSON.parse(localStorage.getItem('songbook_deleted_setlist_ids') || '[]'));
+      currentDeleted.add(id);
+      localStorage.setItem('songbook_deleted_setlist_ids', JSON.stringify(Array.from(currentDeleted)));
+    } catch (e) {}
+
     setSetlists(prev => prev.filter(st => st.id !== id));
     if (selectedSetlist?.id === id) {
       setSelectedSetlist(null);
@@ -918,6 +1078,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       isInstallable,
       promptInstall,
       createSong,
+      importSong,
       updateSong,
       deleteSong,
       linkSongs,

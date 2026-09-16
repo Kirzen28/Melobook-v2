@@ -25,6 +25,11 @@ service cloud.firestore {
     match /setlists/{setlistId} {
       allow read, write: if true;
     }
+
+    // Setlist history collection
+    match /setlist_history/{historyId} {
+      allow read, write: if true;
+    }
   }
 }
 

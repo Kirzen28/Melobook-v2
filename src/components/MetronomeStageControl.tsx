@@ -24,6 +24,8 @@ interface MetronomeStageControlProps {
   onTimeSignatureChange?: (signature: string) => void;
   className?: string;
   songTitle?: string;
+  readOnly?: boolean;
+  onOpenSettings?: () => void;
 }
 
 const PRESET_SIGNATURES = [
@@ -50,7 +52,9 @@ export const MetronomeStageControl: React.FC<MetronomeStageControlProps> = ({
   onBpmChange,
   onTimeSignatureChange,
   className = '',
-  songTitle
+  songTitle,
+  readOnly = false,
+  onOpenSettings
 }) => {
   const [bpm, setBpm] = useState<number>(initialBpm || 120);
   const [timeSignature, setTimeSignature] = useState<string>(initialTimeSignature || '4/4');
@@ -221,41 +225,69 @@ export const MetronomeStageControl: React.FC<MetronomeStageControlProps> = ({
           )}
         </button>
 
-        {/* BPM interactif */}
-        <div className="flex items-center gap-1">
-          <Gauge className={`w-3.5 h-3.5 ${isPlaying ? 'text-emerald-400' : 'text-emerald-500/80'} shrink-0`} />
-          <span className="text-emerald-400/90 font-medium text-xs hidden sm:inline">Métronome :</span>
-          <input
-            type="number"
-            min={30}
-            max={280}
-            value={bpm}
-            onChange={(e) => {
-              const val = parseInt(e.target.value, 10);
-              if (!isNaN(val)) handleBpmUpdate(val);
-            }}
-            className="w-11 bg-[#18181C] hover:bg-[#202026] text-emerald-400 font-bold font-mono text-xs border border-emerald-500/40 focus:border-emerald-400 rounded px-1 py-0.5 text-center focus:outline-none transition-colors"
-            title="Cliquer pour ajuster le tempo (BPM)"
-          />
-          <span className="text-[10px] text-gray-400 font-mono">BPM</span>
-        </div>
-
-        {/* Signature rythmique active */}
-        <div className="flex items-center gap-1 border-l border-[#242428] pl-2">
-          <Music2 className="w-3.5 h-3.5 text-purple-400 shrink-0" />
-          <select
-            value={timeSignature}
-            onChange={(e) => handleSignatureUpdate(e.target.value)}
-            className="bg-[#18181C] hover:bg-[#202026] text-purple-300 font-bold font-mono text-xs border border-purple-500/30 focus:border-purple-400 rounded py-0.5 px-1 cursor-pointer focus:outline-none transition-colors"
-            title="Signature rythmique"
+        {/* BPM interactif ou lecture seule */}
+        {readOnly ? (
+          <div 
+            className="flex items-center gap-1 select-none cursor-default"
+            title={onOpenSettings ? "Modifier le tempo dans les réglages du morceau" : undefined}
+            onClick={onOpenSettings}
           >
-            {PRESET_SIGNATURES.map(sig => (
-              <option key={sig.value} value={sig.value} className="bg-[#18181C] text-gray-200">
-                {sig.label}
-              </option>
-            ))}
-          </select>
-        </div>
+            <Gauge className={`w-3.5 h-3.5 ${isPlaying ? 'text-emerald-400' : 'text-emerald-500/80'} shrink-0`} />
+            <span className="text-emerald-400/90 font-medium text-xs hidden sm:inline">Métronome :</span>
+            <span className="px-1.5 py-0.5 rounded bg-[#18181C] border border-[#242428] text-emerald-400 font-bold font-mono text-xs">
+              {bpm}
+            </span>
+            <span className="text-[10px] text-gray-400 font-mono">BPM</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1">
+            <Gauge className={`w-3.5 h-3.5 ${isPlaying ? 'text-emerald-400' : 'text-emerald-500/80'} shrink-0`} />
+            <span className="text-emerald-400/90 font-medium text-xs hidden sm:inline">Métronome :</span>
+            <input
+              type="number"
+              min={30}
+              max={280}
+              value={bpm}
+              onChange={(e) => {
+                const val = parseInt(e.target.value, 10);
+                if (!isNaN(val)) handleBpmUpdate(val);
+              }}
+              className="w-11 bg-[#18181C] hover:bg-[#202026] text-emerald-400 font-bold font-mono text-xs border border-emerald-500/40 focus:border-emerald-400 rounded px-1 py-0.5 text-center focus:outline-none transition-colors"
+              title="Cliquer pour ajuster le tempo (BPM)"
+            />
+            <span className="text-[10px] text-gray-400 font-mono">BPM</span>
+          </div>
+        )}
+
+        {/* Signature rythmique active (interactive ou lecture seule) */}
+        {readOnly ? (
+          <div 
+            className="flex items-center gap-1 border-l border-[#242428] pl-2 select-none cursor-default"
+            title={onOpenSettings ? "Modifier la mesure dans les réglages du morceau" : undefined}
+            onClick={onOpenSettings}
+          >
+            <Music2 className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+            <span className="px-1.5 py-0.5 rounded bg-[#18181C] border border-[#242428] text-purple-300 font-bold font-mono text-xs">
+              {timeSignature}
+            </span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1 border-l border-[#242428] pl-2">
+            <Music2 className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+            <select
+              value={timeSignature}
+              onChange={(e) => handleSignatureUpdate(e.target.value)}
+              className="bg-[#18181C] hover:bg-[#202026] text-purple-300 font-bold font-mono text-xs border border-purple-500/30 focus:border-purple-400 rounded py-0.5 px-1 cursor-pointer focus:outline-none transition-colors"
+              title="Signature rythmique"
+            >
+              {PRESET_SIGNATURES.map(sig => (
+                <option key={sig.value} value={sig.value} className="bg-[#18181C] text-gray-200">
+                  {sig.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* Indicateur visuel de battements (LEDs de mesure dynamiques) */}
         <div 
@@ -305,17 +337,23 @@ export const MetronomeStageControl: React.FC<MetronomeStageControlProps> = ({
           )}
         </button>
 
-        {/* Bouton pour ouvrir le grand panneau de réglages métronome */}
+        {/* Bouton pour ouvrir le grand panneau de réglages métronome ou les réglages du morceau */}
         <button
           type="button"
           id="metronome-open-settings-btn"
-          onClick={() => setShowFullPanel(!showFullPanel)}
+          onClick={() => {
+            if (readOnly && onOpenSettings) {
+              onOpenSettings();
+            } else {
+              setShowFullPanel(!showFullPanel);
+            }
+          }}
           className={`p-1 rounded transition-colors cursor-pointer ${
             showFullPanel
               ? 'bg-blue-600 text-white shadow-xs'
               : 'text-gray-400 hover:text-white hover:bg-[#202026]'
           }`}
-          title="Ouvrir le panneau complet du métronome (Tap tempo, slider, volume...)"
+          title={readOnly ? "Ouvrir les réglages du morceau pour modifier le tempo" : "Ouvrir le panneau complet du métronome (Tap tempo, slider, volume...)"}
         >
           <Sliders className="w-3.5 h-3.5" />
         </button>

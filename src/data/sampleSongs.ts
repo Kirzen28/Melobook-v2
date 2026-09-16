@@ -1,4 +1,4 @@
-import { Song, Setlist } from '../types';
+import { Song, Setlist, SetlistHistoryRecord } from '../types';
 
 export const SAMPLE_SONGS: Song[] = [
   {
@@ -420,7 +420,7 @@ export const SAMPLE_SETLISTS: Setlist[] = [
     name: 'Culte Dimanche Matin',
     date: '2026-08-30',
     songIds: ['song-2', 'song-4', 'song-1', 'song-6'],
-    notes: 'Transition en douceur entre 10 000 Raisons et Goodness of God (garder la tonalité de G). Prière finale sur What a Beautiful Name.',
+    notes: 'Transition en douceur entre 10 000 Raisons et Goodness of God, tonalité de G. Prière finale sur What a Beautiful Name.',
     targetDuration: 25
   },
   {
@@ -429,7 +429,66 @@ export const SAMPLE_SETLISTS: Setlist[] = [
     name: 'Soirée Acoustique & Témoignages',
     date: '2026-09-05',
     songIds: ['song-3', 'song-5', 'song-1'],
-    notes: 'Ambiance intimiste, guitare acoustique + violoncelle.',
+    notes: 'Ambiance intimiste, guitare acoustique et violoncelle.',
     targetDuration: 18
+  }
+];
+
+export const SAMPLE_SETLIST_HISTORY: SetlistHistoryRecord[] = [
+  {
+    id: 'history-concert-ete',
+    groupId: 'default-group',
+    setlistId: 'setlist-dimanche',
+    setlistName: 'Concert Louange Été',
+    eventType: 'concert',
+    date: '2026-07-12',
+    durationMinutes: 48,
+    location: 'Grande Scène Municipale',
+    notes: 'Très bonne acoustique, enchaînement fluide entre les chants et public très réceptif.',
+    songIds: ['song-2', 'song-4', 'song-1', 'song-6'],
+    songsSnapshot: [
+      { id: 'song-2', title: '10 000 Raisons', artist: 'Matt Redman', key: 'G', tempo: 73 },
+      { id: 'song-4', title: 'Goodness of God', artist: 'Bethel Music', key: 'Ab', tempo: 68 },
+      { id: 'song-1', title: 'Béni Soit Ton Nom', artist: 'Matt Redman', key: 'B', tempo: 116 },
+      { id: 'song-6', title: 'What a Beautiful Name', artist: 'Hillsong Worship', key: 'D', tempo: 68 }
+    ],
+    playedByName: 'Alexandre'
+  },
+  {
+    id: 'history-repetition-generale',
+    groupId: 'default-group',
+    setlistId: 'setlist-dimanche',
+    setlistName: 'Répétition Générale Dimanche',
+    eventType: 'rehearsal',
+    date: '2026-08-28',
+    durationMinutes: 65,
+    location: 'Salle de répétition principale',
+    notes: 'Travail des transitions de tonalité et calage des départs batterie.',
+    songIds: ['song-2', 'song-4', 'song-1', 'song-6'],
+    songsSnapshot: [
+      { id: 'song-2', title: '10 000 Raisons', artist: 'Matt Redman', key: 'G', tempo: 73 },
+      { id: 'song-4', title: 'Goodness of God', artist: 'Bethel Music', key: 'G', tempo: 70 },
+      { id: 'song-1', title: 'Béni Soit Ton Nom', artist: 'Matt Redman', key: 'B', tempo: 116 },
+      { id: 'song-6', title: 'What a Beautiful Name', artist: 'Hillsong Worship', key: 'D', tempo: 68 }
+    ],
+    playedByName: 'Alexandre'
+  },
+  {
+    id: 'history-soiree-acoustique',
+    groupId: 'default-group',
+    setlistId: 'setlist-acoustique',
+    setlistName: 'Soirée Acoustique & Témoignages',
+    eventType: 'concert',
+    date: '2026-09-05',
+    durationMinutes: 32,
+    location: 'Auditorium Saint-Paul',
+    notes: 'Set intimiste avec cajon et violoncelle, tempo ralenti sur le refrain.',
+    songIds: ['song-3', 'song-5', 'song-1'],
+    songsSnapshot: [
+      { id: 'song-3', title: 'Grâce Infinie', artist: 'John Newton', key: 'G', tempo: 75 },
+      { id: 'song-5', title: 'Je Louerai l’Éternel', artist: 'Traditionnel', key: 'D', tempo: 100 },
+      { id: 'song-1', title: 'Béni Soit Ton Nom', artist: 'Matt Redman', key: 'A', tempo: 110 }
+    ],
+    playedByName: 'Alexandre'
   }
 ];

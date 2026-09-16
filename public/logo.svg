@@ -1,0 +1,259 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="100%" height="100%" fill="none">
+  <defs>
+    <!-- Left Teal/Cyan Metallic Gradient -->
+    <linearGradient id="meloTealGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4DE1F7" />
+      <stop offset="25%" stop-color="#26C6DA" />
+      <stop offset="55%" stop-color="#00ACC1" />
+      <stop offset="85%" stop-color="#00838F" />
+      <stop offset="100%" stop-color="#006064" />
+    </linearGradient>
+
+    <!-- Right Violet/Indigo Metallic Gradient -->
+    <linearGradient id="meloPurpleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#B388FF" />
+      <stop offset="30%" stop-color="#7C4DFF" />
+      <stop offset="60%" stop-color="#651FFF" />
+      <stop offset="85%" stop-color="#4A148C" />
+      <stop offset="100%" stop-color="#311B92" />
+    </linearGradient>
+
+    <!-- Center Note Metallic Purple/Violet Gradient -->
+    <linearGradient id="meloNoteGrad" x1="20%" y1="0%" x2="80%" y2="100%">
+      <stop offset="0%" stop-color="#D1C4E9" />
+      <stop offset="20%" stop-color="#9575CD" />
+      <stop offset="50%" stop-color="#673AB7" />
+      <stop offset="80%" stop-color="#512DA8" />
+      <stop offset="100%" stop-color="#311B92" />
+    </linearGradient>
+
+    <!-- Combined Teal to Purple Horizon Gradient for base -->
+    <linearGradient id="meloBaseGrad" x1="0%" y1="50%" x2="100%" y2="50%">
+      <stop offset="0%" stop-color="#00838F" />
+      <stop offset="30%" stop-color="#00ACC1" />
+      <stop offset="50%" stop-color="#26C6DA" />
+      <stop offset="70%" stop-color="#7E57C2" />
+      <stop offset="100%" stop-color="#4527A0" />
+    </linearGradient>
+
+    <!-- Metallic shine overlay -->
+    <linearGradient id="metallicShine" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="white" stop-opacity="0.35" />
+      <stop offset="50%" stop-color="white" stop-opacity="0" />
+      <stop offset="100%" stop-color="white" stop-opacity="0.2" />
+    </linearGradient>
+
+    <!-- Subtle Drop Shadow -->
+    <filter id="meloGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#00E5FF" flood-opacity="0.25" />
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#7C4DFF" flood-opacity="0.3" />
+    </filter>
+  </defs>
+
+  <g filter="url(#meloGlow)">
+    <!-- ==================== LEFT WING (CYAN / TEAL PAGES) ==================== -->
+    <!-- Left Outer Upper Page Ribbon -->
+    <path 
+      d="M 242 216 
+         C 210 188, 172 176, 150 172 
+         L 125 285 
+         C 142 278, 170 272, 238 274 
+         L 242 258 
+         C 185 256, 155 260, 142 268 
+         L 160 190 
+         C 178 194, 212 204, 238 226 
+         Z" 
+      fill="url(#meloTealGrad)" 
+      stroke="#00E5FF" 
+      stroke-width="1.5" 
+      stroke-linejoin="round"
+    />
+
+    <!-- Left Outer Corner Fold Accent -->
+    <path 
+      d="M 150 172 L 165 190 L 125 285 L 112 280 Z" 
+      fill="#00BCD4" 
+      opacity="0.7"
+    />
+
+    <!-- Left Middle Page Layer -->
+    <path 
+      d="M 235 288 
+         C 170 286, 125 296, 92 322 
+         L 85 334 
+         C 120 310, 170 300, 234 302 
+         Z" 
+      fill="url(#meloTealGrad)" 
+      stroke="#4DD0E1" 
+      stroke-width="1"
+    />
+
+    <!-- Left Lower Page Layer (Spread) -->
+    <path 
+      d="M 232 318 
+         C 165 316, 120 330, 85 356 
+         L 78 368 
+         C 118 344, 168 332, 230 334 
+         Z" 
+      fill="url(#meloTealGrad)" 
+      stroke="#26C6DA" 
+      stroke-width="1"
+    />
+
+    <!-- Left Base Underline Wing -->
+    <path 
+      d="M 226 352 
+         C 170 350, 130 366, 98 382 
+         L 90 388 
+         L 105 388 
+         C 135 374, 172 362, 224 364 
+         Z" 
+      fill="url(#meloTealGrad)" 
+      stroke="#00ACC1" 
+      stroke-width="1"
+    />
+
+
+    <!-- ==================== RIGHT WING (VIOLET / INDIGO PAGES) ==================== -->
+    <!-- Right Outer Upper Page Ribbon -->
+    <path 
+      d="M 258 216 
+         C 290 188, 328 176, 350 172 
+         L 375 285 
+         C 358 278, 330 272, 262 274 
+         L 258 258 
+         C 315 256, 345 260, 358 268 
+         L 340 190 
+         C 322 194, 288 204, 262 226 
+         Z" 
+      fill="url(#meloPurpleGrad)" 
+      stroke="#B388FF" 
+      stroke-width="1.5" 
+      stroke-linejoin="round"
+    />
+
+    <!-- Right Outer Corner Fold Accent -->
+    <path 
+      d="M 350 172 L 335 190 L 375 285 L 388 280 Z" 
+      fill="#7C4DFF" 
+      opacity="0.7"
+    />
+
+    <!-- Right Middle Page Layer -->
+    <path 
+      d="M 265 288 
+         C 330 286, 375 296, 408 322 
+         L 415 334 
+         C 380 310, 330 300, 266 302 
+         Z" 
+      fill="url(#meloPurpleGrad)" 
+      stroke="#9575CD" 
+      stroke-width="1"
+    />
+
+    <!-- Right Lower Page Layer (Spread) -->
+    <path 
+      d="M 268 318 
+         C 335 316, 380 330, 415 356 
+         L 422 368 
+         C 382 344, 332 332, 270 334 
+         Z" 
+      fill="url(#meloPurpleGrad)" 
+      stroke="#7E57C2" 
+      stroke-width="1"
+    />
+
+    <!-- Right Base Underline Wing -->
+    <path 
+      d="M 274 352 
+         C 330 350, 370 366, 402 382 
+         L 410 388 
+         L 395 388 
+         C 365 374, 328 362, 276 364 
+         Z" 
+      fill="url(#meloPurpleGrad)" 
+      stroke="#5E35B1" 
+      stroke-width="1"
+    />
+
+
+    <!-- ==================== BOOK SPINE & BASE ==================== -->
+    <!-- Central Bottom Spine V-Shaped Wedge -->
+    <path 
+      d="M 250 288 
+         L 254 340 
+         L 246 340 
+         Z" 
+      fill="#26C6DA" 
+      stroke="#00E5FF" 
+      stroke-width="1"
+    />
+
+    <!-- Bottom Center Spine U-Curve Dip -->
+    <path 
+      d="M 218 366 
+         C 232 376, 244 388, 250 388 
+         C 256 388, 268 376, 282 366 
+         L 282 378 
+         C 268 388, 256 400, 250 400 
+         C 244 400, 232 388, 218 378 
+         Z" 
+      fill="url(#meloBaseGrad)" 
+      stroke="#00ACC1" 
+      stroke-width="1"
+    />
+
+
+    <!-- ==================== CENTRAL MUSICAL NOTE ==================== -->
+    <!-- Musical Note Stem and Head Group -->
+    <g>
+      <!-- Note Head (Rotated Oval with metallic bevel) -->
+      <ellipse 
+        cx="232" 
+        cy="252" 
+        rx="34" 
+        ry="25" 
+        transform="rotate(-24 232 252)" 
+        fill="url(#meloNoteGrad)" 
+        stroke="#D1C4E9" 
+        stroke-width="2"
+      />
+      <!-- Circular metallic sheen inside note head -->
+      <ellipse 
+        cx="230" 
+        cy="250" 
+        rx="22" 
+        ry="15" 
+        transform="rotate(-24 230 250)" 
+        fill="url(#metallicShine)" 
+        opacity="0.6"
+      />
+
+      <!-- Note Stem (Vertical bar with bevel) -->
+      <path 
+        d="M 250 242 
+           L 250 102 
+           L 264 100 
+           L 264 236 
+           Z" 
+        fill="url(#meloPurpleGrad)" 
+        stroke="#B388FF" 
+        stroke-width="1.5"
+      />
+
+      <!-- Note Flag (Swooping curved croche banner) -->
+      <path 
+        d="M 264 100 
+           C 278 120, 312 142, 318 170 
+           C 322 188, 314 208, 301 224 
+           C 305 214, 308 202, 306 192 
+           C 302 172, 284 154, 264 140 
+           Z" 
+        fill="url(#meloPurpleGrad)" 
+        stroke="#E1BEE7" 
+        stroke-width="1.5" 
+        stroke-linejoin="round"
+      />
+    </g>
+  </g>
+</svg>

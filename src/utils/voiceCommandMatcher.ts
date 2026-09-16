@@ -1,7 +1,7 @@
 import { Song } from '../types';
 
 export interface VoiceCommandResult {
-  type: 'search' | 'open' | 'clear' | 'favorites' | 'stop' | 'unknown';
+  type: 'search' | 'open' | 'clear' | 'stop' | 'unknown';
   query: string;
   songMatch?: Song;
   feedback: string;
@@ -135,20 +135,7 @@ export function parseVoiceCommand(rawTranscript: string, songs: Song[]): VoiceCo
     };
   }
 
-  // 2. Commandes favoris
-  const favoritePatterns = [
-    'favori', 'favoris', 'mes favoris', 'afficher les favoris', 
-    'filtre favoris', 'les favoris', 'mes chants favoris'
-  ];
-  if (favoritePatterns.some(p => normalized === p)) {
-    return {
-      type: 'favorites',
-      query: '',
-      feedback: 'Filtre des favoris activé'
-    };
-  }
-
-  // 3. Commandes d'arrêt
+  // 2. Commandes d'arrêt
   const stopPatterns = ['arrete', 'arreter', 'stop', 'stop ecoute', 'quitte', 'fermer'];
   if (stopPatterns.some(p => normalized === p)) {
     return {

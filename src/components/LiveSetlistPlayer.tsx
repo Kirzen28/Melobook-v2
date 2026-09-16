@@ -5,6 +5,7 @@ import { parseDurationToSeconds, formatSetlistDuration, getSongDuration } from '
 import { cacheSetlistInWorker } from '../utils/pwaCache';
 import { SongReader } from './SongReader';
 import { SetlistPdfModal } from './SetlistPdfModal';
+import { RecordPerformanceModal } from './RecordPerformanceModal';
 import { BatteryIndicator } from './BatteryIndicator';
 import { MidiStatusIndicator } from './MidiStatusIndicator';
 import { useMidi } from '../context/MidiContext';
@@ -14,7 +15,8 @@ import {
   Layers, 
   Music,
   CheckCircle2,
-  FileDown
+  FileDown,
+  History
 } from 'lucide-react';
 
 interface LiveSetlistPlayerProps {
@@ -50,6 +52,8 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
   const { registerActionHandler } = useMidi();
 
   const [showPdfModal, setShowPdfModal] = useState(false);
+  const [showRecordModal, setShowRecordModal] = useState(false);
+  const liveStartTimeRef = useRef<number>(Date.now());
   const [direction, setDirection] = useState<number>(1);
   const prevIndexRef = useRef<number>(activeSetlistIndex);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
@@ -234,6 +238,15 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
             <span className="hidden sm:inline">PDF</span>
           </button>
 
+          <button
+            onClick={() => setShowRecordModal(true)}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#1C1C1E] hover:bg-purple-600/20 text-purple-300 hover:text-purple-200 border border-purple-500/30 text-xs font-medium transition-colors"
+            title="Consigner cette prestation dans l'historique"
+          >
+            <History className="w-3.5 h-3.5 text-purple-400" />
+            <span className="hidden sm:inline">Consigner</span>
+          </button>
+
           <div className="hidden lg:flex items-center gap-2">
             {activeSetlistIndex < setlistSongs.length - 1 ? (
               <button
@@ -303,6 +316,16 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
           setlist={selectedSetlist}
           songs={songs}
           onClose={() => setShowPdfModal(false)}
+        />
+      )}
+
+      {/* Record Performance Modal */}
+      {showRecordModal && selectedSetlist && (
+        <RecordPerformanceModal
+          isOpen={showRecordModal}
+          defaultSetlist={selectedSetlist}
+          defaultDurationMinutes={Math.max(1, Math.round((Date.now() - liveStartTimeRef.current) / 60000))}
+          onClose={() => setShowRecordModal(false)}
         />
       )}
     </div>

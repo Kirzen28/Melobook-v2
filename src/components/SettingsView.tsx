@@ -21,7 +21,11 @@ import {
   Radio,
   Footprints,
   Zap,
-  RefreshCw
+  RefreshCw,
+  LayoutGrid,
+  Gauge,
+  Clock,
+  Tag
 } from 'lucide-react';
 import { useMidi } from '../context/MidiContext';
 import { MidiSettingsModal } from './MidiSettingsModal';
@@ -134,7 +138,9 @@ export const SettingsView: React.FC = () => {
     setActiveTab,
     selectedSong,
     stageSettings,
-    updateStageSettings
+    updateStageSettings,
+    songCardMetadata,
+    updateSongCardMetadata
   } = useApp();
 
   const { typography, sectionColors } = displaySettings;
@@ -825,6 +831,278 @@ export const SettingsView: React.FC = () => {
                 </div>
               </div>
 
+            </div>
+          </div>
+
+          {/* CARTES DE CHANTS - VISIBILITE DES METADONNEES DANS LA BIBLIOTHEQUE */}
+          <div className="bg-[#111112] border border-[#222224] rounded-xl p-4 sm:p-5 shadow-sm">
+            <div className="flex items-center justify-between pb-3 mb-4 border-b border-[#222224]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+                  <LayoutGrid className="w-4 h-4" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-bold text-white">
+                    Cartes des chants dans la bibliothèque
+                  </h2>
+                  <p className="text-[11px] text-gray-400">
+                    Visibilité des métadonnées sur les vignettes du répertoire
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {/* Tonalite */}
+              <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex flex-col justify-between gap-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-5 h-5 rounded bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[10px] font-bold flex items-center justify-center">
+                      C
+                    </span>
+                    <span className="text-xs font-bold text-gray-200">Tonalité</span>
+                  </div>
+                  <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${
+                    songCardMetadata?.showKey
+                      ? 'bg-blue-500/20 text-blue-300 border-blue-500/40'
+                      : 'bg-[#222] text-gray-400 border-[#333]'
+                  }`}>
+                    {songCardMetadata?.showKey ? 'Visible' : 'Masquée'}
+                  </span>
+                </div>
+                <div className="theme-toggle-group flex items-center gap-1 bg-[#121214] p-0.5 rounded-lg border border-[#2B2B30]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      updateSongCardMetadata({ showKey: true });
+                      notify('Tonalité activée sur les cartes');
+                    }}
+                    className={`flex-1 py-1.5 rounded-md text-xs font-semibold flex items-center justify-center gap-1 transition-all cursor-pointer ${
+                      songCardMetadata?.showKey
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'theme-toggle-inactive text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    <span>Visible</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      updateSongCardMetadata({ showKey: false });
+                      notify('Tonalité masquée sur les cartes');
+                    }}
+                    className={`flex-1 py-1.5 rounded-md text-xs font-semibold flex items-center justify-center gap-1 transition-all cursor-pointer ${
+                      !songCardMetadata?.showKey
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'theme-toggle-inactive text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    <span>Masquée</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* BPM et Tempo */}
+              <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex flex-col justify-between gap-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-5 h-5 rounded bg-blue-500/20 border border-blue-500/40 text-blue-300 text-[10px] font-bold flex items-center justify-center">
+                      <Gauge className="w-3 h-3 text-blue-400" />
+                    </span>
+                    <span className="text-xs font-bold text-gray-200">BPM et Tempo</span>
+                  </div>
+                  <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${
+                    songCardMetadata?.showTempo
+                      ? 'bg-blue-500/20 text-blue-300 border-blue-500/40'
+                      : 'bg-[#222] text-gray-400 border-[#333]'
+                  }`}>
+                    {songCardMetadata?.showTempo ? 'Visible' : 'Masqué'}
+                  </span>
+                </div>
+                <div className="theme-toggle-group flex items-center gap-1 bg-[#121214] p-0.5 rounded-lg border border-[#2B2B30]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      updateSongCardMetadata({ showTempo: true });
+                      notify('BPM activé sur les cartes');
+                    }}
+                    className={`flex-1 py-1.5 rounded-md text-xs font-semibold flex items-center justify-center gap-1 transition-all cursor-pointer ${
+                      songCardMetadata?.showTempo
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'theme-toggle-inactive text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    <span>Visible</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      updateSongCardMetadata({ showTempo: false });
+                      notify('BPM masqué sur les cartes');
+                    }}
+                    className={`flex-1 py-1.5 rounded-md text-xs font-semibold flex items-center justify-center gap-1 transition-all cursor-pointer ${
+                      !songCardMetadata?.showTempo
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'theme-toggle-inactive text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    <span>Masqué</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Duree */}
+              <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex flex-col justify-between gap-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-5 h-5 rounded bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 text-[10px] font-bold flex items-center justify-center">
+                      <Clock className="w-3 h-3 text-cyan-400" />
+                    </span>
+                    <span className="text-xs font-bold text-gray-200">Durée</span>
+                  </div>
+                  <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${
+                    songCardMetadata?.showDuration
+                      ? 'bg-blue-500/20 text-blue-300 border-blue-500/40'
+                      : 'bg-[#222] text-gray-400 border-[#333]'
+                  }`}>
+                    {songCardMetadata?.showDuration ? 'Visible' : 'Masquée'}
+                  </span>
+                </div>
+                <div className="theme-toggle-group flex items-center gap-1 bg-[#121214] p-0.5 rounded-lg border border-[#2B2B30]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      updateSongCardMetadata({ showDuration: true });
+                      notify('Durée activée sur les cartes');
+                    }}
+                    className={`flex-1 py-1.5 rounded-md text-xs font-semibold flex items-center justify-center gap-1 transition-all cursor-pointer ${
+                      songCardMetadata?.showDuration
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'theme-toggle-inactive text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    <span>Visible</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      updateSongCardMetadata({ showDuration: false });
+                      notify('Durée masquée sur les cartes');
+                    }}
+                    className={`flex-1 py-1.5 rounded-md text-xs font-semibold flex items-center justify-center gap-1 transition-all cursor-pointer ${
+                      !songCardMetadata?.showDuration
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'theme-toggle-inactive text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    <span>Masquée</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Categories */}
+              <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex flex-col justify-between gap-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-5 h-5 rounded bg-blue-500/20 border border-blue-500/40 text-blue-300 text-[10px] font-bold flex items-center justify-center">
+                      <Tag className="w-3 h-3 text-blue-400" />
+                    </span>
+                    <span className="text-xs font-bold text-gray-200">Catégories</span>
+                  </div>
+                  <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${
+                    songCardMetadata?.showCategories
+                      ? 'bg-blue-500/20 text-blue-300 border-blue-500/40'
+                      : 'bg-[#222] text-gray-400 border-[#333]'
+                  }`}>
+                    {songCardMetadata?.showCategories ? 'Visible' : 'Masquée'}
+                  </span>
+                </div>
+                <div className="theme-toggle-group flex items-center gap-1 bg-[#121214] p-0.5 rounded-lg border border-[#2B2B30]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      updateSongCardMetadata({ showCategories: true });
+                      notify('Catégories activées sur les cartes');
+                    }}
+                    className={`flex-1 py-1.5 rounded-md text-xs font-semibold flex items-center justify-center gap-1 transition-all cursor-pointer ${
+                      songCardMetadata?.showCategories
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'theme-toggle-inactive text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    <span>Visible</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      updateSongCardMetadata({ showCategories: false });
+                      notify('Catégories masquées sur les cartes');
+                    }}
+                    className={`flex-1 py-1.5 rounded-md text-xs font-semibold flex items-center justify-center gap-1 transition-all cursor-pointer ${
+                      !songCardMetadata?.showCategories
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'theme-toggle-inactive text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    <span>Masquée</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Apercu en direct de la vignette de chant */}
+            <div className="mt-4 pt-3 border-t border-[#222224]">
+              <div className="text-[11px] text-gray-400 mb-2 font-medium flex items-center justify-between">
+                <span>Aperçu de la vignette de chant</span>
+                <span className="text-[10px] text-gray-500">
+                  {!songCardMetadata?.showKey && !songCardMetadata?.showTempo && !songCardMetadata?.showDuration && !songCardMetadata?.showCategories
+                    ? 'Métadonnées masquées par défaut'
+                    : 'Métadonnées actives'}
+                </span>
+              </div>
+              <div className="p-3 rounded-lg bg-[#151518] border border-[#2A2A2E] max-w-xs">
+                <div>
+                  <div className="flex items-start gap-2 mb-1">
+                    <span className="w-5 h-5 rounded border border-[#444] bg-[#1C1C1E] flex items-center justify-center text-[10px] text-gray-400 shrink-0 mt-0.5">
+                      ✓
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs font-bold text-white truncate">Chant exemple</div>
+                      <div className="text-[11px] text-gray-400 truncate">Artiste de louange</div>
+                    </div>
+                  </div>
+                  {songCardMetadata?.showCategories && (
+                    <div className="flex items-center gap-1 mt-1.5 pl-7">
+                      <span className="text-[9px] px-1.5 py-0.5 rounded border border-[#333] bg-[#1C1C1E] text-gray-400 flex items-center gap-1">
+                        <Tag className="w-2 h-2 text-blue-400" />
+                        Adoration
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {((songCardMetadata?.showKey) || (songCardMetadata?.showTempo) || (songCardMetadata?.showDuration)) && (
+                  <div className="flex items-center gap-1 flex-wrap mt-2 pt-1.5 border-t border-[#1C1C1F]">
+                    {songCardMetadata?.showKey && (
+                      <span className="px-1.5 py-0.5 rounded border border-amber-500/50 bg-amber-500/20 text-amber-300 text-[9px] font-bold">
+                        C
+                      </span>
+                    )}
+                    {songCardMetadata?.showTempo && (
+                      <span className="px-1.5 py-0.5 rounded bg-[#1C1C1E] border border-[#222224] text-gray-400 text-[9px] font-medium flex items-center gap-1">
+                        <Gauge className="w-2.5 h-2.5 text-blue-400" />
+                        128
+                      </span>
+                    )}
+                    {songCardMetadata?.showDuration && (
+                      <span className="px-1.5 py-0.5 rounded bg-cyan-950/50 border border-cyan-500/30 text-cyan-300 text-[9px] font-medium flex items-center gap-1 font-mono">
+                        <Clock className="w-2.5 h-2.5 text-cyan-400" />
+                        03:45
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

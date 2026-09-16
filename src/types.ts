@@ -12,7 +12,6 @@ export interface UserProfile {
   displayName: string;
   currentGroupId: string | null;
   role: UserRole;
-  favoriteSongIds?: string[];
   createdAt?: any;
 }
 
@@ -34,8 +33,8 @@ export interface Song {
   key: string;
   tempo: number;
   timeSignature?: string;
-  duration?: string; // e.g. "4:30", "03:45", "5 min"
-  durationMode?: 'auto' | 'custom'; // 'auto' (calculated based on tempo/lyrics/bars) or 'custom'
+  duration?: string; // ex: 4:30, 03:45, 5 min
+  durationMode?: 'auto' | 'custom';
   contentChordPro: string;
   folderId?: string | null;
   capo?: number;
@@ -43,8 +42,6 @@ export interface Song {
   language?: string;
   linkedSongIds?: string[];
   notes?: string;
-  isFavorite?: boolean;
-  favoriteUids?: string[];
   createdAt?: any;
   updatedAt?: any;
 }
@@ -68,6 +65,34 @@ export interface Setlist {
   songOverrides?: Record<string, SetlistSongOverride>;
   notes?: string;
   targetDuration?: number;
+  createdAt?: any;
+}
+
+export type SetlistEventType = 'rehearsal' | 'concert' | 'service' | 'other';
+
+export interface SetlistHistorySongSnapshot {
+  id: string;
+  title: string;
+  artist?: string;
+  key?: string;
+  tempo?: number;
+}
+
+export interface SetlistHistoryRecord {
+  id: string;
+  groupId: string;
+  setlistId: string;
+  setlistName: string;
+  eventType: SetlistEventType;
+  date: string;
+  playedAt?: any;
+  durationMinutes?: number;
+  location?: string;
+  notes?: string;
+  songIds: string[];
+  songsSnapshot?: SetlistHistorySongSnapshot[];
+  playedByUid?: string;
+  playedByName?: string;
   createdAt?: any;
 }
 
@@ -110,4 +135,11 @@ export interface SectionColors {
 export interface DisplaySettings {
   typography: SongTypographySettings;
   sectionColors: SectionColors;
+}
+
+export interface SongCardMetadataSettings {
+  showKey: boolean;
+  showTempo: boolean;
+  showDuration: boolean;
+  showCategories: boolean;
 }

@@ -5,10 +5,13 @@ import {
   Song, 
   Setlist, 
   SetlistSongOverride,
+  SetlistHistoryRecord,
+  SetlistEventType,
   StageSettings, 
   DisplaySettings, 
   SongTypographySettings, 
   SectionColors, 
+  SongCardMetadataSettings,
   UserRole,
   SyncStatus 
 } from '../types';
@@ -30,7 +33,7 @@ import {
   serverTimestamp
 } from '../firebase';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { SAMPLE_SONGS, SAMPLE_SETLISTS } from '../data/sampleSongs';
+import { SAMPLE_SONGS, SAMPLE_SETLISTS, SAMPLE_SETLIST_HISTORY } from '../data/sampleSongs';
 import { getSongDuration } from '../utils/chordUtils';
 import { 
   registerServiceWorker, 
@@ -83,6 +86,8 @@ interface AppContextType {
   displaySettings: DisplaySettings;
   updateDisplaySettings: (settings: { typography?: Partial<SongTypographySettings>; sectionColors?: Partial<SectionColors> }) => void;
   resetDisplaySettings: () => void;
+  songCardMetadata: SongCardMetadataSettings;
+  updateSongCardMetadata: (settings: Partial<SongCardMetadataSettings>) => void;
   isOffline: boolean;
   isOnline: boolean;
   syncStatus: SyncStatus;
@@ -92,11 +97,6 @@ interface AppContextType {
   setIsAuthModalOpen: (open: boolean) => void;
   isInstallable: boolean;
   promptInstall: () => void;
-  
-  // Favorites
-  favoriteSongIds: string[];
-  isSongFavorite: (songId: string) => boolean;
-  toggleFavoriteSong: (songId: string) => Promise<void>;
   
   // Actions
   createSong: (songData: Omit<Song, 'id' | 'groupId' | 'createdAt' | 'updatedAt'>) => Promise<string>;
@@ -112,6 +112,12 @@ interface AppContextType {
   deleteSetlist: (id: string) => Promise<void>;
   updateSetlistSongOverride: (setlistId: string, songId: string, override: Partial<SetlistSongOverride>) => Promise<void>;
   removeSetlistSongOverride: (setlistId: string, songId: string) => Promise<void>;
+  
+  // Setlist History
+  setlistHistory: SetlistHistoryRecord[];
+  recordSetlistHistory: (recordData: Omit<SetlistHistoryRecord, 'id' | 'groupId' | 'createdAt'>) => Promise<string>;
+  updateSetlistHistory: (id: string, recordData: Partial<SetlistHistoryRecord>) => Promise<void>;
+  deleteSetlistHistory: (id: string) => Promise<void>;
   
   createGroup: (name: string, description?: string) => Promise<string>;
   joinGroup: (inviteCode: string) => Promise<boolean>;
@@ -170,6 +176,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const getDeletedHistoryIds = (): Set<string> => {
+    if (typeof window === 'undefined') return new Set();
+    try {
+      const raw = localStorage.getItem('songbook_deleted_history_ids');
+      return new Set(raw ? JSON.parse(raw) : []);
+    } catch {
+      return new Set();
+    }
+  };
+
   // Groups & Data
   const [groups, setGroups] = useState<Group[]>([DEFAULT_GROUP]);
   const [currentGroup, setCurrentGroup] = useState<Group | null>(DEFAULT_GROUP);
@@ -204,6 +220,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       } catch (e) {}
     }
     return SAMPLE_SETLISTS.filter(st => !deletedSetlistIds.has(st.id));
+  });
+
+  const [setlistHistory, setSetlistHistory] = useState<SetlistHistoryRecord[]>(() => {
+    const deletedHistoryIds = getDeletedHistoryIds();
+    const saved = localStorage.getItem('songbook_cached_setlist_history');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const missingSamples = SAMPLE_SETLIST_HISTORY.filter(sh => !deletedHistoryIds.has(sh.id) && !parsed.some((ph: SetlistHistoryRecord) => ph.id === sh.id));
+          return [...parsed, ...missingSamples];
+        }
+      } catch (e) {}
+    }
+    return SAMPLE_SETLIST_HISTORY.filter(sh => !deletedHistoryIds.has(sh.id));
   });
 
   // Stage view custom settings
@@ -254,22 +285,49 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   }, []);
 
+  const DEFAULT_SONG_CARD_METADATA: SongCardMetadataSettings = {
+    showKey: false,
+    showTempo: false,
+    showDuration: false,
+    showCategories: false,
+  };
+
+  const [songCardMetadata, setSongCardMetadata] = useState<SongCardMetadataSettings>(() => {
+    if (typeof window === 'undefined') return DEFAULT_SONG_CARD_METADATA;
+    const saved = localStorage.getItem('songbook_song_card_metadata');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return {
+          showKey: parsed.showKey === true,
+          showTempo: parsed.showTempo === true,
+          showDuration: parsed.showDuration === true,
+          showCategories: parsed.showCategories === true,
+        };
+      } catch (e) {}
+    }
+    return DEFAULT_SONG_CARD_METADATA;
+  });
+
+  const updateSongCardMetadata = useCallback((newSettings: Partial<SongCardMetadataSettings>) => {
+    setSongCardMetadata(prev => {
+      const updated: SongCardMetadataSettings = {
+        ...prev,
+        ...newSettings
+      };
+      localStorage.setItem('songbook_song_card_metadata', JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
   const resetDisplaySettings = useCallback(() => {
     setDisplaySettings(DEFAULT_DISPLAY_SETTINGS);
     localStorage.setItem('songbook_display_settings', JSON.stringify(DEFAULT_DISPLAY_SETTINGS));
+    setSongCardMetadata(DEFAULT_SONG_CARD_METADATA);
+    localStorage.setItem('songbook_song_card_metadata', JSON.stringify(DEFAULT_SONG_CARD_METADATA));
   }, []);
 
   // Network & PWA status
-  const [favoriteSongIds, setFavoriteSongIds] = useState<string[]>(() => {
-    if (typeof window === 'undefined') return [];
-    try {
-      const saved = localStorage.getItem('songbook_favorite_songs');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
-
   const [isOnline, setIsOnline] = useState(typeof window !== 'undefined' ? navigator.onLine : true);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(typeof window !== 'undefined' && !navigator.onLine ? 'offline' : 'synced');
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(new Date());
@@ -438,16 +496,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [setlists]);
 
   useEffect(() => {
+    localStorage.setItem('songbook_cached_setlist_history', JSON.stringify(setlistHistory));
+  }, [setlistHistory]);
+
+  useEffect(() => {
     if (currentUser) {
       localStorage.setItem('songbook_user', JSON.stringify(currentUser));
     } else {
       localStorage.removeItem('songbook_user');
     }
   }, [currentUser]);
-
-  useEffect(() => {
-    localStorage.setItem('songbook_favorite_songs', JSON.stringify(favoriteSongIds));
-  }, [favoriteSongIds]);
 
   // Auth Listener
   useEffect(() => {
@@ -461,17 +519,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (snap.exists()) {
             const data = snap.data() as UserProfile;
             setCurrentUser(data);
-            if (Array.isArray(data.favoriteSongIds)) {
-              setFavoriteSongIds(prev => Array.from(new Set([...prev, ...(data.favoriteSongIds || [])])));
-            }
           } else {
             const newUser: UserProfile = {
               uid: user.uid,
               email: user.email || '',
               displayName: user.displayName || user.email?.split('@')[0] || 'Musicien',
               currentGroupId: 'default-group',
-              role: 'admin',
-              favoriteSongIds: favoriteSongIds
+              role: 'admin'
             };
             await setDoc(userRef, newUser);
             setCurrentUser(newUser);
@@ -578,7 +632,47 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.warn('Firestore setlists snapshot notice:', error.message);
     });
 
-    // 3. Sync Groups if user is logged in
+    // 3. Sync Setlist History
+    const qHistory = query(collection(db, 'setlist_history'), where('groupId', '==', targetGroupId));
+    const unsubHistory = onSnapshot(qHistory, (snapshot) => {
+      const deletedHistoryIds = getDeletedHistoryIds();
+      const loadedHistory: SetlistHistoryRecord[] = [];
+      if (!snapshot.empty) {
+        snapshot.forEach((d) => {
+          loadedHistory.push({ id: d.id, ...d.data() } as SetlistHistoryRecord);
+        });
+      }
+
+      setSetlistHistory(prev => {
+        const historyMap = new Map<string, SetlistHistoryRecord>();
+
+        prev.forEach(h => {
+          if (!deletedHistoryIds.has(h.id)) {
+            historyMap.set(h.id, h);
+          }
+        });
+
+        loadedHistory.forEach(h => {
+          if (!deletedHistoryIds.has(h.id)) {
+            historyMap.set(h.id, h);
+          }
+        });
+
+        if (targetGroupId === 'default-group') {
+          SAMPLE_SETLIST_HISTORY.forEach(sh => {
+            if (!deletedHistoryIds.has(sh.id) && !historyMap.has(sh.id)) {
+              historyMap.set(sh.id, sh);
+            }
+          });
+        }
+
+        return Array.from(historyMap.values()).sort((a, b) => b.date.localeCompare(a.date));
+      });
+    }, (error) => {
+      console.warn('Firestore setlist history snapshot notice:', error.message);
+    });
+
+    // 4. Sync Groups if user is logged in
     if (currentUser?.uid) {
       const qGroups = query(collection(db, 'groups'), where('members', 'array-contains', currentUser.uid));
       const unsubGroups = onSnapshot(qGroups, (snapshot) => {
@@ -594,6 +688,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return () => {
         unsubSongs();
         unsubSetlists();
+        unsubHistory();
         unsubGroups();
       };
     }
@@ -601,6 +696,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => {
       unsubSongs();
       unsubSetlists();
+      unsubHistory();
     };
   }, [currentGroup?.id, currentUser?.uid]);
 
@@ -618,9 +714,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const setlistRef = doc(db, 'setlists', setlist.id);
         await setDoc(setlistRef, { ...setlist, groupId, createdAt: serverTimestamp() });
       }
+      // 3. Setlist History
+      for (const record of SAMPLE_SETLIST_HISTORY) {
+        const historyRef = doc(db, 'setlist_history', record.id);
+        await setDoc(historyRef, { ...record, groupId, createdAt: serverTimestamp() });
+      }
       // Update local state directly
       setSongs(SAMPLE_SONGS.map(s => ({ ...s, groupId })));
       setSetlists(SAMPLE_SETLISTS.map(st => ({ ...st, groupId })));
+      setSetlistHistory(SAMPLE_SETLIST_HISTORY.map(h => ({ ...h, groupId })));
     } catch (e) {
       console.error('Error seeding demo data:', e);
     }
@@ -699,33 +801,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.warn('Deleted song locally:', e);
     }
   }, [selectedSong?.id, songs]);
-
-  const isSongFavorite = useCallback((songId: string): boolean => {
-    return favoriteSongIds.includes(songId);
-  }, [favoriteSongIds]);
-
-  const toggleFavoriteSong = useCallback(async (songId: string) => {
-    const isFav = favoriteSongIds.includes(songId);
-    const updated = isFav
-      ? favoriteSongIds.filter(id => id !== songId)
-      : [...favoriteSongIds, songId];
-
-    setFavoriteSongIds(updated);
-    try {
-      localStorage.setItem('songbook_favorite_songs', JSON.stringify(updated));
-    } catch (e) {}
-
-    // If user is authenticated or currentUser exists, sync to Firestore user doc
-    if (currentUser?.uid) {
-      try {
-        const userRef = doc(db, 'users', currentUser.uid);
-        await setDoc(userRef, { favoriteSongIds: updated }, { merge: true });
-        setCurrentUser(prev => prev ? { ...prev, favoriteSongIds: updated } : null);
-      } catch (e) {
-        console.warn('Sync favorite to Firestore note:', e);
-      }
-    }
-  }, [favoriteSongIds, currentUser?.uid]);
 
   const linkSongs = useCallback(async (songId1: string, songId2: string) => {
     if (!songId1 || !songId2 || songId1 === songId2) return;
@@ -996,6 +1071,55 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [selectedSetlist?.id]);
 
+  // Setlist History Actions
+  const recordSetlistHistory = useCallback(async (recordData: Omit<SetlistHistoryRecord, 'id' | 'groupId' | 'createdAt'>) => {
+    const groupId = currentGroup?.id || 'default-group';
+    const newId = 'history_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
+    const newRecord: SetlistHistoryRecord = {
+      ...recordData,
+      id: newId,
+      groupId,
+      createdAt: new Date().toISOString()
+    };
+
+    setSetlistHistory(prev => [newRecord, ...prev]);
+
+    try {
+      await setDoc(doc(db, 'setlist_history', newId), { ...newRecord, createdAt: serverTimestamp() });
+    } catch (e) {
+      console.warn('Saved setlist history locally:', e);
+    }
+
+    return newId;
+  }, [currentGroup?.id]);
+
+  const updateSetlistHistory = useCallback(async (id: string, recordData: Partial<SetlistHistoryRecord>) => {
+    setSetlistHistory(prev => prev.map(item => item.id === id ? { ...item, ...recordData } : item));
+
+    try {
+      const docRef = doc(db, 'setlist_history', id);
+      await updateDoc(docRef, recordData);
+    } catch (e) {
+      console.warn('Updated setlist history locally:', e);
+    }
+  }, []);
+
+  const deleteSetlistHistory = useCallback(async (id: string) => {
+    try {
+      const currentDeleted = new Set<string>(JSON.parse(localStorage.getItem('songbook_deleted_history_ids') || '[]'));
+      currentDeleted.add(id);
+      localStorage.setItem('songbook_deleted_history_ids', JSON.stringify(Array.from(currentDeleted)));
+    } catch (e) {}
+
+    setSetlistHistory(prev => prev.filter(item => item.id !== id));
+
+    try {
+      await deleteDoc(doc(db, 'setlist_history', id));
+    } catch (e) {
+      console.warn('Deleted setlist history locally:', e);
+    }
+  }, []);
+
   // Group Actions
   const createGroup = useCallback(async (name: string, description = '') => {
     const newId = 'group_' + Date.now();
@@ -1081,7 +1205,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const demoUser: UserProfile = {
       uid: 'demo-' + role + '-' + Date.now().toString(36),
       email: role === 'admin' ? 'admin@songbook.pro' : 'musicien@songbook.pro',
-      displayName: role === 'admin' ? 'Alexandre (Chef de Groupe)' : 'Camille (Guitariste)',
+      displayName: role === 'admin' ? 'Alexandre - Chef de Groupe' : 'Camille - Guitariste',
       currentGroupId: 'default-group',
       role
     };
@@ -1118,6 +1242,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       displaySettings,
       updateDisplaySettings,
       resetDisplaySettings,
+      songCardMetadata,
+      updateSongCardMetadata,
       isOffline: !isOnline,
       isOnline,
       syncStatus,
@@ -1127,9 +1253,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setIsAuthModalOpen,
       isInstallable,
       promptInstall,
-      favoriteSongIds,
-      isSongFavorite,
-      toggleFavoriteSong,
       createSong,
       importSong,
       updateSong,
@@ -1142,6 +1265,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       deleteSetlist,
       updateSetlistSongOverride,
       removeSetlistSongOverride,
+      setlistHistory,
+      recordSetlistHistory,
+      updateSetlistHistory,
+      deleteSetlistHistory,
       createGroup,
       joinGroup,
       switchGroup,

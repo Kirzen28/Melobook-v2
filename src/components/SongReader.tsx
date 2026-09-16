@@ -87,6 +87,9 @@ const PRESET_VOCAL_ROLES = [
 const MAJOR_KEYS = ['C', 'C#', 'Db', 'D', 'D#', 'Eb', 'E', 'F', 'F#', 'Gb', 'G', 'G#', 'Ab', 'A', 'A#', 'Bb', 'B'];
 const MINOR_KEYS = ['Cm', 'C#m', 'Dbm', 'Dm', 'D#m', 'Ebm', 'Em', 'Fm', 'F#m', 'Gbm', 'Gm', 'G#m', 'Abm', 'Am', 'A#m', 'Bbm', 'Bm'];
 
+const TRANSPOSE_DOWN_STEPS = [-1, -2, -3, -4, -5, -6, -7, -8, -9, -10, -11, -12];
+const TRANSPOSE_UP_STEPS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+
 interface SongReaderProps {
   song?: Song | null;
   setlistId?: string;
@@ -144,6 +147,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showSettingsDrawer, setShowSettingsDrawer] = useState(false);
+  const [settingsDrawerTab, setSettingsDrawerTab] = useState<'metadata' | 'display'>('metadata');
   const [showPdfModal, setShowPdfModal] = useState(false);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [showLanguageMenu, setShowLanguageMenu] = useState(false);
@@ -172,7 +176,6 @@ export const SongReader: React.FC<SongReaderProps> = ({
   const [showKeyModal, setShowKeyModal] = useState(false);
   const [showTempoModal, setShowTempoModal] = useState(false);
   const [tempoModalValue, setTempoModalValue] = useState<number>(song?.tempo || 100);
-  const [showCapoModal, setShowCapoModal] = useState(false);
   const [showTimeSigModal, setShowTimeSigModal] = useState(false);
   const [showDurationModal, setShowDurationModal] = useState(false);
   const [durationModalMode, setDurationModalMode] = useState<'auto' | 'custom'>('auto');
@@ -249,6 +252,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
   const [inlineDurationValue, setInlineDurationValue] = useState<string>('03:30');
   const [inlineTempoValue, setInlineTempoValue] = useState<string>('120');
   const [showKeyMenu, setShowKeyMenu] = useState(false);
+  const [showTransposeMenu, setShowTransposeMenu] = useState(false);
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [notesInput, setNotesInput] = useState('');
 
@@ -284,6 +288,27 @@ export const SongReader: React.FC<SongReaderProps> = ({
         setSelectedSong({ ...selectedSong, duration: formatted, durationMode: 'custom' });
       }
     }
+  };
+
+  const handleAdjustDurationSeconds = async (deltaSeconds: number) => {
+    const currentSec = parseDurationToSeconds(inlineDurationValue || effectiveDuration);
+    const newSec = Math.max(30, currentSec + deltaSeconds);
+    const formatted = formatDurationToMMSS(newSec);
+    await handleSetDurationCustom(formatted);
+  };
+
+  const handleEstimateAutoDuration = async () => {
+    if (!parsedData || !song) return;
+    const chordLinesCount = parsedData.sections.reduce((acc, sec) => {
+      return acc + sec.lines.filter(l => l.chords.length > 0 || l.lyrics.trim().length > 0).length;
+    }, 0);
+    const beatsPerMeasure = 4;
+    const estimatedMeasures = Math.max(16, chordLinesCount * 2);
+    const beats = estimatedMeasures * beatsPerMeasure;
+    const bpm = effectiveTempo || 120;
+    const seconds = Math.round((beats / bpm) * 60);
+    const formatted = formatDurationToMMSS(Math.max(60, Math.min(900, seconds)));
+    await handleSetDurationCustom(formatted);
   };
 
   const handleSaveNotes = async () => {
@@ -329,6 +354,14 @@ export const SongReader: React.FC<SongReaderProps> = ({
       await updateSetlistSongOverride(currentSetlist.id, song.id, { transposeOffset: 0 });
     } else {
       updateStageSettings({ transposeOffset: 0 });
+    }
+  };
+
+  const handleSetTransposeOffset = async (newOffset: number) => {
+    if (isSetlistMode && currentSetlist && song) {
+      await updateSetlistSongOverride(currentSetlist.id, song.id, { transposeOffset: newOffset });
+    } else {
+      updateStageSettings({ transposeOffset: newOffset });
     }
   };
 
@@ -465,21 +498,6 @@ export const SongReader: React.FC<SongReaderProps> = ({
       const calculatedBpm = Math.round(60000 / avgInterval);
       const clampedBpm = Math.max(40, Math.min(240, calculatedBpm));
       handleUpdateTempo(clampedBpm);
-    }
-  };
-
-  // Capo Handlers
-  const handleUpdateCapo = async (capoVal: number) => {
-    if (!song) return;
-    const safeCapo = Math.max(0, Math.min(11, capoVal));
-    if (isSetlistMode && currentSetlist) {
-      await updateSetlistSongOverride(currentSetlist.id, song.id, { capo: safeCapo });
-    } else {
-      updateStageSettings({ capo: safeCapo });
-      await updateSong(song.id, { capo: safeCapo });
-      if (selectedSong && selectedSong.id === song.id) {
-        setSelectedSong({ ...selectedSong, capo: safeCapo });
-      }
     }
   };
 
@@ -823,136 +841,573 @@ export const SongReader: React.FC<SongReaderProps> = ({
 
       {/* Settings Drawer (Overlay) */}
       {showSettingsDrawer && (
-        <div className="no-print bg-[#111112] border-b border-[#222224] px-4 py-3 text-xs shadow-xl z-20">
+        <div className="no-print bg-[#111112] border-b border-[#242428] px-4 py-3.5 text-xs shadow-2xl z-30 animate-in fade-in slide-in-from-top-2 duration-150">
           
-          {/* Header with Title and Close Button */}
-          <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-[#222224]">
-            <div className="flex items-center gap-2">
-              <Settings2 className="w-3.5 h-3.5 text-blue-400" />
-              <span className="font-semibold text-gray-200 text-xs">
-                Réglages du morceau
-              </span>
+          {/* Header with Title, Tabs, and Close Button */}
+          <div className="flex flex-wrap items-center justify-between gap-2 pb-3 mb-3 border-b border-[#222226]">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-blue-600/20 border border-blue-500/30 flex items-center justify-center">
+                <Settings2 className="w-4 h-4 text-blue-400" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-gray-100 text-sm">
+                    Réglages du chant
+                  </span>
+                  {song.title && (
+                    <span className="text-gray-400 text-xs hidden md:inline truncate max-w-xs">
+                      • {song.title}
+                    </span>
+                  )}
+                </div>
+                <span className="text-[11px] text-gray-400">
+                  Modifiez rapidement la tonalité, le tempo, la durée ou l'affichage de scène
+                </span>
+              </div>
             </div>
-            <button
-              onClick={() => setShowSettingsDrawer(false)}
-              className="flex items-center gap-1 px-2 py-1 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-400 hover:text-white border border-[#333] transition-colors cursor-pointer"
-              title="Fermer les réglages"
-            >
-              <X className="w-3.5 h-3.5" />
-              <span className="text-[11px] font-medium hidden sm:inline">Fermer</span>
-            </button>
+
+            <div className="flex items-center gap-2">
+              {/* Tabs Switcher */}
+              <div className="flex items-center bg-[#18181C] p-0.5 rounded-lg border border-[#2B2B32]">
+                <button
+                  type="button"
+                  onClick={() => setSettingsDrawerTab('metadata')}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-md font-medium text-xs transition-all cursor-pointer ${
+                    settingsDrawerTab === 'metadata'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'text-gray-400 hover:text-gray-200'
+                  }`}
+                >
+                  <Music className="w-3.5 h-3.5 text-blue-300" />
+                  <span>Métadonnées & Tonalité</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSettingsDrawerTab('display')}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-md font-medium text-xs transition-all cursor-pointer ${
+                    settingsDrawerTab === 'display'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'text-gray-400 hover:text-gray-200'
+                  }`}
+                >
+                  <Eye className="w-3.5 h-3.5 text-purple-300" />
+                  <span>Affichage & Outils</span>
+                </button>
+              </div>
+
+              {/* Close Button */}
+              <button
+                type="button"
+                onClick={() => setShowSettingsDrawer(false)}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-400 hover:text-white border border-[#333] transition-colors cursor-pointer"
+                title="Fermer les réglages"
+              >
+                <X className="w-3.5 h-3.5" />
+                <span className="text-[11px] font-medium hidden sm:inline">Fermer</span>
+              </button>
+            </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-            {/* Chords Visibility */}
-            <div className="flex items-center gap-2">
-              <span className="text-gray-400 font-medium">Accords :</span>
-              <div className="flex items-center gap-1 bg-[#1C1C1E] p-0.5 rounded-md border border-[#333]">
-                <button
-                  onClick={() => updateStageSettings({ showChords: true })}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded font-semibold transition-all ${
-                    stageSettings.showChords ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  <Eye className="w-3.5 h-3.5" />
-                  <span>Afficher</span>
-                </button>
-                <button
-                  onClick={() => updateStageSettings({ showChords: false })}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded font-semibold transition-all ${
-                    !stageSettings.showChords ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  <EyeOff className="w-3.5 h-3.5" />
-                  <span>Masquer</span>
-                </button>
-              </div>
-            </div>
+          {/* Tab Content 1: METADATA & QUICK ADJUSTMENTS */}
+          {settingsDrawerTab === 'metadata' && (
+            <div className="space-y-3">
+              {/* Setlist Context Notice (if active) */}
+              {isSetlistMode && currentSetlist && (
+                <div className="p-2.5 rounded-lg bg-blue-950/30 border border-blue-800/40 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 text-blue-300 text-xs">
+                    <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+                    <span>
+                      Setlist active : <strong>{currentSetlist.title}</strong> — Les réglages ci-dessous s'enregistrent pour cette setlist.
+                    </span>
+                  </div>
+                  {hasSetlistOverrides && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleSaveOverridesToMasterCatalog}
+                        className="px-2 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white font-medium text-[11px] transition-colors cursor-pointer"
+                        title="Enregistrer ces réglages dans la fiche générale de ce chant"
+                      >
+                        Appliquer au chant maître
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleResetOverridesToDefaults}
+                        className="px-2 py-1 rounded bg-[#202024] hover:bg-[#2A2A30] text-gray-300 hover:text-white border border-[#333] text-[11px] transition-colors cursor-pointer"
+                        title="Rétablir les valeurs d'origine du chant"
+                      >
+                        Rétablir l'original
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
 
-            {/* Battery Indicator Toggle */}
-            <div className="flex items-center gap-2">
-              <span className="text-gray-400 font-medium">Batterie scène :</span>
-              <div className="flex items-center gap-1 bg-[#1C1C1E] p-0.5 rounded-md border border-[#333]">
-                <button
-                  type="button"
-                  onClick={() => updateStageSettings({ showBatteryIndicator: true })}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded font-semibold transition-all cursor-pointer ${
-                    stageSettings.showBatteryIndicator !== false ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  <Battery className="w-3.5 h-3.5" />
-                  <span>Afficher</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => updateStageSettings({ showBatteryIndicator: false })}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded font-semibold transition-all cursor-pointer ${
-                    stageSettings.showBatteryIndicator === false ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  <span>Masquer</span>
-                </button>
-              </div>
-            </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {/* Panel 1: Tonalité & Transposition */}
+                <div className="bg-[#161619] border border-[#26262C] rounded-xl p-3 space-y-3">
+                  <div className="flex items-center justify-between border-b border-[#24242A] pb-2">
+                    <div className="flex items-center gap-1.5 text-blue-400 font-semibold text-xs">
+                      <Music className="w-3.5 h-3.5" />
+                      <span>Tonalité & Transposition</span>
+                    </div>
+                    <div className="text-[11px] font-mono text-gray-400">
+                      Actuelle : <span className="text-blue-400 font-bold">{currentKeyDisplay}</span>
+                    </div>
+                  </div>
 
-            {/* Auto-Scroll Controller */}
-            <div className="flex items-center gap-2">
-              <span className="text-gray-400 font-medium">Défilement auto :</span>
-              <div className="flex items-center gap-2 bg-[#1C1C1E] p-1 rounded-md border border-[#333]">
-                <button
-                  onClick={() => updateStageSettings({ isAutoScrolling: !stageSettings.isAutoScrolling })}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded font-semibold transition-all ${
-                    stageSettings.isAutoScrolling
-                      ? 'bg-blue-600 text-white shadow-sm'
-                      : 'bg-[#2A2A2D] text-gray-200 hover:bg-[#333]'
-                  }`}
-                >
-                  {stageSettings.isAutoScrolling ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
-                  <span>{stageSettings.isAutoScrolling ? 'Pause' : 'Lancer'}</span>
-                </button>
-                <div className="flex items-center gap-1 px-1">
-                  <span className="text-[10px] text-gray-400 font-mono">{stageSettings.autoScrollSpeed}x</span>
-                  <input
-                    type="range"
-                    min={1}
-                    max={10}
-                    value={stageSettings.autoScrollSpeed}
-                    onChange={(e) => updateStageSettings({ autoScrollSpeed: parseInt(e.target.value, 10) })}
-                    className="w-16 accent-blue-500 cursor-pointer h-1.5 bg-[#0A0A0B] rounded-lg"
-                  />
+                  {/* Tonalité : Liste déroulante */}
+                  <div>
+                    <label className="text-[10px] uppercase tracking-wider text-gray-400 font-bold mb-1.5 flex items-center justify-between block">
+                      <span>Tonalité de base</span>
+                      <span className="text-blue-400 font-mono text-xs font-bold">{baseKeyDisplay}</span>
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={baseKey}
+                        onChange={(e) => handleSetBaseKey(e.target.value)}
+                        className="w-full bg-[#1A1A20] hover:bg-[#202028] text-gray-200 text-xs font-mono font-bold rounded-lg px-3 py-2 border border-[#2E2E36] focus:border-blue-500 focus:outline-none cursor-pointer appearance-none shadow-xs transition-colors"
+                      >
+                        <optgroup label="Gammes Majeures">
+                          {MAJOR_KEYS.map((k) => {
+                            const displayLabel = stageSettings.notation === 'latin' ? (LATIN_NOTES[k] || k) : k;
+                            return (
+                              <option key={k} value={k}>
+                                {displayLabel}{displayLabel !== k ? ` - ${k}` : ''}
+                              </option>
+                            );
+                          })}
+                        </optgroup>
+                        <optgroup label="Gammes Mineures">
+                          {MINOR_KEYS.map((k) => {
+                            const displayLabel = stageSettings.notation === 'latin' ? (LATIN_NOTES[k] || k) : k;
+                            return (
+                              <option key={k} value={k}>
+                                {displayLabel}{displayLabel !== k ? ` - ${k}` : ''}
+                              </option>
+                            );
+                          })}
+                        </optgroup>
+                      </select>
+                      <ChevronDown className="w-4 h-4 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    </div>
+                  </div>
+
+                  {/* Transposition : Liste déroulante */}
+                  <div className="pt-2 border-t border-[#222228]">
+                    <div className="text-[10px] uppercase tracking-wider text-amber-400/90 font-bold mb-1.5 flex items-center justify-between">
+                      <span className="flex items-center gap-1">
+                        <ArrowUpDown className="w-3 h-3 text-amber-400" />
+                        Transposition directe
+                      </span>
+                      <span className="font-mono text-gray-400">
+                        {effectiveTransposeOffset === 0 ? '0' : (effectiveTransposeOffset > 0 ? `+${effectiveTransposeOffset}` : effectiveTransposeOffset)} demi-tons
+                      </span>
+                    </div>
+                    <div className="relative">
+                      <select
+                        value={effectiveTransposeOffset}
+                        onChange={(e) => handleSetTransposeOffset(parseInt(e.target.value, 10))}
+                        className="w-full bg-[#1A1A20] hover:bg-[#202028] text-amber-300 text-xs font-mono font-bold rounded-lg px-3 py-2 border border-[#2E2E36] focus:border-amber-500 focus:outline-none cursor-pointer appearance-none shadow-xs transition-colors"
+                      >
+                        <option value={0}>0 - Tonalité d'origine</option>
+                        <optgroup label="Baisser">
+                          {TRANSPOSE_DOWN_STEPS.map((step) => {
+                            const resultingKey = baseKey ? transposeChord(baseKey, step, stageSettings.notation) : '';
+                            return (
+                              <option key={step} value={step}>
+                                {step} {resultingKey ? `→ ${resultingKey}` : ''}
+                              </option>
+                            );
+                          })}
+                        </optgroup>
+                        <optgroup label="Augmenter">
+                          {TRANSPOSE_UP_STEPS.map((step) => {
+                            const resultingKey = baseKey ? transposeChord(baseKey, step, stageSettings.notation) : '';
+                            return (
+                              <option key={step} value={step}>
+                                +{step} {resultingKey ? `→ ${resultingKey}` : ''}
+                              </option>
+                            );
+                          })}
+                        </optgroup>
+                      </select>
+                      <ChevronDown className="w-4 h-4 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Panel 2: Tempo, Mesure & Métronome */}
+                <div className="bg-[#161619] border border-[#26262C] rounded-xl p-3 space-y-3">
+                  <div className="flex items-center justify-between border-b border-[#24242A] pb-2">
+                    <div className="flex items-center gap-1.5 text-emerald-400 font-semibold text-xs">
+                      <Gauge className="w-3.5 h-3.5" />
+                      <span>Tempo & Signature rythmique</span>
+                    </div>
+                    <div className="text-[11px] font-mono text-emerald-400 font-bold">
+                      {effectiveTempo} BPM
+                    </div>
+                  </div>
+
+                  {/* Tempo Stepper & Value */}
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wider text-gray-400 font-bold mb-1.5">
+                      Vitesse (BPM)
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateTempo(effectiveTempo - 5)}
+                        className="px-2 py-1 rounded bg-[#202026] hover:bg-[#2A2A32] text-gray-300 font-bold text-xs border border-[#303038] cursor-pointer"
+                        title="-5 BPM"
+                      >
+                        -5
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateTempo(effectiveTempo - 1)}
+                        className="px-2 py-1 rounded bg-[#202026] hover:bg-[#2A2A32] text-gray-300 font-bold text-xs border border-[#303038] cursor-pointer"
+                        title="-1 BPM"
+                      >
+                        -1
+                      </button>
+                      
+                      <input
+                        type="number"
+                        min={30}
+                        max={260}
+                        value={effectiveTempo}
+                        onChange={(e) => {
+                          const v = parseInt(e.target.value, 10);
+                          if (!isNaN(v)) handleUpdateTempo(v);
+                        }}
+                        className="flex-1 bg-[#1A1A1E] text-emerald-400 font-bold font-mono text-center text-sm py-1 rounded-lg border border-emerald-500/40 focus:outline-none focus:border-emerald-400"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateTempo(effectiveTempo + 1)}
+                        className="px-2 py-1 rounded bg-[#202026] hover:bg-[#2A2A32] text-gray-300 font-bold text-xs border border-[#303038] cursor-pointer"
+                        title="+1 BPM"
+                      >
+                        +1
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateTempo(effectiveTempo + 5)}
+                        className="px-2 py-1 rounded bg-[#202026] hover:bg-[#2A2A32] text-gray-300 font-bold text-xs border border-[#303038] cursor-pointer"
+                        title="+5 BPM"
+                      >
+                        +5
+                      </button>
+                    </div>
+
+                    {/* Range Slider */}
+                    <div className="pt-2.5">
+                      <input
+                        type="range"
+                        min={40}
+                        max={220}
+                        value={effectiveTempo}
+                        onChange={(e) => handleUpdateTempo(parseInt(e.target.value, 10))}
+                        className="w-full accent-emerald-500 cursor-pointer h-1.5 bg-[#0D0D10] rounded-lg"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Tap Tempo Button */}
+                  <div className="pt-2 border-t border-[#222228]">
+                    <button
+                      type="button"
+                      onClick={handleTapTempo}
+                      className="w-full py-2 rounded-lg bg-emerald-950/30 hover:bg-emerald-900/50 text-emerald-300 border border-emerald-500/30 font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer shadow-xs"
+                      title="Cliquez en rythme plusieurs fois pour calculer automatiquement le tempo"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>
+                        Tap Tempo {tapCount > 0 ? `(${tapCount} tap)` : '— Cliquer en rythme'}
+                      </span>
+                    </button>
+                  </div>
+
+                  {/* Signature Rythmique (Mesure) */}
+                  <div className="pt-2 border-t border-[#222228]">
+                    <div className="text-[10px] uppercase tracking-wider text-purple-400 font-bold mb-1.5 flex items-center justify-between">
+                      <span className="flex items-center gap-1">
+                        <Music2 className="w-3 h-3 text-purple-400" />
+                        Signature rythmique (Mesure)
+                      </span>
+                      <span className="font-mono text-purple-300">
+                        {song.timeSignature || parsedData?.timeSignature || '4/4'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {['4/4', '3/4', '6/8', '2/4', '12/8', '5/4'].map((sig) => {
+                        const isCurrentSig = (song.timeSignature || parsedData?.timeSignature || '4/4') === sig;
+                        return (
+                          <button
+                            key={sig}
+                            type="button"
+                            onClick={() => handleUpdateTimeSignature(sig)}
+                            className={`px-2.5 py-1 rounded-md font-mono text-xs font-bold transition-all cursor-pointer ${
+                              isCurrentSig
+                                ? 'bg-purple-600 text-white shadow-xs ring-1 ring-purple-400'
+                                : 'bg-[#1C1C22] text-gray-300 hover:bg-[#26262E] hover:text-white'
+                            }`}
+                          >
+                            {sig}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Panel 3: Durée estimée & Instructions de scène */}
+                <div className="bg-[#161619] border border-[#26262C] rounded-xl p-3 space-y-3">
+                  <div className="flex items-center justify-between border-b border-[#24242A] pb-2">
+                    <div className="flex items-center gap-1.5 text-cyan-400 font-semibold text-xs">
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>Durée estimée</span>
+                    </div>
+                    <div className="text-[11px] font-mono text-cyan-300 font-bold">
+                      {effectiveDuration}
+                    </div>
+                  </div>
+
+                  {/* Editable Duration Input */}
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wider text-gray-400 font-bold mb-1.5">
+                      Durée du chant (MM:SS)
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={inlineDurationValue}
+                        onChange={(e) => setInlineDurationValue(e.target.value)}
+                        onBlur={() => {
+                          if (inlineDurationValue.trim()) {
+                            handleSetDurationCustom(inlineDurationValue.trim());
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            (e.target as HTMLInputElement).blur();
+                          }
+                        }}
+                        placeholder="03:30"
+                        className="flex-1 bg-[#1A1A1E] hover:bg-[#222228] text-cyan-300 font-bold font-mono text-sm border border-cyan-500/40 focus:border-cyan-400 rounded-lg px-2 py-1.5 text-center focus:outline-none shadow-xs transition-all"
+                        title="Entrez la durée souhaitée ex: 04:15"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleAdjustDurationSeconds(-30)}
+                        className="px-2.5 py-1.5 rounded-lg bg-[#202026] hover:bg-[#2A2A32] text-gray-300 font-bold text-xs border border-[#303038] cursor-pointer"
+                        title="Diminuer de 30 secondes"
+                      >
+                        -30s
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleAdjustDurationSeconds(30)}
+                        className="px-2.5 py-1.5 rounded-lg bg-[#202026] hover:bg-[#2A2A32] text-gray-300 font-bold text-xs border border-[#303038] cursor-pointer"
+                        title="Augmenter de 30 secondes"
+                      >
+                        +30s
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Presets de durée */}
+                  <div>
+                    <div className="text-[10px] text-gray-400 mb-1">
+                      Préréglages rapides :
+                    </div>
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {['02:30', '03:00', '03:30', '04:00', '04:30', '05:00'].map((d) => (
+                        <button
+                          key={d}
+                          type="button"
+                          onClick={() => handleSetDurationCustom(d)}
+                          className={`px-1.5 py-0.5 rounded font-mono text-[11px] font-medium transition-colors cursor-pointer ${
+                            effectiveDuration === d
+                              ? 'bg-cyan-600 text-white font-bold'
+                              : 'bg-[#1C1C22] text-gray-400 hover:text-cyan-300 hover:bg-[#24242C]'
+                          }`}
+                        >
+                          {d}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Calcul automatique d'après tempo */}
+                  <div className="pt-1.5">
+                    <button
+                      type="button"
+                      onClick={handleEstimateAutoDuration}
+                      className="w-full py-1.5 rounded-lg bg-[#1C1C22] hover:bg-[#24242E] text-gray-300 hover:text-cyan-300 border border-[#2E2E36] font-medium text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      title="Estimer automatiquement la durée d'après le nombre de mesures et le tempo"
+                    >
+                      <Sparkles className="w-3 h-3 text-cyan-400" />
+                      <span>Calculer auto d'après le tempo</span>
+                    </button>
+                  </div>
+
+                  {/* Instructions / Notes de scène */}
+                  <div className="pt-2 border-t border-[#222228]">
+                    <div className="text-[10px] uppercase tracking-wider text-amber-400/90 font-bold mb-1 flex items-center justify-between">
+                      <span className="flex items-center gap-1">
+                        <Pencil className="w-3 h-3 text-amber-400" />
+                        Consigne pour la scène
+                      </span>
+                    </div>
+                    <div className="space-y-1.5">
+                      <textarea
+                        value={notesInput}
+                        onChange={(e) => setNotesInput(e.target.value)}
+                        placeholder="Ex: Solo guitare après le pont, Refrain a cappella..."
+                        rows={2}
+                        className="w-full bg-[#18181C] text-gray-200 text-xs rounded-lg p-2 border border-[#2B2B32] focus:border-amber-500/50 focus:outline-none resize-none"
+                      />
+                      <div className="flex items-center justify-end gap-2">
+                        {notesInput && (
+                          <button
+                            type="button"
+                            onClick={handleDeleteNotes}
+                            className="px-2 py-1 rounded text-gray-400 hover:text-rose-400 text-[11px] transition-colors cursor-pointer"
+                          >
+                            Effacer
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={handleSaveNotes}
+                          className="px-2.5 py-1 rounded-md bg-amber-600 hover:bg-amber-500 text-white font-medium text-xs transition-colors cursor-pointer shadow-xs"
+                        >
+                          Enregistrer la note
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
+          )}
 
-            {/* Pédalier / Contrôleur MIDI */}
-            <div className="flex items-center gap-2">
-              <span className="text-gray-400 font-medium">MIDI :</span>
-              <MidiStatusIndicator showLabel />
-            </div>
+          {/* Tab Content 2: DISPLAY & STAGE TOOLS */}
+          {settingsDrawerTab === 'display' && (
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-3 pt-1">
+              {/* Chords Visibility */}
+              <div className="flex items-center gap-2">
+                <span className="text-gray-400 font-medium">Accords :</span>
+                <div className="flex items-center gap-1 bg-[#1C1C1E] p-0.5 rounded-md border border-[#333]">
+                  <button
+                    onClick={() => updateStageSettings({ showChords: true })}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded font-semibold transition-all cursor-pointer ${
+                      stageSettings.showChords ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>Afficher</span>
+                  </button>
+                  <button
+                    onClick={() => updateStageSettings({ showChords: false })}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded font-semibold transition-all cursor-pointer ${
+                      !stageSettings.showChords ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    <EyeOff className="w-3.5 h-3.5" />
+                    <span>Masquer</span>
+                  </button>
+                </div>
+              </div>
 
-            {/* Actions : PDF & Edit */}
-            <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto flex-wrap pt-1 sm:pt-0 border-t sm:border-t-0 border-[#222224]">
-              <button
-                type="button"
-                onClick={() => setShowPdfModal(true)}
-                className="flex-1 sm:flex-none flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-1 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-200 border border-[#333] font-medium text-xs transition-colors cursor-pointer"
-                title="Exporter cette partition en PDF"
-              >
-                <FileDown className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                <span>Exporter PDF</span>
-              </button>
-              {currentUser?.role === 'admin' && (
+              {/* Battery Indicator Toggle */}
+              <div className="flex items-center gap-2">
+                <span className="text-gray-400 font-medium">Batterie scène :</span>
+                <div className="flex items-center gap-1 bg-[#1C1C1E] p-0.5 rounded-md border border-[#333]">
+                  <button
+                    type="button"
+                    onClick={() => updateStageSettings({ showBatteryIndicator: true })}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded font-semibold transition-all cursor-pointer ${
+                      stageSettings.showBatteryIndicator !== false ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    <Battery className="w-3.5 h-3.5" />
+                    <span>Afficher</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateStageSettings({ showBatteryIndicator: false })}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded font-semibold transition-all cursor-pointer ${
+                      stageSettings.showBatteryIndicator === false ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    <span>Masquer</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Auto-Scroll Controller */}
+              <div className="flex items-center gap-2">
+                <span className="text-gray-400 font-medium">Défilement auto :</span>
+                <div className="flex items-center gap-2 bg-[#1C1C1E] p-1 rounded-md border border-[#333]">
+                  <button
+                    onClick={() => updateStageSettings({ isAutoScrolling: !stageSettings.isAutoScrolling })}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded font-semibold transition-all cursor-pointer ${
+                      stageSettings.isAutoScrolling
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'bg-[#2A2A2D] text-gray-200 hover:bg-[#333]'
+                    }`}
+                  >
+                    {stageSettings.isAutoScrolling ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+                    <span>{stageSettings.isAutoScrolling ? 'Pause' : 'Lancer'}</span>
+                  </button>
+                  <div className="flex items-center gap-1 px-1">
+                    <span className="text-[10px] text-gray-400 font-mono">{stageSettings.autoScrollSpeed}x</span>
+                    <input
+                      type="range"
+                      min={1}
+                      max={10}
+                      value={stageSettings.autoScrollSpeed}
+                      onChange={(e) => updateStageSettings({ autoScrollSpeed: parseInt(e.target.value, 10) })}
+                      className="w-16 accent-blue-500 cursor-pointer h-1.5 bg-[#0A0A0B] rounded-lg"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Pédalier / Contrôleur MIDI */}
+              <div className="flex items-center gap-2">
+                <span className="text-gray-400 font-medium">MIDI :</span>
+                <MidiStatusIndicator showLabel />
+              </div>
+
+              {/* Actions : PDF & Edit */}
+              <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto flex-wrap pt-1 sm:pt-0 border-t sm:border-t-0 border-[#222224]">
                 <button
-                  onClick={() => setActiveTab('editor')}
-                  className="flex-1 sm:flex-none flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-1 rounded-md bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs shadow-sm transition-colors"
+                  type="button"
+                  onClick={() => setShowPdfModal(true)}
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-1 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-200 border border-[#333] font-medium text-xs transition-colors cursor-pointer"
+                  title="Exporter cette partition en PDF"
                 >
-                  <FileEdit className="w-3.5 h-3.5 shrink-0" />
-                  <span>Modifier</span>
+                  <FileDown className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <span>Exporter PDF</span>
                 </button>
-              )}
+                {currentUser?.role === 'admin' && (
+                  <button
+                    onClick={() => setActiveTab('editor')}
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-1 rounded-md bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs shadow-sm transition-colors cursor-pointer"
+                  >
+                    <FileEdit className="w-3.5 h-3.5 shrink-0" />
+                    <span>Modifier dans l'éditeur</span>
+                  </button>
+                )}
+              </div>
             </div>
+          )}
 
-          </div>
         </div>
       )}
 
@@ -1101,24 +1556,33 @@ export const SongReader: React.FC<SongReaderProps> = ({
               </div>
             </div>
 
-            {/* Single Line Toolbar: Stylized Inline Controls for Tonalité, Transpose, Tempo, Durée, Mesure & Catégories */}
+            {/* Single Line Toolbar: Stylized Inline Controls with Dropdowns for Tonalité & Transposition */}
             <div className="flex items-center gap-2 flex-wrap text-xs">
-              {/* Tonalité : Menu déroulant liste à 2 colonnes */}
+              {/* Tonalité : Liste déroulante */}
               <div className="relative inline-block">
                 <button
                   type="button"
-                  onClick={() => setShowKeyMenu(!showKeyMenu)}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#141416] hover:bg-[#1C1C20] border border-[#242428] hover:border-blue-500/50 text-gray-300 font-mono shadow-sm transition-all cursor-pointer"
+                  onClick={() => {
+                    setShowKeyMenu(!showKeyMenu);
+                    setShowTransposeMenu(false);
+                  }}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border font-mono shadow-sm transition-all cursor-pointer ${
+                    showKeyMenu
+                      ? 'bg-[#1C1C22] border-blue-500 text-white ring-1 ring-blue-500/40'
+                      : 'bg-[#141416] hover:bg-[#1A1A1E] border-[#242428] hover:border-blue-500/40 text-gray-300'
+                  }`}
                   style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
-                  title="Choisir la tonalité"
+                  title="Cliquer pour choisir la tonalité - liste déroulante"
                 >
                   <Music className="w-3.5 h-3.5 text-blue-400 shrink-0" />
                   <span className="text-gray-400 font-sans text-xs hidden sm:inline">Tonalité :</span>
                   <span className="text-blue-400 font-bold font-mono text-xs">{baseKeyDisplay}</span>
                   {stageSettings.transposeOffset !== 0 && transposedKeyDisplay && (
-                    <span className="text-amber-400 font-bold font-mono text-xs ml-1">{transposedKeyDisplay}</span>
+                    <span className="text-amber-400 font-bold font-mono text-xs ml-0.5" title={`Transposé : ${stageSettings.transposeOffset > 0 ? `+${stageSettings.transposeOffset}` : stageSettings.transposeOffset} demi-tons`}>
+                      → {transposedKeyDisplay}
+                    </span>
                   )}
-                  <ChevronDown className="w-3 h-3 text-blue-400/80" />
+                  <ChevronDown className={`w-3 h-3 text-blue-400/80 transition-transform ${showKeyMenu ? 'rotate-180' : ''}`} />
                 </button>
 
                 {showKeyMenu && (
@@ -1127,11 +1591,15 @@ export const SongReader: React.FC<SongReaderProps> = ({
                       className="fixed inset-0 z-40" 
                       onClick={() => setShowKeyMenu(false)} 
                     />
-                    <div className="absolute left-0 top-full mt-1.5 z-50 w-64 bg-[#18181C] border border-[#2E2E36] rounded-xl shadow-2xl p-2.5 backdrop-blur-md">
+                    <div className="absolute left-0 top-full mt-1.5 z-50 w-72 bg-[#16161A] border border-[#2E2E36] rounded-xl shadow-2xl p-2.5 backdrop-blur-md animate-in fade-in zoom-in-95 duration-100">
+                      <div className="text-[11px] font-semibold text-gray-400 pb-2 mb-2 border-b border-[#282830] flex items-center justify-between">
+                        <span>Choisir la tonalité</span>
+                        <span className="text-[10px] text-blue-400 font-mono">Actuelle : {baseKeyDisplay}</span>
+                      </div>
                       <div className="grid grid-cols-2 gap-2 text-xs">
                         {/* Colonne Gauche : Majeur */}
                         <div>
-                          <div className="text-[11px] font-bold text-blue-400 uppercase tracking-wider px-1 pb-1.5 border-b border-[#282830] mb-1.5 text-center">
+                          <div className="text-[10px] font-bold text-blue-400 uppercase tracking-wider px-1 pb-1 mb-1 border-b border-[#282830] text-center">
                             Majeur
                           </div>
                           <div className="grid grid-cols-1 gap-1 max-h-56 overflow-y-auto pr-0.5 custom-scrollbar">
@@ -1148,7 +1616,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                                   }}
                                   className={`w-full py-1 px-2 rounded-md font-mono font-bold text-xs transition-colors flex items-center justify-between cursor-pointer ${
                                     isSelected
-                                      ? 'bg-blue-600 text-white shadow-sm'
+                                      ? 'bg-blue-600 text-white shadow-xs'
                                       : 'text-gray-300 hover:bg-[#25252D] hover:text-white'
                                   }`}
                                 >
@@ -1162,7 +1630,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
 
                         {/* Colonne Droite : Mineur */}
                         <div className="border-l border-[#282830] pl-2">
-                          <div className="text-[11px] font-bold text-indigo-400 uppercase tracking-wider px-1 pb-1.5 border-b border-[#282830] mb-1.5 text-center">
+                          <div className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider px-1 pb-1 mb-1 border-b border-[#282830] text-center">
                             Mineur
                           </div>
                           <div className="grid grid-cols-1 gap-1 max-h-56 overflow-y-auto pr-0.5 custom-scrollbar">
@@ -1179,7 +1647,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                                   }}
                                   className={`w-full py-1 px-2 rounded-md font-mono font-bold text-xs transition-colors flex items-center justify-between cursor-pointer ${
                                     isSelected
-                                      ? 'bg-indigo-600 text-white shadow-sm'
+                                      ? 'bg-indigo-600 text-white shadow-xs'
                                       : 'text-gray-300 hover:bg-[#25252D] hover:text-white'
                                   }`}
                                 >
@@ -1196,67 +1664,190 @@ export const SongReader: React.FC<SongReaderProps> = ({
                 )}
               </div>
 
-              {/* Transposition rapide : Boutons +/- demi-ton en temps réel (Placé côte à côte avec Tonalité) */}
-              <div 
-                className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-lg border text-gray-300 font-mono shadow-sm transition-colors ${
-                  stageSettings.transposeOffset !== 0
-                    ? 'bg-amber-950/30 border-amber-500/40 text-amber-300'
-                    : 'bg-[#141416] border-[#242428]'
-                }`}
-                style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
-              >
-                <ArrowUpDown className="w-3.5 h-3.5 text-amber-400 shrink-0" title="Transposition" />
-                <span className="text-amber-400/90 font-sans text-xs shrink-0 hidden sm:inline">Transpose :</span>
-                
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => handleTransposeDelta(-1)}
-                    className="w-5 h-5 rounded bg-[#202024] hover:bg-[#2C2C32] active:scale-95 text-gray-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
-                    title="Transposer d'un demi-ton vers le bas"
-                  >
-                    <Minus className="w-3 h-3" />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleResetTranspose}
-                    className={`min-w-[24px] px-1.5 py-0.5 rounded font-mono font-bold text-xs text-center transition-colors cursor-pointer ${
-                      stageSettings.transposeOffset !== 0
-                        ? 'bg-amber-500/20 text-amber-300 hover:bg-amber-500/30'
-                        : 'text-gray-400 hover:text-gray-200'
-                    }`}
-                    title={stageSettings.transposeOffset !== 0 ? "Cliquer pour réinitialiser la transposition à 0" : "Transposition à 0"}
-                  >
+              {/* Transposition : Liste déroulante en deux colonnes */}
+              <div className="relative inline-block">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowTransposeMenu(!showTransposeMenu);
+                    setShowKeyMenu(false);
+                  }}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border font-mono shadow-sm transition-all cursor-pointer ${
+                    showTransposeMenu
+                      ? 'bg-amber-950/40 border-amber-500 text-amber-300 ring-1 ring-amber-500/40'
+                      : stageSettings.transposeOffset !== 0
+                        ? 'bg-amber-950/30 hover:bg-amber-950/50 border-amber-500/40 text-amber-300'
+                        : 'bg-[#141416] hover:bg-[#1A1A1E] border-[#242428] hover:border-amber-500/40 text-gray-300'
+                  }`}
+                  style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
+                  title="Cliquer pour choisir la transposition - liste déroulante"
+                >
+                  <ArrowUpDown className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span className="text-amber-400/90 font-sans text-xs shrink-0 hidden sm:inline">Transpose :</span>
+                  <span className={`px-1.5 py-0.5 rounded font-mono font-bold text-xs ${
+                    stageSettings.transposeOffset !== 0
+                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                      : 'bg-[#18181C] text-gray-300 border border-[#242428]'
+                  }`}>
                     {stageSettings.transposeOffset === 0 
                       ? '0' 
                       : (stageSettings.transposeOffset > 0 ? `+${stageSettings.transposeOffset}` : `${stageSettings.transposeOffset}`)}
-                  </button>
+                  </span>
+                  <ChevronDown className={`w-3 h-3 text-amber-400/80 transition-transform ${showTransposeMenu ? 'rotate-180' : ''}`} />
+                </button>
 
-                  <button
-                    type="button"
-                    onClick={() => handleTransposeDelta(1)}
-                    className="w-5 h-5 rounded bg-[#202024] hover:bg-[#2C2C32] active:scale-95 text-gray-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
-                    title="Transposer d'un demi-ton vers le haut"
-                  >
-                    <Plus className="w-3 h-3" />
-                  </button>
-                </div>
+                {showTransposeMenu && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-40" 
+                      onClick={() => setShowTransposeMenu(false)} 
+                    />
+                    <div className="absolute left-0 top-full mt-1.5 z-50 w-60 bg-[#16161A] border border-[#2E2E36] rounded-xl shadow-2xl p-2.5 backdrop-blur-md animate-in fade-in zoom-in-95 duration-100">
+                      <div className="text-[11px] font-semibold text-gray-400 pb-2 mb-2 border-b border-[#282830] flex items-center justify-between">
+                        <span>Transposition</span>
+                        {effectiveTransposeOffset !== 0 ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleSetTransposeOffset(0);
+                              setShowTransposeMenu(false);
+                            }}
+                            className="text-[10px] text-amber-400 hover:underline cursor-pointer"
+                          >
+                            Rétablir à 0
+                          </button>
+                        ) : (
+                          <span className="text-[10px] text-amber-400 font-mono">0</span>
+                        )}
+                      </div>
+
+                      {/* Option centrale 0 : Tonalité d'origine */}
+                      <div className="mb-2 pb-2 border-b border-[#282830]">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleSetTransposeOffset(0);
+                            setShowTransposeMenu(false);
+                          }}
+                          className={`w-full py-1.5 px-2 rounded-lg font-mono text-xs transition-colors flex items-center justify-between cursor-pointer ${
+                            effectiveTransposeOffset === 0
+                              ? 'bg-amber-600 text-white font-bold shadow-xs'
+                              : 'bg-[#1C1C22] text-gray-300 hover:bg-[#25252D] hover:text-white border border-[#2E2E36]'
+                          }`}
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold">0</span>
+                            <span className="text-gray-400 text-[11px]">Origine</span>
+                          </div>
+                          {baseKey && (
+                            <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded ${
+                              effectiveTransposeOffset === 0 ? 'bg-amber-700/80 text-white' : 'bg-[#202026] text-blue-300 border border-[#2A2A32]'
+                            }`}>
+                              {baseKeyDisplay}
+                            </span>
+                          )}
+                        </button>
+                      </div>
+
+                      {/* Deux colonnes compactes sans labels */}
+                      <div className="grid grid-cols-2 gap-1.5 text-xs">
+                        {/* Colonne Gauche : Baisser */}
+                        <div className="grid grid-cols-1 gap-1 max-h-60 overflow-y-auto pr-0.5 custom-scrollbar">
+                          {TRANSPOSE_DOWN_STEPS.map((step) => {
+                            const isSelected = effectiveTransposeOffset === step;
+                            const resultingKey = baseKey ? transposeChord(baseKey, step, stageSettings.notation) : '';
+                            return (
+                              <button
+                                key={step}
+                                type="button"
+                                onClick={() => {
+                                  handleSetTransposeOffset(step);
+                                  setShowTransposeMenu(false);
+                                }}
+                                className={`w-full py-1 px-1.5 rounded-md font-mono text-xs transition-colors flex items-center justify-between cursor-pointer ${
+                                  isSelected
+                                    ? 'bg-rose-600 text-white font-bold shadow-xs'
+                                    : 'text-gray-300 hover:bg-[#25252D] hover:text-white'
+                                }`}
+                              >
+                                <span className={isSelected ? 'text-white' : 'text-rose-300/90 font-medium'}>
+                                  {step}
+                                </span>
+                                {resultingKey && (
+                                  <span className={`text-[10px] font-bold px-1 rounded ${
+                                    isSelected ? 'bg-rose-700/80 text-white' : 'bg-[#202026] text-blue-300 border border-[#2A2A32]'
+                                  }`}>
+                                    {resultingKey}
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* Colonne Droite : Augmenter */}
+                        <div className="grid grid-cols-1 gap-1 max-h-60 overflow-y-auto pr-0.5 custom-scrollbar border-l border-[#282830] pl-1.5">
+                          {TRANSPOSE_UP_STEPS.map((step) => {
+                            const isSelected = effectiveTransposeOffset === step;
+                            const resultingKey = baseKey ? transposeChord(baseKey, step, stageSettings.notation) : '';
+                            return (
+                              <button
+                                key={step}
+                                type="button"
+                                onClick={() => {
+                                  handleSetTransposeOffset(step);
+                                  setShowTransposeMenu(false);
+                                }}
+                                className={`w-full py-1 px-1.5 rounded-md font-mono text-xs transition-colors flex items-center justify-between cursor-pointer ${
+                                  isSelected
+                                    ? 'bg-emerald-600 text-white font-bold shadow-xs'
+                                    : 'text-gray-300 hover:bg-[#25252D] hover:text-white'
+                                }`}
+                              >
+                                <span className={isSelected ? 'text-white' : 'text-emerald-300/90 font-medium'}>
+                                  +{step}
+                                </span>
+                                {resultingKey && (
+                                  <span className={`text-[10px] font-bold px-1 rounded ${
+                                    isSelected ? 'bg-emerald-700/80 text-white' : 'bg-[#202026] text-blue-300 border border-[#2A2A32]'
+                                  }`}>
+                                    {resultingKey}
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
 
-              {/* Métronome Visuel & Sonore : Tempo BPM, Signature Rythmique, LEDs de battement & Tap */}
+              {/* Métronome Visuel & Sonore (Read-Only sur la scène) */}
               <MetronomeStageControl
                 initialBpm={effectiveTempo}
                 initialTimeSignature={song.timeSignature || parsedData?.timeSignature || '4/4'}
                 onBpmChange={handleUpdateTempo}
                 onTimeSignatureChange={handleUpdateTimeSignature}
                 songTitle={song.title}
+                readOnly={true}
+                onOpenSettings={() => {
+                  setSettingsDrawerTab('metadata');
+                  setShowSettingsDrawer(true);
+                }}
               />
 
-              {/* Durée : Saisie manuelle directe */}
-              <div 
-                className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-[#141416] border border-[#242428] text-gray-300 font-mono shadow-sm"
+              {/* Durée (Read-Only) */}
+              <button
+                type="button"
+                onClick={() => {
+                  setSettingsDrawerTab('metadata');
+                  setShowSettingsDrawer(true);
+                }}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#141416] hover:bg-[#1A1A1E] border border-[#242428] hover:border-cyan-500/40 text-gray-300 font-mono shadow-sm transition-all cursor-pointer"
                 style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
+                title="Durée estimée : cliquer pour modifier dans les réglages du morceau"
               >
                 <div className="flex items-center gap-1 text-cyan-400">
                   <Clock className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
@@ -1264,46 +1855,24 @@ export const SongReader: React.FC<SongReaderProps> = ({
                     Durée :
                   </span>
                 </div>
+                <span className="text-cyan-300 font-bold font-mono text-xs px-1.5 py-0.5 bg-[#18181C] rounded border border-[#242428]">
+                  {effectiveDuration}
+                </span>
+              </button>
 
-                {/* Editable Duration Input */}
-                <input
-                  type="text"
-                  value={inlineDurationValue}
-                  onChange={(e) => setInlineDurationValue(e.target.value)}
-                  onBlur={() => {
-                    if (inlineDurationValue.trim()) {
-                      handleSetDurationCustom(inlineDurationValue.trim());
-                    }
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      (e.target as HTMLInputElement).blur();
-                    }
-                  }}
-                  placeholder="03:30"
-                  className="w-14 bg-[#18181C] hover:bg-[#222228] text-cyan-300 font-bold font-mono text-xs border border-cyan-500/30 focus:border-cyan-400 rounded-md px-1.5 py-0.5 text-center focus:outline-none shadow-sm transition-all"
-                  title="Cliquer pour entrer ou modifier la durée ex: 03:30"
-                />
-              </div>
-
-
-              {/* Bouton Note / Instructions si aucune note n'est encore rédigée */}
-              {!song.notes && !isEditingNotes && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setNotesInput('');
-                    setIsEditingNotes(true);
-                  }}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#141416] hover:bg-[#1C1C20] border border-[#242428] hover:border-amber-500/50 text-gray-400 hover:text-amber-300 font-mono shadow-sm transition-all cursor-pointer"
-                  style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
-                  title="Ajouter une note ou instruction pour ce chant"
-                >
-                  <Pencil className="w-3.5 h-3.5 text-amber-400/80 shrink-0" />
-                  <span className="text-gray-300 font-sans text-xs hidden sm:inline">Note</span>
-                </button>
-              )}
-
+              {/* Bouton direct "Modifier" pour inciter à aller dans les réglages */}
+              <button
+                type="button"
+                onClick={() => {
+                  setSettingsDrawerTab('metadata');
+                  setShowSettingsDrawer(true);
+                }}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-[#161619] hover:bg-blue-600/20 text-gray-400 hover:text-blue-300 border border-[#2B2B32] hover:border-blue-500/40 text-xs font-medium transition-all shadow-xs cursor-pointer"
+                title="Modifier rapidement la tonalité, le tempo, la durée ou les notes dans les réglages"
+              >
+                <Pencil className="w-3 h-3 text-blue-400" />
+                <span className="hidden sm:inline">Modifier</span>
+              </button>
 
               {/* Categories / Tags : sur sa propre ligne en mobile et à la suite sur écran large */}
               {song.tags && song.tags.length > 0 && (

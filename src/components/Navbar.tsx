@@ -4,7 +4,6 @@ import { useApp } from '../context/AppContext';
 import { 
   Music2, 
   ListMusic, 
-  FileEdit, 
   Users, 
   Download, 
   WifiOff, 
@@ -24,6 +23,7 @@ import {
   AlertCircle,
   Cloud
 } from 'lucide-react';
+import { MelobookLogo } from './MelobookLogo';
 
 export const Navbar: React.FC = () => {
   const { 
@@ -128,28 +128,45 @@ export const Navbar: React.FC = () => {
       <div className="max-w-7xl mx-auto px-3 sm:px-6">
         <div className="flex items-center justify-between h-14 sm:h-16 gap-2">
           
-          {/* Logo & Desktop Group Switcher */}
-          <div className="flex items-center gap-2.5 sm:gap-3">
-            <div 
+          {/* Logo & Boutons mobiles Bibliotheque / Listes */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button 
+              type="button"
               onClick={() => handleNavClick('repertoire')}
-              className="flex items-center gap-2.5 cursor-pointer group"
+              className="flex items-center gap-2 cursor-pointer group p-1 rounded-lg hover:bg-[#1A1A1C] transition-colors focus:outline-none shrink-0"
+              title="Répertoire"
+              aria-label="Accueil Répertoire"
             >
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-white shadow-sm group-hover:bg-blue-500 transition-colors">
-                M
-              </div>
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <span className="font-bold text-sm sm:text-base tracking-tight text-white">
-                    MELOBOOK
-                  </span>
-                  <span className="text-[9px] sm:text-[10px] uppercase font-semibold tracking-wider px-1.5 py-0.5 rounded bg-[#1C1C1E] border border-[#333] text-blue-400">
-                    PRO
-                  </span>
-                </div>
-                <p className="hidden xs:block text-[10px] sm:text-[11px] text-gray-400 truncate max-w-[140px] sm:max-w-[200px]">
-                  {currentGroup?.name || 'Groupe Louange'}
-                </p>
-              </div>
+              <MelobookLogo className="w-10 h-10 sm:w-11 sm:h-11 transition-transform group-hover:scale-105" />
+            </button>
+
+            {/* Boutons mobiles Bibliothèque et Listes */}
+            <div className="flex md:hidden items-center gap-1 bg-[#0A0A0B] p-0.5 rounded-lg border border-[#222224]">
+              <button
+                type="button"
+                onClick={() => handleNavClick('repertoire')}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                  activeTab === 'repertoire'
+                    ? 'bg-[#1C1C1E] text-white border border-[#333] shadow-xs'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                <Music2 className={`w-3.5 h-3.5 ${activeTab === 'repertoire' ? 'text-blue-400' : 'text-gray-400'}`} />
+                <span>Bibliothèque</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleNavClick('setlists')}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                  activeTab === 'setlists'
+                    ? 'bg-[#1C1C1E] text-white border border-[#333] shadow-xs'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                <ListMusic className={`w-3.5 h-3.5 ${activeTab === 'setlists' ? 'text-blue-400' : 'text-gray-400'}`} />
+                <span>Listes</span>
+              </button>
             </div>
           </div>
 
@@ -193,29 +210,11 @@ export const Navbar: React.FC = () => {
               <span>Setlists</span>
             </button>
 
-            {currentUser?.role === 'admin' && (
-              <button
-                onClick={() => setActiveTab('editor')}
-                className={`relative z-10 flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
-                  activeTab === 'editor'
-                    ? 'text-white'
-                    : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                {activeTab === 'editor' && (
-                  <motion.span
-                    layoutId="active-nav-indicator"
-                    className="absolute inset-0 bg-[#1C1C1E] rounded-md border border-[#333] -z-10 shadow-sm"
-                    transition={{ type: 'spring', stiffness: 450, damping: 35 }}
-                  />
-                )}
-                <FileEdit className="w-3.5 h-3.5 text-blue-400" />
-                <span>Éditeur</span>
-              </button>
-            )}
-
             <button
-              onClick={() => setActiveTab('tuner')}
+              onClick={() => {
+                setActiveTab('tuner');
+                window.dispatchEvent(new CustomEvent('melobook:request-tuner-mic'));
+              }}
               className={`relative z-10 flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
                 activeTab === 'tuner'
                   ? 'text-white'
@@ -439,27 +438,11 @@ export const Navbar: React.FC = () => {
                     )}
                   </button>
 
-                  {currentUser?.role === 'admin' && (
-                    <button
-                      onClick={() => handleNavClick('editor')}
-                      className={`w-full text-left px-3.5 py-2 flex items-center justify-between transition-colors ${
-                        activeTab === 'editor'
-                          ? 'bg-[#1C1C1E] text-blue-400 font-semibold'
-                          : 'text-gray-300 hover:bg-[#1C1C1E] hover:text-white'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <FileEdit className="w-3.5 h-3.5 text-blue-400" />
-                        <span>Éditeur</span>
-                      </div>
-                      {activeTab === 'editor' && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                      )}
-                    </button>
-                  )}
-
                   <button
-                    onClick={() => handleNavClick('tuner')}
+                    onClick={() => {
+                      handleNavClick('tuner');
+                      window.dispatchEvent(new CustomEvent('melobook:request-tuner-mic'));
+                    }}
                     className={`w-full text-left px-3.5 py-2 flex items-center justify-between transition-colors ${
                       activeTab === 'tuner'
                         ? 'bg-[#1C1C1E] text-blue-400 font-semibold'

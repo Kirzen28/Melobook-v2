@@ -13,6 +13,7 @@ import {
   initializeFirestore, 
   persistentLocalCache, 
   persistentMultipleTabManager,
+  memoryLocalCache,
   getFirestore, 
   collection, 
   doc, 
@@ -26,7 +27,9 @@ import {
   where, 
   orderBy, 
   onSnapshot,
-  serverTimestamp
+  serverTimestamp,
+  enableNetwork,
+  disableNetwork
 } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
 
@@ -36,23 +39,35 @@ const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0
 // Initialize Auth
 export const auth = getAuth(app);
 
-// Initialize Firestore with robust multi-tab offline cache and force long polling for reliable connection
+// Initialize Firestore with auto-detecting transport and resilient caching
+const targetDatabaseId = firebaseConfig.firestoreDatabaseId || undefined;
+
 let firestoreInstance;
 try {
   firestoreInstance = initializeFirestore(app, {
-    experimentalForceLongPolling: true,
+    experimentalAutoDetectLongPolling: true,
+    experimentalLongPollingOptions: {
+      timeoutSeconds: 20
+    },
     localCache: persistentLocalCache({
       tabManager: persistentMultipleTabManager()
     })
-  }, firebaseConfig.firestoreDatabaseId || undefined);
+  }, targetDatabaseId);
 } catch (e) {
   try {
     firestoreInstance = initializeFirestore(app, {
-      experimentalForceLongPolling: true
-    }, firebaseConfig.firestoreDatabaseId || undefined);
+      experimentalAutoDetectLongPolling: true,
+      localCache: persistentLocalCache({})
+    }, targetDatabaseId);
   } catch (e2) {
-    // Fallback to default if already initialized
-    firestoreInstance = getFirestore(app, firebaseConfig.firestoreDatabaseId || undefined);
+    try {
+      firestoreInstance = initializeFirestore(app, {
+        experimentalAutoDetectLongPolling: true,
+        localCache: memoryLocalCache()
+      }, targetDatabaseId);
+    } catch (e3) {
+      firestoreInstance = getFirestore(app, targetDatabaseId);
+    }
   }
 }
 
@@ -77,7 +92,9 @@ export {
   where,
   orderBy,
   onSnapshot,
-  serverTimestamp
+  serverTimestamp,
+  enableNetwork,
+  disableNetwork
 };
 
 export type { FirebaseUser };

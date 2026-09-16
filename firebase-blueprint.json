@@ -1,0 +1,96 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile and preferences",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "currentGroupId": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "member"] }
+      },
+      "required": ["uid", "email"]
+    },
+    "Group": {
+      "title": "Group",
+      "description": "Music band or worship team group",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "inviteCode": { "type": "string" }
+      },
+      "required": ["id", "name", "ownerId"]
+    },
+    "Song": {
+      "title": "Song",
+      "description": "Song sheet with ChordPro content",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "groupId": { "type": "string" },
+        "title": { "type": "string" },
+        "artist": { "type": "string" },
+        "key": { "type": "string" },
+        "tempo": { "type": "number" },
+        "contentChordPro": { "type": "string" }
+      },
+      "required": ["id", "groupId", "title", "contentChordPro"]
+    },
+    "Setlist": {
+      "title": "Setlist",
+      "description": "Curated list of songs for an event or concert",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "groupId": { "type": "string" },
+        "name": { "type": "string" },
+        "date": { "type": "string" }
+      },
+      "required": ["id", "groupId", "name"]
+    },
+    "SetlistHistory": {
+      "title": "SetlistHistory",
+      "description": "Performance history of setlists played during rehearsals or concerts",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "groupId": { "type": "string" },
+        "setlistId": { "type": "string" },
+        "setlistName": { "type": "string" },
+        "eventType": { "type": "string", "enum": ["rehearsal", "concert", "service", "other"] },
+        "date": { "type": "string" },
+        "durationMinutes": { "type": "number" },
+        "location": { "type": "string" },
+        "notes": { "type": "string" },
+        "songsCount": { "type": "number" }
+      },
+      "required": ["id", "groupId", "setlistName", "eventType", "date"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profiles"
+    },
+    "/groups/{groupId}": {
+      "schema": "Group",
+      "description": "Music groups"
+    },
+    "/songs/{songId}": {
+      "schema": "Song",
+      "description": "Song directory"
+    },
+    "/setlists/{setlistId}": {
+      "schema": "Setlist",
+      "description": "Setlists created by groups"
+    },
+    "/setlist_history/{historyId}": {
+      "schema": "SetlistHistory",
+      "description": "Setlists played during rehearsals or concerts"
+    }
+  }
+}

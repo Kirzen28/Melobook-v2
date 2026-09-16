@@ -45,8 +45,7 @@ import {
   FileText,
   Share2,
   Download,
-  Loader2,
-  Heart
+  Loader2
 } from 'lucide-react';
 
 export const SongList: React.FC = () => {
@@ -62,13 +61,10 @@ export const SongList: React.FC = () => {
     createSetlist,
     createSong,
     importSong,
-    favoriteSongIds,
-    isSongFavorite,
-    toggleFavoriteSong
+    songCardMetadata
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [onlyFavorites, setOnlyFavorites] = useState(false);
   const [sortBy, setSortBy] = useState<'title' | 'artist' | 'tempo' | 'duration' | 'recent'>('title');
 
   // Key filter state (multi-select dropdown with checkboxes)
@@ -521,10 +517,6 @@ export const SongList: React.FC = () => {
   // Filtered & Sorted Songs
   const filteredSongs = useMemo(() => {
     return songs.filter(song => {
-      // Filter only favorites if toggle is active
-      if (onlyFavorites && !isSongFavorite(song.id)) {
-        return false;
-      }
       // Key filter (support single or multiple selection with checkboxes)
       if (selectedKeys.length > 0) {
         const songKey = (song.key || '').trim().toUpperCase();
@@ -568,14 +560,6 @@ export const SongList: React.FC = () => {
       }
       return true;
     }).sort((a, b) => {
-      // 1. PIN FAVORITE SONGS TO THE TOP
-      const isFavA = isSongFavorite(a.id);
-      const isFavB = isSongFavorite(b.id);
-      if (isFavA !== isFavB) {
-        return isFavA ? -1 : 1;
-      }
-
-      // 2. Secondary sort criteria
       if (sortBy === 'title') return (a.title || '').localeCompare(b.title || '', 'fr', { sensitivity: 'base' });
       if (sortBy === 'artist') {
         const artistA = (a.artist || '').trim();
@@ -589,12 +573,7 @@ export const SongList: React.FC = () => {
       if (sortBy === 'recent') return (b.createdAt || '').localeCompare(a.createdAt || '');
       return 0;
     });
-  }, [songs, selectedKeys, selectedLanguages, selectedCategories, selectedAuthors, searchQuery, sortBy, onlyFavorites, isSongFavorite]);
-
-  // Pinned favorite songs list from current filtered view
-  const pinnedFavoriteSongs = useMemo(() => {
-    return filteredSongs.filter(s => isSongFavorite(s.id));
-  }, [filteredSongs, isSongFavorite]);
+  }, [songs, selectedKeys, selectedLanguages, selectedCategories, selectedAuthors, searchQuery, sortBy]);
 
   // Group songs alphabetically by first letter of title or author
   const alphabeticalGroups = useMemo(() => {
@@ -1263,7 +1242,6 @@ export const SongList: React.FC = () => {
   const renderSongCard = (song: Song) => {
     const isSelected = selectedSongIds.includes(song.id);
     const isConfirming = confirmDeleteSongId === song.id;
-    const isFav = isSongFavorite(song.id);
 
     return (
       <div
@@ -1278,177 +1256,103 @@ export const SongList: React.FC = () => {
         onMouseUp={cancelLongPress}
         onMouseLeave={cancelLongPress}
         onClick={(e) => handleCardClick(song, e)}
-        className={`group relative border rounded-lg p-4 transition-all flex flex-col justify-between cursor-pointer shadow-sm hover:shadow-md select-none ${
+        className={`group relative border rounded-lg p-3 transition-all flex flex-col justify-between cursor-pointer shadow-sm hover:shadow-md select-none ${
           isSelected
             ? 'bg-blue-950/30 border-blue-500 ring-2 ring-blue-500/40 shadow-blue-900/20'
-            : isFav
-              ? 'bg-[#141214] hover:bg-[#181417] border-rose-900/40 hover:border-rose-500/50 shadow-rose-950/20'
-              : 'bg-[#111112] hover:bg-[#151518] border-[#222224] hover:border-blue-500/40'
+            : 'bg-[#111112] hover:bg-[#151518] border-[#222224] hover:border-blue-500/40'
         }`}
       >
         <div>
-          {/* Header of card: Checkbox / Key / BPM / Duration and Quick Actions */}
-          <div className="flex items-center justify-between gap-2 mb-2.5">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {/* Checkbox permanently visible on laptop, tablet and mobile */}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleSongSelection(song.id);
-                }}
-                className={`w-5 h-5 rounded flex items-center justify-center border transition-all cursor-pointer mr-0.5 shrink-0 ${
-                  isSelected
-                    ? 'bg-blue-600 border-blue-500 text-white shadow-xs ring-2 ring-blue-500/30'
-                    : 'bg-[#1C1C1E] border-[#444] text-transparent hover:border-blue-400 hover:bg-[#252528]'
-                }`}
-                title={isSelected ? "Désélectionner ce chant" : "Sélectionner ce chant"}
-                aria-label={isSelected ? "Désélectionner ce chant" : "Sélectionner ce chant"}
+          {/* Top: Checkbox and Title next to each other, with Artist below Title, and buttons in the right corner */}
+          <div className="flex items-start gap-2 mb-1">
+            {/* Checkbox permanently visible on laptop, tablet and mobile */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleSongSelection(song.id);
+              }}
+              className={`w-5 h-5 rounded flex items-center justify-center border transition-all cursor-pointer shrink-0 mt-0.5 ${
+                isSelected
+                  ? 'bg-blue-600 border-blue-500 text-white shadow-xs ring-2 ring-blue-500/30'
+                  : 'bg-[#1C1C1E] border-[#444] text-transparent hover:border-blue-400 hover:bg-[#252528]'
+              }`}
+              title={isSelected ? "Désélectionner ce chant" : "Sélectionner ce chant"}
+              aria-label={isSelected ? "Désélectionner ce chant" : "Sélectionner ce chant"}
+            >
+              <Check className={`w-3.5 h-3.5 stroke-[2.5] ${isSelected ? 'opacity-100' : 'opacity-0 hover:opacity-40 text-blue-400'}`} />
+            </button>
+
+            {/* Title and Artist next to checkbox */}
+            <div className="min-w-0 flex-1">
+              <h3 
+                className="text-xs sm:text-sm font-bold text-white group-hover:text-blue-400 transition-colors truncate leading-snug"
+                title={stripParentheses(song.title)}
               >
-                <Check className={`w-3.5 h-3.5 stroke-[2.5] ${isSelected ? 'opacity-100' : 'opacity-0 hover:opacity-40 text-blue-400'}`} />
-              </button>
-              <span
-                onClick={(e) => {
-                  if (isMultiSelectMode) return;
-                  e.stopPropagation();
-                  toggleKeyFilter((song.key || 'C').toUpperCase());
-                }}
-                title={isMultiSelectMode ? undefined : `Filtrer par la tonalité ${(song.key || 'C').toUpperCase()}`}
-                className={`px-2 py-0.5 rounded border text-[11px] font-bold transition-colors ${
-                  isMultiSelectMode ? 'cursor-pointer' : 'cursor-pointer'
-                } ${
-                  selectedKeys.includes((song.key || 'C').toUpperCase())
-                    ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
-                    : 'bg-[#1C1C1E] border-[#333] text-gray-200 hover:border-amber-500/40 hover:text-amber-300'
+                {stripParentheses(song.title)}
+              </h3>
+              <p 
+                className={`text-[11px] sm:text-xs font-medium truncate mt-0.5 select-text ${
+                  selectedAuthors.includes(song.artist) || sortBy === 'artist' 
+                    ? 'text-blue-400 font-semibold' 
+                    : 'text-gray-400'
                 }`}
+                title={song.artist || 'Auteur inconnu'}
               >
-                {song.key || 'C'}
-              </span>
-              {song.tempo && (
-                <span className="px-1.5 py-0.5 rounded bg-[#1C1C1E] border border-[#222224] text-gray-400 text-[10px] font-medium flex items-center gap-1">
-                  <Gauge className="w-2.5 h-2.5 text-blue-400" />
-                  {song.tempo}
-                </span>
-              )}
-              {getSongDuration(song) ? (
-                <span className="px-1.5 py-0.5 rounded bg-cyan-950/50 border border-cyan-500/30 text-cyan-300 text-[10px] font-medium flex items-center gap-1 font-mono shadow-sm">
-                  <Clock className="w-2.5 h-2.5 text-cyan-400" />
-                  {getSongDuration(song)}
-                </span>
-              ) : null}
-              {isFav && (
-                <span 
+                {song.artist || 'Auteur inconnu'}
+              </p>
+            </div>
+
+            {/* Buttons in the right corner */}
+            {currentUser?.role === 'admin' && (
+              <div className="flex items-center gap-0.5 shrink-0">
+                <button
+                  type="button"
                   onClick={(e) => {
+                    if (isMultiSelectMode) return;
                     e.stopPropagation();
-                    toggleFavoriteSong(song.id);
+                    handleEditSong(song);
                   }}
-                  title="Chant épinglé en haut (cliquer pour retirer des favoris)"
-                  className="px-1.5 py-0.5 rounded bg-rose-950/60 border border-rose-500/40 text-rose-300 text-[10px] font-semibold flex items-center gap-1 cursor-pointer hover:bg-rose-900/60 transition-colors shadow-xs"
+                  className="p-1 sm:p-1.5 rounded bg-[#1C1C1E] hover:bg-[#252528] text-gray-300 hover:text-amber-400 border border-[#333] hover:border-amber-500/40 transition-colors flex items-center justify-center cursor-pointer"
+                  title={isMultiSelectMode ? undefined : "Éditer le chant"}
+                  aria-label="Éditer"
                 >
-                  <Heart className="w-2.5 h-2.5 fill-rose-500 text-rose-500" />
-                  <span>Épinglé</span>
-                </span>
-              )}
-            </div>
+                  <FileEdit className="w-3.5 h-3.5 text-amber-400" />
+                </button>
 
-            {/* Quick Action buttons */}
-            <div className="flex items-center gap-1 shrink-0">
-              {/* Bouton Favori (Coeur) pour épingler en haut */}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleFavoriteSong(song.id);
-                }}
-                className={`p-1.5 rounded transition-all flex items-center justify-center cursor-pointer border ${
-                  isFav
-                    ? 'bg-rose-500/20 text-rose-500 border-rose-500/50 shadow-xs hover:bg-rose-500/30'
-                    : 'bg-[#1C1C1E] hover:bg-[#252528] text-gray-400 hover:text-rose-400 border-[#333] hover:border-rose-500/40'
-                }`}
-                title={isFav ? "Retirer des favoris (dépingler)" : "Ajouter aux favoris (épingler en haut)"}
-                aria-label={isFav ? "Retirer des favoris" : "Ajouter aux favoris"}
-              >
-                <Heart className={`w-3.5 h-3.5 transition-all active:scale-125 ${isFav ? 'fill-rose-500 text-rose-500 scale-110' : ''}`} />
-              </button>
-
-              <button
-                type="button"
-                onClick={(e) => {
-                  if (isMultiSelectMode) return;
-                  e.stopPropagation();
-                  setLanguageModalSong(song);
-                }}
-                className="p-1.5 rounded bg-[#1C1C1E] hover:bg-[#252528] text-gray-300 hover:text-indigo-400 border border-[#333] hover:border-indigo-500/40 transition-colors flex items-center justify-center cursor-pointer"
-                title={isMultiSelectMode ? undefined : "Gérer les langues et versions liées"}
-                aria-label="Versions et langues"
-              >
-                <Globe className="w-3.5 h-3.5 text-indigo-400" />
-              </button>
-
-              {currentUser?.role === 'admin' && (
-                <>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      if (isMultiSelectMode) return;
-                      e.stopPropagation();
-                      handleEditSong(song);
-                    }}
-                    className="p-1.5 rounded bg-[#1C1C1E] hover:bg-[#252528] text-gray-300 hover:text-amber-400 border border-[#333] hover:border-amber-500/40 transition-colors flex items-center justify-center cursor-pointer"
-                    title={isMultiSelectMode ? undefined : "Éditer le chant"}
-                    aria-label="Éditer"
-                  >
-                    <FileEdit className="w-3.5 h-3.5 text-amber-400" />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      if (isMultiSelectMode) return;
-                      e.stopPropagation();
-                      if (isConfirming) {
-                        deleteSong(song.id);
-                        setConfirmDeleteSongId(null);
-                      } else {
-                        setConfirmDeleteSongId(song.id);
-                      }
-                    }}
-                    className={`p-1.5 rounded transition-all flex items-center justify-center cursor-pointer ${
-                      isConfirming
-                        ? 'bg-rose-600 hover:bg-rose-700 text-white border border-rose-500 shadow-sm animate-pulse'
-                        : 'bg-[#1C1C1E] hover:bg-rose-500/20 text-gray-400 hover:text-rose-400 border border-[#333] hover:border-rose-500/40'
-                    }`}
-                    title={isMultiSelectMode ? undefined : (isConfirming ? "Confirmer la suppression" : "Supprimer le chant")}
-                    aria-label={isConfirming ? "Confirmer la suppression" : "Supprimer"}
-                  >
-                    {isConfirming ? (
-                      <Check className="w-3.5 h-3.5 text-white" />
-                    ) : (
-                      <Trash2 className="w-3.5 h-3.5 text-rose-400" />
-                    )}
-                  </button>
-                </>
-              )}
-            </div>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    if (isMultiSelectMode) return;
+                    e.stopPropagation();
+                    if (isConfirming) {
+                      deleteSong(song.id);
+                      setConfirmDeleteSongId(null);
+                    } else {
+                      setConfirmDeleteSongId(song.id);
+                    }
+                  }}
+                  className={`p-1 sm:p-1.5 rounded transition-all flex items-center justify-center cursor-pointer ${
+                    isConfirming
+                      ? 'bg-rose-600 hover:bg-rose-700 text-white border border-rose-500 shadow-sm animate-pulse'
+                      : 'bg-[#1C1C1E] hover:bg-rose-500/20 text-gray-400 hover:text-rose-400 border border-[#333] hover:border-rose-500/40'
+                  }`}
+                  title={isMultiSelectMode ? undefined : (isConfirming ? "Confirmer la suppression" : "Supprimer le chant")}
+                  aria-label={isConfirming ? "Confirmer la suppression" : "Supprimer"}
+                >
+                  {isConfirming ? (
+                    <Check className="w-3.5 h-3.5 text-white" />
+                  ) : (
+                    <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                  )}
+                </button>
+              </div>
+            )}
           </div>
 
-          {/* Title and Artist */}
-          <h3 className="text-sm font-bold text-white group-hover:text-blue-400 transition-colors line-clamp-1">
-            {stripParentheses(song.title)}
-          </h3>
-          <p 
-            className={`text-xs font-medium line-clamp-1 mt-0.5 select-text ${
-              selectedAuthors.includes(song.artist) || sortBy === 'artist' 
-                ? 'text-blue-400 font-semibold' 
-                : 'text-gray-400'
-            }`}
-          >
-            {song.artist || 'Auteur inconnu'}
-          </p>
-
           {/* Categories */}
-          {song.tags && song.tags.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1 mt-2.5 relative">
+          {songCardMetadata?.showCategories && song.tags && song.tags.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1 mt-1.5 pl-7 relative">
               {song.tags.map((cat, idx) => {
                 const isFiltered = selectedCategories.includes(cat);
                 return (
@@ -1460,18 +1364,55 @@ export const SongList: React.FC = () => {
                       e.stopPropagation();
                       toggleCategoryFilter(cat);
                     }}
-                    className={`text-[10px] px-2 py-0.5 rounded border transition-colors flex items-center gap-1 ${
+                    className={`text-[9px] px-1.5 py-0.5 rounded border transition-colors flex items-center gap-1 max-w-full truncate ${
                       isFiltered
                         ? 'bg-blue-600/20 text-blue-300 border-blue-500/40 font-semibold'
                         : 'bg-[#1C1C1E] border-[#222224] text-gray-400 hover:text-gray-200 hover:border-[#333]'
                     }`}
                     title={isMultiSelectMode ? undefined : `Filtrer par la catégorie ${cat}`}
                   >
-                    <Tag className="w-2.5 h-2.5 text-blue-400" />
-                    <span>{cat}</span>
+                    <Tag className="w-2 h-2 text-blue-400 shrink-0" />
+                    <span className="truncate">{cat}</span>
                   </button>
                 );
               })}
+            </div>
+          )}
+
+          {/* Metadata badges if enabled */}
+          {((songCardMetadata?.showKey) || (songCardMetadata?.showTempo && song.tempo) || (songCardMetadata?.showDuration && getSongDuration(song))) && (
+            <div className="flex items-center gap-1 flex-wrap mt-2 pt-1.5 border-t border-[#1C1C1F]">
+              {songCardMetadata?.showKey && (
+                <span
+                  onClick={(e) => {
+                    if (isMultiSelectMode) return;
+                    e.stopPropagation();
+                    toggleKeyFilter((song.key || 'C').toUpperCase());
+                  }}
+                  title={isMultiSelectMode ? undefined : `Filtrer par la tonalité ${(song.key || 'C').toUpperCase()}`}
+                  className={`px-1.5 py-0.5 rounded border text-[10px] font-bold transition-colors ${
+                    isMultiSelectMode ? 'cursor-pointer' : 'cursor-pointer'
+                  } ${
+                    selectedKeys.includes((song.key || 'C').toUpperCase())
+                      ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
+                      : 'bg-[#1C1C1E] border-[#333] text-gray-200 hover:border-amber-500/40 hover:text-amber-300'
+                  }`}
+                >
+                  {song.key || 'C'}
+                </span>
+              )}
+              {songCardMetadata?.showTempo && song.tempo && (
+                <span className="px-1.5 py-0.5 rounded bg-[#1C1C1E] border border-[#222224] text-gray-400 text-[9px] font-medium flex items-center gap-1">
+                  <Gauge className="w-2.5 h-2.5 text-blue-400" />
+                  {song.tempo}
+                </span>
+              )}
+              {songCardMetadata?.showDuration && getSongDuration(song) ? (
+                <span className="px-1.5 py-0.5 rounded bg-cyan-950/50 border border-cyan-500/30 text-cyan-300 text-[9px] font-medium flex items-center gap-1 font-mono shadow-sm">
+                  <Clock className="w-2.5 h-2.5 text-cyan-400" />
+                  {getSongDuration(song)}
+                </span>
+              ) : null}
             </div>
           )}
         </div>
@@ -1611,14 +1552,12 @@ export const SongList: React.FC = () => {
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
               onSelectSong={handleOpenStage}
-              onToggleFavorites={() => setOnlyFavorites(prev => !prev)}
               onClearFilters={() => {
                 setSearchQuery('');
                 setSelectedCategories([]);
                 setSelectedAuthors([]);
                 setSelectedKeys([]);
                 setSelectedLanguages([]);
-                setOnlyFavorites(false);
               }}
             />
           </div>
@@ -2169,28 +2108,6 @@ export const SongList: React.FC = () => {
             )}
           </div>
 
-          {/* Bouton Filtre Favoris (Coeur) */}
-          <button
-            type="button"
-            onClick={() => setOnlyFavorites(!onlyFavorites)}
-            className={`flex items-center gap-1.5 px-2.5 sm:px-3 h-[34px] rounded-md text-xs font-semibold border transition-all cursor-pointer shrink-0 ${
-              onlyFavorites
-                ? 'bg-rose-600 text-white border-rose-500 shadow-sm ring-2 ring-rose-500/30'
-                : 'bg-[#1C1C1E] hover:bg-[#252528] text-gray-200 border-[#333] hover:border-rose-500/40 hover:text-rose-300'
-            }`}
-            title={onlyFavorites ? "Afficher tous les chants" : "Filtrer uniquement les chants favoris"}
-          >
-            <Heart className={`w-3.5 h-3.5 ${onlyFavorites ? 'fill-white text-white' : 'text-rose-400'}`} />
-            <span className="hidden sm:inline">Favoris</span>
-            {favoriteSongIds.length > 0 && (
-              <span className={`ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-black ${
-                onlyFavorites ? 'bg-white text-rose-700' : 'bg-rose-950/60 text-rose-300 border border-rose-500/30'
-              }`}>
-                {favoriteSongIds.length}
-              </span>
-            )}
-          </button>
-
           {/* Mode affichage: Grille ou Liste Alphabetique sur grand ecran */}
           <div className="hidden md:flex items-center justify-center bg-[#1C1C1E] border border-[#333] rounded-md p-0.5 h-[34px] shrink-0">
             <button
@@ -2224,21 +2141,8 @@ export const SongList: React.FC = () => {
       </div>
 
       {/* Active Filter Chips Bar */}
-      {(onlyFavorites || selectedCategories.length > 0 || selectedAuthors.length > 0 || selectedKeys.length > 0 || selectedLanguages.length > 0) && (
+      {(selectedCategories.length > 0 || selectedAuthors.length > 0 || selectedKeys.length > 0 || selectedLanguages.length > 0) && (
         <div className="flex items-center flex-wrap gap-1.5 mb-4 px-1">
-          {onlyFavorites && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-rose-600/20 border border-rose-500/40 text-rose-300 text-xs font-semibold">
-              <Heart className="w-3 h-3 fill-rose-500 text-rose-500" />
-              <span>Favoris uniquement</span>
-              <button
-                onClick={() => setOnlyFavorites(false)}
-                className="hover:text-white transition-colors ml-0.5"
-                title="Désactiver le filtre favoris"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            </span>
-          )}
           {selectedKeys.length > 0 && (
             <>
               <span className="text-[11px] text-gray-400 flex items-center gap-1 mr-1">
@@ -2333,7 +2237,6 @@ export const SongList: React.FC = () => {
           )}
           <button
             onClick={() => {
-              setOnlyFavorites(false);
               setSelectedCategories([]);
               setSelectedAuthors([]);
               setSelectedKeys([]);
@@ -2358,67 +2261,14 @@ export const SongList: React.FC = () => {
           </p>
         </div>
       ) : effectiveViewMode === 'grid' ? (
-        <div className="space-y-6">
-          {/* Pinned Favorites in Grid View */}
-          {pinnedFavoriteSongs.length > 0 && !onlyFavorites && (
-            <div>
-              <div className="flex items-center justify-between mb-3 px-1">
-                <div className="flex items-center gap-2">
-                  <span className="p-1 rounded bg-rose-600/20 text-rose-400 border border-rose-500/30 flex items-center justify-center">
-                    <Heart className="w-3.5 h-3.5 fill-rose-500 text-rose-500" />
-                  </span>
-                  <h2 className="text-xs font-bold uppercase tracking-wider text-rose-300">
-                    Chants favoris épinglés
-                  </h2>
-                </div>
-                <span className="text-[11px] text-rose-400 font-semibold bg-rose-950/60 px-2 py-0.5 rounded-full border border-rose-500/30">
-                  {pinnedFavoriteSongs.length} chant{pinnedFavoriteSongs.length > 1 ? 's' : ''}
-                </span>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {pinnedFavoriteSongs.map((song) => renderSongCard(song))}
-              </div>
-            </div>
-          )}
-
-          {/* Remaining or All Songs in Grid View */}
-          <div>
-            {pinnedFavoriteSongs.length > 0 && !onlyFavorites && (
-              <div className="flex items-center gap-2 mb-3 px-1 pt-2 border-t border-[#222224]">
-                <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400">
-                  Tous les chants ({filteredSongs.length - pinnedFavoriteSongs.length})
-                </h2>
-              </div>
-            )}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {(pinnedFavoriteSongs.length > 0 && !onlyFavorites
-                ? filteredSongs.filter(s => !isSongFavorite(s.id))
-                : filteredSongs
-              ).map((song) => renderSongCard(song))}
-            </div>
-          </div>
+        <div className="grid grid-cols-1 min-[420px]:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2.5 sm:gap-3">
+          {filteredSongs.map((song) => renderSongCard(song))}
         </div>
       ) : (
         /* Alphabetical 1-Column List View */
         <div className="relative">
           {/* Top Quick Letters Ribbon */}
           <div className="flex items-center gap-1 overflow-x-auto pb-2 mb-4 scrollbar-none border-b border-[#222224]">
-            {pinnedFavoriteSongs.length > 0 && (
-              <button
-                type="button"
-                onClick={() => scrollToLetter('FAV')}
-                className={`shrink-0 px-2.5 py-1 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 mr-1 ${
-                  activeLetter === 'FAV'
-                    ? 'bg-rose-600 text-white shadow-xs scale-105'
-                    : 'bg-rose-950/30 text-rose-400 hover:text-white hover:bg-rose-600/30 border border-rose-500/30'
-                }`}
-                title="Aller aux chants favoris épinglés"
-              >
-                <Heart className="w-3 h-3 fill-current" />
-                <span>Favoris • {pinnedFavoriteSongs.length}</span>
-              </button>
-            )}
-
             <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider shrink-0 mr-1.5 flex items-center gap-1">
               <span>Lettres :</span>
             </span>
@@ -2450,20 +2300,6 @@ export const SongList: React.FC = () => {
               className="bg-[#111112]/95 backdrop-blur-md border border-[#2B2B30] rounded-full py-1.5 px-0.5 sm:px-1 shadow-2xl flex flex-col items-center justify-between h-full max-h-[75vh] overflow-hidden"
               onTouchMove={handleScrubberTouch}
             >
-              {pinnedFavoriteSongs.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => scrollToLetter('FAV')}
-                  className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center transition-all cursor-pointer mb-1 shrink-0 ${
-                    activeLetter === 'FAV'
-                      ? 'bg-rose-600 text-white scale-125 shadow-md z-10'
-                      : 'text-rose-400 hover:text-white hover:bg-rose-600/30'
-                  }`}
-                  title="Chants favoris épinglés"
-                >
-                  <Heart className="w-2.5 h-2.5 sm:w-3 sm:h-3 fill-current" />
-                </button>
-              )}
               {ALL_LETTERS.map((letter) => {
                 const hasSongs = availableLettersSet.has(letter);
                 const isActive = activeLetter === letter;
@@ -2492,33 +2328,6 @@ export const SongList: React.FC = () => {
 
           {/* Single-Column List of Chants */}
           <div className="space-y-6 pr-6 sm:pr-8">
-            {/* Pinned Favorites Section in Alphabetical View */}
-            {pinnedFavoriteSongs.length > 0 && !onlyFavorites && (
-              <div
-                id="section-letter-FAV"
-                data-letter-section="FAV"
-                className="scroll-mt-24 mb-6 pb-2"
-              >
-                <div className="sticky top-16 z-20 py-1.5 px-3 bg-[#130E11]/95 backdrop-blur-md border border-rose-500/30 flex items-center justify-between mb-3 rounded-lg shadow-sm">
-                  <div className="flex items-center gap-2">
-                    <span className="w-7 h-7 rounded-md bg-rose-600 text-white font-black text-sm flex items-center justify-center shadow-xs">
-                      <Heart className="w-4 h-4 fill-white text-white" />
-                    </span>
-                    <span className="text-sm font-bold text-rose-300">
-                      Chants favoris épinglés
-                    </span>
-                  </div>
-                  <span className="text-xs text-rose-400 font-semibold bg-rose-950/60 px-2 py-0.5 rounded-full border border-rose-500/30">
-                    {pinnedFavoriteSongs.length} chant{pinnedFavoriteSongs.length > 1 ? 's' : ''}
-                  </span>
-                </div>
-
-                <div className="space-y-3">
-                  {pinnedFavoriteSongs.map((song) => renderSongCard(song))}
-                </div>
-              </div>
-            )}
-
             {alphabeticalGroups.map((group) => (
               <div
                 key={group.letter}
@@ -2541,7 +2350,7 @@ export const SongList: React.FC = () => {
                 </div>
 
                 {/* List of songs */}
-                <div className="space-y-3">
+                <div className="grid grid-cols-1 min-[420px]:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2.5 sm:gap-3">
                   {group.songs.map((song) => renderSongCard(song))}
                 </div>
               </div>

@@ -19,7 +19,6 @@ interface VoiceSearchControlProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
   onSelectSong?: (song: Song) => void;
-  onToggleFavorites?: () => void;
   onClearFilters?: () => void;
   className?: string;
 }
@@ -78,7 +77,6 @@ export const VoiceSearchControl: React.FC<VoiceSearchControlProps> = ({
   searchQuery,
   onSearchChange,
   onSelectSong,
-  onToggleFavorites,
   onClearFilters,
   className = ''
 }) => {
@@ -110,10 +108,6 @@ export const VoiceSearchControl: React.FC<VoiceSearchControlProps> = ({
       case 'clear':
         onSearchChange('');
         onClearFilters?.();
-        break;
-
-      case 'favorites':
-        onToggleFavorites?.();
         break;
 
       case 'open':
@@ -350,7 +344,7 @@ export const VoiceSearchControl: React.FC<VoiceSearchControlProps> = ({
                   ) : isListening ? (
                     <p className="text-xs text-gray-400 text-center">
                       {isHandsFree
-                        ? 'Parlez naturellement (ex: "Cherche Amazing Grace", "Ouvre 10000 raisons")'
+                        ? 'Parlez naturellement comme "Cherche Amazing Grace" ou "Ouvre 10000 raisons"'
                         : 'Dites un titre, des paroles ou une commande vocale...'}
                     </p>
                   ) : (
@@ -444,13 +438,6 @@ export const VoiceSearchControl: React.FC<VoiceSearchControlProps> = ({
                 className="px-1.5 py-0.5 bg-[#1F1F23] hover:bg-[#2A2A30] text-gray-300 rounded border border-[#2D2D32] transition-colors"
               >
                 « Ouvre [titre] »
-              </button>
-              <button
-                type="button"
-                onClick={() => handleCommandRecognized('favoris')}
-                className="px-1.5 py-0.5 bg-[#1F1F23] hover:bg-[#2A2A30] text-gray-300 rounded border border-[#2D2D32] transition-colors"
-              >
-                « Favoris »
               </button>
               <button
                 type="button"

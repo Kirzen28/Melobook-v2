@@ -19,6 +19,9 @@ import {
 } from '../utils/chordUtils';
 import { cacheSongInWorker } from '../utils/pwaCache';
 import { getSectionColor } from '../utils/displayDefaults';
+import { MetronomeStageControl } from './MetronomeStageControl';
+import { MidiStatusIndicator } from './MidiStatusIndicator';
+import { useMidi } from '../context/MidiContext';
 import { 
   Play, 
   Pause, 
@@ -55,13 +58,11 @@ import {
   Pencil,
   Globe,
   Repeat,
-  QrCode,
   Battery
 } from 'lucide-react';
 import { SetlistPdfModal } from './SetlistPdfModal';
 import { ChordModal } from './ChordModal';
 import { LanguageVersionModal } from './LanguageVersionModal';
-import { SongQrModal } from './SongQrModal';
 import { BatteryIndicator } from './BatteryIndicator';
 import { getLanguageMeta, getLinkedSongVersions } from '../utils/languageUtils';
 
@@ -127,6 +128,8 @@ export const SongReader: React.FC<SongReaderProps> = ({
     currentGroup
   } = useApp();
 
+  const { registerActionHandler } = useMidi();
+
   const rawSong = propSong || selectedSong;
   const song = useMemo(() => {
     if (!rawSong) return null;
@@ -140,11 +143,8 @@ export const SongReader: React.FC<SongReaderProps> = ({
   }, [song]);
 
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [currentBeat, setCurrentBeat] = useState(0);
-  const [isMetronomeActive, setIsMetronomeActive] = useState(false);
   const [showSettingsDrawer, setShowSettingsDrawer] = useState(false);
   const [showPdfModal, setShowPdfModal] = useState(false);
-  const [showQrModal, setShowQrModal] = useState(false);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [showLanguageMenu, setShowLanguageMenu] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
@@ -445,9 +445,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
       }
     }
 
-    if (isMetronomeActive) {
-      metronome.setBpm(clamped);
-    }
+    metronome.setBpm(clamped);
   };
 
   // Tap Tempo logic
@@ -513,22 +511,6 @@ export const SongReader: React.FC<SongReaderProps> = ({
   }, [baseKey, effectiveTransposeOffset, stageSettings.notation]);
 
   const currentKeyDisplay = transposedKeyDisplay || baseKeyDisplay;
-
-  // Metronome Sound / Visual Pulse
-  useEffect(() => {
-    if (isMetronomeActive && song) {
-      const bpm = song.tempo || parsedData?.tempo || 120;
-      metronome.start(bpm, 4, (beat) => {
-        setCurrentBeat(beat);
-      });
-    } else {
-      metronome.stop();
-    }
-
-    return () => {
-      metronome.stop();
-    };
-  }, [isMetronomeActive, song?.tempo, parsedData?.tempo]);
 
   // Auto-Scroll Loop
   useEffect(() => {
@@ -721,6 +703,59 @@ export const SongReader: React.FC<SongReaderProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [stageSettings.isAutoScrolling, stageSettings.transposeOffset, stageSettings.showChords, updateStageSettings, onNext, onPrev]);
 
+  // MIDI Remote Control Handlers for SongReader (Scroll & Navigation)
+  useEffect(() => {
+    const unsubToggleAuto = registerActionHandler('toggle_autoscroll', () => {
+      updateStageSettings({ isAutoScrolling: !stageSettings.isAutoScrolling });
+    });
+
+    const unsubSpeedUp = registerActionHandler('speed_up_autoscroll', () => {
+      updateStageSettings({ 
+        autoScrollSpeed: Math.min(10, (stageSettings.autoScrollSpeed || 3) + 1) 
+      });
+    });
+
+    const unsubSpeedDown = registerActionHandler('speed_down_autoscroll', () => {
+      updateStageSettings({ 
+        autoScrollSpeed: Math.max(1, (stageSettings.autoScrollSpeed || 3) - 1) 
+      });
+    });
+
+    const unsubScrollDown = registerActionHandler('scroll_down', () => {
+      if (containerRef.current) {
+        containerRef.current.scrollBy({ top: 350, behavior: 'smooth' });
+      }
+    });
+
+    const unsubScrollUp = registerActionHandler('scroll_up', () => {
+      if (containerRef.current) {
+        containerRef.current.scrollBy({ top: -350, behavior: 'smooth' });
+      }
+    });
+
+    const unsubNext = registerActionHandler('next_song', () => {
+      if (onNext) {
+        onNext();
+      }
+    });
+
+    const unsubPrev = registerActionHandler('prev_song', () => {
+      if (onPrev) {
+        onPrev();
+      }
+    });
+
+    return () => {
+      unsubToggleAuto();
+      unsubSpeedUp();
+      unsubSpeedDown();
+      unsubScrollDown();
+      unsubScrollUp();
+      unsubNext();
+      unsubPrev();
+    };
+  }, [stageSettings.isAutoScrolling, stageSettings.autoScrollSpeed, updateStageSettings, onNext, onPrev, registerActionHandler]);
+
   // Fullscreen Handler
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -889,18 +924,14 @@ export const SongReader: React.FC<SongReaderProps> = ({
               </div>
             </div>
 
-            {/* Actions : QR Code, PDF & Edit */}
-            <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto flex-wrap pt-1 sm:pt-0 border-t sm:border-t-0 border-[#222224]">
-              <button
-                type="button"
-                onClick={() => setShowQrModal(true)}
-                className="flex-1 sm:flex-none flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-1 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] text-cyan-300 hover:text-cyan-200 border border-cyan-500/30 font-medium text-xs transition-colors cursor-pointer"
-                title="Partager via QR Code"
-              >
-                <QrCode className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-                <span>Partager via QR Code</span>
-              </button>
+            {/* Pédalier / Contrôleur MIDI */}
+            <div className="flex items-center gap-2">
+              <span className="text-gray-400 font-medium">MIDI :</span>
+              <MidiStatusIndicator showLabel />
+            </div>
 
+            {/* Actions : PDF & Edit */}
+            <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto flex-wrap pt-1 sm:pt-0 border-t sm:border-t-0 border-[#222224]">
               <button
                 type="button"
                 onClick={() => setShowPdfModal(true)}
@@ -1052,18 +1083,8 @@ export const SongReader: React.FC<SongReaderProps> = ({
                 )}
               </div>
 
-              {/* Right: Boutons Réglages et Partage QR */}
+              {/* Right: Boutons Réglages */}
               <div className="flex items-center gap-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setShowQrModal(true)}
-                  className="flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg border border-[#333] hover:border-cyan-500/50 bg-[#1C1C1E] hover:bg-[#25252A] text-gray-200 hover:text-white text-xs font-semibold shadow-sm transition-all active:scale-95 cursor-pointer"
-                  title="Partager via QR Code"
-                >
-                  <QrCode className="w-3.5 h-3.5 text-cyan-400" />
-                  <span className="hidden sm:inline">Partager via QR Code</span>
-                </button>
-
                 <button
                   type="button"
                   onClick={() => setShowSettingsDrawer(!showSettingsDrawer)}
@@ -1223,43 +1244,14 @@ export const SongReader: React.FC<SongReaderProps> = ({
                 </div>
               </div>
 
-              {/* Tempo : Saisie directe BPM + Son Métronome */}
-              <div 
-                className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-[#141416] border border-[#242428] text-gray-300 font-mono shadow-sm"
-                style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
-              >
-                <Gauge className={`w-3.5 h-3.5 ${isMetronomeActive ? 'text-emerald-400 animate-pulse' : 'text-gray-400'} shrink-0`} />
-                <span className="text-gray-400 font-sans text-xs hidden sm:inline">Tempo :</span>
-
-                {/* Editable BPM Input */}
-                <input
-                  type="number"
-                  min={30}
-                  max={260}
-                  value={inlineTempoValue}
-                  onChange={(e) => setInlineTempoValue(e.target.value)}
-                  onBlur={handleCommitTempo}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      (e.target as HTMLInputElement).blur();
-                    }
-                  }}
-                  className="w-12 bg-[#18181C] hover:bg-[#222228] text-emerald-400 font-bold font-mono text-xs border border-emerald-500/30 focus:border-emerald-400 rounded-md px-1 py-0.5 text-center focus:outline-none shadow-sm transition-all"
-                  title="Cliquer pour entrer le tempo"
-                />
-
-                {/* Inline Metronome sound toggle */}
-                <button
-                  type="button"
-                  onClick={() => setIsMetronomeActive(!isMetronomeActive)}
-                  className={`p-1 rounded transition-colors ${
-                    isMetronomeActive ? 'text-emerald-400 bg-emerald-950/60' : 'text-gray-500 hover:text-gray-300'
-                  }`}
-                  title={isMetronomeActive ? 'Couper le son du métronome' : 'Activer le son du métronome'}
-                >
-                  {isMetronomeActive ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
-                </button>
-              </div>
+              {/* Métronome Visuel & Sonore : Tempo BPM, Signature Rythmique, LEDs de battement & Tap */}
+              <MetronomeStageControl
+                initialBpm={effectiveTempo}
+                initialTimeSignature={song.timeSignature || parsedData?.timeSignature || '4/4'}
+                onBpmChange={handleUpdateTempo}
+                onTimeSignatureChange={handleUpdateTimeSignature}
+                songTitle={song.title}
+              />
 
               {/* Durée : Saisie manuelle directe */}
               <div 
@@ -1292,33 +1284,6 @@ export const SongReader: React.FC<SongReaderProps> = ({
                   className="w-14 bg-[#18181C] hover:bg-[#222228] text-cyan-300 font-bold font-mono text-xs border border-cyan-500/30 focus:border-cyan-400 rounded-md px-1.5 py-0.5 text-center focus:outline-none shadow-sm transition-all"
                   title="Cliquer pour entrer ou modifier la durée ex: 03:30"
                 />
-              </div>
-
-              {/* Mesure : Chiffrements uniquement */}
-              <div 
-                className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-[#141416] border border-[#242428] text-gray-300 font-mono shadow-sm"
-                style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
-              >
-                <Music2 className="w-3.5 h-3.5 text-purple-400 shrink-0" title="Mesure" />
-                <span className="text-purple-400/80 font-sans text-xs shrink-0 hidden sm:inline">Mesure :</span>
-
-                {/* Direct Signature Select Dropdown avec uniquement les chiffrages */}
-                <div className="relative inline-flex items-center">
-                  <select
-                    value={song.timeSignature || parsedData?.timeSignature || '4/4'}
-                    onChange={(e) => handleUpdateTimeSignature(e.target.value)}
-                    className="bg-[#18181C] hover:bg-[#222228] text-purple-300 font-bold font-mono text-xs cursor-pointer focus:outline-none border border-purple-500/30 focus:border-purple-400 rounded-md py-0.5 pl-2 pr-5 appearance-none shadow-sm transition-all"
-                    title="Signature rythmique"
-                  >
-                    <option value="4/4" className="bg-[#18181C] text-gray-200">4/4</option>
-                    <option value="3/4" className="bg-[#18181C] text-gray-200">3/4</option>
-                    <option value="6/8" className="bg-[#18181C] text-gray-200">6/8</option>
-                    <option value="12/8" className="bg-[#18181C] text-gray-200">12/8</option>
-                    <option value="2/4" className="bg-[#18181C] text-gray-200">2/4</option>
-                    <option value="5/4" className="bg-[#18181C] text-gray-200">5/4</option>
-                  </select>
-                  <ChevronDown className="w-3 h-3 text-purple-400/80 absolute right-1.5 pointer-events-none" />
-                </div>
               </div>
 
 
@@ -1867,16 +1832,6 @@ export const SongReader: React.FC<SongReaderProps> = ({
           song={song}
           isOpen={showLanguageModal}
           onClose={() => setShowLanguageModal(false)}
-        />
-      )}
-
-      {/* QR Code Share Modal */}
-      {showQrModal && song && (
-        <SongQrModal
-          song={song}
-          onClose={() => setShowQrModal(false)}
-          currentGroup={currentGroup}
-          transposedKey={transposedKeyDisplay}
         />
       )}
 

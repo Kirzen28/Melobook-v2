@@ -17,8 +17,14 @@ import {
   Maximize2,
   Minimize2,
   Battery,
-  X
+  X,
+  Radio,
+  Footprints,
+  Zap,
+  RefreshCw
 } from 'lucide-react';
+import { useMidi } from '../context/MidiContext';
+import { MidiSettingsModal } from './MidiSettingsModal';
 import { NumberSelector } from './NumberSelector';
 import { 
   COLOR_PRESETS, 
@@ -135,6 +141,20 @@ export const SettingsView: React.FC = () => {
   const [showNotification, setShowNotification] = useState<string | null>(null);
   const [isMobilePreviewCollapsed, setIsMobilePreviewCollapsed] = useState(false);
   const [isMobilePreviewFullscreen, setIsMobilePreviewFullscreen] = useState(false);
+
+  const {
+    isSupported: isMidiSupported,
+    isEnabled: isMidiEnabled,
+    setIsEnabled: setIsMidiEnabled,
+    devices: midiDevices,
+    hasConnectedDevices,
+    mappings: midiMappings,
+    applyPreset: applyMidiPreset,
+    lastMidiEvent,
+    refreshDevices: refreshMidiDevices,
+    isMidiModalOpen,
+    setIsMidiModalOpen
+  } = useMidi();
 
   // Close fullscreen preview with Escape key
   useEffect(() => {
@@ -992,6 +1012,176 @@ export const SettingsView: React.FC = () => {
             </div>
           </div>
 
+          {/* 4. MIDI DEVICES & FOOT PEDAL CONTROLS */}
+          <div className="bg-[#111112] border border-[#222224] rounded-xl p-4 sm:p-5 shadow-sm">
+            <div className="flex items-center justify-between pb-3 mb-4 border-b border-[#222224]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+                  <Radio className="w-4 h-4" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                    Contrôle MIDI & Pédaliers
+                    {hasConnectedDevices ? (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                        {midiDevices.filter(d => d.state === 'connected').length} connecté(s)
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#1C1C20] text-gray-400 border border-[#2C2C30]">
+                        Prêt
+                      </span>
+                    )}
+                  </h2>
+                  <p className="text-[11px] text-gray-400">
+                    Contrôle à distance sans fil ou USB (changement de chant, défilement auto, vitesse)
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsMidiModalOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all active:scale-95 shadow-sm"
+              >
+                <Sliders className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Configurer</span>
+              </button>
+            </div>
+
+            {/* Quick status & master toggle */}
+            <div className="space-y-4">
+              <div className="p-3.5 rounded-lg bg-[#18181A] border border-[#262629] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsMidiEnabled(!isMidiEnabled)}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                      isMidiEnabled ? 'bg-blue-600' : 'bg-[#2E2E34]'
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                        isMidiEnabled ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                  <div>
+                    <span className="text-xs font-bold text-gray-200 block">
+                      {isMidiEnabled ? 'Écoute MIDI active' : 'Écoute MIDI désactivée'}
+                    </span>
+                    <span className="text-[11px] text-gray-400">
+                      {isMidiEnabled 
+                        ? 'Les commandes de votre pédalier sont traitées en direct' 
+                        : 'Mise en veille du récepteur MIDI'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={refreshMidiDevices}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#202024] hover:bg-[#28282E] text-gray-300 hover:text-white border border-[#333] text-xs font-medium transition-colors"
+                    title="Actualiser la liste des périphériques connectés"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5 text-blue-400" />
+                    <span>Détecter</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Connected Devices summary */}
+              <div className="p-3 rounded-lg bg-[#141416] border border-[#242428] space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-gray-400 font-medium">Périphériques détectés :</span>
+                  <span className="font-mono text-gray-300">
+                    {midiDevices.length > 0 
+                      ? midiDevices.map(d => d.name).join(', ') 
+                      : 'Aucun périphérique MIDI branché'}
+                  </span>
+                </div>
+
+                {/* Real-time MIDI Monitor */}
+                <div className="flex items-center justify-between text-xs pt-2 border-t border-[#222226]">
+                  <span className="text-gray-400 font-medium">Dernier signal reçu :</span>
+                  <span className="font-mono text-[11px] text-blue-400">
+                    {lastMidiEvent 
+                      ? `${lastMidiEvent.type.toUpperCase()} #${lastMidiEvent.number} (val: ${lastMidiEvent.value}, ch: ${lastMidiEvent.channel})` 
+                      : 'En attente...'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Quick Mappings Grid Preview */}
+              <div>
+                <span className="text-xs font-bold text-gray-300 block mb-2">
+                  Commandes assignées par défaut :
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  {midiMappings.slice(0, 4).map(mapping => (
+                    <div 
+                      key={mapping.id}
+                      className="p-2.5 rounded-lg bg-[#18181A] border border-[#262629] flex items-center justify-between"
+                    >
+                      <div className="truncate mr-2">
+                        <span className="text-gray-200 font-semibold block truncate">
+                          {mapping.label}
+                        </span>
+                        <span className="text-[10px] text-gray-400 truncate block">
+                          {mapping.name}
+                        </span>
+                      </div>
+                      <span className="px-2 py-0.5 rounded font-mono font-bold text-[10px] bg-[#222226] text-blue-300 border border-[#333] shrink-0">
+                        {mapping.type.toUpperCase()} #{mapping.number}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Quick Presets Bar */}
+              <div className="pt-2 border-t border-[#242428] flex flex-wrap items-center justify-between gap-2">
+                <span className="text-[11px] text-gray-400 font-medium">Préréglages rapides :</span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      applyMidiPreset('standard_pedal');
+                      setShowNotification('Preset Pédalier Standard appliqué');
+                      setTimeout(() => setShowNotification(null), 2500);
+                    }}
+                    className="px-2.5 py-1 rounded bg-[#1C1C20] hover:bg-[#28282E] text-gray-300 hover:text-white border border-[#333] text-xs font-medium transition-colors"
+                  >
+                    Pédalier Standard
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      applyMidiPreset('keyboard');
+                      setShowNotification('Preset Clavier MIDI appliqué');
+                      setTimeout(() => setShowNotification(null), 2500);
+                    }}
+                    className="px-2.5 py-1 rounded bg-[#1C1C20] hover:bg-[#28282E] text-gray-300 hover:text-white border border-[#333] text-xs font-medium transition-colors"
+                  >
+                    Clavier MIDI
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      applyMidiPreset('program_change');
+                      setShowNotification('Preset Program Change appliqué');
+                      setTimeout(() => setShowNotification(null), 2500);
+                    }}
+                    className="px-2.5 py-1 rounded bg-[#1C1C20] hover:bg-[#28282E] text-gray-300 hover:text-white border border-[#333] text-xs font-medium transition-colors"
+                  >
+                    Program Change
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
         </div>
 
       </div>
@@ -1136,6 +1326,12 @@ export const SettingsView: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* MIDI Controller Modal */}
+      <MidiSettingsModal
+        isOpen={isMidiModalOpen}
+        onClose={() => setIsMidiModalOpen(false)}
+      />
 
     </div>
   );

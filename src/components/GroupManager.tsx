@@ -11,7 +11,6 @@ import {
   Sparkles, 
   Database, 
   Share2, 
-  QrCode,
   Layers,
   ArrowRight,
   Info

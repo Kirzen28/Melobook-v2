@@ -4,7 +4,6 @@ import { useApp } from '../context/AppContext';
 import { 
   Music2, 
   ListMusic, 
-  PlayCircle, 
   FileEdit, 
   Users, 
   Download, 
@@ -192,25 +191,6 @@ export const Navbar: React.FC = () => {
               )}
               <ListMusic className="w-3.5 h-3.5 text-blue-400" />
               <span>Setlists</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('stage')}
-              className={`relative z-10 flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
-                activeTab === 'stage'
-                  ? 'text-white'
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              {activeTab === 'stage' && (
-                <motion.span
-                  layoutId="active-nav-indicator"
-                  className="absolute inset-0 bg-blue-600 rounded-md -z-10 shadow-sm shadow-blue-900/30"
-                  transition={{ type: 'spring', stiffness: 450, damping: 35 }}
-                />
-              )}
-              <PlayCircle className="w-3.5 h-3.5 text-white" />
-              <span>Vue Scène</span>
             </button>
 
             {currentUser?.role === 'admin' && (
@@ -455,23 +435,6 @@ export const Navbar: React.FC = () => {
                       <span>Listes</span>
                     </div>
                     {activeTab === 'setlists' && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                    )}
-                  </button>
-
-                  <button
-                    onClick={() => handleNavClick('stage')}
-                    className={`w-full text-left px-3.5 py-2 flex items-center justify-between transition-colors ${
-                      activeTab === 'stage'
-                        ? 'bg-blue-600/20 text-blue-400 font-semibold'
-                        : 'text-blue-400 hover:bg-[#1C1C1E] hover:text-blue-300'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <PlayCircle className="w-3.5 h-3.5" />
-                      <span>Vue Scène</span>
-                    </div>
-                    {activeTab === 'stage' && (
                       <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
                     )}
                   </button>

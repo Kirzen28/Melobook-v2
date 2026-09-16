@@ -1,24 +1,40 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import { useApp } from '../context/AppContext';
 import { parseDurationToSeconds, formatSetlistDuration, getSongDuration } from '../utils/chordUtils';
 import { cacheSetlistInWorker } from '../utils/pwaCache';
 import { SongReader } from './SongReader';
 import { SetlistPdfModal } from './SetlistPdfModal';
-import { SongQrModal } from './SongQrModal';
 import { BatteryIndicator } from './BatteryIndicator';
+import { MidiStatusIndicator } from './MidiStatusIndicator';
+import { useMidi } from '../context/MidiContext';
 import { 
   ListMusic, 
   X, 
   Layers, 
   Music,
   CheckCircle2,
-  FileDown,
-  QrCode
+  FileDown
 } from 'lucide-react';
 
 interface LiveSetlistPlayerProps {
   onClose: () => void;
 }
+
+const songTransitionVariants = {
+  enter: (dir: number) => ({
+    x: dir >= 0 ? '100%' : '-100%',
+    opacity: 0,
+  }),
+  center: {
+    x: '0%',
+    opacity: 1,
+  },
+  exit: (dir: number) => ({
+    x: dir >= 0 ? '-100%' : '100%',
+    opacity: 0,
+  }),
+};
 
 export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose }) => {
   const { 
@@ -31,9 +47,23 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
     currentGroup
   } = useApp();
 
+  const { registerActionHandler } = useMidi();
+
   const [showPdfModal, setShowPdfModal] = useState(false);
-  const [showSongQrModal, setShowSongQrModal] = useState(false);
+  const [direction, setDirection] = useState<number>(1);
+  const prevIndexRef = useRef<number>(activeSetlistIndex);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const [touchStartY, setTouchStartY] = useState<number | null>(null);
+
+  // Track transition direction whenever index changes
+  useEffect(() => {
+    if (activeSetlistIndex > prevIndexRef.current) {
+      setDirection(1);
+    } else if (activeSetlistIndex < prevIndexRef.current) {
+      setDirection(-1);
+    }
+    prevIndexRef.current = activeSetlistIndex;
+  }, [activeSetlistIndex]);
 
   // Ordered list of songs in this setlist
   const setlistSongs = useMemo(() => {
@@ -51,9 +81,10 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
 
   const currentSong = setlistSongs[activeSetlistIndex] || null;
 
-  // Next / Previous navigation
+  // Next / Previous navigation with direction tracking
   const handleNext = useCallback(() => {
     if (activeSetlistIndex < setlistSongs.length - 1) {
+      setDirection(1);
       setActiveSetlistIndex(activeSetlistIndex + 1);
       // Reset scroll position and auto-scroll state on song change
       updateStageSettings({ isAutoScrolling: false });
@@ -62,6 +93,7 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
 
   const handlePrev = useCallback(() => {
     if (activeSetlistIndex > 0) {
+      setDirection(-1);
       setActiveSetlistIndex(activeSetlistIndex - 1);
       updateStageSettings({ isAutoScrolling: false });
     }
@@ -70,21 +102,62 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
   // Touch Swipe for mobile/tablet
   const handleTouchStart = (e: React.TouchEvent) => {
     setTouchStartX(e.touches[0].clientX);
+    setTouchStartY(e.touches[0].clientY);
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartX === null) return;
+    if (touchStartX === null || touchStartY === null) return;
     const touchEndX = e.changedTouches[0].clientX;
+    const touchEndY = e.changedTouches[0].clientY;
     const diffX = touchStartX - touchEndX;
+    const diffY = touchStartY - touchEndY;
 
-    // Minimum swipe threshold 70px
-    if (diffX > 70) {
-      handleNext();
-    } else if (diffX < -70) {
-      handlePrev();
+    // Minimum swipe threshold 60px and must be predominantly horizontal
+    if (Math.abs(diffX) > 60 && Math.abs(diffX) > Math.abs(diffY) * 1.3) {
+      if (diffX > 0) {
+        handleNext();
+      } else {
+        handlePrev();
+      }
     }
     setTouchStartX(null);
+    setTouchStartY(null);
   };
+
+  // Register MIDI Remote Handlers for live performance (Next/Prev Song & Auto-scroll)
+  useEffect(() => {
+    const unsubNext = registerActionHandler('next_song', () => {
+      handleNext();
+    });
+
+    const unsubPrev = registerActionHandler('prev_song', () => {
+      handlePrev();
+    });
+
+    const unsubToggleAuto = registerActionHandler('toggle_autoscroll', () => {
+      updateStageSettings({ isAutoScrolling: !stageSettings.isAutoScrolling });
+    });
+
+    const unsubSpeedUp = registerActionHandler('speed_up_autoscroll', () => {
+      updateStageSettings({ 
+        autoScrollSpeed: Math.min(10, (stageSettings.autoScrollSpeed || 3) + 1) 
+      });
+    });
+
+    const unsubSpeedDown = registerActionHandler('speed_down_autoscroll', () => {
+      updateStageSettings({ 
+        autoScrollSpeed: Math.max(1, (stageSettings.autoScrollSpeed || 3) - 1) 
+      });
+    });
+
+    return () => {
+      unsubNext();
+      unsubPrev();
+      unsubToggleAuto();
+      unsubSpeedUp();
+      unsubSpeedDown();
+    };
+  }, [handleNext, handlePrev, stageSettings.isAutoScrolling, stageSettings.autoScrollSpeed, updateStageSettings, registerActionHandler]);
 
   if (!selectedSetlist || setlistSongs.length === 0) {
     return (
@@ -147,19 +220,10 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
           </div>
         </div>
 
-        {/* Right: Next Song Quick Peek, QR Code & PDF Export */}
+        {/* Right: MIDI Remote, Next Song Quick Peek & PDF Export */}
         <div className="flex items-center gap-2 text-right shrink-0">
-          {currentSong && (
-            <button
-              type="button"
-              onClick={() => setShowSongQrModal(true)}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 hover:text-white border border-[#333] text-xs font-medium transition-colors cursor-pointer"
-              title="Partager le chant via QR Code"
-            >
-              <QrCode className="w-3.5 h-3.5 text-cyan-400" />
-              <span className="hidden sm:inline">QR Code</span>
-            </button>
-          )}
+          {/* Contrôle MIDI / Pédalier */}
+          <MidiStatusIndicator showLabel />
 
           <button
             onClick={() => setShowPdfModal(true)}
@@ -172,12 +236,17 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
 
           <div className="hidden lg:flex items-center gap-2">
             {activeSetlistIndex < setlistSongs.length - 1 ? (
-              <div>
-                <span className="text-[10px] uppercase font-semibold text-gray-500">À suivre :</span>
-                <p className="text-xs font-semibold text-blue-400 truncate max-w-[140px]">
+              <button
+                type="button"
+                onClick={handleNext}
+                className="text-left group cursor-pointer hover:opacity-80 transition-opacity"
+                title="Passer au chant suivant"
+              >
+                <span className="text-[10px] uppercase font-semibold text-gray-500 group-hover:text-gray-400">À suivre :</span>
+                <p className="text-xs font-semibold text-blue-400 group-hover:text-blue-300 truncate max-w-[140px]">
                   {setlistSongs[activeSetlistIndex + 1]?.title}
                 </p>
-              </div>
+              </button>
             ) : (
               <span className="text-xs font-semibold text-emerald-400 flex items-center gap-1">
                 <CheckCircle2 className="w-3.5 h-3.5" /> Dernier chant
@@ -195,22 +264,38 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
 
       </div>
 
-      {/* Embedded Active Song Reader */}
-      {currentSong && (
-        <div className="flex-1 min-h-0 relative flex flex-col overflow-hidden">
-          <SongReader
-            song={currentSong}
-            setlistId={selectedSetlist.id}
-            onBack={onClose}
-            onNext={activeSetlistIndex < setlistSongs.length - 1 ? handleNext : undefined}
-            onPrev={activeSetlistIndex > 0 ? handlePrev : undefined}
-            hasNext={activeSetlistIndex < setlistSongs.length - 1}
-            hasPrev={activeSetlistIndex > 0}
-            setlistContextName={selectedSetlist.name}
-            setlistPosition={{ current: activeSetlistIndex + 1, total: setlistSongs.length }}
-          />
-        </div>
-      )}
+      {/* Embedded Active Song Reader with animated transition */}
+      <div className="flex-1 min-h-0 relative overflow-hidden bg-[#0A0A0B]">
+        <AnimatePresence initial={false} custom={direction}>
+          {currentSong && (
+            <motion.div
+              key={`${currentSong.id}-${activeSetlistIndex}`}
+              custom={direction}
+              variants={songTransitionVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{
+                x: { type: 'spring', stiffness: 320, damping: 32, mass: 0.8 },
+                opacity: { duration: 0.2, ease: 'easeInOut' }
+              }}
+              className="w-full h-full absolute inset-0 flex flex-col overflow-hidden"
+            >
+              <SongReader
+                song={currentSong}
+                setlistId={selectedSetlist.id}
+                onBack={onClose}
+                onNext={activeSetlistIndex < setlistSongs.length - 1 ? handleNext : undefined}
+                onPrev={activeSetlistIndex > 0 ? handlePrev : undefined}
+                hasNext={activeSetlistIndex < setlistSongs.length - 1}
+                hasPrev={activeSetlistIndex > 0}
+                setlistContextName={selectedSetlist.name}
+                setlistPosition={{ current: activeSetlistIndex + 1, total: setlistSongs.length }}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
 
       {/* PDF Export & Share Modal */}
       {showPdfModal && selectedSetlist && (
@@ -218,15 +303,6 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
           setlist={selectedSetlist}
           songs={songs}
           onClose={() => setShowPdfModal(false)}
-        />
-      )}
-
-      {/* QR Code Share Modal for current song */}
-      {showSongQrModal && currentSong && (
-        <SongQrModal
-          song={currentSong}
-          onClose={() => setShowSongQrModal(false)}
-          currentGroup={currentGroup}
         />
       )}
     </div>

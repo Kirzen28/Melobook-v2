@@ -93,6 +93,11 @@ interface AppContextType {
   isInstallable: boolean;
   promptInstall: () => void;
   
+  // Favorites
+  favoriteSongIds: string[];
+  isSongFavorite: (songId: string) => boolean;
+  toggleFavoriteSong: (songId: string) => Promise<void>;
+  
   // Actions
   createSong: (songData: Omit<Song, 'id' | 'groupId' | 'createdAt' | 'updatedAt'>) => Promise<string>;
   importSong: (songData: Omit<Song, 'id' | 'groupId' | 'createdAt' | 'updatedAt'>) => Promise<string>;
@@ -255,6 +260,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   // Network & PWA status
+  const [favoriteSongIds, setFavoriteSongIds] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const saved = localStorage.getItem('songbook_favorite_songs');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
   const [isOnline, setIsOnline] = useState(typeof window !== 'undefined' ? navigator.onLine : true);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(typeof window !== 'undefined' && !navigator.onLine ? 'offline' : 'synced');
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(new Date());
@@ -430,6 +445,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [currentUser]);
 
+  useEffect(() => {
+    localStorage.setItem('songbook_favorite_songs', JSON.stringify(favoriteSongIds));
+  }, [favoriteSongIds]);
+
   // Auth Listener
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -442,13 +461,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (snap.exists()) {
             const data = snap.data() as UserProfile;
             setCurrentUser(data);
+            if (Array.isArray(data.favoriteSongIds)) {
+              setFavoriteSongIds(prev => Array.from(new Set([...prev, ...(data.favoriteSongIds || [])])));
+            }
           } else {
             const newUser: UserProfile = {
               uid: user.uid,
               email: user.email || '',
               displayName: user.displayName || user.email?.split('@')[0] || 'Musicien',
               currentGroupId: 'default-group',
-              role: 'admin'
+              role: 'admin',
+              favoriteSongIds: favoriteSongIds
             };
             await setDoc(userRef, newUser);
             setCurrentUser(newUser);
@@ -676,6 +699,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.warn('Deleted song locally:', e);
     }
   }, [selectedSong?.id, songs]);
+
+  const isSongFavorite = useCallback((songId: string): boolean => {
+    return favoriteSongIds.includes(songId);
+  }, [favoriteSongIds]);
+
+  const toggleFavoriteSong = useCallback(async (songId: string) => {
+    const isFav = favoriteSongIds.includes(songId);
+    const updated = isFav
+      ? favoriteSongIds.filter(id => id !== songId)
+      : [...favoriteSongIds, songId];
+
+    setFavoriteSongIds(updated);
+    try {
+      localStorage.setItem('songbook_favorite_songs', JSON.stringify(updated));
+    } catch (e) {}
+
+    // If user is authenticated or currentUser exists, sync to Firestore user doc
+    if (currentUser?.uid) {
+      try {
+        const userRef = doc(db, 'users', currentUser.uid);
+        await setDoc(userRef, { favoriteSongIds: updated }, { merge: true });
+        setCurrentUser(prev => prev ? { ...prev, favoriteSongIds: updated } : null);
+      } catch (e) {
+        console.warn('Sync favorite to Firestore note:', e);
+      }
+    }
+  }, [favoriteSongIds, currentUser?.uid]);
 
   const linkSongs = useCallback(async (songId1: string, songId2: string) => {
     if (!songId1 || !songId2 || songId1 === songId2) return;
@@ -1077,6 +1127,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setIsAuthModalOpen,
       isInstallable,
       promptInstall,
+      favoriteSongIds,
+      isSongFavorite,
+      toggleFavoriteSong,
       createSong,
       importSong,
       updateSong,

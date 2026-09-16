@@ -1,6 +1,7 @@
 import React from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { AppProvider, useApp } from './context/AppContext';
+import { MidiProvider } from './context/MidiContext';
 import { Navbar } from './components/Navbar';
 import { SongList } from './components/SongList';
 import { SongReader } from './components/SongReader';
@@ -73,7 +74,9 @@ const AppContent: React.FC = () => {
 export default function App() {
   return (
     <AppProvider>
-      <AppContent />
+      <MidiProvider>
+        <AppContent />
+      </MidiProvider>
     </AppProvider>
   );
 }

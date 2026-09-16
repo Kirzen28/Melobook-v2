@@ -2,8 +2,10 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { Song, Setlist } from '../types';
 import { parseDurationToSeconds, formatSetlistDuration, getSongDuration, stripParentheses } from '../utils/chordUtils';
+import { generateSetlistPdf, DEFAULT_PDF_OPTIONS } from '../utils/pdfExport';
 import { SongImportModal } from './SongImportModal';
 import { LanguageVersionModal } from './LanguageVersionModal';
+import { VoiceSearchControl } from './VoiceSearchControl';
 import { PRESET_LANGUAGES } from '../utils/languageUtils';
 import { 
   DEFAULT_CATEGORY_SUGGESTIONS, 
@@ -38,7 +40,13 @@ import {
   RotateCcw,
   Pen,
   LayoutGrid,
-  List
+  List,
+  FileDown,
+  FileText,
+  Share2,
+  Download,
+  Loader2,
+  Heart
 } from 'lucide-react';
 
 export const SongList: React.FC = () => {
@@ -53,10 +61,14 @@ export const SongList: React.FC = () => {
     updateSetlist,
     createSetlist,
     createSong,
-    importSong
+    importSong,
+    favoriteSongIds,
+    isSongFavorite,
+    toggleFavoriteSong
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [onlyFavorites, setOnlyFavorites] = useState(false);
   const [sortBy, setSortBy] = useState<'title' | 'artist' | 'tempo' | 'duration' | 'recent'>('title');
 
   // Key filter state (multi-select dropdown with checkboxes)
@@ -132,13 +144,35 @@ export const SongList: React.FC = () => {
   // Multi-select mode state
   const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
   const [selectedSongIds, setSelectedSongIds] = useState<string[]>([]);
+
+  // Multi-select modal states for Category assignment
   const [isAssignCategoryModalOpen, setIsAssignCategoryModalOpen] = useState(false);
+  const [selectedBatchCategories, setSelectedBatchCategories] = useState<string[]>([]);
+  const [initialBatchCategories, setInitialBatchCategories] = useState<string[]>([]);
   const [multiCategoryInput, setMultiCategoryInput] = useState('');
   const [multiCategorySearch, setMultiCategorySearch] = useState('');
+  const [isSavingBatchCategories, setIsSavingBatchCategories] = useState(false);
+  const [batchDeletingCatName, setBatchDeletingCatName] = useState<string | null>(null);
+
+  // Multi-select modal states for Setlist assignment
   const [isAssignSetlistModalOpen, setIsAssignSetlistModalOpen] = useState(false);
+  const [selectedBatchSetlistIds, setSelectedBatchSetlistIds] = useState<string[]>([]);
+  const [initialBatchSetlistIds, setInitialBatchSetlistIds] = useState<string[]>([]);
   const [multiSetlistNameInput, setMultiSetlistNameInput] = useState('');
   const [multiSetlistDateInput, setMultiSetlistDateInput] = useState(new Date().toISOString().split('T')[0]);
   const [multiSetlistSearch, setMultiSetlistSearch] = useState('');
+  const [batchSetlistSortBy, setBatchSetlistSortBy] = useState<'recent' | 'name' | 'count'>('recent');
+  const [isBatchCreatingSetlist, setIsBatchCreatingSetlist] = useState(false);
+  const [isSavingBatchSetlists, setIsSavingBatchSetlists] = useState(false);
+
+  // Multi-delete confirmation modal
+  const [isMultiDeleteModalOpen, setIsMultiDeleteModalOpen] = useState(false);
+  const [isDeletingMultiple, setIsDeletingMultiple] = useState(false);
+
+  // Multi-export modal & generation state
+  const [isMultiExportModalOpen, setIsMultiExportModalOpen] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [exportNotification, setExportNotification] = useState<string | null>(null);
 
   const categoryFilterRef = useRef<HTMLDivElement>(null);
   const authorFilterRef = useRef<HTMLDivElement>(null);
@@ -487,6 +521,10 @@ export const SongList: React.FC = () => {
   // Filtered & Sorted Songs
   const filteredSongs = useMemo(() => {
     return songs.filter(song => {
+      // Filter only favorites if toggle is active
+      if (onlyFavorites && !isSongFavorite(song.id)) {
+        return false;
+      }
       // Key filter (support single or multiple selection with checkboxes)
       if (selectedKeys.length > 0) {
         const songKey = (song.key || '').trim().toUpperCase();
@@ -530,6 +568,14 @@ export const SongList: React.FC = () => {
       }
       return true;
     }).sort((a, b) => {
+      // 1. PIN FAVORITE SONGS TO THE TOP
+      const isFavA = isSongFavorite(a.id);
+      const isFavB = isSongFavorite(b.id);
+      if (isFavA !== isFavB) {
+        return isFavA ? -1 : 1;
+      }
+
+      // 2. Secondary sort criteria
       if (sortBy === 'title') return (a.title || '').localeCompare(b.title || '', 'fr', { sensitivity: 'base' });
       if (sortBy === 'artist') {
         const artistA = (a.artist || '').trim();
@@ -543,7 +589,12 @@ export const SongList: React.FC = () => {
       if (sortBy === 'recent') return (b.createdAt || '').localeCompare(a.createdAt || '');
       return 0;
     });
-  }, [songs, selectedKeys, selectedLanguages, selectedCategories, selectedAuthors, searchQuery, sortBy]);
+  }, [songs, selectedKeys, selectedLanguages, selectedCategories, selectedAuthors, searchQuery, sortBy, onlyFavorites, isSongFavorite]);
+
+  // Pinned favorite songs list from current filtered view
+  const pinnedFavoriteSongs = useMemo(() => {
+    return filteredSongs.filter(s => isSongFavorite(s.id));
+  }, [filteredSongs, isSongFavorite]);
 
   // Group songs alphabetically by first letter of title or author
   const alphabeticalGroups = useMemo(() => {
@@ -801,16 +852,20 @@ export const SongList: React.FC = () => {
   };
 
   const toggleSongSelection = (songId: string) => {
-    setSelectedSongIds(prev =>
-      prev.includes(songId) ? prev.filter(id => id !== songId) : [...prev, songId]
-    );
+    setSelectedSongIds(prev => {
+      const next = prev.includes(songId) ? prev.filter(id => id !== songId) : [...prev, songId];
+      setIsMultiSelectMode(next.length > 0);
+      return next;
+    });
   };
 
   const toggleSelectAll = () => {
     if (selectedSongIds.length === filteredSongs.length && filteredSongs.length > 0) {
       setSelectedSongIds([]);
+      setIsMultiSelectMode(false);
     } else {
       setSelectedSongIds(filteredSongs.map(s => s.id));
+      setIsMultiSelectMode(true);
     }
   };
 
@@ -837,17 +892,72 @@ export const SongList: React.FC = () => {
     return allCategoriesWithCounts.filter(c => c.name.toLowerCase().includes(q));
   }, [allCategoriesWithCounts, multiCategorySearch]);
 
-  // Filter setlists for the multi-assign setlist modal
-  const filteredMultiSetlists = useMemo(() => {
-    if (!multiSetlistSearch.trim()) return setlists;
-    const q = multiSetlistSearch.toLowerCase().trim();
-    return setlists.filter(st => st.name.toLowerCase().includes(q));
-  }, [setlists, multiSetlistSearch]);
+  // Filter and sort setlists for the multi-assign setlist modal
+  const filteredAndSortedMultiSetlists = useMemo(() => {
+    return setlists
+      .filter(st => {
+        if (!multiSetlistSearch.trim()) return true;
+        const q = multiSetlistSearch.toLowerCase().trim();
+        const matchName = st.name.toLowerCase().includes(q);
+        const matchDate = st.date?.toLowerCase().includes(q);
+        const matchNotes = st.notes?.toLowerCase().includes(q);
+        return matchName || matchDate || matchNotes;
+      })
+      .sort((a, b) => {
+        if (batchSetlistSortBy === 'recent') {
+          const dateA = a.date || a.createdAt || '';
+          const dateB = b.date || b.createdAt || '';
+          return dateB.localeCompare(dateA);
+        }
+        if (batchSetlistSortBy === 'name') {
+          return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+        }
+        if (batchSetlistSortBy === 'count') {
+          return (b.songIds?.length || 0) - (a.songIds?.length || 0);
+        }
+        return 0;
+      });
+  }, [setlists, multiSetlistSearch, batchSetlistSortBy]);
 
-  // Assign a category (new or existing) to all selected songs
-  const handleAssignCategoryToSelected = async (catName: string) => {
+  // Open the batch category assignment modal
+  const handleOpenBatchCategoryModal = () => {
+    if (selectedSongIds.length === 0) return;
+    const selectedSongsList = songs.filter(s => selectedSongIds.includes(s.id));
+    let initialCats: string[] = [];
+
+    if (selectedSongIds.length === 1) {
+      initialCats = [...(selectedSongsList[0]?.tags || [])];
+    } else {
+      initialCats = Array.from(
+        new Set(selectedSongsList.flatMap(s => s.tags || []).map(t => t.trim()).filter(Boolean))
+      );
+    }
+
+    setSelectedBatchCategories(initialCats);
+    setInitialBatchCategories(initialCats);
+    setMultiCategoryInput('');
+    setMultiCategorySearch('');
+    setBatchDeletingCatName(null);
+    setIsAssignCategoryModalOpen(true);
+  };
+
+  // Toggle a category in batch mode
+  const toggleBatchCategory = (catName: string) => {
     const trimmed = catName.trim();
-    if (!trimmed || selectedSongIds.length === 0) return;
+    setSelectedBatchCategories(prev => {
+      const exists = prev.some(c => c.toLowerCase() === trimmed.toLowerCase());
+      if (exists) {
+        return prev.filter(c => c.toLowerCase() !== trimmed.toLowerCase());
+      } else {
+        return [...prev, trimmed];
+      }
+    });
+  };
+
+  // Quick create category in batch modal
+  const handleQuickCreateBatchCategory = (catNameToCreate?: string) => {
+    const trimmed = (catNameToCreate || multiCategoryInput).trim();
+    if (!trimmed) return;
 
     if (hiddenCategories.includes(trimmed)) {
       const updatedHidden = hiddenCategories.filter(c => c !== trimmed);
@@ -861,66 +971,299 @@ export const SongList: React.FC = () => {
       saveCustomCategories(updated);
     }
 
-    for (const songId of selectedSongIds) {
-      const target = songs.find(s => s.id === songId);
-      if (target) {
-        const currentTags = target.tags || [];
-        if (!currentTags.some(t => t.trim().toLowerCase() === trimmed.toLowerCase())) {
-          await updateSong(songId, { tags: [...currentTags, trimmed] });
-        }
-      }
+    if (!selectedBatchCategories.some(c => c.toLowerCase() === trimmed.toLowerCase())) {
+      setSelectedBatchCategories(prev => [...prev, trimmed]);
     }
-
-    setIsAssignCategoryModalOpen(false);
-    setIsMultiSelectMode(false);
-    setSelectedSongIds([]);
     setMultiCategoryInput('');
-    setMultiCategorySearch('');
   };
 
-  // Create a new setlist and assign all selected songs to it
-  const handleCreateAndAssignSetlist = async () => {
-    const trimmed = multiSetlistNameInput.trim();
-    if (!trimmed || selectedSongIds.length === 0) return;
+  // Save batch category selections
+  const handleSaveBatchCategories = async () => {
+    if (selectedSongIds.length === 0) return;
+    setIsSavingBatchCategories(true);
+    try {
+      if (selectedSongIds.length === 1) {
+        // Single song: set tags directly to selectedBatchCategories
+        await updateSong(selectedSongIds[0], { tags: selectedBatchCategories });
+      } else {
+        // Multiple songs:
+        // Checked categories get added to all selected songs
+        // Categories that were in initialBatchCategories but are now unchecked get removed from all selected songs
+        const categoriesToRemove = initialBatchCategories.filter(
+          initCat => !selectedBatchCategories.some(c => c.toLowerCase() === initCat.toLowerCase())
+        );
 
-    await createSetlist({
-      name: trimmed,
-      date: multiSetlistDateInput || new Date().toISOString().split('T')[0],
-      songIds: selectedSongIds,
-      songs: []
-    });
+        for (const songId of selectedSongIds) {
+          const targetSong = songs.find(s => s.id === songId);
+          if (!targetSong) continue;
+          let currentTags = targetSong.tags || [];
 
-    setIsAssignSetlistModalOpen(false);
-    setIsMultiSelectMode(false);
-    setSelectedSongIds([]);
+          if (categoriesToRemove.length > 0) {
+            currentTags = currentTags.filter(
+              t => !categoriesToRemove.some(rem => rem.toLowerCase() === t.trim().toLowerCase())
+            );
+          }
+
+          for (const newCat of selectedBatchCategories) {
+            if (!currentTags.some(t => t.trim().toLowerCase() === newCat.trim().toLowerCase())) {
+              currentTags = [...currentTags, newCat.trim()];
+            }
+          }
+
+          await updateSong(songId, { tags: currentTags });
+        }
+      }
+
+      setExportNotification(
+        selectedSongIds.length === 1
+          ? `Catégories mises à jour pour "${songs.find(s => s.id === selectedSongIds[0])?.title || 'le chant'}"`
+          : `Catégories mises à jour pour ${selectedSongIds.length} chants`
+      );
+      setTimeout(() => setExportNotification(null), 2500);
+      setIsAssignCategoryModalOpen(false);
+    } catch (e) {
+      console.error('Error saving batch categories:', e);
+    } finally {
+      setIsSavingBatchCategories(false);
+    }
+  };
+
+  // Open the batch setlist assignment modal
+  const handleOpenBatchSetlistModal = () => {
+    if (selectedSongIds.length === 0) return;
+    let initialIds: string[] = [];
+
+    if (selectedSongIds.length === 1) {
+      initialIds = setlists.filter(st => st.songIds.includes(selectedSongIds[0])).map(st => st.id);
+    } else {
+      initialIds = setlists.filter(st => selectedSongIds.some(songId => st.songIds.includes(songId))).map(st => st.id);
+    }
+
+    setSelectedBatchSetlistIds(initialIds);
+    setInitialBatchSetlistIds(initialIds);
+    setIsBatchCreatingSetlist(false);
     setMultiSetlistNameInput('');
     setMultiSetlistDateInput(new Date().toISOString().split('T')[0]);
     setMultiSetlistSearch('');
+    setBatchSetlistSortBy('recent');
+    setIsAssignSetlistModalOpen(true);
   };
 
-  // Assign all selected songs to an existing setlist
-  const handleAssignToExistingSetlist = async (setlistId: string) => {
+  // Toggle a setlist selection in batch mode
+  const toggleBatchSetlistSelection = (setlistId: string) => {
+    setSelectedBatchSetlistIds(prev =>
+      prev.includes(setlistId) ? prev.filter(id => id !== setlistId) : [...prev, setlistId]
+    );
+  };
+
+  // Quick create setlist in batch modal
+  const handleQuickCreateBatchSetlist = async () => {
+    const trimmed = multiSetlistNameInput.trim();
+    if (!trimmed || selectedSongIds.length === 0) return;
+
+    try {
+      const createdId = await createSetlist({
+        name: trimmed,
+        date: multiSetlistDateInput || new Date().toISOString().split('T')[0],
+        songIds: selectedSongIds,
+        notes: '',
+        targetDuration: 25
+      });
+
+      setSelectedBatchSetlistIds(prev => [...prev, createdId]);
+      setInitialBatchSetlistIds(prev => [...prev, createdId]);
+      setMultiSetlistNameInput('');
+      setMultiSetlistDateInput(new Date().toISOString().split('T')[0]);
+      setIsBatchCreatingSetlist(false);
+    } catch (e) {
+      console.error('Error creating setlist in batch modal:', e);
+    }
+  };
+
+  // Save batch setlist assignments
+  const handleSaveBatchSetlists = async () => {
     if (selectedSongIds.length === 0) return;
-    const targetSetlist = setlists.find(st => st.id === setlistId);
-    if (!targetSetlist) return;
+    setIsSavingBatchSetlists(true);
+    try {
+      if (selectedSongIds.length === 1) {
+        const songId = selectedSongIds[0];
+        for (const st of setlists) {
+          const isSelected = selectedBatchSetlistIds.includes(st.id);
+          const hasSong = st.songIds.includes(songId);
 
-    const existingIds = targetSetlist.songIds || [];
-    const songsToAdd = selectedSongIds.filter(id => !existingIds.includes(id));
-    const newSongIds = [...existingIds, ...songsToAdd];
+          if (isSelected && !hasSong) {
+            await updateSetlist(st.id, {
+              songIds: [...st.songIds, songId]
+            });
+          } else if (!isSelected && hasSong) {
+            await updateSetlist(st.id, {
+              songIds: st.songIds.filter(id => id !== songId)
+            });
+          }
+        }
+      } else {
+        for (const st of setlists) {
+          const isSelected = selectedBatchSetlistIds.includes(st.id);
+          const hadSomeSongs = initialBatchSetlistIds.includes(st.id) || selectedSongIds.some(id => st.songIds.includes(id));
 
-    await updateSetlist(setlistId, { songIds: newSongIds });
+          if (isSelected) {
+            const songsToAdd = selectedSongIds.filter(id => !st.songIds.includes(id));
+            if (songsToAdd.length > 0) {
+              await updateSetlist(st.id, {
+                songIds: [...st.songIds, ...songsToAdd]
+              });
+            }
+          } else if (!isSelected && hadSomeSongs) {
+            const newSongIds = st.songIds.filter(id => !selectedSongIds.includes(id));
+            if (newSongIds.length !== st.songIds.length) {
+              await updateSetlist(st.id, {
+                songIds: newSongIds
+              });
+            }
+          }
+        }
+      }
 
-    setIsAssignSetlistModalOpen(false);
-    setIsMultiSelectMode(false);
-    setSelectedSongIds([]);
-    setMultiSetlistNameInput('');
-    setMultiSetlistSearch('');
+      setExportNotification(
+        selectedSongIds.length === 1
+          ? `Setlists mises à jour pour "${songs.find(s => s.id === selectedSongIds[0])?.title || 'le chant'}"`
+          : `Setlists mises à jour pour ${selectedSongIds.length} chants`
+      );
+      setTimeout(() => setExportNotification(null), 2500);
+      setIsAssignSetlistModalOpen(false);
+    } catch (e) {
+      console.error('Error saving batch setlists:', e);
+    } finally {
+      setIsSavingBatchSetlists(false);
+    }
+  };
+
+  // Delete all selected songs
+  const handleBatchDelete = async () => {
+    if (selectedSongIds.length === 0) return;
+    setIsDeletingMultiple(true);
+    try {
+      for (const songId of selectedSongIds) {
+        await deleteSong(songId);
+      }
+      setSelectedSongIds([]);
+      setIsMultiSelectMode(false);
+      setIsMultiDeleteModalOpen(false);
+    } catch (e) {
+      console.error('Error deleting selected songs:', e);
+    } finally {
+      setIsDeletingMultiple(false);
+    }
+  };
+
+  // Export selected songs as unified PDF
+  const handleExportSelectedPdf = async () => {
+    if (selectedSongIds.length === 0) return;
+    const selectedSongsList = selectedSongIds
+      .map(id => songs.find(s => s.id === id))
+      .filter((s): s is Song => s !== undefined);
+
+    if (selectedSongsList.length === 0) return;
+
+    setIsExportingPdf(true);
+    setExportNotification('Génération du livret PDF des chansons sélectionnées...');
+    try {
+      const virtualSetlist: Setlist = {
+        id: `export-${Date.now()}`,
+        groupId: '',
+        name: `Sélection ${selectedSongsList.length} chants`,
+        date: new Date().toISOString().split('T')[0],
+        songIds: selectedSongIds
+      };
+
+      const { doc, fileName } = await generateSetlistPdf(virtualSetlist, selectedSongsList, DEFAULT_PDF_OPTIONS);
+      doc.save(fileName || `selection-${selectedSongsList.length}-chants.pdf`);
+      setExportNotification(`PDF téléchargé avec succès pour ${selectedSongsList.length} chants`);
+      setTimeout(() => {
+        setExportNotification(null);
+        setIsMultiExportModalOpen(false);
+      }, 2500);
+    } catch (err) {
+      console.error('Error exporting songs to PDF:', err);
+      setExportNotification('Erreur lors de la création du PDF.');
+      setTimeout(() => setExportNotification(null), 3500);
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
+  // Export selected songs as ChordPro / Text file
+  const handleExportSelectedChordPro = () => {
+    if (selectedSongIds.length === 0) return;
+    const selectedSongsList = selectedSongIds
+      .map(id => songs.find(s => s.id === id))
+      .filter((s): s is Song => s !== undefined);
+
+    if (selectedSongsList.length === 0) return;
+
+    const content = selectedSongsList.map(song => {
+      const header = `{title: ${song.title}}\n` +
+        (song.artist ? `{artist: ${song.artist}}\n` : '') +
+        (song.key ? `{key: ${song.key}}\n` : '') +
+        (song.tempo ? `{tempo: ${song.tempo}}\n` : '') +
+        (song.tags && song.tags.length > 0 ? `{comment: Catégories: ${song.tags.join(', ')}}\n` : '');
+      return `${header}\n${song.contentChordPro || ''}\n`;
+    }).join('\n========================================\n\n');
+
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `selection-${selectedSongsList.length}-chants-chordpro.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    setExportNotification(`Fichier ChordPro téléchargé pour ${selectedSongsList.length} chants`);
+    setTimeout(() => {
+      setExportNotification(null);
+      setIsMultiExportModalOpen(false);
+    }, 2000);
+  };
+
+  // Export selected songs as JSON
+  const handleExportSelectedJson = () => {
+    if (selectedSongIds.length === 0) return;
+    const selectedSongsList = selectedSongIds
+      .map(id => songs.find(s => s.id === id))
+      .filter((s): s is Song => s !== undefined);
+
+    if (selectedSongsList.length === 0) return;
+
+    const exportData = {
+      exportDate: new Date().toISOString(),
+      count: selectedSongsList.length,
+      songs: selectedSongsList
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `selection-${selectedSongsList.length}-chants.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    setExportNotification(`Export JSON téléchargé pour ${selectedSongsList.length} chants`);
+    setTimeout(() => {
+      setExportNotification(null);
+      setIsMultiExportModalOpen(false);
+    }, 2000);
   };
 
   // Reusable unified Song Card Renderer
   const renderSongCard = (song: Song) => {
     const isSelected = selectedSongIds.includes(song.id);
     const isConfirming = confirmDeleteSongId === song.id;
+    const isFav = isSongFavorite(song.id);
 
     return (
       <div
@@ -938,35 +1281,42 @@ export const SongList: React.FC = () => {
         className={`group relative border rounded-lg p-4 transition-all flex flex-col justify-between cursor-pointer shadow-sm hover:shadow-md select-none ${
           isSelected
             ? 'bg-blue-950/30 border-blue-500 ring-2 ring-blue-500/40 shadow-blue-900/20'
-            : 'bg-[#111112] hover:bg-[#151518] border-[#222224] hover:border-blue-500/40'
+            : isFav
+              ? 'bg-[#141214] hover:bg-[#181417] border-rose-900/40 hover:border-rose-500/50 shadow-rose-950/20'
+              : 'bg-[#111112] hover:bg-[#151518] border-[#222224] hover:border-blue-500/40'
         }`}
       >
         <div>
           {/* Header of card: Checkbox / Key / BPM / Duration and Quick Actions */}
           <div className="flex items-center justify-between gap-2 mb-2.5">
             <div className="flex items-center gap-1.5 flex-wrap">
-              {isMultiSelectMode && (
-                <div
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleSongSelection(song.id);
-                  }}
-                  className={`w-5 h-5 rounded flex items-center justify-center border transition-all cursor-pointer mr-0.5 shrink-0 ${
-                    isSelected
-                      ? 'bg-blue-600 border-blue-500 text-white shadow-xs ring-2 ring-blue-500/30'
-                      : 'bg-[#1C1C1E] border-[#444] text-transparent hover:border-blue-400'
-                  }`}
-                >
-                  <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-                </div>
-              )}
+              {/* Checkbox permanently visible on laptop, tablet and mobile */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleSongSelection(song.id);
+                }}
+                className={`w-5 h-5 rounded flex items-center justify-center border transition-all cursor-pointer mr-0.5 shrink-0 ${
+                  isSelected
+                    ? 'bg-blue-600 border-blue-500 text-white shadow-xs ring-2 ring-blue-500/30'
+                    : 'bg-[#1C1C1E] border-[#444] text-transparent hover:border-blue-400 hover:bg-[#252528]'
+                }`}
+                title={isSelected ? "Désélectionner ce chant" : "Sélectionner ce chant"}
+                aria-label={isSelected ? "Désélectionner ce chant" : "Sélectionner ce chant"}
+              >
+                <Check className={`w-3.5 h-3.5 stroke-[2.5] ${isSelected ? 'opacity-100' : 'opacity-0 hover:opacity-40 text-blue-400'}`} />
+              </button>
               <span
                 onClick={(e) => {
+                  if (isMultiSelectMode) return;
                   e.stopPropagation();
                   toggleKeyFilter((song.key || 'C').toUpperCase());
                 }}
-                title={`Filtrer par la tonalité ${(song.key || 'C').toUpperCase()}`}
-                className={`px-2 py-0.5 rounded border text-[11px] font-bold cursor-pointer transition-colors ${
+                title={isMultiSelectMode ? undefined : `Filtrer par la tonalité ${(song.key || 'C').toUpperCase()}`}
+                className={`px-2 py-0.5 rounded border text-[11px] font-bold transition-colors ${
+                  isMultiSelectMode ? 'cursor-pointer' : 'cursor-pointer'
+                } ${
                   selectedKeys.includes((song.key || 'C').toUpperCase())
                     ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
                     : 'bg-[#1C1C1E] border-[#333] text-gray-200 hover:border-amber-500/40 hover:text-amber-300'
@@ -986,41 +1336,53 @@ export const SongList: React.FC = () => {
                   {getSongDuration(song)}
                 </span>
               ) : null}
+              {isFav && (
+                <span 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleFavoriteSong(song.id);
+                  }}
+                  title="Chant épinglé en haut (cliquer pour retirer des favoris)"
+                  className="px-1.5 py-0.5 rounded bg-rose-950/60 border border-rose-500/40 text-rose-300 text-[10px] font-semibold flex items-center gap-1 cursor-pointer hover:bg-rose-900/60 transition-colors shadow-xs"
+                >
+                  <Heart className="w-2.5 h-2.5 fill-rose-500 text-rose-500" />
+                  <span>Épinglé</span>
+                </span>
+              )}
             </div>
 
             {/* Quick Action buttons */}
             <div className="flex items-center gap-1 shrink-0">
+              {/* Bouton Favori (Coeur) pour épingler en haut */}
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  setLanguageModalSong(song);
+                  toggleFavoriteSong(song.id);
                 }}
-                className="p-1.5 rounded bg-[#1C1C1E] hover:bg-[#252528] text-gray-300 hover:text-indigo-400 border border-[#333] hover:border-indigo-500/40 transition-colors flex items-center justify-center cursor-pointer"
-                title="Gérer les langues et versions liées"
-                aria-label="Versions et langues"
+                className={`p-1.5 rounded transition-all flex items-center justify-center cursor-pointer border ${
+                  isFav
+                    ? 'bg-rose-500/20 text-rose-500 border-rose-500/50 shadow-xs hover:bg-rose-500/30'
+                    : 'bg-[#1C1C1E] hover:bg-[#252528] text-gray-400 hover:text-rose-400 border-[#333] hover:border-rose-500/40'
+                }`}
+                title={isFav ? "Retirer des favoris (dépingler)" : "Ajouter aux favoris (épingler en haut)"}
+                aria-label={isFav ? "Retirer des favoris" : "Ajouter aux favoris"}
               >
-                <Globe className="w-3.5 h-3.5 text-indigo-400" />
+                <Heart className={`w-3.5 h-3.5 transition-all active:scale-125 ${isFav ? 'fill-rose-500 text-rose-500 scale-110' : ''}`} />
               </button>
 
               <button
                 type="button"
                 onClick={(e) => {
+                  if (isMultiSelectMode) return;
                   e.stopPropagation();
-                  setAddToSetlistSong(song);
-                  setSelectedSetlistIds(
-                    setlists.filter(st => st.songIds.includes(song.id)).map(st => st.id)
-                  );
-                  setSetlistSearchQuery('');
-                  setIsCreatingNewSetlist(false);
-                  setNewSetlistName('');
-                  setNewSetlistDate(new Date().toISOString().split('T')[0]);
+                  setLanguageModalSong(song);
                 }}
-                className="p-1.5 rounded bg-[#1C1C1E] hover:bg-[#252528] text-gray-300 hover:text-blue-400 border border-[#333] hover:border-blue-500/40 transition-colors flex items-center justify-center cursor-pointer"
-                title="Ajouter ou gérer dans vos setlists"
-                aria-label="Setlist"
+                className="p-1.5 rounded bg-[#1C1C1E] hover:bg-[#252528] text-gray-300 hover:text-indigo-400 border border-[#333] hover:border-indigo-500/40 transition-colors flex items-center justify-center cursor-pointer"
+                title={isMultiSelectMode ? undefined : "Gérer les langues et versions liées"}
+                aria-label="Versions et langues"
               >
-                <ListPlus className="w-3.5 h-3.5 text-blue-400" />
+                <Globe className="w-3.5 h-3.5 text-indigo-400" />
               </button>
 
               {currentUser?.role === 'admin' && (
@@ -1028,11 +1390,12 @@ export const SongList: React.FC = () => {
                   <button
                     type="button"
                     onClick={(e) => {
+                      if (isMultiSelectMode) return;
                       e.stopPropagation();
                       handleEditSong(song);
                     }}
                     className="p-1.5 rounded bg-[#1C1C1E] hover:bg-[#252528] text-gray-300 hover:text-amber-400 border border-[#333] hover:border-amber-500/40 transition-colors flex items-center justify-center cursor-pointer"
-                    title="Éditer le chant"
+                    title={isMultiSelectMode ? undefined : "Éditer le chant"}
                     aria-label="Éditer"
                   >
                     <FileEdit className="w-3.5 h-3.5 text-amber-400" />
@@ -1041,6 +1404,7 @@ export const SongList: React.FC = () => {
                   <button
                     type="button"
                     onClick={(e) => {
+                      if (isMultiSelectMode) return;
                       e.stopPropagation();
                       if (isConfirming) {
                         deleteSong(song.id);
@@ -1054,7 +1418,7 @@ export const SongList: React.FC = () => {
                         ? 'bg-rose-600 hover:bg-rose-700 text-white border border-rose-500 shadow-sm animate-pulse'
                         : 'bg-[#1C1C1E] hover:bg-rose-500/20 text-gray-400 hover:text-rose-400 border border-[#333] hover:border-rose-500/40'
                     }`}
-                    title={isConfirming ? "Confirmer la suppression" : "Supprimer le chant"}
+                    title={isMultiSelectMode ? undefined : (isConfirming ? "Confirmer la suppression" : "Supprimer le chant")}
                     aria-label={isConfirming ? "Confirmer la suppression" : "Supprimer"}
                   >
                     {isConfirming ? (
@@ -1073,63 +1437,43 @@ export const SongList: React.FC = () => {
             {stripParentheses(song.title)}
           </h3>
           <p 
-            onClick={(e) => {
-              if (song.artist) {
-                e.stopPropagation();
-                toggleAuthorFilter(song.artist);
-              }
-            }}
-            title={song.artist ? `Filtrer par ${song.artist}` : undefined}
-            className={`text-xs font-medium line-clamp-1 mt-0.5 transition-colors cursor-pointer ${
+            className={`text-xs font-medium line-clamp-1 mt-0.5 select-text ${
               selectedAuthors.includes(song.artist) || sortBy === 'artist' 
                 ? 'text-blue-400 font-semibold' 
-                : 'text-gray-400 hover:text-blue-300'
+                : 'text-gray-400'
             }`}
           >
             {song.artist || 'Auteur inconnu'}
           </p>
 
-          {/* Categories and Pen Button */}
-          <div className="flex flex-wrap items-center gap-1 mt-2.5 relative" data-category-bubble>
-            {song.tags && song.tags.map((cat, idx) => {
-              const isFiltered = selectedCategories.includes(cat);
-              return (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleCategoryFilter(cat);
-                  }}
-                  className={`text-[10px] px-2 py-0.5 rounded border transition-colors flex items-center gap-1 ${
-                    isFiltered
-                      ? 'bg-blue-600/20 text-blue-300 border-blue-500/40 font-semibold'
-                      : 'bg-[#1C1C1E] border-[#222224] text-gray-400 hover:text-gray-200 hover:border-[#333]'
-                  }`}
-                  title={`Filtrer par la catégorie ${cat}`}
-                >
-                  <Tag className="w-2.5 h-2.5 text-blue-400" />
-                  <span>{cat}</span>
-                </button>
-              );
-            })}
-
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setOpenCategorySongId(song.id);
-                setDeletingCatName(null);
-                setQuickCatInput('');
-                setQuickCatSearch('');
-              }}
-              className="text-[10px] p-1 rounded border transition-all flex items-center justify-center cursor-pointer bg-[#1C1C1E] border-[#222224] text-gray-400 hover:text-blue-400 hover:border-blue-500/40"
-              title="Gérer les catégories de ce chant"
-              aria-label="Gérer les catégories de ce chant"
-            >
-              <Pen className="w-3 h-3" />
-            </button>
-          </div>
+          {/* Categories */}
+          {song.tags && song.tags.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1 mt-2.5 relative">
+              {song.tags.map((cat, idx) => {
+                const isFiltered = selectedCategories.includes(cat);
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={(e) => {
+                      if (isMultiSelectMode) return;
+                      e.stopPropagation();
+                      toggleCategoryFilter(cat);
+                    }}
+                    className={`text-[10px] px-2 py-0.5 rounded border transition-colors flex items-center gap-1 ${
+                      isFiltered
+                        ? 'bg-blue-600/20 text-blue-300 border-blue-500/40 font-semibold'
+                        : 'bg-[#1C1C1E] border-[#222224] text-gray-400 hover:text-gray-200 hover:border-[#333]'
+                    }`}
+                    title={isMultiSelectMode ? undefined : `Filtrer par la catégorie ${cat}`}
+                  >
+                    <Tag className="w-2.5 h-2.5 text-blue-400" />
+                    <span>{cat}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -1225,32 +1569,6 @@ export const SongList: React.FC = () => {
             )}
           </div>
 
-          {/* Multi-selection toggle button */}
-          <button
-            type="button"
-            onClick={() => {
-              setIsMultiSelectMode(!isMultiSelectMode);
-              if (isMultiSelectMode) {
-                setSelectedSongIds([]);
-              }
-            }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold border transition-all cursor-pointer ${
-              isMultiSelectMode
-                ? 'bg-blue-600 text-white border-blue-500 shadow-sm'
-                : 'bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-200 border-[#333]'
-            }`}
-            title="Activer ou désactiver la sélection multiple"
-          >
-            <CheckSquare className="w-3.5 h-3.5 text-blue-400" />
-            <span className="hidden sm:inline">Sélection multiple</span>
-            <span className="sm:hidden">Sélection</span>
-            {selectedSongIds.length > 0 && (
-              <span className="ml-1 px-1.5 py-0.2 rounded-full bg-blue-500 text-white text-[10px] font-bold">
-                {selectedSongIds.length}
-              </span>
-            )}
-          </button>
-
           {/* Nouveau Chant */}
           {currentUser?.role === 'admin' && (
             <button
@@ -1275,16 +1593,35 @@ export const SongList: React.FC = () => {
             placeholder="Rechercher par titre, artiste, paroles ou catégorie..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-[#1C1C1E] border border-[#333] rounded-md pl-9 pr-8 py-1.5 text-xs text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-all"
+            className="w-full bg-[#1C1C1E] border border-[#333] rounded-md pl-9 pr-16 py-1.5 text-xs text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-all"
           />
-          {searchQuery && (
-            <button 
-              onClick={() => setSearchQuery('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+            {searchQuery && (
+              <button 
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-white transition-colors cursor-pointer"
+                title="Effacer la recherche"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+            <VoiceSearchControl
+              songs={songs}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              onSelectSong={handleOpenStage}
+              onToggleFavorites={() => setOnlyFavorites(prev => !prev)}
+              onClearFilters={() => {
+                setSearchQuery('');
+                setSelectedCategories([]);
+                setSelectedAuthors([]);
+                setSelectedKeys([]);
+                setSelectedLanguages([]);
+                setOnlyFavorites(false);
+              }}
+            />
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-2 w-full md:flex md:items-center md:gap-2 md:w-auto md:justify-end">
@@ -1832,6 +2169,28 @@ export const SongList: React.FC = () => {
             )}
           </div>
 
+          {/* Bouton Filtre Favoris (Coeur) */}
+          <button
+            type="button"
+            onClick={() => setOnlyFavorites(!onlyFavorites)}
+            className={`flex items-center gap-1.5 px-2.5 sm:px-3 h-[34px] rounded-md text-xs font-semibold border transition-all cursor-pointer shrink-0 ${
+              onlyFavorites
+                ? 'bg-rose-600 text-white border-rose-500 shadow-sm ring-2 ring-rose-500/30'
+                : 'bg-[#1C1C1E] hover:bg-[#252528] text-gray-200 border-[#333] hover:border-rose-500/40 hover:text-rose-300'
+            }`}
+            title={onlyFavorites ? "Afficher tous les chants" : "Filtrer uniquement les chants favoris"}
+          >
+            <Heart className={`w-3.5 h-3.5 ${onlyFavorites ? 'fill-white text-white' : 'text-rose-400'}`} />
+            <span className="hidden sm:inline">Favoris</span>
+            {favoriteSongIds.length > 0 && (
+              <span className={`ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-black ${
+                onlyFavorites ? 'bg-white text-rose-700' : 'bg-rose-950/60 text-rose-300 border border-rose-500/30'
+              }`}>
+                {favoriteSongIds.length}
+              </span>
+            )}
+          </button>
+
           {/* Mode affichage: Grille ou Liste Alphabetique sur grand ecran */}
           <div className="hidden md:flex items-center justify-center bg-[#1C1C1E] border border-[#333] rounded-md p-0.5 h-[34px] shrink-0">
             <button
@@ -1865,8 +2224,21 @@ export const SongList: React.FC = () => {
       </div>
 
       {/* Active Filter Chips Bar */}
-      {(selectedCategories.length > 0 || selectedAuthors.length > 0 || selectedKeys.length > 0 || selectedLanguages.length > 0) && (
+      {(onlyFavorites || selectedCategories.length > 0 || selectedAuthors.length > 0 || selectedKeys.length > 0 || selectedLanguages.length > 0) && (
         <div className="flex items-center flex-wrap gap-1.5 mb-4 px-1">
+          {onlyFavorites && (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-rose-600/20 border border-rose-500/40 text-rose-300 text-xs font-semibold">
+              <Heart className="w-3 h-3 fill-rose-500 text-rose-500" />
+              <span>Favoris uniquement</span>
+              <button
+                onClick={() => setOnlyFavorites(false)}
+                className="hover:text-white transition-colors ml-0.5"
+                title="Désactiver le filtre favoris"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
           {selectedKeys.length > 0 && (
             <>
               <span className="text-[11px] text-gray-400 flex items-center gap-1 mr-1">
@@ -1961,6 +2333,7 @@ export const SongList: React.FC = () => {
           )}
           <button
             onClick={() => {
+              setOnlyFavorites(false);
               setSelectedCategories([]);
               setSelectedAuthors([]);
               setSelectedKeys([]);
@@ -1985,205 +2358,67 @@ export const SongList: React.FC = () => {
           </p>
         </div>
       ) : effectiveViewMode === 'grid' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {filteredSongs.map((song) => {
-            return (
-              <div
-                key={song.id}
-                onClick={() => handleOpenStage(song)}
-                className="group relative bg-[#111112] hover:bg-[#151518] border border-[#222224] hover:border-blue-500/40 rounded-lg p-4 transition-all flex flex-col justify-between cursor-pointer shadow-sm hover:shadow-md"
-              >
-                <div>
-                  {/* Card Header: Key / BPM / Duration / Language & Action Buttons */}
-                  <div className="flex items-center justify-between gap-2 mb-2.5">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleKeyFilter((song.key || 'C').toUpperCase());
-                        }}
-                        title={`Filtrer par la tonalité ${(song.key || 'C').toUpperCase()}`}
-                        className={`px-2 py-0.5 rounded border text-[11px] font-bold cursor-pointer transition-colors ${
-                          selectedKeys.includes((song.key || 'C').toUpperCase())
-                            ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
-                            : 'bg-[#1C1C1E] border-[#333] text-gray-200 hover:border-amber-500/40 hover:text-amber-300'
-                        }`}
-                      >
-                        {song.key || 'C'}
-                      </span>
-                      {song.tempo && (
-                        <span className="px-1.5 py-0.5 rounded bg-[#1C1C1E] border border-[#222224] text-gray-400 text-[10px] font-medium flex items-center gap-1">
-                          <Gauge className="w-2.5 h-2.5 text-blue-400" />
-                          {song.tempo}
-                        </span>
-                      )}
-                      {getSongDuration(song) ? (
-                        <span className="px-1.5 py-0.5 rounded bg-cyan-950/50 border border-cyan-500/30 text-cyan-300 text-[10px] font-medium flex items-center gap-1 font-mono shadow-sm">
-                          <Clock className="w-2.5 h-2.5 text-cyan-400" />
-                          {getSongDuration(song)}
-                        </span>
-                      ) : null}
-                    </div>
-
-                    {/* Quick action buttons in top-right - Icons only */}
-                    <div className="flex items-center gap-1 shrink-0">
-                      {/* Quick language versions button */}
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setLanguageModalSong(song);
-                        }}
-                        className="p-1.5 rounded bg-[#1C1C1E] hover:bg-[#252528] text-gray-300 hover:text-indigo-400 border border-[#333] hover:border-indigo-500/40 transition-colors flex items-center justify-center cursor-pointer"
-                        title="Gérer les langues et versions liées"
-                        aria-label="Versions et langues"
-                      >
-                        <Globe className="w-3.5 h-3.5 text-indigo-400" />
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setAddToSetlistSong(song);
-                          setSelectedSetlistIds(
-                            setlists.filter(st => st.songIds.includes(song.id)).map(st => st.id)
-                          );
-                          setSetlistSearchQuery('');
-                          setIsCreatingNewSetlist(false);
-                          setNewSetlistName('');
-                          setNewSetlistDate(new Date().toISOString().split('T')[0]);
-                        }}
-                        className="p-1.5 rounded bg-[#1C1C1E] hover:bg-[#252528] text-gray-300 hover:text-blue-400 border border-[#333] hover:border-blue-500/40 transition-colors flex items-center justify-center cursor-pointer"
-                        title="Ajouter ou gérer dans vos setlists"
-                        aria-label="Setlist"
-                      >
-                        <ListPlus className="w-3.5 h-3.5 text-blue-400" />
-                      </button>
-
-                      {currentUser?.role === 'admin' && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleEditSong(song);
-                            }}
-                            className="p-1.5 rounded bg-[#1C1C1E] hover:bg-[#252528] text-gray-300 hover:text-amber-400 border border-[#333] hover:border-amber-500/40 transition-colors flex items-center justify-center cursor-pointer"
-                            title="Éditer le chant"
-                            aria-label="Éditer"
-                          >
-                            <FileEdit className="w-3.5 h-3.5 text-amber-400" />
-                          </button>
-
-                          {(() => {
-                            const isConfirming = confirmDeleteSongId === song.id;
-                            return (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (isConfirming) {
-                                    deleteSong(song.id);
-                                    setConfirmDeleteSongId(null);
-                                  } else {
-                                    setConfirmDeleteSongId(song.id);
-                                  }
-                                }}
-                                className={`p-1.5 rounded transition-all flex items-center justify-center cursor-pointer ${
-                                  isConfirming
-                                    ? 'bg-rose-600 hover:bg-rose-700 text-white border border-rose-500 shadow-sm animate-pulse'
-                                    : 'bg-[#1C1C1E] hover:bg-rose-500/20 text-gray-400 hover:text-rose-400 border border-[#333] hover:border-rose-500/40'
-                                }`}
-                                title={isConfirming ? "Confirmer la suppression" : "Supprimer le chant"}
-                                aria-label={isConfirming ? "Confirmer la suppression" : "Supprimer"}
-                              >
-                                {isConfirming ? (
-                                  <Check className="w-3.5 h-3.5 text-white" />
-                                ) : (
-                                  <Trash2 className="w-3.5 h-3.5 text-rose-400" />
-                                )}
-                              </button>
-                            );
-                          })()}
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Title & Artist */}
-                  <h3 className="text-sm font-bold text-white group-hover:text-blue-400 transition-colors line-clamp-1">
-                    {stripParentheses(song.title)}
-                  </h3>
-                  <p 
-                    onClick={(e) => {
-                      if (song.artist) {
-                        e.stopPropagation();
-                        toggleAuthorFilter(song.artist);
-                      }
-                    }}
-                    title={song.artist ? `Filtrer par ${song.artist}` : undefined}
-                    className={`text-xs font-medium line-clamp-1 mt-0.5 transition-colors cursor-pointer ${
-                      selectedAuthors.includes(song.artist) || sortBy === 'artist' 
-                        ? 'text-blue-400 font-semibold' 
-                        : 'text-gray-400 hover:text-blue-300'
-                    }`}
-                  >
-                    {song.artist || 'Auteur inconnu'}
-                  </p>
-
-                  {/* Catégories & Pen Button */}
-                  <div className="flex flex-wrap items-center gap-1 mt-2.5 relative" data-category-bubble>
-                    {song.tags && song.tags.map((cat, idx) => {
-                      const isFiltered = selectedCategories.includes(cat);
-                      return (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleCategoryFilter(cat);
-                          }}
-                          className={`text-[10px] px-2 py-0.5 rounded border transition-colors flex items-center gap-1 ${
-                            isFiltered
-                              ? 'bg-blue-600/20 text-blue-300 border-blue-500/40 font-semibold'
-                              : 'bg-[#1C1C1E] border-[#222224] text-gray-400 hover:text-gray-200 hover:border-[#333]'
-                          }`}
-                          title={`Filtrer par la catégorie "${cat}"`}
-                        >
-                          <Tag className="w-2.5 h-2.5 text-blue-400" />
-                          <span>{cat}</span>
-                        </button>
-                      );
-                    })}
-
-                    {/* Pen Button to manage categories for this song */}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setOpenCategorySongId(song.id);
-                        setDeletingCatName(null);
-                        setQuickCatInput('');
-                        setQuickCatSearch('');
-                      }}
-                      className="text-[10px] p-1 rounded border transition-all flex items-center justify-center cursor-pointer bg-[#1C1C1E] border-[#222224] text-gray-400 hover:text-blue-400 hover:border-blue-500/40"
-                      title="Gérer les catégories de ce chant"
-                      aria-label="Gérer les catégories de ce chant"
-                    >
-                      <Pen className="w-3 h-3" />
-                    </button>
-                  </div>
+        <div className="space-y-6">
+          {/* Pinned Favorites in Grid View */}
+          {pinnedFavoriteSongs.length > 0 && !onlyFavorites && (
+            <div>
+              <div className="flex items-center justify-between mb-3 px-1">
+                <div className="flex items-center gap-2">
+                  <span className="p-1 rounded bg-rose-600/20 text-rose-400 border border-rose-500/30 flex items-center justify-center">
+                    <Heart className="w-3.5 h-3.5 fill-rose-500 text-rose-500" />
+                  </span>
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-rose-300">
+                    Chants favoris épinglés
+                  </h2>
                 </div>
+                <span className="text-[11px] text-rose-400 font-semibold bg-rose-950/60 px-2 py-0.5 rounded-full border border-rose-500/30">
+                  {pinnedFavoriteSongs.length} chant{pinnedFavoriteSongs.length > 1 ? 's' : ''}
+                </span>
               </div>
-            );
-          })}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {pinnedFavoriteSongs.map((song) => renderSongCard(song))}
+              </div>
+            </div>
+          )}
+
+          {/* Remaining or All Songs in Grid View */}
+          <div>
+            {pinnedFavoriteSongs.length > 0 && !onlyFavorites && (
+              <div className="flex items-center gap-2 mb-3 px-1 pt-2 border-t border-[#222224]">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400">
+                  Tous les chants ({filteredSongs.length - pinnedFavoriteSongs.length})
+                </h2>
+              </div>
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {(pinnedFavoriteSongs.length > 0 && !onlyFavorites
+                ? filteredSongs.filter(s => !isSongFavorite(s.id))
+                : filteredSongs
+              ).map((song) => renderSongCard(song))}
+            </div>
+          </div>
         </div>
       ) : (
         /* Alphabetical 1-Column List View */
         <div className="relative">
           {/* Top Quick Letters Ribbon */}
           <div className="flex items-center gap-1 overflow-x-auto pb-2 mb-4 scrollbar-none border-b border-[#222224]">
+            {pinnedFavoriteSongs.length > 0 && (
+              <button
+                type="button"
+                onClick={() => scrollToLetter('FAV')}
+                className={`shrink-0 px-2.5 py-1 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 mr-1 ${
+                  activeLetter === 'FAV'
+                    ? 'bg-rose-600 text-white shadow-xs scale-105'
+                    : 'bg-rose-950/30 text-rose-400 hover:text-white hover:bg-rose-600/30 border border-rose-500/30'
+                }`}
+                title="Aller aux chants favoris épinglés"
+              >
+                <Heart className="w-3 h-3 fill-current" />
+                <span>Favoris • {pinnedFavoriteSongs.length}</span>
+              </button>
+            )}
+
             <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider shrink-0 mr-1.5 flex items-center gap-1">
               <span>Lettres :</span>
             </span>
@@ -2215,6 +2450,20 @@ export const SongList: React.FC = () => {
               className="bg-[#111112]/95 backdrop-blur-md border border-[#2B2B30] rounded-full py-1.5 px-0.5 sm:px-1 shadow-2xl flex flex-col items-center justify-between h-full max-h-[75vh] overflow-hidden"
               onTouchMove={handleScrubberTouch}
             >
+              {pinnedFavoriteSongs.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => scrollToLetter('FAV')}
+                  className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center transition-all cursor-pointer mb-1 shrink-0 ${
+                    activeLetter === 'FAV'
+                      ? 'bg-rose-600 text-white scale-125 shadow-md z-10'
+                      : 'text-rose-400 hover:text-white hover:bg-rose-600/30'
+                  }`}
+                  title="Chants favoris épinglés"
+                >
+                  <Heart className="w-2.5 h-2.5 sm:w-3 sm:h-3 fill-current" />
+                </button>
+              )}
               {ALL_LETTERS.map((letter) => {
                 const hasSongs = availableLettersSet.has(letter);
                 const isActive = activeLetter === letter;
@@ -2243,6 +2492,33 @@ export const SongList: React.FC = () => {
 
           {/* Single-Column List of Chants */}
           <div className="space-y-6 pr-6 sm:pr-8">
+            {/* Pinned Favorites Section in Alphabetical View */}
+            {pinnedFavoriteSongs.length > 0 && !onlyFavorites && (
+              <div
+                id="section-letter-FAV"
+                data-letter-section="FAV"
+                className="scroll-mt-24 mb-6 pb-2"
+              >
+                <div className="sticky top-16 z-20 py-1.5 px-3 bg-[#130E11]/95 backdrop-blur-md border border-rose-500/30 flex items-center justify-between mb-3 rounded-lg shadow-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="w-7 h-7 rounded-md bg-rose-600 text-white font-black text-sm flex items-center justify-center shadow-xs">
+                      <Heart className="w-4 h-4 fill-white text-white" />
+                    </span>
+                    <span className="text-sm font-bold text-rose-300">
+                      Chants favoris épinglés
+                    </span>
+                  </div>
+                  <span className="text-xs text-rose-400 font-semibold bg-rose-950/60 px-2 py-0.5 rounded-full border border-rose-500/30">
+                    {pinnedFavoriteSongs.length} chant{pinnedFavoriteSongs.length > 1 ? 's' : ''}
+                  </span>
+                </div>
+
+                <div className="space-y-3">
+                  {pinnedFavoriteSongs.map((song) => renderSongCard(song))}
+                </div>
+              </div>
+            )}
+
             {alphabeticalGroups.map((group) => (
               <div
                 key={group.letter}
@@ -2266,193 +2542,7 @@ export const SongList: React.FC = () => {
 
                 {/* List of songs */}
                 <div className="space-y-3">
-                  {group.songs.map((song) => {
-                    const isConfirming = confirmDeleteSongId === song.id;
-                    return (
-                      <div
-                        key={song.id}
-                        id={`song-card-${song.id}`}
-                        onClick={() => handleOpenStage(song)}
-                        className="group relative bg-[#111112] hover:bg-[#151518] border border-[#222224] hover:border-blue-500/40 rounded-lg p-4 transition-all flex flex-col justify-between cursor-pointer shadow-sm hover:shadow-md"
-                      >
-                        <div>
-                          {/* Entête de carte : Tonalité / BPM / Durée et Boutons d'actions */}
-                          <div className="flex items-center justify-between gap-2 mb-2.5">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleKeyFilter((song.key || 'C').toUpperCase());
-                                }}
-                                title={`Filtrer par la tonalité ${(song.key || 'C').toUpperCase()}`}
-                                className={`px-2 py-0.5 rounded border text-[11px] font-bold cursor-pointer transition-colors ${
-                                  selectedKeys.includes((song.key || 'C').toUpperCase())
-                                    ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
-                                    : 'bg-[#1C1C1E] border-[#333] text-gray-200 hover:border-amber-500/40 hover:text-amber-300'
-                                }`}
-                              >
-                                {song.key || 'C'}
-                              </span>
-                              {song.tempo && (
-                                <span className="px-1.5 py-0.5 rounded bg-[#1C1C1E] border border-[#222224] text-gray-400 text-[10px] font-medium flex items-center gap-1">
-                                  <Gauge className="w-2.5 h-2.5 text-blue-400" />
-                                  {song.tempo}
-                                </span>
-                              )}
-                              {getSongDuration(song) ? (
-                                <span className="px-1.5 py-0.5 rounded bg-cyan-950/50 border border-cyan-500/30 text-cyan-300 text-[10px] font-medium flex items-center gap-1 font-mono shadow-sm">
-                                  <Clock className="w-2.5 h-2.5 text-cyan-400" />
-                                  {getSongDuration(song)}
-                                </span>
-                              ) : null}
-                            </div>
-
-                            {/* Boutons d'actions rapides en haut à droite */}
-                            <div className="flex items-center gap-1 shrink-0">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setLanguageModalSong(song);
-                                }}
-                                className="p-1.5 rounded bg-[#1C1C1E] hover:bg-[#252528] text-gray-300 hover:text-indigo-400 border border-[#333] hover:border-indigo-500/40 transition-colors flex items-center justify-center cursor-pointer"
-                                title="Gérer les langues et versions liées"
-                                aria-label="Versions et langues"
-                              >
-                                <Globe className="w-3.5 h-3.5 text-indigo-400" />
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setAddToSetlistSong(song);
-                                  setSelectedSetlistIds(
-                                    setlists.filter(st => st.songIds.includes(song.id)).map(st => st.id)
-                                  );
-                                  setSetlistSearchQuery('');
-                                  setIsCreatingNewSetlist(false);
-                                  setNewSetlistName('');
-                                  setNewSetlistDate(new Date().toISOString().split('T')[0]);
-                                }}
-                                className="p-1.5 rounded bg-[#1C1C1E] hover:bg-[#252528] text-gray-300 hover:text-blue-400 border border-[#333] hover:border-blue-500/40 transition-colors flex items-center justify-center cursor-pointer"
-                                title="Ajouter ou gérer dans vos setlists"
-                                aria-label="Setlist"
-                              >
-                                <ListPlus className="w-3.5 h-3.5 text-blue-400" />
-                              </button>
-
-                              {currentUser?.role === 'admin' && (
-                                <>
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleEditSong(song);
-                                    }}
-                                    className="p-1.5 rounded bg-[#1C1C1E] hover:bg-[#252528] text-gray-300 hover:text-amber-400 border border-[#333] hover:border-amber-500/40 transition-colors flex items-center justify-center cursor-pointer"
-                                    title="Éditer le chant"
-                                    aria-label="Éditer"
-                                  >
-                                    <FileEdit className="w-3.5 h-3.5 text-amber-400" />
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      if (isConfirming) {
-                                        deleteSong(song.id);
-                                        setConfirmDeleteSongId(null);
-                                      } else {
-                                        setConfirmDeleteSongId(song.id);
-                                      }
-                                    }}
-                                    className={`p-1.5 rounded transition-all flex items-center justify-center cursor-pointer ${
-                                      isConfirming
-                                        ? 'bg-rose-600 hover:bg-rose-700 text-white border border-rose-500 shadow-sm animate-pulse'
-                                        : 'bg-[#1C1C1E] hover:bg-rose-500/20 text-gray-400 hover:text-rose-400 border border-[#333] hover:border-rose-500/40'
-                                    }`}
-                                    title={isConfirming ? "Confirmer la suppression" : "Supprimer le chant"}
-                                    aria-label={isConfirming ? "Confirmer la suppression" : "Supprimer"}
-                                  >
-                                    {isConfirming ? (
-                                      <Check className="w-3.5 h-3.5 text-white" />
-                                    ) : (
-                                      <Trash2 className="w-3.5 h-3.5 text-rose-400" />
-                                    )}
-                                  </button>
-                                </>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Titre et Artiste */}
-                          <h3 className="text-sm font-bold text-white group-hover:text-blue-400 transition-colors line-clamp-1">
-                            {stripParentheses(song.title)}
-                          </h3>
-                          <p 
-                            onClick={(e) => {
-                              if (song.artist) {
-                                e.stopPropagation();
-                                toggleAuthorFilter(song.artist);
-                              }
-                            }}
-                            title={song.artist ? `Filtrer par ${song.artist}` : undefined}
-                            className={`text-xs font-medium line-clamp-1 mt-0.5 transition-colors cursor-pointer ${
-                              selectedAuthors.includes(song.artist) || sortBy === 'artist' 
-                                ? 'text-blue-400 font-semibold' 
-                                : 'text-gray-400 hover:text-blue-300'
-                            }`}
-                          >
-                            {song.artist || 'Auteur inconnu'}
-                          </p>
-
-                          {/* Catégories et Bouton Crayon */}
-                          <div className="flex flex-wrap items-center gap-1 mt-2.5 relative" data-category-bubble>
-                            {song.tags && song.tags.map((cat, idx) => {
-                              const isFiltered = selectedCategories.includes(cat);
-                              return (
-                                <button
-                                  key={idx}
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    toggleCategoryFilter(cat);
-                                  }}
-                                  className={`text-[10px] px-2 py-0.5 rounded border transition-colors flex items-center gap-1 ${
-                                    isFiltered
-                                      ? 'bg-blue-600/20 text-blue-300 border-blue-500/40 font-semibold'
-                                      : 'bg-[#1C1C1E] border-[#222224] text-gray-400 hover:text-gray-200 hover:border-[#333]'
-                                  }`}
-                                  title={`Filtrer par la catégorie ${cat}`}
-                                >
-                                  <Tag className="w-2.5 h-2.5 text-blue-400" />
-                                  <span>{cat}</span>
-                                </button>
-                              );
-                            })}
-
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setOpenCategorySongId(song.id);
-                                setDeletingCatName(null);
-                                setQuickCatInput('');
-                                setQuickCatSearch('');
-                              }}
-                              className="text-[10px] p-1 rounded border transition-all flex items-center justify-center cursor-pointer bg-[#1C1C1E] border-[#222224] text-gray-400 hover:text-blue-400 hover:border-blue-500/40"
-                              title="Gérer les catégories de ce chant"
-                              aria-label="Gérer les catégories de ce chant"
-                            >
-                              <Pen className="w-3 h-3" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+                  {group.songs.map((song) => renderSongCard(song))}
                 </div>
               </div>
             ))}
@@ -3077,6 +3167,964 @@ export const SongList: React.FC = () => {
           isOpen={!!languageModalSong}
           onClose={() => setLanguageModalSong(null)}
         />
+      )}
+
+      {/* Floating Multi-Select Action Bar - Appears only when at least one song is selected */}
+      {selectedSongIds.length > 0 && (
+        <div 
+          id="floating-selection-toolbar"
+          className="fixed bottom-4 sm:bottom-5 left-1/2 -translate-x-1/2 z-40 bg-[#161618]/95 backdrop-blur-md border border-[#333] shadow-2xl rounded-2xl px-2 sm:px-3.5 py-1.5 sm:py-2 flex items-center gap-1.5 sm:gap-2.5 text-white max-w-[calc(100vw-16px)] sm:max-w-fit flex-nowrap overflow-x-auto scrollbar-none animate-in slide-in-from-bottom-5 duration-200 select-none"
+        >
+          {/* Badge count */}
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-blue-500/15 border border-blue-500/30 text-blue-300 shrink-0">
+            <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse shrink-0" />
+            <span className="text-xs font-bold font-mono whitespace-nowrap">
+              {selectedSongIds.length}
+            </span>
+            <span className="hidden sm:inline text-[11px] font-medium text-blue-200/90 whitespace-nowrap">
+              {selectedSongIds.length > 1 ? 'sélectionnés' : 'sélectionné'}
+            </span>
+          </div>
+
+          <div className="h-5 w-px bg-white/10 shrink-0" />
+
+          {/* Action Buttons - strictly single line (flex-nowrap) */}
+          <div className="flex items-center gap-1 sm:gap-1.5 flex-nowrap shrink-0">
+            {/* Setlist Button */}
+            <button
+              type="button"
+              id="toolbar-assign-setlist-btn"
+              onClick={handleOpenBatchSetlistModal}
+              className="h-8 sm:h-8.5 px-2 sm:px-3 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white shadow-sm border border-indigo-500/60 cursor-pointer transition-all flex items-center justify-center gap-1.5 shrink-0"
+              title="Ajouter à une setlist"
+              aria-label="Ajouter à une setlist"
+            >
+              <ListPlus className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+              <span className="hidden sm:inline">Setlist</span>
+            </button>
+
+            {/* Category Button */}
+            <button
+              type="button"
+              id="toolbar-assign-category-btn"
+              onClick={handleOpenBatchCategoryModal}
+              className="h-8 sm:h-8.5 px-2 sm:px-3 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-500 active:scale-95 text-white shadow-sm border border-blue-500/60 cursor-pointer transition-all flex items-center justify-center gap-1.5 shrink-0"
+              title="Assigner à une catégorie"
+              aria-label="Assigner à une catégorie"
+            >
+              <Tag className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+              <span className="hidden sm:inline">Catégorie</span>
+            </button>
+
+            {/* Export Button */}
+            <button
+              type="button"
+              id="toolbar-export-btn"
+              onClick={() => setIsMultiExportModalOpen(true)}
+              className="h-8 sm:h-8.5 px-2 sm:px-3 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white shadow-sm border border-emerald-500/60 cursor-pointer transition-all flex items-center justify-center gap-1.5 shrink-0"
+              title="Exporter les chants sélectionnés"
+              aria-label="Exporter les chants sélectionnés"
+            >
+              <FileDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+              <span className="hidden sm:inline">Exporter</span>
+            </button>
+
+            {/* Delete Button */}
+            <button
+              type="button"
+              id="toolbar-delete-btn"
+              onClick={() => setIsMultiDeleteModalOpen(true)}
+              className="h-8 sm:h-8.5 px-2 sm:px-3 rounded-lg text-xs font-semibold bg-rose-600 hover:bg-rose-500 active:scale-95 text-white shadow-sm border border-rose-500/60 cursor-pointer transition-all flex items-center justify-center gap-1.5 shrink-0"
+              title="Supprimer les chants sélectionnés"
+              aria-label="Supprimer les chants sélectionnés"
+            >
+              <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+              <span className="hidden sm:inline">Supprimer</span>
+            </button>
+          </div>
+
+          <div className="h-5 w-px bg-white/10 shrink-0" />
+
+          {/* Utility Buttons: Toggle Select All & Close */}
+          <div className="flex items-center gap-1 flex-nowrap shrink-0">
+            {/* Toggle Select All */}
+            <button
+              type="button"
+              id="toolbar-toggle-all-btn"
+              onClick={toggleSelectAll}
+              className="h-8 sm:h-8.5 px-2 sm:px-2.5 rounded-lg bg-[#222226] hover:bg-[#2C2C32] active:scale-95 text-xs font-semibold text-gray-200 border border-[#3A3A40] transition-colors cursor-pointer flex items-center justify-center gap-1.5 shrink-0"
+              title={selectedSongIds.length === filteredSongs.length && filteredSongs.length > 0 ? "Tout désélectionner" : "Tout sélectionner"}
+              aria-label={selectedSongIds.length === filteredSongs.length && filteredSongs.length > 0 ? "Tout désélectionner" : "Tout sélectionner"}
+            >
+              <CheckSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-400 shrink-0" />
+              <span className="hidden md:inline">
+                {selectedSongIds.length === filteredSongs.length && filteredSongs.length > 0
+                  ? 'Tout désélectionner'
+                  : 'Tout sélectionner'}
+              </span>
+            </button>
+
+            {/* Close / Deselect */}
+            <button
+              type="button"
+              id="toolbar-close-selection-btn"
+              onClick={() => {
+                setIsMultiSelectMode(false);
+                setSelectedSongIds([]);
+              }}
+              className="h-8 sm:h-8.5 w-8 sm:w-8.5 rounded-lg bg-[#222226] hover:bg-[#2C2C32] active:scale-95 text-gray-400 hover:text-white border border-[#3A3A40] transition-colors cursor-pointer flex items-center justify-center shrink-0"
+              title="Désélectionner et fermer"
+              aria-label="Désélectionner et fermer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Assigner à une catégorie (Multi-sélection) */}
+      {isAssignCategoryModalOpen && (
+        <div
+          id="batch-assign-category-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="batch-assign-category-title"
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150"
+          onClick={() => {
+            if (!isSavingBatchCategories) {
+              setIsAssignCategoryModalOpen(false);
+              setMultiCategoryInput('');
+              setMultiCategorySearch('');
+            }
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-lg bg-[#141416] border border-[#2A2A2D] rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[88vh] animate-in zoom-in-95 duration-100"
+          >
+            {/* Modal Header */}
+            <div className="p-3.5 sm:p-4 border-b border-[#222224] bg-[#171719] flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 shrink-0">
+                  <Tag className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <h3 id="batch-assign-category-title" className="text-sm sm:text-base font-bold text-white tracking-tight truncate">
+                    Catégories • {selectedSongIds.length} chant{selectedSongIds.length > 1 ? 's' : ''}
+                  </h3>
+                  <p className="text-xs text-gray-400 truncate">
+                    {selectedSongIds.length === 1
+                      ? songs.find(s => s.id === selectedSongIds[0])?.title || 'Chant sélectionné'
+                      : `${selectedSongIds.length} chants à catégoriser`}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                id="batch-category-close-btn"
+                disabled={isSavingBatchCategories}
+                onClick={() => {
+                  setIsAssignCategoryModalOpen(false);
+                  setMultiCategoryInput('');
+                  setMultiCategorySearch('');
+                }}
+                className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#252528] transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-3.5 sm:p-4 space-y-3 overflow-y-auto flex-1">
+              {/* Quick create category form */}
+              <div className="bg-[#19191C] border border-[#262629] p-2.5 rounded-lg">
+                <label className="block text-[11px] font-semibold text-gray-300 mb-1.5 uppercase tracking-wider">
+                  Nouvelle catégorie
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    id="batch-category-new-input"
+                    value={multiCategoryInput}
+                    onChange={(e) => setMultiCategoryInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleQuickCreateBatchCategory();
+                      }
+                    }}
+                    placeholder="Nom de la nouvelle catégorie..."
+                    className="flex-1 bg-[#141416] border border-[#333] focus:border-blue-500 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-500 outline-none transition-all"
+                  />
+                  <button
+                    type="button"
+                    id="batch-category-create-btn"
+                    disabled={!multiCategoryInput.trim() || isSavingBatchCategories}
+                    onClick={() => handleQuickCreateBatchCategory()}
+                    className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white text-xs font-semibold transition-all cursor-pointer shrink-0 flex items-center gap-1 shadow-sm"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Créer</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Search & Actions Bar */}
+              <div className="space-y-2 pt-1">
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      id="batch-category-search-input"
+                      value={multiCategorySearch}
+                      onChange={(e) => setMultiCategorySearch(e.target.value)}
+                      placeholder="Filtrer les catégories..."
+                      className="w-full bg-[#18181A] border border-[#2E2E32] focus:border-blue-500 rounded-lg pl-8 pr-7 py-1.5 text-xs text-white placeholder-gray-500 outline-none transition-all"
+                    />
+                    {multiCategorySearch && (
+                      <button
+                        type="button"
+                        onClick={() => setMultiCategorySearch('')}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white p-0.5"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      id="batch-category-select-all-btn"
+                      onClick={() => {
+                        const namesToAdd = filteredMultiCategories.map(c => c.name);
+                        setSelectedBatchCategories(prev => Array.from(new Set([...prev, ...namesToAdd])));
+                      }}
+                      className="px-2 py-1 rounded text-[11px] font-medium bg-[#222226] hover:bg-[#2C2C32] text-gray-300 hover:text-white border border-[#333] transition-colors"
+                    >
+                      Tout cocher
+                    </button>
+                    <button
+                      type="button"
+                      id="batch-category-deselect-all-btn"
+                      onClick={() => {
+                        const namesToRemove = new Set(filteredMultiCategories.map(c => c.name.toLowerCase()));
+                        setSelectedBatchCategories(prev => prev.filter(c => !namesToRemove.has(c.toLowerCase())));
+                      }}
+                      className="px-2 py-1 rounded text-[11px] font-medium bg-[#222226] hover:bg-[#2C2C32] text-gray-300 hover:text-white border border-[#333] transition-colors"
+                    >
+                      Décocher
+                    </button>
+                  </div>
+                </div>
+
+                {/* Selected count info */}
+                <div className="flex items-center justify-between text-[11px] text-gray-400 px-0.5">
+                  <span>
+                    {selectedBatchCategories.length} catégorie{selectedBatchCategories.length > 1 ? 's' : ''} cochée{selectedBatchCategories.length > 1 ? 's' : ''}
+                  </span>
+                  <span>{filteredMultiCategories.length} disponible{filteredMultiCategories.length > 1 ? 's' : ''}</span>
+                </div>
+              </div>
+
+              {/* Categories list with checkboxes */}
+              <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
+                {filteredMultiCategories.length === 0 ? (
+                  <div className="text-center py-6 text-gray-500 text-xs">
+                    Aucune catégorie trouvée
+                  </div>
+                ) : (
+                  filteredMultiCategories.map((cat) => {
+                    const isChecked = selectedBatchCategories.some(c => c.toLowerCase() === cat.name.toLowerCase());
+                    const inSelectedCount = selectedSongIds.filter(id => {
+                      const s = songs.find(x => x.id === id);
+                      return (s?.tags || []).some(t => t.toLowerCase() === cat.name.toLowerCase());
+                    }).length;
+
+                    return (
+                      <div
+                        key={cat.name}
+                        id={`batch-category-item-${cat.name.toLowerCase().replace(/\s+/g, '-')}`}
+                        onClick={() => toggleBatchCategory(cat.name)}
+                        className={`w-full flex items-center justify-between p-2.5 rounded-lg border transition-all cursor-pointer select-none ${
+                          isChecked
+                            ? 'bg-blue-950/30 border-blue-500/50 text-blue-100 shadow-sm'
+                            : 'bg-[#18181A] hover:bg-[#1E1E22] border-[#26262A] text-gray-300'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          {/* Checkbox */}
+                          <div
+                            className={`w-4 h-4 rounded shrink-0 flex items-center justify-center border transition-all ${
+                              isChecked
+                                ? 'bg-blue-600 border-blue-500 text-white'
+                                : 'border-[#444] bg-[#161618]'
+                            }`}
+                          >
+                            {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
+                          </div>
+                          <Tag className={`w-3.5 h-3.5 shrink-0 ${isChecked ? 'text-blue-400' : 'text-gray-500'}`} />
+                          <span className={`text-xs font-medium truncate ${isChecked ? 'text-white' : 'text-gray-200'}`}>
+                            {cat.name}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {selectedSongIds.length > 1 && inSelectedCount > 0 && (
+                            <span
+                              className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
+                                inSelectedCount === selectedSongIds.length
+                                  ? 'bg-blue-900/60 text-blue-300 border border-blue-700/50'
+                                  : 'bg-amber-950/60 text-amber-300 border border-amber-800/40'
+                              }`}
+                            >
+                              {inSelectedCount === selectedSongIds.length ? 'Sur tous' : `${inSelectedCount}/${selectedSongIds.length}`}
+                            </span>
+                          )}
+                          <span className="text-[10px] font-mono text-gray-400 bg-[#222226] px-1.5 py-0.5 rounded border border-[#2D2D32]">
+                            {cat.count}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-3 sm:p-3.5 border-t border-[#222224] bg-[#171719] flex items-center justify-between gap-2">
+              <span className="text-xs text-gray-400 truncate hidden xs:inline">
+                {selectedBatchCategories.length} sélectionnée{selectedBatchCategories.length > 1 ? 's' : ''}
+              </span>
+              <div className="flex items-center gap-2 ml-auto">
+                <button
+                  type="button"
+                  id="batch-category-cancel-btn"
+                  disabled={isSavingBatchCategories}
+                  onClick={() => {
+                    setIsAssignCategoryModalOpen(false);
+                    setMultiCategoryInput('');
+                    setMultiCategorySearch('');
+                  }}
+                  className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-gray-300 hover:text-white hover:bg-[#252528] border border-[#333] transition-colors cursor-pointer"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  id="batch-category-save-btn"
+                  disabled={isSavingBatchCategories}
+                  onClick={handleSaveBatchCategories}
+                  className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white shadow-sm border border-blue-500 transition-all cursor-pointer flex items-center gap-1.5"
+                >
+                  {isSavingBatchCategories ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Enregistrement...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                      <span>Enregistrer</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Assigner à une ou plusieurs setlists (Multi-sélection) */}
+      {isAssignSetlistModalOpen && (
+        <div
+          id="batch-assign-setlist-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="batch-assign-setlist-title"
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150"
+          onClick={() => {
+            if (!isSavingBatchSetlists) {
+              setIsAssignSetlistModalOpen(false);
+              setMultiSetlistNameInput('');
+              setMultiSetlistSearch('');
+            }
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-lg bg-[#141416] border border-[#2A2A2D] rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[88vh] animate-in zoom-in-95 duration-100"
+          >
+            {/* Modal Header */}
+            <div className="p-3.5 sm:p-4 border-b border-[#222224] bg-[#171719] flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 shrink-0">
+                  <ListPlus className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <h3 id="batch-assign-setlist-title" className="text-sm sm:text-base font-bold text-white tracking-tight truncate">
+                    Ajouter aux Setlists
+                  </h3>
+                  <p className="text-xs text-gray-400 truncate">
+                    {selectedSongIds.length === 1
+                      ? songs.find(s => s.id === selectedSongIds[0])?.title || 'Chant sélectionné'
+                      : `${selectedSongIds.length} chants sélectionnés`}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                id="batch-setlist-close-btn"
+                disabled={isSavingBatchSetlists}
+                onClick={() => {
+                  setIsAssignSetlistModalOpen(false);
+                  setMultiSetlistNameInput('');
+                  setMultiSetlistSearch('');
+                }}
+                className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#252528] transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-3.5 sm:p-4 space-y-3 overflow-y-auto flex-1">
+              {/* Search & New Setlist Row */}
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    id="batch-setlist-search-input"
+                    value={multiSetlistSearch}
+                    onChange={(e) => setMultiSetlistSearch(e.target.value)}
+                    placeholder="Rechercher une setlist (nom, date)..."
+                    className="w-full bg-[#18181A] border border-[#2E2E32] focus:border-indigo-500 rounded-lg pl-8 pr-7 py-1.5 text-xs text-white placeholder-gray-500 outline-none transition-all"
+                  />
+                  {multiSetlistSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setMultiSetlistSearch('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white p-0.5"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  id="batch-setlist-toggle-new-btn"
+                  onClick={() => setIsBatchCreatingSetlist(!isBatchCreatingSetlist)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer shrink-0 flex items-center gap-1.5 border ${
+                    isBatchCreatingSetlist
+                      ? 'bg-indigo-700 border-indigo-500 text-white'
+                      : 'bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border-indigo-500/40'
+                  }`}
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Nouvelle</span>
+                </button>
+              </div>
+
+              {/* Inline Quick Create Setlist */}
+              {isBatchCreatingSetlist && (
+                <div className="p-3 rounded-lg bg-[#19191D] border border-indigo-500/30 space-y-2.5 animate-in slide-in-from-top-2 duration-150">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-indigo-200">Créer une nouvelle setlist</span>
+                    <button
+                      type="button"
+                      onClick={() => setIsBatchCreatingSetlist(false)}
+                      className="text-gray-400 hover:text-white text-xs"
+                    >
+                      Fermer
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    id="batch-setlist-new-name-input"
+                    value={multiSetlistNameInput}
+                    onChange={(e) => setMultiSetlistNameInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleQuickCreateBatchSetlist();
+                      }
+                    }}
+                    placeholder="Nom (ex: Culte Dimanche, Répétition...)"
+                    className="w-full bg-[#141416] border border-[#333] focus:border-indigo-500 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-500 outline-none transition-all"
+                    autoFocus
+                  />
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <Calendar className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="date"
+                        id="batch-setlist-new-date-input"
+                        value={multiSetlistDateInput}
+                        onChange={(e) => setMultiSetlistDateInput(e.target.value)}
+                        className="w-full bg-[#141416] border border-[#333] focus:border-indigo-500 rounded-lg pl-8 pr-2 py-1.5 text-xs text-white outline-none transition-all"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      id="batch-setlist-create-save-btn"
+                      disabled={!multiSetlistNameInput.trim()}
+                      onClick={handleQuickCreateBatchSetlist}
+                      className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white text-xs font-semibold transition-all cursor-pointer shrink-0 flex items-center gap-1 shadow-sm"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Créer & Cocher</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Sort Tabs & Select All / Deselect All */}
+              <div className="flex items-center justify-between gap-2 pt-0.5 flex-wrap">
+                {/* Sort tabs */}
+                <div className="flex items-center gap-1 bg-[#18181A] p-0.5 rounded-lg border border-[#2E2E32]">
+                  <span className="text-[10px] text-gray-500 px-1.5 flex items-center gap-0.5">
+                    <ArrowUpDown className="w-2.5 h-2.5" /> Tri :
+                  </span>
+                  <button
+                    type="button"
+                    id="batch-setlist-sort-recent"
+                    onClick={() => setBatchSetlistSortBy('recent')}
+                    className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
+                      batchSetlistSortBy === 'recent'
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'text-gray-400 hover:text-gray-200'
+                    }`}
+                  >
+                    Récent
+                  </button>
+                  <button
+                    type="button"
+                    id="batch-setlist-sort-name"
+                    onClick={() => setBatchSetlistSortBy('name')}
+                    className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
+                      batchSetlistSortBy === 'name'
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'text-gray-400 hover:text-gray-200'
+                    }`}
+                  >
+                    A-Z
+                  </button>
+                  <button
+                    type="button"
+                    id="batch-setlist-sort-count"
+                    onClick={() => setBatchSetlistSortBy('count')}
+                    className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
+                      batchSetlistSortBy === 'count'
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'text-gray-400 hover:text-gray-200'
+                    }`}
+                  >
+                    Nb Chants
+                  </button>
+                </div>
+
+                {/* Select / Deselect All */}
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    id="batch-setlist-select-all-btn"
+                    onClick={() => {
+                      const idsToAdd = filteredAndSortedMultiSetlists.map(s => s.id);
+                      setSelectedBatchSetlistIds(prev => Array.from(new Set([...prev, ...idsToAdd])));
+                    }}
+                    className="px-2 py-1 rounded text-[11px] font-medium bg-[#222226] hover:bg-[#2C2C32] text-gray-300 hover:text-white border border-[#333] transition-colors"
+                  >
+                    Tout cocher
+                  </button>
+                  <button
+                    type="button"
+                    id="batch-setlist-deselect-all-btn"
+                    onClick={() => {
+                      const idsToRemove = new Set(filteredAndSortedMultiSetlists.map(s => s.id));
+                      setSelectedBatchSetlistIds(prev => prev.filter(id => !idsToRemove.has(id)));
+                    }}
+                    className="px-2 py-1 rounded text-[11px] font-medium bg-[#222226] hover:bg-[#2C2C32] text-gray-300 hover:text-white border border-[#333] transition-colors"
+                  >
+                    Décocher
+                  </button>
+                </div>
+              </div>
+
+              {/* Setlists count info */}
+              <div className="flex items-center justify-between text-[11px] text-gray-400 px-0.5">
+                <span>
+                  {selectedBatchSetlistIds.length} setlist{selectedBatchSetlistIds.length > 1 ? 's' : ''} cochée{selectedBatchSetlistIds.length > 1 ? 's' : ''}
+                </span>
+                <span>{filteredAndSortedMultiSetlists.length} disponible{filteredAndSortedMultiSetlists.length > 1 ? 's' : ''}</span>
+              </div>
+
+              {/* Scrollable Setlist list with checkboxes */}
+              <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
+                {filteredAndSortedMultiSetlists.length === 0 ? (
+                  <div className="text-center py-6 text-gray-500 text-xs">
+                    Aucune setlist trouvée
+                  </div>
+                ) : (
+                  filteredAndSortedMultiSetlists.map((st) => {
+                    const isChecked = selectedBatchSetlistIds.includes(st.id);
+                    const inCount = selectedSongIds.filter(id => st.songIds.includes(id)).length;
+                    const isSingleSong = selectedSongIds.length === 1;
+
+                    return (
+                      <div
+                        key={st.id}
+                        id={`batch-setlist-item-${st.id}`}
+                        onClick={() => toggleBatchSetlistSelection(st.id)}
+                        className={`w-full flex items-center justify-between p-2.5 rounded-lg border transition-all cursor-pointer select-none ${
+                          isChecked
+                            ? 'bg-indigo-950/30 border-indigo-500/50 text-indigo-100 shadow-sm'
+                            : 'bg-[#18181A] hover:bg-[#1E1E22] border-[#26262A] text-gray-300'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          {/* Checkbox */}
+                          <div className="shrink-0">
+                            {isChecked ? (
+                              <CheckSquare className="w-4 h-4 fill-indigo-500/20 text-indigo-400" />
+                            ) : (
+                              <Square className="w-4 h-4 text-gray-500" />
+                            )}
+                          </div>
+
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className={`text-xs font-medium truncate ${isChecked ? 'text-white' : 'text-gray-200'}`}>
+                                {st.name}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 text-[10px] text-gray-400 mt-0.5">
+                              <span className="flex items-center gap-1">
+                                <Music className="w-2.5 h-2.5 text-gray-500" />
+                                <span>{st.songIds?.length || 0} chant{((st.songIds?.length || 0) > 1) ? 's' : ''}</span>
+                              </span>
+                              {(() => {
+                                const totalSecs = (st.songIds || []).reduce((tot, sId) => {
+                                  const targetSong = songs.find(s => s.id === sId);
+                                  return tot + parseDurationToSeconds(targetSong?.duration);
+                                }, 0);
+                                return totalSecs > 0 ? (
+                                  <>
+                                    <span>•</span>
+                                    <span className="flex items-center gap-1 text-cyan-400 font-mono">
+                                      <Clock className="w-2.5 h-2.5 text-cyan-400" />
+                                      <span>{formatSetlistDuration(totalSecs)}</span>
+                                    </span>
+                                  </>
+                                ) : null;
+                              })()}
+                              {st.date && (
+                                <>
+                                  <span>•</span>
+                                  <span>{st.date}</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {/* Status badge */}
+                          {isSingleSong ? (
+                            st.songIds.includes(selectedSongIds[0]) ? (
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#202024] text-gray-300 border border-[#333]">
+                                Déjà présent
+                              </span>
+                            ) : null
+                          ) : inCount === selectedSongIds.length ? (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-800/60">
+                              Tous présents
+                            </span>
+                          ) : inCount > 0 ? (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-950/60 text-amber-300 border border-amber-800/50">
+                              {inCount}/{selectedSongIds.length} présents
+                            </span>
+                          ) : null}
+
+                          <span
+                            className={`text-[10px] font-medium px-2 py-0.5 rounded border ${
+                              isChecked
+                                ? 'bg-indigo-950/60 border-indigo-700/50 text-indigo-300'
+                                : 'bg-[#1D1D20] border-[#2A2A2E] text-gray-500'
+                            }`}
+                          >
+                            {isChecked ? 'Inclus' : 'Non inclus'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-3 sm:p-3.5 border-t border-[#222224] bg-[#171719] flex items-center justify-between gap-2">
+              <span className="text-xs text-gray-400 truncate hidden xs:inline">
+                {selectedBatchSetlistIds.length} sélectionnée{selectedBatchSetlistIds.length > 1 ? 's' : ''}
+              </span>
+              <div className="flex items-center gap-2 ml-auto">
+                <button
+                  type="button"
+                  id="batch-setlist-cancel-btn"
+                  disabled={isSavingBatchSetlists}
+                  onClick={() => {
+                    setIsAssignSetlistModalOpen(false);
+                    setMultiSetlistNameInput('');
+                    setMultiSetlistSearch('');
+                  }}
+                  className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-gray-300 hover:text-white hover:bg-[#252528] border border-[#333] transition-colors cursor-pointer"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  id="batch-setlist-save-btn"
+                  disabled={isSavingBatchSetlists}
+                  onClick={handleSaveBatchSetlists}
+                  className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white shadow-sm border border-indigo-500 transition-all cursor-pointer flex items-center gap-1.5"
+                >
+                  {isSavingBatchSetlists ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Enregistrement...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                      <span>Enregistrer</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Confirmation de suppression multiple */}
+      {isMultiDeleteModalOpen && (
+        <div
+          id="bulk-delete-confirmation-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="bulk-delete-dialog-title"
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150"
+          onClick={() => {
+            if (!isDeletingMultiple) setIsMultiDeleteModalOpen(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape' && !isDeletingMultiple) {
+              setIsMultiDeleteModalOpen(false);
+            }
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md bg-[#141416] border border-[#3A2226] rounded-xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-100"
+          >
+            {/* Header */}
+            <div className="p-4 border-b border-[#2A1C1E] bg-[#1A1214] flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-rose-500/15 text-rose-400 border border-rose-500/30 shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <h3 id="bulk-delete-dialog-title" className="text-sm font-bold text-white tracking-tight">
+                  Supprimer les chants sélectionnés
+                </h3>
+                <p className="text-xs text-rose-300/80 font-medium">
+                  Attention : cette action est irréversible
+                </p>
+              </div>
+            </div>
+
+            {/* Body content */}
+            <div className="p-4 space-y-3.5 text-sm text-gray-300">
+              <div className="p-3 rounded-lg bg-rose-950/25 border border-rose-900/40 text-xs text-rose-200/90 leading-relaxed">
+                Êtes-vous sûr de vouloir supprimer définitivement <strong className="text-white font-bold">{selectedSongIds.length} chant{selectedSongIds.length > 1 ? 's' : ''}</strong> ? Ils seront retirés de votre bibliothèque et de toutes les setlists.
+              </div>
+
+              {/* List of songs being deleted */}
+              <div>
+                <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                  <span>Chants concernés</span>
+                  <span className="text-gray-400 font-mono text-[11px]">{selectedSongIds.length} sélectionné{selectedSongIds.length > 1 ? 's' : ''}</span>
+                </div>
+                <div className="max-h-40 overflow-y-auto space-y-1 bg-[#1A1A1D] border border-[#28282B] rounded-lg p-2.5 divide-y divide-[#242428]">
+                  {selectedSongIds.map(id => {
+                    const s = songs.find(item => item.id === id);
+                    if (!s) return null;
+                    return (
+                      <div key={id} className="text-xs text-gray-300 flex items-center justify-between py-1.5 first:pt-0 last:pb-0">
+                        <span className="font-medium text-white truncate max-w-[240px]">{s.title}</span>
+                        {s.artist && <span className="text-gray-400 text-[11px] truncate max-w-[130px]">{s.artist}</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer with confirmation actions */}
+            <div className="p-3.5 border-t border-[#222224] bg-[#171719] flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                id="cancel-bulk-delete-btn"
+                disabled={isDeletingMultiple}
+                onClick={() => setIsMultiDeleteModalOpen(false)}
+                className="px-4 py-2 rounded-lg text-xs font-semibold text-gray-300 hover:text-white hover:bg-[#252528] border border-[#333] transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                id="confirm-bulk-delete-btn"
+                disabled={isDeletingMultiple}
+                onClick={handleBatchDelete}
+                className="px-4 py-2 rounded-lg text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white shadow-sm border border-rose-500 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 active:scale-95"
+              >
+                {isDeletingMultiple ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Suppression en cours...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Supprimer définitivement</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Exporter les chansons sélectionnées */}
+      {isMultiExportModalOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150"
+          onClick={() => {
+            if (!isExportingPdf) setIsMultiExportModalOpen(false);
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md bg-[#141416] border border-[#2A2A2D] rounded-xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-100"
+          >
+            <div className="p-4 border-b border-[#222224] bg-[#171719] flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
+                  <FileDown className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white tracking-tight">
+                    Exporter la sélection
+                  </h3>
+                  <p className="text-xs text-gray-400">
+                    {selectedSongIds.length} chant{selectedSongIds.length > 1 ? 's' : ''} sélectionné{selectedSongIds.length > 1 ? 's' : ''}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsMultiExportModalOpen(false)}
+                className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-[#252528] transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-3">
+              <p className="text-xs text-gray-300">
+                Choisissez le format d'export souhaité pour vos chants sélectionnés :
+              </p>
+
+              {/* Export Option 1: PDF */}
+              <button
+                type="button"
+                disabled={isExportingPdf}
+                onClick={handleExportSelectedPdf}
+                className="w-full p-3 rounded-xl bg-[#1A1A1D] hover:bg-[#222226] border border-[#2D2D32] hover:border-emerald-500/50 transition-all text-left flex items-start gap-3 cursor-pointer group disabled:opacity-50"
+              >
+                <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white transition-all shrink-0">
+                  {isExportingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-semibold text-white flex items-center gap-2">
+                    <span>Livret PDF imprimable</span>
+                    <span className="text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-800/60 px-1.5 py-0.2 rounded">Recommandé</span>
+                  </div>
+                  <p className="text-[11px] text-gray-400 mt-0.5 leading-relaxed">
+                    Mise en page A4 élégante avec accords transposés, structure et grille soignée.
+                  </p>
+                </div>
+              </button>
+
+              {/* Export Option 2: ChordPro / TXT */}
+              <button
+                type="button"
+                onClick={handleExportSelectedChordPro}
+                className="w-full p-3 rounded-xl bg-[#1A1A1D] hover:bg-[#222226] border border-[#2D2D32] hover:border-blue-500/50 transition-all text-left flex items-start gap-3 cursor-pointer group"
+              >
+                <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400 group-hover:bg-blue-500 group-hover:text-white transition-all shrink-0">
+                  <FileCode className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-semibold text-white">
+                    Format ChordPro texte brut
+                  </div>
+                  <p className="text-[11px] text-gray-400 mt-0.5 leading-relaxed">
+                    Fichier .txt standard avec métadonnées et balises ChordPro, compatible avec d'autres applications.
+                  </p>
+                </div>
+              </button>
+
+              {/* Export Option 3: JSON */}
+              <button
+                type="button"
+                onClick={handleExportSelectedJson}
+                className="w-full p-3 rounded-xl bg-[#1A1A1D] hover:bg-[#222226] border border-[#2D2D32] hover:border-amber-500/50 transition-all text-left flex items-start gap-3 cursor-pointer group"
+              >
+                <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 group-hover:bg-amber-500 group-hover:text-white transition-all shrink-0">
+                  <Download className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-semibold text-white">
+                    Sauvegarde JSON structurée
+                  </div>
+                  <p className="text-[11px] text-gray-400 mt-0.5 leading-relaxed">
+                    Données complètes pour sauvegarde ou réimportation directe dans SongBook.
+                  </p>
+                </div>
+              </button>
+            </div>
+
+            <div className="p-3 border-t border-[#222224] bg-[#171719] flex justify-end">
+              <button
+                type="button"
+                onClick={() => setIsMultiExportModalOpen(false)}
+                className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-gray-300 hover:text-white hover:bg-[#252528] border border-[#333] transition-colors cursor-pointer"
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification for Export */}
+      {exportNotification && (
+        <div className="fixed top-6 right-6 z-50 bg-[#18181B] text-white border border-[#333] shadow-2xl rounded-xl px-4 py-2.5 flex items-center gap-2 text-xs font-medium animate-in fade-in slide-in-from-top-3 duration-200">
+          <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span>{exportNotification}</span>
+        </div>
       )}
 
     </div>

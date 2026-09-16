@@ -93,6 +93,10 @@ export const SetlistManager: React.FC = () => {
   const handleLaunchLive = (setlist: Setlist, startIndex = 0) => {
     setSelectedSetlist(setlist);
     setActiveSetlistIndex(startIndex);
+    if (setlist.songIds[startIndex]) {
+      const s = songs.find(item => item.id === setlist.songIds[startIndex]);
+      if (s) setSelectedSong(s);
+    }
     setIsLiveModeOpen(true);
   };
 
@@ -560,16 +564,21 @@ export const SetlistManager: React.FC = () => {
                                   {/* Song Number & Drag Grip Handle in vertical column: Number on top, Grip below */}
                                   <div className="flex flex-col items-center justify-center gap-1 shrink-0 -ml-1 mt-0.5">
                                     {/* Song number badge */}
-                                    <span className={`w-5 h-5 rounded font-mono text-[11px] font-bold flex items-center justify-center transition-colors ${
-                                      isDragOver
-                                        ? 'bg-blue-600 text-white border border-blue-400 font-black shadow-sm'
-                                        : 'bg-[#1C1C1E] text-gray-300 border border-[#333] group-hover:border-blue-500/40 group-hover:text-blue-200'
-                                    }`}>
+                                    <span 
+                                      onClick={() => handleLaunchLive(st, index)}
+                                      className={`w-5 h-5 rounded font-mono text-[11px] font-bold flex items-center justify-center transition-colors cursor-pointer ${
+                                        isDragOver
+                                          ? 'bg-blue-600 text-white border border-blue-400 font-black shadow-sm'
+                                          : 'bg-[#1C1C1E] text-gray-300 border border-[#333] group-hover:border-blue-500/40 group-hover:text-blue-200'
+                                      }`}
+                                      title="Lancer ce chant en mode Live"
+                                    >
                                       {index + 1}
                                     </span>
 
                                     {currentUser?.role === 'admin' && (
                                       <div
+                                        onClick={(e) => e.stopPropagation()}
                                         onTouchStart={(e) => handleTouchStartHandle(e, index)}
                                         onTouchMove={handleTouchMoveHandle}
                                         onTouchEnd={() => handleTouchEndHandle(st)}
@@ -587,12 +596,8 @@ export const SetlistManager: React.FC = () => {
 
                                   <div 
                                     className="min-w-0 flex-1 cursor-pointer"
-                                    onClick={() => {
-                                      setSelectedSetlist(st);
-                                      setSelectedSong(song);
-                                      setActiveTab('stage');
-                                    }}
-                                    title="Ouvrir les détails de ce chant"
+                                    onClick={() => handleLaunchLive(st, index)}
+                                    title="Lancer ce chant en mode Live"
                                   >
                                     <h5 className="text-xs sm:text-sm font-bold text-white group-hover:text-blue-300 truncate transition-colors">
                                       {stripParentheses(song.title)}
@@ -620,7 +625,10 @@ export const SetlistManager: React.FC = () => {
                                 {currentUser?.role === 'admin' && (
                                   <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
                                     <button
-                                      onClick={() => handleRemoveSong(st, song.id)}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleRemoveSong(st, song.id);
+                                      }}
                                       className="p-1.5 rounded-lg bg-[#1C1C1E] hover:bg-rose-500/20 text-gray-400 hover:text-rose-400 border border-[#333] transition-colors"
                                       title="Retirer de la setlist"
                                     >

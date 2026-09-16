@@ -922,16 +922,42 @@ export function formatSetlistDuration(totalSeconds: number): string {
   return formatDurationToMMSS(totalSeconds);
 }
 
+export interface TimeSignatureInfo {
+  beatsPerMeasure: number;
+  accents: number[];
+  label: string;
+}
+
+export function parseTimeSignatureToBeats(timeSignature: string): TimeSignatureInfo {
+  const clean = (timeSignature || '4/4').trim();
+  if (clean === '3/4') return { beatsPerMeasure: 3, accents: [0], label: '3/4' };
+  if (clean === '2/4') return { beatsPerMeasure: 2, accents: [0], label: '2/4' };
+  if (clean === '6/8') return { beatsPerMeasure: 6, accents: [0, 3], label: '6/8' };
+  if (clean === '12/8') return { beatsPerMeasure: 12, accents: [0, 3, 6, 9], label: '12/8' };
+  if (clean === '5/4') return { beatsPerMeasure: 5, accents: [0, 3], label: '5/4' };
+  if (clean === '7/8') return { beatsPerMeasure: 7, accents: [0, 3, 5], label: '7/8' };
+  if (clean === '9/8') return { beatsPerMeasure: 9, accents: [0, 3, 6], label: '9/8' };
+  const num = parseInt(clean.split('/')[0], 10);
+  return { 
+    beatsPerMeasure: isNaN(num) || num <= 0 ? 4 : Math.min(16, num), 
+    accents: [0], 
+    label: clean || '4/4' 
+  };
+}
+
 // Web Audio API Metronome Synth
 class MetronomeEngine {
   private audioCtx: AudioContext | null = null;
   private isPlaying = false;
+  private isMuted = false;
+  private volume = 0.85;
   private bpm = 120;
   private nextBeatTime = 0;
   private currentBeat = 0;
   private beatsPerMeasure = 4;
+  private accents: number[] = [0];
   private timerId: number | null = null;
-  private onBeatCallback: ((beat: number) => void) | null = null;
+  private onBeatCallback: ((beat: number, isAccent: boolean, totalBeats: number) => void) | null = null;
 
   constructor() {
     // Lazy AudioContext
@@ -939,28 +965,60 @@ class MetronomeEngine {
 
   private initCtx() {
     if (!this.audioCtx) {
-      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-      this.audioCtx = new AudioContextClass();
+      const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (AudioContextClass) {
+        this.audioCtx = new AudioContextClass();
+      }
     }
-    if (this.audioCtx.state === 'suspended') {
+    if (this.audioCtx && this.audioCtx.state === 'suspended') {
       this.audioCtx.resume();
     }
   }
 
-  public start(bpm: number, beatsPerMeasure = 4, onBeat?: (beat: number) => void) {
+  public start(
+    bpm: number, 
+    beatsPerMeasure = 4, 
+    accents = [0], 
+    onBeat?: (beat: number, isAccent: boolean, totalBeats: number) => void
+  ) {
     this.initCtx();
     this.bpm = Math.max(30, Math.min(300, bpm));
-    this.beatsPerMeasure = beatsPerMeasure;
+    this.beatsPerMeasure = Math.max(1, beatsPerMeasure);
+    this.accents = accents && accents.length > 0 ? accents : [0];
     this.onBeatCallback = onBeat || null;
     this.isPlaying = true;
     this.currentBeat = 0;
-    this.nextBeatTime = this.audioCtx!.currentTime + 0.05;
+    this.nextBeatTime = this.audioCtx ? this.audioCtx.currentTime + 0.03 : 0;
 
     this.scheduleLoop();
   }
 
   public setBpm(bpm: number) {
     this.bpm = Math.max(30, Math.min(300, bpm));
+  }
+
+  public setSignature(beatsPerMeasure: number, accents = [0]) {
+    this.beatsPerMeasure = Math.max(1, beatsPerMeasure);
+    this.accents = accents && accents.length > 0 ? accents : [0];
+    if (this.currentBeat >= this.beatsPerMeasure) {
+      this.currentBeat = 0;
+    }
+  }
+
+  public setMuted(muted: boolean) {
+    this.isMuted = muted;
+  }
+
+  public setVolume(vol: number) {
+    this.volume = Math.max(0, Math.min(1, vol));
+  }
+
+  public getIsPlaying(): boolean {
+    return this.isPlaying;
+  }
+
+  public getIsMuted(): boolean {
+    return this.isMuted;
   }
 
   public stop() {
@@ -975,15 +1033,21 @@ class MetronomeEngine {
     if (!this.isPlaying || !this.audioCtx) return;
 
     while (this.nextBeatTime < this.audioCtx.currentTime + 0.1) {
-      this.playClick(this.nextBeatTime, this.currentBeat === 0);
+      const isAccent = this.accents.includes(this.currentBeat);
+      if (!this.isMuted) {
+        this.playClick(this.nextBeatTime, isAccent);
+      }
+
       if (this.onBeatCallback) {
-        // Dispatch UI update
+        // Dispatch UI update on exact scheduled time
         const beatNum = this.currentBeat;
+        const total = this.beatsPerMeasure;
+        const delayMs = Math.max(0, (this.nextBeatTime - this.audioCtx.currentTime) * 1000);
         setTimeout(() => {
           if (this.isPlaying && this.onBeatCallback) {
-            this.onBeatCallback(beatNum);
+            this.onBeatCallback(beatNum, isAccent, total);
           }
-        }, Math.max(0, (this.nextBeatTime - this.audioCtx!.currentTime) * 1000));
+        }, delayMs);
       }
 
       // Increment beat
@@ -996,21 +1060,26 @@ class MetronomeEngine {
   };
 
   private playClick(time: number, isAccent: boolean) {
-    if (!this.audioCtx) return;
-    const osc = this.audioCtx.createOscillator();
-    const gain = this.audioCtx.createGain();
+    if (!this.audioCtx || this.isMuted) return;
+    try {
+      const osc = this.audioCtx.createOscillator();
+      const gain = this.audioCtx.createGain();
 
-    osc.type = isAccent ? 'sine' : 'triangle';
-    osc.frequency.setValueAtTime(isAccent ? 1000 : 700, time);
+      osc.type = isAccent ? 'sine' : 'triangle';
+      osc.frequency.setValueAtTime(isAccent ? 1200 : 800, time);
 
-    gain.gain.setValueAtTime(1, time);
-    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.04);
+      const peakGain = (isAccent ? 0.9 : 0.6) * this.volume;
+      gain.gain.setValueAtTime(peakGain, time);
+      gain.gain.exponentialRampToValueAtTime(0.001, time + (isAccent ? 0.05 : 0.035));
 
-    osc.connect(gain);
-    gain.connect(this.audioCtx.destination);
+      osc.connect(gain);
+      gain.connect(this.audioCtx.destination);
 
-    osc.start(time);
-    osc.stop(time + 0.05);
+      osc.start(time);
+      osc.stop(time + (isAccent ? 0.06 : 0.045));
+    } catch {
+      // AudioContext state exception
+    }
   }
 }
 

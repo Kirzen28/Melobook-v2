@@ -12,6 +12,7 @@ export interface UserProfile {
   displayName: string;
   currentGroupId: string | null;
   role: UserRole;
+  favoriteSongIds?: string[];
   createdAt?: any;
 }
 
@@ -42,6 +43,8 @@ export interface Song {
   language?: string;
   linkedSongIds?: string[];
   notes?: string;
+  isFavorite?: boolean;
+  favoriteUids?: string[];
   createdAt?: any;
   updatedAt?: any;
 }

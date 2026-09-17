@@ -4,8 +4,6 @@ import { Setlist, Song } from '../types';
 import { LiveSetlistPlayer } from './LiveSetlistPlayer';
 import { SetlistPdfModal } from './SetlistPdfModal';
 import { SetlistAddSongsModal } from './SetlistAddSongsModal';
-import { SetlistHistoryView } from './SetlistHistoryView';
-import { RecordPerformanceModal } from './RecordPerformanceModal';
 import { 
   parseDurationToSeconds, 
   formatSetlistDuration, 
@@ -33,14 +31,12 @@ import {
   FileDown,
   Share2,
   GripVertical,
-  Pencil,
-  History
+  Pencil
 } from 'lucide-react';
 
 export const SetlistManager: React.FC = () => {
   const { 
     setlists, 
-    setlistHistory,
     songs, 
     selectedSetlist, 
     setSelectedSetlist, 
@@ -52,9 +48,6 @@ export const SetlistManager: React.FC = () => {
     setActiveTab,
     setActiveSetlistIndex
   } = useApp();
-
-  const [viewMode, setViewMode] = useState<'active' | 'history'>('active');
-  const [recordingSetlist, setRecordingSetlist] = useState<Setlist | null>(null);
 
   const [isLiveModeOpen, setIsLiveModeOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -309,76 +302,28 @@ export const SetlistManager: React.FC = () => {
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="flex items-center gap-3">
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
+            <ListMusic className="w-6 h-6 text-blue-500" />
             <span>Setlists</span>
+            <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-[#1C1C1E] border border-[#2E2E34] text-gray-400">
+              {setlists.length}
+            </span>
           </h1>
-
-          {/* Navigation Tabs */}
-          <div className="flex items-center gap-1 bg-[#141416] p-1 rounded-xl border border-[#26262B]">
-            <button
-              onClick={() => setViewMode('active')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                viewMode === 'active'
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              <ListMusic className="w-3.5 h-3.5" />
-              <span>Listes actives</span>
-              <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
-                viewMode === 'active' ? 'bg-blue-700 text-white' : 'bg-[#222226] text-gray-400'
-              }`}>
-                {setlists.length}
-              </span>
-            </button>
-
-            <button
-              onClick={() => setViewMode('history')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                viewMode === 'history'
-                  ? 'bg-purple-600 text-white shadow-sm'
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              <History className="w-3.5 h-3.5" />
-              <span>Historique des prestations</span>
-              <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
-                viewMode === 'history' ? 'bg-purple-700 text-white' : 'bg-[#222226] text-gray-400'
-              }`}>
-                {setlistHistory.length}
-              </span>
-            </button>
-          </div>
         </div>
 
         {currentUser?.role === 'admin' && (
           <div className="flex items-center gap-2">
-            {viewMode === 'history' ? (
-              <button
-                onClick={() => setRecordingSetlist(setlists[0] || null)}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-md bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs shadow-sm transition-all active:scale-95"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Consigner une prestation</span>
-              </button>
-            ) : (
-              <button
-                onClick={() => setIsCreateModalOpen(true)}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-md bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-sm transition-all active:scale-95"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Nouvelle Setlist</span>
-              </button>
-            )}
+            <button
+              onClick={() => setIsCreateModalOpen(true)}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-md bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-sm transition-all active:scale-95"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Nouvelle Setlist</span>
+            </button>
           </div>
         )}
       </div>
-
-      {viewMode === 'history' ? (
-        <SetlistHistoryView onPlaySetlist={(st) => handleLaunchLive(st, 0)} />
-      ) : (
-        <>
           {/* Setlists Accordion List */}
           {setlists.length === 0 ? (
             <div className="text-center py-16 bg-[#111112] rounded-xl border border-[#222224] p-6 max-w-2xl mx-auto">
@@ -404,7 +349,6 @@ export const SetlistManager: React.FC = () => {
               {setlists.map((st) => {
                 const isExpanded = selectedSetlist?.id === st.id;
                 const totalSecs = getSetlistTotalDurationSeconds(st);
-                const pastPerformancesCount = setlistHistory.filter(h => h.setlistId === st.id).length;
 
             return (
               <div
@@ -487,23 +431,7 @@ export const SetlistManager: React.FC = () => {
                           </>
                         )}
 
-                        {pastPerformancesCount > 0 && (
-                          <>
-                            <span className="text-gray-600">•</span>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setViewMode('history');
-                              }}
-                              className="flex items-center gap-1 font-semibold text-purple-300 hover:text-purple-200 text-xs px-2 py-0.5 rounded bg-purple-500/10 border border-purple-500/20 transition-colors"
-                              title="Consulter les prestations passées de cette setlist"
-                            >
-                              <History className="w-3 h-3 text-purple-400" />
-                              <span>Jouée {pastPerformancesCount} fois</span>
-                            </button>
-                          </>
-                        )}
+
                       </div>
                     </div>
                   </div>
@@ -522,16 +450,7 @@ export const SetlistManager: React.FC = () => {
                       <span className="hidden sm:inline">Exporter PDF</span>
                     </button>
 
-                    {currentUser?.role === 'admin' && (
-                      <button
-                        onClick={() => setRecordingSetlist(st)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1C1C1E] hover:bg-purple-600/20 text-purple-300 hover:text-purple-200 border border-purple-500/30 text-xs font-semibold shadow-sm transition-all active:scale-95"
-                        title="Enregistrer cette setlist dans l'historique"
-                      >
-                        <History className="w-3.5 h-3.5 text-purple-400" />
-                        <span className="hidden xl:inline">Consigner</span>
-                      </button>
-                    )}
+
 
                     <button
                       onClick={() => handleLaunchLive(st, 0)}
@@ -759,8 +678,6 @@ export const SetlistManager: React.FC = () => {
           })}
         </div>
       )}
-        </>
-      )}
 
       {/* Modal: Create Setlist */}
       {isCreateModalOpen && (
@@ -930,14 +847,7 @@ export const SetlistManager: React.FC = () => {
         </div>
       )}
 
-      {/* Performance Recording Modal */}
-      {recordingSetlist && (
-        <RecordPerformanceModal
-          isOpen={Boolean(recordingSetlist)}
-          defaultSetlist={recordingSetlist}
-          onClose={() => setRecordingSetlist(null)}
-        />
-      )}
+
 
     </div>
   );

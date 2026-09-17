@@ -147,7 +147,6 @@ export const SongReader: React.FC<SongReaderProps> = ({
 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showSettingsDrawer, setShowSettingsDrawer] = useState(false);
-  const [settingsDrawerTab, setSettingsDrawerTab] = useState<'metadata' | 'display'>('metadata');
   const [showPdfModal, setShowPdfModal] = useState(false);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [showLanguageMenu, setShowLanguageMenu] = useState(false);
@@ -841,572 +840,151 @@ export const SongReader: React.FC<SongReaderProps> = ({
 
       {/* Settings Drawer (Overlay) */}
       {showSettingsDrawer && (
-        <div className="no-print bg-[#111112] border-b border-[#242428] px-4 py-3.5 text-xs shadow-2xl z-30 animate-in fade-in slide-in-from-top-2 duration-150">
+        <div className="no-print bg-[#111112] border-b border-[#242428] px-3 sm:px-4 py-2 sm:py-2.5 text-xs shadow-2xl z-30 animate-in fade-in slide-in-from-top-1 duration-150">
           
-          {/* Header with Title, Tabs, and Close Button */}
-          <div className="flex flex-wrap items-center justify-between gap-2 pb-3 mb-3 border-b border-[#222226]">
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-blue-600/20 border border-blue-500/30 flex items-center justify-center">
-                <Settings2 className="w-4 h-4 text-blue-400" />
+          {/* Header with Title and Close Button - ultra-compact single line */}
+          <div className="flex items-center justify-between gap-2 pb-1.5 mb-2 border-b border-[#222226]">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-5 h-5 rounded-md bg-blue-600/20 border border-blue-500/30 flex items-center justify-center shrink-0">
+                <Settings2 className="w-3 h-3 text-blue-400" />
               </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-gray-100 text-sm">
-                    Réglages du chant
-                  </span>
-                  {song.title && (
-                    <span className="text-gray-400 text-xs hidden md:inline truncate max-w-xs">
-                      • {song.title}
-                    </span>
-                  )}
-                </div>
-                <span className="text-[11px] text-gray-400">
-                  Modifiez rapidement la tonalité, le tempo, la durée ou l'affichage de scène
+              <span className="font-bold text-gray-100 text-xs sm:text-sm truncate">
+                Réglages du chant
+              </span>
+              {song.title && (
+                <span className="text-gray-400 text-[11px] hidden md:inline truncate max-w-xs">
+                  • {stripParentheses(song.title)}
                 </span>
-              </div>
+              )}
             </div>
 
-            <div className="flex items-center gap-2">
-              {/* Tabs Switcher */}
-              <div className="flex items-center bg-[#18181C] p-0.5 rounded-lg border border-[#2B2B32]">
-                <button
-                  type="button"
-                  onClick={() => setSettingsDrawerTab('metadata')}
-                  className={`flex items-center gap-1.5 px-3 py-1 rounded-md font-medium text-xs transition-all cursor-pointer ${
-                    settingsDrawerTab === 'metadata'
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : 'text-gray-400 hover:text-gray-200'
-                  }`}
-                >
-                  <Music className="w-3.5 h-3.5 text-blue-300" />
-                  <span>Métadonnées & Tonalité</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSettingsDrawerTab('display')}
-                  className={`flex items-center gap-1.5 px-3 py-1 rounded-md font-medium text-xs transition-all cursor-pointer ${
-                    settingsDrawerTab === 'display'
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : 'text-gray-400 hover:text-gray-200'
-                  }`}
-                >
-                  <Eye className="w-3.5 h-3.5 text-purple-300" />
-                  <span>Affichage & Outils</span>
-                </button>
-              </div>
-
-              {/* Close Button */}
-              <button
-                type="button"
-                onClick={() => setShowSettingsDrawer(false)}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-400 hover:text-white border border-[#333] transition-colors cursor-pointer"
-                title="Fermer les réglages"
-              >
-                <X className="w-3.5 h-3.5" />
-                <span className="text-[11px] font-medium hidden sm:inline">Fermer</span>
-              </button>
-            </div>
+            {/* Close Button */}
+            <button
+              type="button"
+              onClick={() => setShowSettingsDrawer(false)}
+              className="p-1 rounded-md text-gray-400 hover:text-white hover:bg-[#222226] border border-transparent hover:border-[#333] transition-colors cursor-pointer shrink-0"
+              title="Fermer les réglages"
+              aria-label="Fermer les réglages"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
 
-          {/* Tab Content 1: METADATA & QUICK ADJUSTMENTS */}
-          {settingsDrawerTab === 'metadata' && (
-            <div className="space-y-3">
-              {/* Setlist Context Notice (if active) */}
-              {isSetlistMode && currentSetlist && (
-                <div className="p-2.5 rounded-lg bg-blue-950/30 border border-blue-800/40 flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 text-blue-300 text-xs">
-                    <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
-                    <span>
-                      Setlist active : <strong>{currentSetlist.title}</strong> — Les réglages ci-dessous s'enregistrent pour cette setlist.
-                    </span>
-                  </div>
-                  {hasSetlistOverrides && (
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={handleSaveOverridesToMasterCatalog}
-                        className="px-2 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white font-medium text-[11px] transition-colors cursor-pointer"
-                        title="Enregistrer ces réglages dans la fiche générale de ce chant"
-                      >
-                        Appliquer au chant maître
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleResetOverridesToDefaults}
-                        className="px-2 py-1 rounded bg-[#202024] hover:bg-[#2A2A30] text-gray-300 hover:text-white border border-[#333] text-[11px] transition-colors cursor-pointer"
-                        title="Rétablir les valeurs d'origine du chant"
-                      >
-                        Rétablir l'original
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {/* Panel 1: Tonalité & Transposition */}
-                <div className="bg-[#161619] border border-[#26262C] rounded-xl p-3 space-y-3">
-                  <div className="flex items-center justify-between border-b border-[#24242A] pb-2">
-                    <div className="flex items-center gap-1.5 text-blue-400 font-semibold text-xs">
-                      <Music className="w-3.5 h-3.5" />
-                      <span>Tonalité & Transposition</span>
-                    </div>
-                    <div className="text-[11px] font-mono text-gray-400">
-                      Actuelle : <span className="text-blue-400 font-bold">{currentKeyDisplay}</span>
-                    </div>
-                  </div>
-
-                  {/* Tonalité : Liste déroulante */}
-                  <div>
-                    <label className="text-[10px] uppercase tracking-wider text-gray-400 font-bold mb-1.5 flex items-center justify-between block">
-                      <span>Tonalité de base</span>
-                      <span className="text-blue-400 font-mono text-xs font-bold">{baseKeyDisplay}</span>
-                    </label>
-                    <div className="relative">
-                      <select
-                        value={baseKey}
-                        onChange={(e) => handleSetBaseKey(e.target.value)}
-                        className="w-full bg-[#1A1A20] hover:bg-[#202028] text-gray-200 text-xs font-mono font-bold rounded-lg px-3 py-2 border border-[#2E2E36] focus:border-blue-500 focus:outline-none cursor-pointer appearance-none shadow-xs transition-colors"
-                      >
-                        <optgroup label="Gammes Majeures">
-                          {MAJOR_KEYS.map((k) => {
-                            const displayLabel = stageSettings.notation === 'latin' ? (LATIN_NOTES[k] || k) : k;
-                            return (
-                              <option key={k} value={k}>
-                                {displayLabel}{displayLabel !== k ? ` - ${k}` : ''}
-                              </option>
-                            );
-                          })}
-                        </optgroup>
-                        <optgroup label="Gammes Mineures">
-                          {MINOR_KEYS.map((k) => {
-                            const displayLabel = stageSettings.notation === 'latin' ? (LATIN_NOTES[k] || k) : k;
-                            return (
-                              <option key={k} value={k}>
-                                {displayLabel}{displayLabel !== k ? ` - ${k}` : ''}
-                              </option>
-                            );
-                          })}
-                        </optgroup>
-                      </select>
-                      <ChevronDown className="w-4 h-4 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    </div>
-                  </div>
-
-                  {/* Transposition : Liste déroulante */}
-                  <div className="pt-2 border-t border-[#222228]">
-                    <div className="text-[10px] uppercase tracking-wider text-amber-400/90 font-bold mb-1.5 flex items-center justify-between">
-                      <span className="flex items-center gap-1">
-                        <ArrowUpDown className="w-3 h-3 text-amber-400" />
-                        Transposition directe
-                      </span>
-                      <span className="font-mono text-gray-400">
-                        {effectiveTransposeOffset === 0 ? '0' : (effectiveTransposeOffset > 0 ? `+${effectiveTransposeOffset}` : effectiveTransposeOffset)} demi-tons
-                      </span>
-                    </div>
-                    <div className="relative">
-                      <select
-                        value={effectiveTransposeOffset}
-                        onChange={(e) => handleSetTransposeOffset(parseInt(e.target.value, 10))}
-                        className="w-full bg-[#1A1A20] hover:bg-[#202028] text-amber-300 text-xs font-mono font-bold rounded-lg px-3 py-2 border border-[#2E2E36] focus:border-amber-500 focus:outline-none cursor-pointer appearance-none shadow-xs transition-colors"
-                      >
-                        <option value={0}>0 - Tonalité d'origine</option>
-                        <optgroup label="Baisser">
-                          {TRANSPOSE_DOWN_STEPS.map((step) => {
-                            const resultingKey = baseKey ? transposeChord(baseKey, step, stageSettings.notation) : '';
-                            return (
-                              <option key={step} value={step}>
-                                {step} {resultingKey ? `→ ${resultingKey}` : ''}
-                              </option>
-                            );
-                          })}
-                        </optgroup>
-                        <optgroup label="Augmenter">
-                          {TRANSPOSE_UP_STEPS.map((step) => {
-                            const resultingKey = baseKey ? transposeChord(baseKey, step, stageSettings.notation) : '';
-                            return (
-                              <option key={step} value={step}>
-                                +{step} {resultingKey ? `→ ${resultingKey}` : ''}
-                              </option>
-                            );
-                          })}
-                        </optgroup>
-                      </select>
-                      <ChevronDown className="w-4 h-4 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Panel 2: Tempo, Mesure & Métronome */}
-                <div className="bg-[#161619] border border-[#26262C] rounded-xl p-3 space-y-3">
-                  <div className="flex items-center justify-between border-b border-[#24242A] pb-2">
-                    <div className="flex items-center gap-1.5 text-emerald-400 font-semibold text-xs">
-                      <Gauge className="w-3.5 h-3.5" />
-                      <span>Tempo & Signature rythmique</span>
-                    </div>
-                    <div className="text-[11px] font-mono text-emerald-400 font-bold">
-                      {effectiveTempo} BPM
-                    </div>
-                  </div>
-
-                  {/* Tempo Stepper & Value */}
-                  <div>
-                    <div className="text-[10px] uppercase tracking-wider text-gray-400 font-bold mb-1.5">
-                      Vitesse (BPM)
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => handleUpdateTempo(effectiveTempo - 5)}
-                        className="px-2 py-1 rounded bg-[#202026] hover:bg-[#2A2A32] text-gray-300 font-bold text-xs border border-[#303038] cursor-pointer"
-                        title="-5 BPM"
-                      >
-                        -5
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleUpdateTempo(effectiveTempo - 1)}
-                        className="px-2 py-1 rounded bg-[#202026] hover:bg-[#2A2A32] text-gray-300 font-bold text-xs border border-[#303038] cursor-pointer"
-                        title="-1 BPM"
-                      >
-                        -1
-                      </button>
-                      
-                      <input
-                        type="number"
-                        min={30}
-                        max={260}
-                        value={effectiveTempo}
-                        onChange={(e) => {
-                          const v = parseInt(e.target.value, 10);
-                          if (!isNaN(v)) handleUpdateTempo(v);
-                        }}
-                        className="flex-1 bg-[#1A1A1E] text-emerald-400 font-bold font-mono text-center text-sm py-1 rounded-lg border border-emerald-500/40 focus:outline-none focus:border-emerald-400"
-                      />
-
-                      <button
-                        type="button"
-                        onClick={() => handleUpdateTempo(effectiveTempo + 1)}
-                        className="px-2 py-1 rounded bg-[#202026] hover:bg-[#2A2A32] text-gray-300 font-bold text-xs border border-[#303038] cursor-pointer"
-                        title="+1 BPM"
-                      >
-                        +1
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleUpdateTempo(effectiveTempo + 5)}
-                        className="px-2 py-1 rounded bg-[#202026] hover:bg-[#2A2A32] text-gray-300 font-bold text-xs border border-[#303038] cursor-pointer"
-                        title="+5 BPM"
-                      >
-                        +5
-                      </button>
-                    </div>
-
-                    {/* Range Slider */}
-                    <div className="pt-2.5">
-                      <input
-                        type="range"
-                        min={40}
-                        max={220}
-                        value={effectiveTempo}
-                        onChange={(e) => handleUpdateTempo(parseInt(e.target.value, 10))}
-                        className="w-full accent-emerald-500 cursor-pointer h-1.5 bg-[#0D0D10] rounded-lg"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Tap Tempo Button */}
-                  <div className="pt-2 border-t border-[#222228]">
-                    <button
-                      type="button"
-                      onClick={handleTapTempo}
-                      className="w-full py-2 rounded-lg bg-emerald-950/30 hover:bg-emerald-900/50 text-emerald-300 border border-emerald-500/30 font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer shadow-xs"
-                      title="Cliquez en rythme plusieurs fois pour calculer automatiquement le tempo"
-                    >
-                      <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>
-                        Tap Tempo {tapCount > 0 ? `(${tapCount} tap)` : '— Cliquer en rythme'}
-                      </span>
-                    </button>
-                  </div>
-
-                  {/* Signature Rythmique (Mesure) */}
-                  <div className="pt-2 border-t border-[#222228]">
-                    <div className="text-[10px] uppercase tracking-wider text-purple-400 font-bold mb-1.5 flex items-center justify-between">
-                      <span className="flex items-center gap-1">
-                        <Music2 className="w-3 h-3 text-purple-400" />
-                        Signature rythmique (Mesure)
-                      </span>
-                      <span className="font-mono text-purple-300">
-                        {song.timeSignature || parsedData?.timeSignature || '4/4'}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      {['4/4', '3/4', '6/8', '2/4', '12/8', '5/4'].map((sig) => {
-                        const isCurrentSig = (song.timeSignature || parsedData?.timeSignature || '4/4') === sig;
-                        return (
-                          <button
-                            key={sig}
-                            type="button"
-                            onClick={() => handleUpdateTimeSignature(sig)}
-                            className={`px-2.5 py-1 rounded-md font-mono text-xs font-bold transition-all cursor-pointer ${
-                              isCurrentSig
-                                ? 'bg-purple-600 text-white shadow-xs ring-1 ring-purple-400'
-                                : 'bg-[#1C1C22] text-gray-300 hover:bg-[#26262E] hover:text-white'
-                            }`}
-                          >
-                            {sig}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Panel 3: Durée estimée & Instructions de scène */}
-                <div className="bg-[#161619] border border-[#26262C] rounded-xl p-3 space-y-3">
-                  <div className="flex items-center justify-between border-b border-[#24242A] pb-2">
-                    <div className="flex items-center gap-1.5 text-cyan-400 font-semibold text-xs">
-                      <Clock className="w-3.5 h-3.5" />
-                      <span>Durée estimée</span>
-                    </div>
-                    <div className="text-[11px] font-mono text-cyan-300 font-bold">
-                      {effectiveDuration}
-                    </div>
-                  </div>
-
-                  {/* Editable Duration Input */}
-                  <div>
-                    <div className="text-[10px] uppercase tracking-wider text-gray-400 font-bold mb-1.5">
-                      Durée du chant (MM:SS)
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        value={inlineDurationValue}
-                        onChange={(e) => setInlineDurationValue(e.target.value)}
-                        onBlur={() => {
-                          if (inlineDurationValue.trim()) {
-                            handleSetDurationCustom(inlineDurationValue.trim());
-                          }
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            (e.target as HTMLInputElement).blur();
-                          }
-                        }}
-                        placeholder="03:30"
-                        className="flex-1 bg-[#1A1A1E] hover:bg-[#222228] text-cyan-300 font-bold font-mono text-sm border border-cyan-500/40 focus:border-cyan-400 rounded-lg px-2 py-1.5 text-center focus:outline-none shadow-xs transition-all"
-                        title="Entrez la durée souhaitée ex: 04:15"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleAdjustDurationSeconds(-30)}
-                        className="px-2.5 py-1.5 rounded-lg bg-[#202026] hover:bg-[#2A2A32] text-gray-300 font-bold text-xs border border-[#303038] cursor-pointer"
-                        title="Diminuer de 30 secondes"
-                      >
-                        -30s
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleAdjustDurationSeconds(30)}
-                        className="px-2.5 py-1.5 rounded-lg bg-[#202026] hover:bg-[#2A2A32] text-gray-300 font-bold text-xs border border-[#303038] cursor-pointer"
-                        title="Augmenter de 30 secondes"
-                      >
-                        +30s
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Presets de durée */}
-                  <div>
-                    <div className="text-[10px] text-gray-400 mb-1">
-                      Préréglages rapides :
-                    </div>
-                    <div className="flex items-center gap-1 flex-wrap">
-                      {['02:30', '03:00', '03:30', '04:00', '04:30', '05:00'].map((d) => (
-                        <button
-                          key={d}
-                          type="button"
-                          onClick={() => handleSetDurationCustom(d)}
-                          className={`px-1.5 py-0.5 rounded font-mono text-[11px] font-medium transition-colors cursor-pointer ${
-                            effectiveDuration === d
-                              ? 'bg-cyan-600 text-white font-bold'
-                              : 'bg-[#1C1C22] text-gray-400 hover:text-cyan-300 hover:bg-[#24242C]'
-                          }`}
-                        >
-                          {d}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Calcul automatique d'après tempo */}
-                  <div className="pt-1.5">
-                    <button
-                      type="button"
-                      onClick={handleEstimateAutoDuration}
-                      className="w-full py-1.5 rounded-lg bg-[#1C1C22] hover:bg-[#24242E] text-gray-300 hover:text-cyan-300 border border-[#2E2E36] font-medium text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                      title="Estimer automatiquement la durée d'après le nombre de mesures et le tempo"
-                    >
-                      <Sparkles className="w-3 h-3 text-cyan-400" />
-                      <span>Calculer auto d'après le tempo</span>
-                    </button>
-                  </div>
-
-                  {/* Instructions / Notes de scène */}
-                  <div className="pt-2 border-t border-[#222228]">
-                    <div className="text-[10px] uppercase tracking-wider text-amber-400/90 font-bold mb-1 flex items-center justify-between">
-                      <span className="flex items-center gap-1">
-                        <Pencil className="w-3 h-3 text-amber-400" />
-                        Consigne pour la scène
-                      </span>
-                    </div>
-                    <div className="space-y-1.5">
-                      <textarea
-                        value={notesInput}
-                        onChange={(e) => setNotesInput(e.target.value)}
-                        placeholder="Ex: Solo guitare après le pont, Refrain a cappella..."
-                        rows={2}
-                        className="w-full bg-[#18181C] text-gray-200 text-xs rounded-lg p-2 border border-[#2B2B32] focus:border-amber-500/50 focus:outline-none resize-none"
-                      />
-                      <div className="flex items-center justify-end gap-2">
-                        {notesInput && (
-                          <button
-                            type="button"
-                            onClick={handleDeleteNotes}
-                            className="px-2 py-1 rounded text-gray-400 hover:text-rose-400 text-[11px] transition-colors cursor-pointer"
-                          >
-                            Effacer
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={handleSaveNotes}
-                          className="px-2.5 py-1 rounded-md bg-amber-600 hover:bg-amber-500 text-white font-medium text-xs transition-colors cursor-pointer shadow-xs"
-                        >
-                          Enregistrer la note
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Tab Content 2: DISPLAY & STAGE TOOLS */}
-          {settingsDrawerTab === 'display' && (
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-3 pt-1">
-              {/* Chords Visibility */}
-              <div className="flex items-center gap-2">
-                <span className="text-gray-400 font-medium">Accords :</span>
-                <div className="flex items-center gap-1 bg-[#1C1C1E] p-0.5 rounded-md border border-[#333]">
-                  <button
-                    onClick={() => updateStageSettings({ showChords: true })}
-                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded font-semibold transition-all cursor-pointer ${
-                      stageSettings.showChords ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    <Eye className="w-3.5 h-3.5" />
-                    <span>Afficher</span>
-                  </button>
-                  <button
-                    onClick={() => updateStageSettings({ showChords: false })}
-                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded font-semibold transition-all cursor-pointer ${
-                      !stageSettings.showChords ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    <EyeOff className="w-3.5 h-3.5" />
-                    <span>Masquer</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Battery Indicator Toggle */}
-              <div className="flex items-center gap-2">
-                <span className="text-gray-400 font-medium">Batterie scène :</span>
-                <div className="flex items-center gap-1 bg-[#1C1C1E] p-0.5 rounded-md border border-[#333]">
-                  <button
-                    type="button"
-                    onClick={() => updateStageSettings({ showBatteryIndicator: true })}
-                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded font-semibold transition-all cursor-pointer ${
-                      stageSettings.showBatteryIndicator !== false ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    <Battery className="w-3.5 h-3.5" />
-                    <span>Afficher</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => updateStageSettings({ showBatteryIndicator: false })}
-                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded font-semibold transition-all cursor-pointer ${
-                      stageSettings.showBatteryIndicator === false ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    <span>Masquer</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Auto-Scroll Controller */}
-              <div className="flex items-center gap-2">
-                <span className="text-gray-400 font-medium">Défilement auto :</span>
-                <div className="flex items-center gap-2 bg-[#1C1C1E] p-1 rounded-md border border-[#333]">
-                  <button
-                    onClick={() => updateStageSettings({ isAutoScrolling: !stageSettings.isAutoScrolling })}
-                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded font-semibold transition-all cursor-pointer ${
-                      stageSettings.isAutoScrolling
-                        ? 'bg-blue-600 text-white shadow-sm'
-                        : 'bg-[#2A2A2D] text-gray-200 hover:bg-[#333]'
-                    }`}
-                  >
-                    {stageSettings.isAutoScrolling ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
-                    <span>{stageSettings.isAutoScrolling ? 'Pause' : 'Lancer'}</span>
-                  </button>
-                  <div className="flex items-center gap-1 px-1">
-                    <span className="text-[10px] text-gray-400 font-mono">{stageSettings.autoScrollSpeed}x</span>
-                    <input
-                      type="range"
-                      min={1}
-                      max={10}
-                      value={stageSettings.autoScrollSpeed}
-                      onChange={(e) => updateStageSettings({ autoScrollSpeed: parseInt(e.target.value, 10) })}
-                      className="w-16 accent-blue-500 cursor-pointer h-1.5 bg-[#0A0A0B] rounded-lg"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Pédalier / Contrôleur MIDI */}
-              <div className="flex items-center gap-2">
-                <span className="text-gray-400 font-medium">MIDI :</span>
-                <MidiStatusIndicator showLabel />
-              </div>
-
-              {/* Actions : PDF & Edit */}
-              <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto flex-wrap pt-1 sm:pt-0 border-t sm:border-t-0 border-[#222224]">
+          {/* Outils & Affichage de scène - compact layout */}
+          <div className="flex flex-wrap items-center gap-x-3 sm:gap-x-4 gap-y-1.5 text-xs">
+            {/* Chords Visibility */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-gray-400 text-[11px] font-medium shrink-0">Accords :</span>
+              <div className="inline-flex items-center bg-[#1C1C1E] p-0.5 rounded-md border border-[#333]">
                 <button
                   type="button"
-                  onClick={() => setShowPdfModal(true)}
-                  className="flex-1 sm:flex-none flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-1 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-200 border border-[#333] font-medium text-xs transition-colors cursor-pointer"
-                  title="Exporter cette partition en PDF"
+                  onClick={() => updateStageSettings({ showChords: true })}
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-all cursor-pointer ${
+                    stageSettings.showChords ? 'bg-blue-600 text-white font-semibold shadow-xs' : 'text-gray-400 hover:text-white'
+                  }`}
                 >
-                  <FileDown className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  <span>Exporter PDF</span>
+                  <Eye className="w-3 h-3" />
+                  <span>Afficher</span>
                 </button>
-                {currentUser?.role === 'admin' && (
-                  <button
-                    onClick={() => setActiveTab('editor')}
-                    className="flex-1 sm:flex-none flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-1 rounded-md bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs shadow-sm transition-colors cursor-pointer"
-                  >
-                    <FileEdit className="w-3.5 h-3.5 shrink-0" />
-                    <span>Modifier dans l'éditeur</span>
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => updateStageSettings({ showChords: false })}
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-all cursor-pointer ${
+                    !stageSettings.showChords ? 'bg-blue-600 text-white font-semibold shadow-xs' : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  <EyeOff className="w-3 h-3" />
+                  <span>Masquer</span>
+                </button>
               </div>
             </div>
-          )}
+
+            {/* Battery Indicator Toggle */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-gray-400 text-[11px] font-medium shrink-0">Batterie :</span>
+              <div className="inline-flex items-center bg-[#1C1C1E] p-0.5 rounded-md border border-[#333]">
+                <button
+                  type="button"
+                  onClick={() => updateStageSettings({ showBatteryIndicator: true })}
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-all cursor-pointer ${
+                    stageSettings.showBatteryIndicator !== false ? 'bg-blue-600 text-white font-semibold shadow-xs' : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  <Battery className="w-3 h-3" />
+                  <span>Afficher</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => updateStageSettings({ showBatteryIndicator: false })}
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-all cursor-pointer ${
+                    stageSettings.showBatteryIndicator === false ? 'bg-blue-600 text-white font-semibold shadow-xs' : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  <span>Masquer</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Auto-Scroll Controller */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-gray-400 text-[11px] font-medium shrink-0">Défilement :</span>
+              <div className="inline-flex items-center gap-1.5 bg-[#1C1C1E] px-1.5 py-0.5 rounded-md border border-[#333]">
+                <button
+                  type="button"
+                  onClick={() => updateStageSettings({ isAutoScrolling: !stageSettings.isAutoScrolling })}
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold transition-all cursor-pointer ${
+                    stageSettings.isAutoScrolling
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'bg-[#2A2A2D] text-gray-200 hover:bg-[#333]'
+                  }`}
+                >
+                  {stageSettings.isAutoScrolling ? <Pause className="w-2.5 h-2.5" /> : <Play className="w-2.5 h-2.5" />}
+                  <span>{stageSettings.isAutoScrolling ? 'Pause' : 'Lancer'}</span>
+                </button>
+                <span className="text-[10px] text-gray-400 font-mono">{stageSettings.autoScrollSpeed}x</span>
+                <input
+                  type="range"
+                  min={1}
+                  max={10}
+                  value={stageSettings.autoScrollSpeed}
+                  onChange={(e) => updateStageSettings({ autoScrollSpeed: parseInt(e.target.value, 10) })}
+                  className="w-14 accent-blue-500 cursor-pointer h-1 bg-[#0A0A0B] rounded-lg"
+                  title={`Vitesse: ${stageSettings.autoScrollSpeed}x`}
+                />
+              </div>
+            </div>
+
+            {/* Pédalier / Contrôleur MIDI */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-gray-400 text-[11px] font-medium shrink-0">MIDI :</span>
+              <MidiStatusIndicator showLabel className="!py-0.5 !text-[11px]" />
+            </div>
+
+            {/* Actions : PDF & Éditer le chant */}
+            <div className="flex items-center gap-1.5 sm:ml-auto w-full sm:w-auto pt-1 sm:pt-0 border-t sm:border-t-0 border-[#222224]">
+              <button
+                type="button"
+                onClick={() => setShowPdfModal(true)}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-1 px-2.5 py-1 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-200 border border-[#333] font-medium text-[11px] sm:text-xs transition-colors cursor-pointer"
+                title="Exporter cette partition en PDF"
+              >
+                <FileDown className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span>Exporter PDF</span>
+              </button>
+              {currentUser?.role === 'admin' && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('editor')}
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-md bg-[#1C1C1E] hover:bg-amber-500/15 text-gray-200 hover:text-amber-300 border border-[#333] hover:border-amber-500/50 font-medium text-[11px] sm:text-xs transition-colors cursor-pointer group"
+                  title="Éditer le chant"
+                  aria-label="Éditer le chant"
+                >
+                  <FileEdit className="w-3.5 h-3.5 text-amber-400 group-hover:scale-110 transition-transform shrink-0" />
+                  <span>Éditer le chant</span>
+                </button>
+              )}
+            </div>
+          </div>
 
         </div>
       )}
@@ -1445,17 +1023,10 @@ export const SongReader: React.FC<SongReaderProps> = ({
                         <button
                           type="button"
                           onClick={() => setShowLanguageMenu(!showLanguageMenu)}
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md border text-xs font-semibold transition-all shadow-sm hover:brightness-110 active:scale-95 cursor-pointer ${lMeta.badgeClass}`}
-                          title="Versions disponibles"
+                          className={`inline-flex items-center justify-center p-1 rounded-md border text-xs font-semibold transition-all shadow-sm hover:brightness-110 active:scale-95 cursor-pointer ${lMeta.badgeClass}`}
+                          title={`Langue : ${lMeta.name}${linkedVersions.length > 0 ? ` (+${linkedVersions.length} version(s) disponible(s))` : ''}`}
                         >
-                          <Globe className="w-3.5 h-3.5 shrink-0 opacity-80" />
-                          <span>{lMeta.name}</span>
-                          {linkedVersions.length > 0 && (
-                            <span className="bg-white/20 text-white text-[10px] px-1 py-0.2 rounded font-bold">
-                              +{linkedVersions.length}
-                            </span>
-                          )}
-                          <ChevronDown className={`w-3 h-3 transition-transform ${showLanguageMenu ? 'rotate-180' : ''}`} />
+                          <Globe className="w-3.5 h-3.5 shrink-0" />
                         </button>
 
                         {showLanguageMenu && (
@@ -1527,19 +1098,35 @@ export const SongReader: React.FC<SongReaderProps> = ({
                       </div>
                     );
                   })()}
-                </div>
-                {song.artist && (
-                  <div 
-                    className="text-gray-300 font-medium break-words"
+
+                  {/* Durée estimée : icône + valeur (sans libellé texte) */}
+                  <div
+                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[#18181C] border border-[#2A2A30] text-gray-300 shadow-xs"
                     style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
+                    title={`Durée estimée : ${effectiveDuration}`}
                   >
-                    {song.artist}
+                    <Clock className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                    <span className="text-cyan-300 font-bold font-mono text-xs">
+                      {effectiveDuration}
+                    </span>
                   </div>
-                )}
+                </div>
               </div>
 
-              {/* Right: Boutons Réglages */}
-              <div className="flex items-center gap-2 shrink-0">
+              {/* Right: Boutons Réglages & Édition */}
+              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                {currentUser?.role === 'admin' && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('editor')}
+                    className="flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg bg-[#1C1C1E] hover:bg-amber-500/15 text-gray-200 hover:text-amber-300 border border-[#333] hover:border-amber-500/50 text-xs font-semibold transition-all shadow-sm cursor-pointer group"
+                    title="Éditer le chant"
+                    aria-label="Éditer le chant"
+                  >
+                    <FileEdit className="w-3.5 h-3.5 text-amber-400 group-hover:scale-110 transition-transform shrink-0" />
+                    <span className="hidden sm:inline">Éditer</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setShowSettingsDrawer(!showSettingsDrawer)}
@@ -1555,6 +1142,34 @@ export const SongReader: React.FC<SongReaderProps> = ({
                 </button>
               </div>
             </div>
+
+            {/* Ligne Artiste & Catégories : sur toute la largeur (w-full) au-dessus des métadonnées Tonalité / Transpose */}
+            {(song.artist || (song.tags && song.tags.length > 0)) && (
+              <div className="w-full flex items-center gap-2 flex-wrap mb-3">
+                {song.artist && (
+                  <div 
+                    className="text-gray-300 font-medium break-words shrink-0"
+                    style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
+                  >
+                    {song.artist}
+                  </div>
+                )}
+
+                {song.tags && song.tags.length > 0 && (
+                  <div className={`w-full sm:w-auto flex items-center gap-1.5 flex-wrap ${song.artist ? 'sm:border-l sm:border-[#2A2A2E] sm:pl-2' : ''}`}>
+                    {song.tags.map((cat, idx) => (
+                      <span
+                        key={idx}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#18181C] border border-[#2A2A30] text-gray-300 text-xs font-medium shadow-xs"
+                      >
+                        <Tag className="w-3 h-3 text-blue-400" />
+                        <span>{cat}</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Single Line Toolbar: Stylized Inline Controls with Dropdowns for Tonalité & Transposition */}
             <div className="flex items-center gap-2 flex-wrap text-xs">
@@ -1824,70 +1439,14 @@ export const SongReader: React.FC<SongReaderProps> = ({
                 )}
               </div>
 
-              {/* Métronome Visuel & Sonore (Read-Only sur la scène) */}
+              {/* Métronome Visuel & Sonore */}
               <MetronomeStageControl
                 initialBpm={effectiveTempo}
                 initialTimeSignature={song.timeSignature || parsedData?.timeSignature || '4/4'}
                 onBpmChange={handleUpdateTempo}
                 onTimeSignatureChange={handleUpdateTimeSignature}
                 songTitle={song.title}
-                readOnly={true}
-                onOpenSettings={() => {
-                  setSettingsDrawerTab('metadata');
-                  setShowSettingsDrawer(true);
-                }}
               />
-
-              {/* Durée (Read-Only) */}
-              <button
-                type="button"
-                onClick={() => {
-                  setSettingsDrawerTab('metadata');
-                  setShowSettingsDrawer(true);
-                }}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#141416] hover:bg-[#1A1A1E] border border-[#242428] hover:border-cyan-500/40 text-gray-300 font-mono shadow-sm transition-all cursor-pointer"
-                style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
-                title="Durée estimée : cliquer pour modifier dans les réglages du morceau"
-              >
-                <div className="flex items-center gap-1 text-cyan-400">
-                  <Clock className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-                  <span className="text-cyan-400 font-sans text-xs hidden sm:inline">
-                    Durée :
-                  </span>
-                </div>
-                <span className="text-cyan-300 font-bold font-mono text-xs px-1.5 py-0.5 bg-[#18181C] rounded border border-[#242428]">
-                  {effectiveDuration}
-                </span>
-              </button>
-
-              {/* Bouton direct "Modifier" pour inciter à aller dans les réglages */}
-              <button
-                type="button"
-                onClick={() => {
-                  setSettingsDrawerTab('metadata');
-                  setShowSettingsDrawer(true);
-                }}
-                className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-[#161619] hover:bg-blue-600/20 text-gray-400 hover:text-blue-300 border border-[#2B2B32] hover:border-blue-500/40 text-xs font-medium transition-all shadow-xs cursor-pointer"
-                title="Modifier rapidement la tonalité, le tempo, la durée ou les notes dans les réglages"
-              >
-                <Pencil className="w-3 h-3 text-blue-400" />
-                <span className="hidden sm:inline">Modifier</span>
-              </button>
-
-              {/* Categories / Tags : sur sa propre ligne en mobile et à la suite sur écran large */}
-              {song.tags && song.tags.length > 0 && (
-                <div className="w-full sm:w-auto flex items-center gap-1.5 flex-wrap pt-1 sm:pt-0 sm:border-l sm:border-[#2A2A2E] sm:pl-2">
-                  {song.tags.map((cat, idx) => (
-                    <span
-                      key={idx}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#1C1C1E] border border-[#2A2A2D] text-gray-300 text-xs font-medium"
-                    >
-                      <Tag className="w-3 h-3 text-blue-400" />
-                      <span>{cat}</span>
-                    </span>
-                  ))}
-                </div>
-              )}
             </div>
 
             {/* Note / Instructions Section */}

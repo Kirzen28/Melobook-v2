@@ -6,14 +6,7 @@ import {
   VolumeX, 
   Gauge, 
   Music2, 
-  Plus, 
-  Minus, 
-  Sliders, 
-  ChevronDown, 
-  X, 
-  Check, 
-  Sparkles,
-  Radio
+  Zap
 } from 'lucide-react';
 import { metronome, parseTimeSignatureToBeats, TimeSignatureInfo } from '../utils/chordUtils';
 
@@ -37,22 +30,12 @@ const PRESET_SIGNATURES = [
   { value: '5/4', label: '5/4', desc: 'Asymétrique' }
 ];
 
-function getTempoName(bpm: number): string {
-  if (bpm < 60) return 'Largo (Très lent)';
-  if (bpm < 76) return 'Adagio (Lent)';
-  if (bpm < 108) return 'Andante (Modéré)';
-  if (bpm < 120) return 'Moderato (Allant)';
-  if (bpm < 168) return 'Allegro (Rapide)';
-  return 'Presto (Très rapide)';
-}
-
 export const MetronomeStageControl: React.FC<MetronomeStageControlProps> = ({
   initialBpm = 120,
   initialTimeSignature = '4/4',
   onBpmChange,
   onTimeSignatureChange,
   className = '',
-  songTitle,
   readOnly = false,
   onOpenSettings
 }) => {
@@ -60,16 +43,39 @@ export const MetronomeStageControl: React.FC<MetronomeStageControlProps> = ({
   const [timeSignature, setTimeSignature] = useState<string>(initialTimeSignature || '4/4');
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(false);
-  const [volume, setVolume] = useState<number>(0.85);
+  const [volume] = useState<number>(0.85);
   const [currentBeat, setCurrentBeat] = useState<number>(0);
-  const [isAccentBeat, setIsAccentBeat] = useState<boolean>(false);
-  const [showFullPanel, setShowFullPanel] = useState<boolean>(false);
-  const [enableScreenFlash, setEnableScreenFlash] = useState<boolean>(false);
 
-  // Tap Tempo state
-  const tapTimesRef = useRef<number[]>([]);
-  const [tapCount, setTapCount] = useState<number>(0);
-  const [lastTapBpm, setLastTapBpm] = useState<number | null>(null);
+  // État du flash écran avec persistance
+  const [enableScreenFlash, setEnableScreenFlash] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('songbook_metronome_flash') === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const [flashActive, setFlashActive] = useState<'accent' | 'beat' | null>(null);
+  const flashTimeoutRef = useRef<number | null>(null);
+  const enableScreenFlashRef = useRef<boolean>(enableScreenFlash);
+
+  useEffect(() => {
+    enableScreenFlashRef.current = enableScreenFlash;
+    try {
+      localStorage.setItem('songbook_metronome_flash', enableScreenFlash ? 'true' : 'false');
+    } catch {}
+  }, [enableScreenFlash]);
+
+  // Déclenchement d'un flash contour discret et subtil (70ms)
+  const triggerScreenFlash = (isAccent: boolean) => {
+    if (flashTimeoutRef.current) {
+      window.clearTimeout(flashTimeoutRef.current);
+    }
+    setFlashActive(isAccent ? 'accent' : 'beat');
+    flashTimeoutRef.current = window.setTimeout(() => {
+      setFlashActive(null);
+      flashTimeoutRef.current = null;
+    }, 70);
+  };
 
   // Synchronisation avec les props entrantes
   useEffect(() => {
@@ -102,7 +108,10 @@ export const MetronomeStageControl: React.FC<MetronomeStageControlProps> = ({
       metronome.stop();
       setIsPlaying(false);
       setCurrentBeat(0);
-      setIsAccentBeat(false);
+      if (flashTimeoutRef.current) {
+        window.clearTimeout(flashTimeoutRef.current);
+      }
+      setFlashActive(null);
     } else {
       const validBpm = Math.max(30, Math.min(280, bpm));
       metronome.setMuted(isMuted);
@@ -113,7 +122,9 @@ export const MetronomeStageControl: React.FC<MetronomeStageControlProps> = ({
         sigInfo.accents,
         (beat, isAccent) => {
           setCurrentBeat(beat);
-          setIsAccentBeat(isAccent);
+          if (enableScreenFlashRef.current) {
+            triggerScreenFlash(isAccent);
+          }
         }
       );
       setIsPlaying(true);
@@ -148,52 +159,45 @@ export const MetronomeStageControl: React.FC<MetronomeStageControlProps> = ({
     metronome.setMuted(nextMuted);
   };
 
-  // Ajuster le volume sonore
-  const handleVolumeChange = (newVol: number) => {
-    setVolume(newVol);
-    metronome.setVolume(newVol);
-    if (newVol === 0 && !isMuted) {
-      setIsMuted(true);
-      metronome.setMuted(true);
-    } else if (newVol > 0 && isMuted) {
-      setIsMuted(false);
-      metronome.setMuted(false);
-    }
-  };
-
-  // Logique Tap Tempo
-  const handleTap = () => {
-    const now = performance.now();
-    const recentTaps = tapTimesRef.current.filter(t => now - t < 3000);
-    recentTaps.push(now);
-    tapTimesRef.current = recentTaps;
-    setTapCount(recentTaps.length);
-
-    if (recentTaps.length >= 2) {
-      const intervals: number[] = [];
-      for (let i = 1; i < recentTaps.length; i++) {
-        intervals.push(recentTaps[i] - recentTaps[i - 1]);
+  // Activer / Désactiver le flash écran avec aperçu immédiat
+  const handleToggleScreenFlash = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    const nextVal = !enableScreenFlash;
+    setEnableScreenFlash(nextVal);
+    enableScreenFlashRef.current = nextVal;
+    if (nextVal) {
+      // Test de flash instantané pour confirmer visuellement que le flash fonctionne
+      triggerScreenFlash(true);
+    } else {
+      if (flashTimeoutRef.current) {
+        window.clearTimeout(flashTimeoutRef.current);
       }
-      const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
-      const calculatedBpm = Math.round(60000 / avgInterval);
-      const clampedBpm = Math.max(30, Math.min(280, calculatedBpm));
-      setLastTapBpm(clampedBpm);
-      handleBpmUpdate(clampedBpm);
+      setFlashActive(null);
     }
   };
 
-  // Arrêter le métronome si le composant est démonté
+  // Arrêter le métronome et nettoyer les timers si le composant est démonté
   useEffect(() => {
     return () => {
       metronome.stop();
+      if (flashTimeoutRef.current) {
+        window.clearTimeout(flashTimeoutRef.current);
+      }
     };
   }, []);
 
   return (
     <div className={`relative ${className}`}>
-      {/* Flash visuel discret en haut d'écran sur le premier temps si activé */}
-      {enableScreenFlash && isPlaying && isAccentBeat && (
-        <div className="fixed top-0 left-0 right-0 h-1.5 bg-emerald-400 shadow-[0_0_15px_#34d399] pointer-events-none z-50 animate-pulse" />
+      {/* Flash contour subtil et discret aux bordures d'écran (aucun filtre de fond) */}
+      {flashActive && (
+        <div 
+          id="metronome-screen-flash-overlay"
+          className={`fixed inset-0 pointer-events-none z-[99999] bg-transparent transition-opacity duration-75 ${
+            flashActive === 'accent'
+              ? 'ring-2 ring-inset ring-amber-400/80 shadow-[inset_0_0_12px_rgba(251,191,36,0.25)]'
+              : 'ring-1 sm:ring-2 ring-inset ring-emerald-400/50 shadow-[inset_0_0_8px_rgba(52,211,153,0.15)]'
+          }`}
+        />
       )}
 
       {/* Widget Barre Supérieure Compacte */}
@@ -204,7 +208,7 @@ export const MetronomeStageControl: React.FC<MetronomeStageControlProps> = ({
             ? 'bg-emerald-950/40 border-emerald-500/50 shadow-emerald-950/50' 
             : 'bg-[#141416] border-[#242428] hover:border-emerald-500/40'
         }`}
-        title="Métronome visuel et sonore (BPM, signature, pulsation et tap tempo)"
+        title="Métronome visuel, sonore et flash écran (BPM, signature, pulsation)"
       >
         {/* Bouton Play/Pause du métronome */}
         <button
@@ -289,11 +293,8 @@ export const MetronomeStageControl: React.FC<MetronomeStageControlProps> = ({
           </div>
         )}
 
-        {/* Indicateur visuel de battements (LEDs de mesure dynamiques) */}
-        <div 
-          className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#0D0D10] border border-[#202024]"
-          title={`Mesure : ${currentBeat + 1} / ${sigInfo.beatsPerMeasure}`}
-        >
+        {/* Visualisation des battements par points */}
+        <div className="flex items-center gap-1 border-l border-[#242428] pl-2 pr-1">
           {Array.from({ length: sigInfo.beatsPerMeasure }).map((_, idx) => {
             const isCurrent = isPlaying && currentBeat === idx;
             const isAccent = sigInfo.accents.includes(idx);
@@ -337,284 +338,21 @@ export const MetronomeStageControl: React.FC<MetronomeStageControlProps> = ({
           )}
         </button>
 
-        {/* Bouton pour ouvrir le grand panneau de réglages métronome ou les réglages du morceau */}
+        {/* Bouton Flash Écran (Pulsation visuelle plein écran) */}
         <button
           type="button"
-          id="metronome-open-settings-btn"
-          onClick={() => {
-            if (readOnly && onOpenSettings) {
-              onOpenSettings();
-            } else {
-              setShowFullPanel(!showFullPanel);
-            }
-          }}
-          className={`p-1 rounded transition-colors cursor-pointer ${
-            showFullPanel
-              ? 'bg-blue-600 text-white shadow-xs'
-              : 'text-gray-400 hover:text-white hover:bg-[#202026]'
+          id="metronome-toggle-flash-btn"
+          onClick={handleToggleScreenFlash}
+          className={`p-1 rounded transition-all cursor-pointer ${
+            enableScreenFlash
+              ? 'bg-amber-500/25 text-amber-400 border border-amber-500/50 shadow-[0_0_8px_rgba(245,158,11,0.3)]'
+              : 'text-gray-400 hover:text-amber-300 hover:bg-[#202026]'
           }`}
-          title={readOnly ? "Ouvrir les réglages du morceau pour modifier le tempo" : "Ouvrir le panneau complet du métronome (Tap tempo, slider, volume...)"}
+          title={enableScreenFlash ? "Flash écran actif (cliquer pour désactiver)" : "Activer le flash écran au tempo"}
         >
-          <Sliders className="w-3.5 h-3.5" />
+          <Zap className={`w-3.5 h-3.5 ${enableScreenFlash ? 'fill-amber-400 text-amber-400' : ''}`} />
         </button>
       </div>
-
-      {/* Panneau Popover / Tiroir Complet de Réglages Métronome */}
-      {showFullPanel && (
-        <div 
-          id="metronome-full-drawer"
-          className="absolute right-0 top-full mt-2 z-40 w-80 sm:w-96 bg-[#161619] border border-[#2B2B32] rounded-xl p-4 shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-top-2 duration-150"
-        >
-          {/* Header du panneau */}
-          <div className="flex items-center justify-between pb-2.5 mb-3 border-b border-[#24242A]">
-            <div className="flex items-center gap-2">
-              <div className={`w-2.5 h-2.5 rounded-full ${isPlaying ? 'bg-emerald-400 animate-ping' : 'bg-gray-500'}`} />
-              <h3 className="text-xs font-bold text-white tracking-wide">
-                Métronome de Scène
-              </h3>
-              {songTitle && (
-                <span className="text-[10px] text-gray-400 truncate max-w-[140px]">
-                  • {songTitle}
-                </span>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowFullPanel(false)}
-              className="w-6 h-6 rounded flex items-center justify-center text-gray-400 hover:text-white hover:bg-[#25252A] transition-colors"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          <div className="space-y-4">
-            {/* Grand affichage visuel du tempo et battement en cours */}
-            <div className="bg-[#0E0E11] border border-[#222228] rounded-xl p-3 text-center relative overflow-hidden">
-              {/* Effet d'impulsion visuelle en arrière-plan sur chaque temps */}
-              {isPlaying && (
-                <div 
-                  className={`absolute inset-0 pointer-events-none transition-opacity duration-100 ${
-                    isAccentBeat 
-                      ? 'bg-emerald-500/10 opacity-100' 
-                      : 'bg-blue-500/5 opacity-60'
-                  }`} 
-                />
-              )}
-
-              <div className="flex items-center justify-center gap-3">
-                <span className="text-3xl font-black font-mono tracking-tight text-white">
-                  {bpm}
-                </span>
-                <div className="text-left">
-                  <span className="text-[11px] font-bold text-emerald-400 block leading-none">BPM</span>
-                  <span className="text-[10px] text-gray-400 font-mono">{getTempoName(bpm)}</span>
-                </div>
-              </div>
-
-              {/* Grandes pastilles de battements visuels */}
-              <div className="flex items-center justify-center gap-2.5 mt-3">
-                {Array.from({ length: sigInfo.beatsPerMeasure }).map((_, idx) => {
-                  const isCurrent = isPlaying && currentBeat === idx;
-                  const isAccent = sigInfo.accents.includes(idx);
-
-                  let sizeClass = 'w-4 h-4 text-[10px]';
-                  let styleClass = 'bg-[#1C1C22] text-gray-500 border border-[#2D2D35]';
-
-                  if (isCurrent) {
-                    if (isAccent) {
-                      styleClass = 'bg-emerald-500 text-white font-bold border-emerald-300 shadow-[0_0_12px_#10b981] scale-125';
-                    } else {
-                      styleClass = 'bg-blue-500 text-white font-bold border-blue-300 shadow-[0_0_10px_#3b82f6] scale-110';
-                    }
-                  } else if (isAccent) {
-                    styleClass = 'bg-[#2A2A33] text-gray-300 border-emerald-900/50';
-                  }
-
-                  return (
-                    <div
-                      key={idx}
-                      className={`rounded-full flex items-center justify-center font-mono transition-all duration-75 ${sizeClass} ${styleClass}`}
-                    >
-                      {idx + 1}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Boutons d'ajustement rapide du tempo */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs text-gray-300">
-                <span className="font-semibold">Réglage du tempo</span>
-                <span className="font-mono text-gray-400 text-[11px]">{bpm} BPM</span>
-              </div>
-
-              <div className="grid grid-cols-4 gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => handleBpmUpdate(bpm - 5)}
-                  className="py-1.5 bg-[#1C1C20] hover:bg-[#25252C] text-gray-200 border border-[#2E2E36] rounded-lg text-xs font-semibold transition-colors"
-                >
-                  -5
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleBpmUpdate(bpm - 1)}
-                  className="py-1.5 bg-[#1C1C20] hover:bg-[#25252C] text-gray-200 border border-[#2E2E36] rounded-lg text-xs font-semibold transition-colors"
-                >
-                  -1
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleBpmUpdate(bpm + 1)}
-                  className="py-1.5 bg-[#1C1C20] hover:bg-[#25252C] text-gray-200 border border-[#2E2E36] rounded-lg text-xs font-semibold transition-colors"
-                >
-                  +1
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleBpmUpdate(bpm + 5)}
-                  className="py-1.5 bg-[#1C1C20] hover:bg-[#25252C] text-gray-200 border border-[#2E2E36] rounded-lg text-xs font-semibold transition-colors"
-                >
-                  +5
-                </button>
-              </div>
-
-              {/* Slider de BPM */}
-              <input
-                type="range"
-                min={30}
-                max={260}
-                value={bpm}
-                onChange={(e) => handleBpmUpdate(parseInt(e.target.value, 10))}
-                className="w-full accent-emerald-500 cursor-pointer h-1.5 bg-[#25252C] rounded-lg"
-              />
-            </div>
-
-            {/* Tap Tempo Tactile */}
-            <div className="pt-1">
-              <button
-                type="button"
-                id="metronome-tap-tempo-btn"
-                onClick={handleTap}
-                className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-950/70 to-blue-950/70 hover:from-emerald-900/80 hover:to-blue-900/80 border border-emerald-500/40 hover:border-emerald-400 text-white font-bold text-xs flex items-center justify-between shadow-sm active:scale-98 transition-all cursor-pointer"
-              >
-                <div className="flex items-center gap-2">
-                  <Radio className="w-4 h-4 text-emerald-400 animate-pulse" />
-                  <div className="text-left">
-                    <p className="leading-tight">Tap Tempo</p>
-                    <p className="text-[10px] text-gray-400 font-normal">Tapez au rythme du chant</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  {lastTapBpm ? (
-                    <span className="font-mono text-emerald-300 text-sm font-black">{lastTapBpm} BPM</span>
-                  ) : (
-                    <span className="text-[10px] text-gray-400">Tapez {Math.max(0, 4 - tapCount)}x</span>
-                  )}
-                </div>
-              </button>
-            </div>
-
-            {/* Signature Rythmique */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between text-xs text-gray-300">
-                <span className="font-semibold">Signature rythmique</span>
-                <span className="font-mono text-purple-300 text-xs font-bold">{timeSignature}</span>
-              </div>
-              <div className="grid grid-cols-3 gap-1.5">
-                {PRESET_SIGNATURES.map(sig => {
-                  const isSelected = timeSignature === sig.value;
-                  return (
-                    <button
-                      key={sig.value}
-                      type="button"
-                      onClick={() => handleSignatureUpdate(sig.value)}
-                      className={`py-1.5 px-2 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
-                        isSelected
-                          ? 'bg-purple-900/40 border-purple-500 text-purple-200 shadow-sm'
-                          : 'bg-[#1C1C20] hover:bg-[#25252C] text-gray-300 border-[#2E2E36]'
-                      }`}
-                      title={sig.desc}
-                    >
-                      {sig.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Réglages Sonores & Flash Visuel */}
-            <div className="pt-2 border-t border-[#24242A] space-y-3">
-              {/* Volume Sonore */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs text-gray-300">
-                  <span className="flex items-center gap-1.5">
-                    {isMuted ? <VolumeX className="w-3.5 h-3.5 text-gray-500" /> : <Volume2 className="w-3.5 h-3.5 text-emerald-400" />}
-                    <span>Volume du clic</span>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleToggleMute}
-                    className="text-[10px] font-semibold text-blue-400 hover:text-blue-300 underline cursor-pointer"
-                  >
-                    {isMuted ? 'Activer le son' : 'Couper le son'}
-                  </button>
-                </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  value={isMuted ? 0 : volume}
-                  disabled={isMuted}
-                  onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
-                  className="w-full accent-blue-500 cursor-pointer h-1.5 bg-[#25252C] rounded-lg disabled:opacity-40"
-                />
-              </div>
-
-              {/* Flash visuel bordure écran */}
-              <div className="flex items-center justify-between pt-1 text-xs text-gray-300">
-                <span className="flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Flash visuel en haut d'écran</span>
-                </span>
-                <input
-                  type="checkbox"
-                  checked={enableScreenFlash}
-                  onChange={(e) => setEnableScreenFlash(e.target.checked)}
-                  className="rounded bg-[#25252C] border-[#3A3A42] text-emerald-500 focus:ring-0 cursor-pointer w-4 h-4"
-                />
-              </div>
-            </div>
-
-            {/* Bouton Démarrer / Arrêter général */}
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={handleTogglePlay}
-                className={`w-full py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer ${
-                  isPlaying
-                    ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-900/30'
-                    : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/30'
-                }`}
-              >
-                {isPlaying ? (
-                  <>
-                    <Pause className="w-4 h-4 fill-current" />
-                    <span>Arrêter le métronome</span>
-                  </>
-                ) : (
-                  <>
-                    <Play className="w-4 h-4 fill-current" />
-                    <span>Démarrer le métronome ({bpm} BPM • {timeSignature})</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

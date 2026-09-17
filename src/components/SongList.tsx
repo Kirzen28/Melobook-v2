@@ -14,6 +14,7 @@ import {
   getHiddenCategories, 
   saveHiddenCategories 
 } from '../utils/categoryUtils';
+import { parseArtistsString } from '../utils/artistUtils';
 import { 
   Search, 
   Plus, 
@@ -395,9 +396,15 @@ export const SongList: React.FC = () => {
   const allAuthorsWithCounts = useMemo(() => {
     const counts = new Map<string, number>();
     songs.forEach(s => {
-      const author = (s.artist || '').trim();
-      const key = author || 'Sans auteur';
-      counts.set(key, (counts.get(key) || 0) + 1);
+      const raw = (s.artist || '').trim();
+      const parsed = parseArtistsString(raw);
+      if (parsed.length === 0) {
+        counts.set('Sans auteur', (counts.get('Sans auteur') || 0) + 1);
+      } else {
+        parsed.forEach(art => {
+          counts.set(art, (counts.get(art) || 0) + 1);
+        });
+      }
     });
 
     return Array.from(counts.entries())
@@ -539,10 +546,10 @@ export const SongList: React.FC = () => {
       }
       // Authors filter (support single or multiple selection with checkboxes)
       if (selectedAuthors.length > 0) {
-        const songAuthor = (song.artist || '').trim();
-        const effectiveAuthor = songAuthor || 'Sans auteur';
+        const rawArtist = (song.artist || '').trim();
+        const artists = rawArtist ? parseArtistsString(rawArtist) : ['Sans auteur'];
         const hasMatch = selectedAuthors.some(author => 
-          effectiveAuthor.toLowerCase() === author.toLowerCase()
+          artists.some(a => a.toLowerCase() === author.toLowerCase())
         );
         if (!hasMatch) return false;
       }
@@ -1313,11 +1320,11 @@ export const SongList: React.FC = () => {
                     e.stopPropagation();
                     handleEditSong(song);
                   }}
-                  className="p-1 sm:p-1.5 rounded bg-[#1C1C1E] hover:bg-[#252528] text-gray-300 hover:text-amber-400 border border-[#333] hover:border-amber-500/40 transition-colors flex items-center justify-center cursor-pointer"
+                  className="p-1 sm:p-1.5 rounded bg-[#1C1C1E] hover:bg-amber-500/15 text-gray-300 hover:text-amber-300 border border-[#333] hover:border-amber-500/50 transition-colors flex items-center justify-center cursor-pointer group"
                   title={isMultiSelectMode ? undefined : "Éditer le chant"}
-                  aria-label="Éditer"
+                  aria-label="Éditer le chant"
                 >
-                  <FileEdit className="w-3.5 h-3.5 text-amber-400" />
+                  <FileEdit className="w-3.5 h-3.5 text-amber-400 group-hover:scale-110 transition-transform" />
                 </button>
 
                 <button

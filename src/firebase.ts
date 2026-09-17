@@ -15,6 +15,7 @@ import {
   persistentMultipleTabManager,
   memoryLocalCache,
   getFirestore, 
+  setLogLevel,
   collection, 
   doc, 
   getDoc, 
@@ -33,41 +34,38 @@ import {
 } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
 
+// Silence non-critical transport warnings (e.g. initial streaming probes in iframes)
+try {
+  setLogLevel('error');
+} catch {
+  // Ignore in environments where setLogLevel is not supported
+}
+
 // Initialize Firebase App
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 
 // Initialize Auth
 export const auth = getAuth(app);
 
-// Initialize Firestore with auto-detecting transport and resilient caching
+// Initialize Firestore with forced long-polling to bypass iframe/proxy streaming blocks
 const targetDatabaseId = firebaseConfig.firestoreDatabaseId || undefined;
 
 let firestoreInstance;
 try {
   firestoreInstance = initializeFirestore(app, {
-    experimentalAutoDetectLongPolling: true,
-    experimentalLongPollingOptions: {
-      timeoutSeconds: 20
-    },
+    experimentalForceLongPolling: true,
     localCache: persistentLocalCache({
       tabManager: persistentMultipleTabManager()
     })
   }, targetDatabaseId);
-} catch (e) {
+} catch {
   try {
     firestoreInstance = initializeFirestore(app, {
-      experimentalAutoDetectLongPolling: true,
-      localCache: persistentLocalCache({})
+      experimentalForceLongPolling: true,
+      localCache: memoryLocalCache()
     }, targetDatabaseId);
-  } catch (e2) {
-    try {
-      firestoreInstance = initializeFirestore(app, {
-        experimentalAutoDetectLongPolling: true,
-        localCache: memoryLocalCache()
-      }, targetDatabaseId);
-    } catch (e3) {
-      firestoreInstance = getFirestore(app, targetDatabaseId);
-    }
+  } catch {
+    firestoreInstance = getFirestore(app, targetDatabaseId);
   }
 }
 

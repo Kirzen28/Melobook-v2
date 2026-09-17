@@ -30,28 +30,37 @@ import { ChordPickerModal } from './editor/ChordPickerModal';
 import { LanguageVersionModal } from './LanguageVersionModal';
 import { PRESET_LANGUAGES, getLanguageMeta, getLinkedSongVersions } from '../utils/languageUtils';
 import { 
+  DEFAULT_ARTIST_SUGGESTIONS,
+  parseArtistsString,
+  formatArtistsArray,
+  getCustomArtists,
+  saveCustomArtists
+} from '../utils/artistUtils';
+import { 
   Save, 
   ChevronLeft, 
   Sparkles, 
   Music, 
   Eye, 
-  Code2, 
+  FileEdit, 
   Plus, 
   Check, 
   Tag, 
-  ChevronDown,
-  ChevronUp,
-  ChevronsDown,
-  ChevronsUp,
+  ChevronDown, 
+  ChevronUp, 
+  ChevronsDown, 
+  ChevronsUp, 
   X, 
   Mic, 
-  Layers, 
   Copy, 
   Trash2, 
-  FileText,
-  Globe,
-  Link,
-  ArrowRight
+  FileText, 
+  Globe, 
+  Link, 
+  ArrowRight,
+  Search,
+  Users,
+  User
 } from 'lucide-react';
 
 const SAMPLE_TEMPLATE = `{title: Mon Nouveau Chant}
@@ -108,6 +117,11 @@ export const SongEditor: React.FC = () => {
   // Basic Song Metadata
   const [title, setTitle] = useState(selectedSong?.title || '');
   const [artist, setArtist] = useState(selectedSong?.artist || '');
+  const [selectedArtists, setSelectedArtists] = useState<string[]>(() => parseArtistsString(selectedSong?.artist));
+  const [isArtistDropdownOpen, setIsArtistDropdownOpen] = useState(false);
+  const [artistSearchQuery, setArtistSearchQuery] = useState('');
+  const [customArtists, setCustomArtists] = useState<string[]>(() => getCustomArtists());
+  const artistDropdownRef = useRef<HTMLDivElement>(null);
   const [key, setKey] = useState(selectedSong?.key || 'C');
   const [tempo, setTempo] = useState<number>(selectedSong?.tempo || 100);
   const [timeSignature, setTimeSignature] = useState(selectedSong?.timeSignature || '4/4');
@@ -119,9 +133,6 @@ export const SongEditor: React.FC = () => {
   const [categories, setCategories] = useState<string[]>(selectedSong?.tags || []);
   const [notes, setNotes] = useState(selectedSong?.notes || '');
   const [contentChordPro, setContentChordPro] = useState(selectedSong?.contentChordPro || SAMPLE_TEMPLATE);
-
-  // Editor View Modes: 'visual' (Interactive Cards) vs 'code' (Raw ChordPro Text)
-  const [editorMode, setEditorMode] = useState<'visual' | 'code'>('visual');
   const [showPreviewPane, setShowPreviewPane] = useState(true);
 
   // Visual Structured Sections
@@ -193,7 +204,6 @@ export const SongEditor: React.FC = () => {
     }
   });
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Add section dropdown state
   const [isAddSectionDropdownOpen, setIsAddSectionDropdownOpen] = useState(false);
@@ -202,6 +212,9 @@ export const SongEditor: React.FC = () => {
   // Close dropdowns on outside click
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
+      if (artistDropdownRef.current && !artistDropdownRef.current.contains(e.target as Node)) {
+        setIsArtistDropdownOpen(false);
+      }
       if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(e.target as Node)) {
         setIsCategoryDropdownOpen(false);
       }
@@ -212,6 +225,83 @@ export const SongEditor: React.FC = () => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Compute all available artists across songs and custom additions
+  const allAvailableArtists = useMemo(() => {
+    const set = new Set<string>();
+    DEFAULT_ARTIST_SUGGESTIONS.forEach(a => set.add(a));
+    songs.forEach(s => {
+      if (s.artist) {
+        parseArtistsString(s.artist).forEach(a => set.add(a));
+      }
+    });
+    customArtists.forEach(a => set.add(a));
+    selectedArtists.forEach(a => set.add(a));
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
+  }, [songs, customArtists, selectedArtists]);
+
+  const filteredArtistsList = useMemo(() => {
+    if (!artistSearchQuery.trim()) return allAvailableArtists;
+    const q = artistSearchQuery.toLowerCase().trim();
+    return allAvailableArtists.filter(a => a.toLowerCase().includes(q));
+  }, [allAvailableArtists, artistSearchQuery]);
+
+  const handleToggleArtist = (artistName: string) => {
+    const trimmed = artistName.trim();
+    if (!trimmed) return;
+    setSelectedArtists(prev => {
+      const exists = prev.some(a => a.toLowerCase() === trimmed.toLowerCase());
+      const next = exists
+        ? prev.filter(a => a.toLowerCase() !== trimmed.toLowerCase())
+        : [...prev, trimmed];
+      const joined = formatArtistsArray(next);
+      setArtist(joined);
+      return next;
+    });
+  };
+
+  const handleRemoveArtist = (artistName: string) => {
+    setSelectedArtists(prev => {
+      const next = prev.filter(a => a.toLowerCase() !== artistName.toLowerCase());
+      const joined = formatArtistsArray(next);
+      setArtist(joined);
+      return next;
+    });
+  };
+
+  const handleCreateArtist = (rawInput?: string) => {
+    const input = (rawInput !== undefined ? rawInput : artistSearchQuery).trim();
+    if (!input) return;
+
+    const parsedNew = parseArtistsString(input);
+    if (parsedNew.length === 0) return;
+
+    const newCustom: string[] = [];
+    setSelectedArtists(prev => {
+      const updated = [...prev];
+      parsedNew.forEach(name => {
+        if (!updated.some(a => a.toLowerCase() === name.toLowerCase())) {
+          updated.push(name);
+        }
+        if (!customArtists.some(a => a.toLowerCase() === name.toLowerCase())) {
+          newCustom.push(name);
+        }
+      });
+      const joined = formatArtistsArray(updated);
+      setArtist(joined);
+      return updated;
+    });
+
+    if (newCustom.length > 0) {
+      setCustomArtists(prev => {
+        const next = [...prev, ...newCustom];
+        saveCustomArtists(next);
+        return next;
+      });
+    }
+
+    setArtistSearchQuery('');
+  };
 
   // Compute all available categories
   const allAvailableCategories = useMemo(() => {
@@ -261,7 +351,8 @@ export const SongEditor: React.FC = () => {
   useEffect(() => {
     if (selectedSong) {
       setTitle(selectedSong.title);
-      setArtist(selectedSong.artist);
+      setArtist(selectedSong.artist || '');
+      setSelectedArtists(parseArtistsString(selectedSong.artist));
       setKey(selectedSong.key || 'C');
       setTempo(selectedSong.tempo || 100);
       setTimeSignature(selectedSong.timeSignature || '4/4');
@@ -276,6 +367,7 @@ export const SongEditor: React.FC = () => {
     } else {
       setTitle('');
       setArtist('');
+      setSelectedArtists([]);
       setKey('C');
       setTempo(100);
       setTimeSignature('4/4');
@@ -305,28 +397,6 @@ export const SongEditor: React.FC = () => {
     });
     return Array.from(set);
   }, [visualSections, contentChordPro]);
-
-  // Switch to Code Mode: Sync current visual sections into ChordPro text
-  const handleSwitchToCodeMode = () => {
-    const serialized = visualSectionsToChordPro(visualSections, {
-      title,
-      artist,
-      key,
-      tempo,
-      timeSignature,
-      duration,
-      capo
-    });
-    setContentChordPro(serialized);
-    setEditorMode('code');
-  };
-
-  // Switch to Visual Mode: Parse ChordPro text into visual sections
-  const handleSwitchToVisualMode = () => {
-    const parsed = chordProToVisualSections(contentChordPro);
-    setVisualSections(parsed);
-    setEditorMode('visual');
-  };
 
   // Update a section in Visual Mode and sync ChordPro text
   const handleUpdateSection = (updatedSection: VisualSection) => {
@@ -531,18 +601,6 @@ export const SongEditor: React.FC = () => {
     setContentChordPro(visualSectionsToChordPro(updatedSections, { title, artist, key, tempo, timeSignature, duration, capo }));
   };
 
-  // Auto-sync metadata from ChordPro text
-  const handleAutoExtractMetadata = () => {
-    const parsed = parseChordPro(contentChordPro);
-    if (parsed.title && parsed.title !== 'Sans Titre') setTitle(parsed.title);
-    if (parsed.artist) setArtist(parsed.artist);
-    if (parsed.key) setKey(parsed.key);
-    if (parsed.tempo) setTempo(parsed.tempo);
-    if (parsed.timeSignature) setTimeSignature(parsed.timeSignature);
-    if (parsed.duration) setDuration(parsed.duration);
-    if (parsed.capo) setCapo(parsed.capo);
-  };
-
   // Save Song to Firebase or Local Repertoire
   const handleSave = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -554,18 +612,16 @@ export const SongEditor: React.FC = () => {
     setIsSaving(true);
     const resolvedDuration = formatDurationToMMSS(duration.trim() || '03:30');
 
-    // Ensure ChordPro content is up to date
-    const finalChordPro = editorMode === 'visual'
-      ? visualSectionsToChordPro(visualSections, {
-          title: title.trim(),
-          artist: artist.trim(),
-          key: key.trim().toUpperCase(),
-          tempo: Number(tempo) || 100,
-          timeSignature,
-          duration: resolvedDuration,
-          capo: Number(capo) || 0
-        })
-      : contentChordPro;
+    // Ensure ChordPro content is up to date from visual sections
+    const finalChordPro = visualSectionsToChordPro(visualSections, {
+      title: title.trim(),
+      artist: artist.trim(),
+      key: key.trim().toUpperCase(),
+      tempo: Number(tempo) || 100,
+      timeSignature,
+      duration: resolvedDuration,
+      capo: Number(capo) || 0
+    });
 
     const songData: Partial<Song> = {
       title: title.trim(),
@@ -600,66 +656,49 @@ export const SongEditor: React.FC = () => {
 
   // Live parsed preview
   const livePreviewData = parseChordPro(
-    editorMode === 'visual'
-      ? visualSectionsToChordPro(visualSections, { title, artist, key, tempo, timeSignature, duration, capo })
-      : contentChordPro
+    visualSectionsToChordPro(visualSections, { title, artist, key, tempo, timeSignature, duration, capo })
   );
 
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-6 py-6 pb-16 text-[#E0E0E0]">
       
-      {/* Top Header & Save Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setActiveTab('repertoire')}
-            className="p-2 rounded-lg bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 hover:text-white border border-[#333] transition-colors"
-            title="Retour au répertoire"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
-              <span>{selectedSong ? selectedSong.title : 'Nouveau Chant'}</span>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-blue-600/20 text-blue-400 border border-blue-500/30 font-medium">
-                Éditeur Visuel
-              </span>
-            </h1>
-            <p className="text-xs text-gray-400">
+      {/* Bandeau en haut : Mode Éditeur */}
+      <div className="mb-4 flex items-center justify-between px-3.5 sm:px-4 py-2.5 rounded-xl bg-[#18181C] border border-amber-500/30 text-xs shadow-xs">
+        <div className="flex items-center gap-2.5">
+          <div className="w-6 h-6 rounded-md bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0">
+            <FileEdit className="w-3.5 h-3.5" />
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-amber-400 uppercase tracking-wider text-xs">
+              Mode Éditeur
+            </span>
+            <span className="text-gray-500 text-xs hidden sm:inline">•</span>
+            <span className="text-gray-300 text-xs hidden sm:inline">
               Glissez et déposez les sections, modifiez les accords en un clic
-            </p>
+            </span>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Mode Switcher Tabs */}
-          <div className="flex items-center bg-[#111113] border border-[#222225] rounded-lg p-1 text-xs">
-            <button
-              type="button"
-              onClick={handleSwitchToVisualMode}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-semibold transition-colors ${
-                editorMode === 'visual'
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-gray-400 hover:text-gray-200'
-              }`}
-            >
-              <Layers className="w-3.5 h-3.5" />
-              <span>Mode Visuel</span>
-            </button>
-            <button
-              type="button"
-              onClick={handleSwitchToCodeMode}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-semibold transition-colors ${
-                editorMode === 'code'
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-gray-400 hover:text-gray-200'
-              }`}
-            >
-              <Code2 className="w-3.5 h-3.5" />
-              <span>Code ChordPro</span>
-            </button>
-          </div>
+        <button
+          type="button"
+          onClick={() => setActiveTab('repertoire')}
+          className="flex items-center gap-1 text-xs text-gray-400 hover:text-white transition-colors cursor-pointer px-2.5 py-1 rounded-md hover:bg-[#25252A]"
+          title="Quitter le mode éditeur et retourner au répertoire"
+        >
+          <ChevronLeft className="w-3.5 h-3.5" />
+          <span>Quitter l'éditeur</span>
+        </button>
+      </div>
 
+      {/* Top Header & Save Actions */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-xl sm:text-2xl font-bold text-white break-words">
+            {selectedSong ? selectedSong.title : 'Nouveau Chant'}
+          </h1>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
           {/* Toggle Live Preview pane */}
           <button
             type="button"
@@ -700,7 +739,7 @@ export const SongEditor: React.FC = () => {
       {/* Metadata Form Grid */}
       <div className="bg-[#111113] border border-[#222225] rounded-xl p-3 sm:p-3.5 mb-4 shadow-sm space-y-2.5">
         {/* Row 1: Titre, Artiste & Paramètres musicaux */}
-        <div className="grid grid-cols-12 gap-2.5 items-end">
+        <div className="grid grid-cols-12 gap-2.5 items-start">
           
           {/* Titre */}
           <div className="col-span-12 sm:col-span-7 lg:col-span-4">
@@ -717,22 +756,157 @@ export const SongEditor: React.FC = () => {
             />
           </div>
 
-          {/* Artiste */}
-          <div className="col-span-12 sm:col-span-5 lg:col-span-3">
-            <label className="block text-[11px] font-semibold text-gray-400 mb-1 truncate">
-              Artiste ou Auteur
-            </label>
-            <input
-              type="text"
-              placeholder="ex: Bethel Music, Chris Tomlin"
-              value={artist}
-              onChange={(e) => setArtist(e.target.value)}
-              className="w-full h-8 bg-[#1C1C1E] border border-[#333] hover:border-[#444] rounded-lg px-2.5 text-xs text-white focus:outline-none focus:border-blue-500 transition-colors"
-            />
+          {/* Artiste ou Auteur (Multi-sélection & création rapide) */}
+          <div className="col-span-12 sm:col-span-5 lg:col-span-4 relative" ref={artistDropdownRef}>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-[11px] font-semibold text-gray-400 flex items-center gap-1.5 truncate">
+                <Users className="w-3 h-3 text-purple-400" />
+                <span>Artiste(s) ou Auteur(s)</span>
+              </label>
+              {selectedArtists.length > 0 && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedArtists([]);
+                    setArtist('');
+                  }}
+                  className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors"
+                  title="Effacer les artistes"
+                >
+                  Effacer
+                </button>
+              )}
+            </div>
+
+            <div
+              id="song-artist-select"
+              onClick={() => setIsArtistDropdownOpen(!isArtistDropdownOpen)}
+              className={`min-h-[32px] w-full bg-[#1C1C1E] border ${
+                isArtistDropdownOpen ? 'border-purple-500 ring-1 ring-purple-500/30' : 'border-[#333] hover:border-[#444]'
+              } rounded-lg px-2 py-1 flex flex-wrap items-center gap-1 cursor-pointer transition-colors`}
+            >
+              {selectedArtists.length === 0 ? (
+                <span className="text-gray-500 text-xs truncate">Choisir ou créer un artiste...</span>
+              ) : (
+                selectedArtists.map((art) => (
+                  <span
+                    key={art}
+                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-600/20 text-purple-300 border border-purple-500/30 text-[10px] font-medium"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <span className="truncate max-w-[130px]">{art}</span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemoveArtist(art);
+                      }}
+                      className="hover:text-white transition-colors"
+                      title={`Retirer ${art}`}
+                    >
+                      <X className="w-2.5 h-2.5" />
+                    </button>
+                  </span>
+                ))
+              )}
+              <ChevronDown className={`w-3.5 h-3.5 text-gray-400 ml-auto shrink-0 transition-transform duration-200 ${isArtistDropdownOpen ? 'rotate-180' : ''}`} />
+            </div>
+
+            {isArtistDropdownOpen && (
+              <div className="absolute left-0 right-0 top-full mt-1 bg-[#141416] border border-[#2A2A2D] rounded-xl shadow-2xl z-50 p-2.5 text-xs animate-in fade-in duration-100 min-w-[260px]">
+                {/* Search & Quick Creation Field */}
+                <div className="flex items-center gap-1.5 mb-2">
+                  <div className="relative flex-1">
+                    <Search className="w-3 h-3 text-gray-400 absolute left-2 top-2" />
+                    <input
+                      id="artist-search-input"
+                      type="text"
+                      placeholder="Rechercher ou créer un artiste..."
+                      value={artistSearchQuery}
+                      onChange={(e) => setArtistSearchQuery(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleCreateArtist(artistSearchQuery);
+                        }
+                      }}
+                      className="w-full bg-[#1C1C1E] border border-[#333] rounded-md pl-7 pr-2 py-1 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
+                      autoFocus
+                    />
+                  </div>
+                  {artistSearchQuery.trim() && (
+                    <button
+                      type="button"
+                      onClick={() => handleCreateArtist(artistSearchQuery)}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer"
+                      title="Ajouter immédiatement cet artiste"
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>Ajouter</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Quick Add Prompt if current search query isn't in existing artists */}
+                {artistSearchQuery.trim() && !allAvailableArtists.some(a => a.toLowerCase() === artistSearchQuery.trim().toLowerCase()) && (
+                  <button
+                    type="button"
+                    onClick={() => handleCreateArtist(artistSearchQuery)}
+                    className="w-full mb-1.5 p-2 rounded-lg bg-purple-950/40 border border-purple-800/40 hover:bg-purple-900/50 hover:border-purple-600/50 cursor-pointer flex items-center justify-between text-purple-200 transition-colors text-left"
+                  >
+                    <div className="flex items-center gap-1.5 truncate">
+                      <Plus className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                      <span className="truncate">Créer <strong className="text-white font-semibold">« {artistSearchQuery.trim()} »</strong></span>
+                    </div>
+                    <span className="text-[10px] bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded font-mono ml-2 shrink-0">Entrée ↵</span>
+                  </button>
+                )}
+
+                {/* List of Artists */}
+                <div className="max-h-48 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
+                  {filteredArtistsList.length === 0 ? (
+                    <div className="py-4 text-center text-gray-500 text-xs">
+                      Aucun artiste existant ne correspond.
+                    </div>
+                  ) : (
+                    filteredArtistsList.map((art) => {
+                      const isSelected = selectedArtists.some(a => a.toLowerCase() === art.toLowerCase());
+                      return (
+                        <div
+                          key={art}
+                          onClick={() => handleToggleArtist(art)}
+                          className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg cursor-pointer transition-colors ${
+                            isSelected
+                              ? 'bg-purple-600/15 text-purple-200 font-medium'
+                              : 'hover:bg-[#1C1C1E] text-gray-300'
+                          }`}
+                        >
+                          <span className="truncate">{art}</span>
+                          <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${
+                            isSelected 
+                              ? 'bg-purple-600 border-purple-500 text-white' 
+                              : 'border-[#444] bg-[#1C1C1E]'
+                          }`}>
+                            {isSelected && <Check className="w-3 h-3 stroke-[2.5]" />}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Footer Count & Summary */}
+                <div className="mt-2 pt-1.5 border-t border-[#222] flex items-center justify-between text-[10px] text-gray-500">
+                  <span>{filteredArtistsList.length} artiste(s) suggéré(s)</span>
+                  <span className="text-purple-400 font-medium">{selectedArtists.length} sélectionné(s)</span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Paramètres musicaux : Tonalité, BPM, Mesure & Durée */}
-          <div className="col-span-12 lg:col-span-5 grid grid-cols-4 gap-2">
+          <div className="col-span-12 lg:col-span-4 grid grid-cols-4 gap-2">
             <div>
               <label className="block text-[11px] font-semibold text-gray-400 mb-1 truncate text-center">
                 Tonalité
@@ -985,14 +1159,13 @@ export const SongEditor: React.FC = () => {
       {/* Main Workspace: Visual Editor / ChordPro Code + Live Preview */}
       <div className={`grid grid-cols-1 ${showPreviewPane ? 'lg:grid-cols-12' : 'lg:grid-cols-1'} gap-6`}>
         
-        {/* Left Column: Visual Sections List or Code Area */}
+        {/* Left Column: Visual Sections List */}
         <div className={`${showPreviewPane ? 'lg:col-span-7' : 'lg:col-span-12'} space-y-5`}>
           
-          {editorMode === 'visual' ? (
-            /* VISUAL SECTIONS INTERACTIVE BUILDER */
-            <div className="space-y-4">
-              
-              {/* Quick Add Section Dropdown & Global Folding Bar */}
+          {/* VISUAL SECTIONS INTERACTIVE BUILDER */}
+          <div className="space-y-4">
+            
+            {/* Quick Add Section Dropdown & Global Folding Bar */}
               <div className="flex items-center justify-between p-3 rounded-xl bg-[#111113] border border-[#222225] gap-3 flex-wrap">
                 <div className="flex items-center gap-2" ref={addSectionDropdownRef}>
                     <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
@@ -1155,35 +1328,6 @@ export const SongEditor: React.FC = () => {
                 ))}
               </div>
             </div>
-          ) : (
-            /* CODE CHORDPRO TEXT EDITOR */
-            <div className="bg-[#111113] border border-[#222225] rounded-xl overflow-hidden shadow-sm flex flex-col">
-              <div className="bg-[#161619] px-4 py-2.5 border-b border-[#222225] flex items-center justify-between">
-                <span className="text-xs font-bold text-gray-300 font-mono flex items-center gap-2">
-                  <Code2 className="w-4 h-4 text-blue-400" />
-                  <span>Fichier source ChordPro</span>
-                </span>
-                <button
-                  type="button"
-                  onClick={handleAutoExtractMetadata}
-                  className="flex items-center gap-1 px-2 py-1 rounded bg-[#202024] hover:bg-[#2A2A2E] text-blue-400 text-xs font-medium transition-colors"
-                  title="Synchroniser les métadonnées depuis le texte"
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>Auto-sync tags</span>
-                </button>
-              </div>
-
-              <textarea
-                ref={textareaRef}
-                rows={22}
-                value={contentChordPro}
-                onChange={(e) => setContentChordPro(e.target.value)}
-                className="w-full bg-[#0B0B0D] text-gray-100 font-mono text-xs sm:text-sm p-4 leading-relaxed focus:outline-none resize-y min-h-[420px]"
-                placeholder="Écrivez ou collez votre chant au format ChordPro..."
-              />
-            </div>
-          )}
 
         </div>
 

@@ -724,10 +724,10 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
                               type="button"
                               onClick={() => handleImportAndEditSong(song)}
                               disabled={isImporting || isLoadingDetails}
-                              className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-200 text-xs font-medium border border-[#333] transition-colors disabled:opacity-50"
+                              className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-[#1C1C1E] hover:bg-amber-500/15 text-gray-200 hover:text-amber-300 text-xs font-medium border border-[#333] hover:border-amber-500/50 transition-colors disabled:opacity-50 cursor-pointer group"
                               title="Importer et ouvrir l'éditeur"
                             >
-                              <Edit3 className="w-3.5 h-3.5 text-amber-400" />
+                              <Edit3 className="w-3.5 h-3.5 text-amber-400 group-hover:scale-110 transition-transform" />
                               <span className="hidden sm:inline">Éditer</span>
                             </button>
 

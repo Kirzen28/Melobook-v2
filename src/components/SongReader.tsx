@@ -18,7 +18,7 @@ import {
   stripParentheses
 } from '../utils/chordUtils';
 import { cacheSongInWorker } from '../utils/pwaCache';
-import { getSectionColor } from '../utils/displayDefaults';
+import { getSectionColor, getSectionBorderStyles } from '../utils/displayDefaults';
 import { MetronomeStageControl } from './MetronomeStageControl';
 import { MidiStatusIndicator } from './MidiStatusIndicator';
 import { useMidi } from '../context/MidiContext';
@@ -57,13 +57,11 @@ import {
   Layers,
   Pencil,
   Globe,
-  Repeat,
-  Battery
+  Repeat
 } from 'lucide-react';
 import { SetlistPdfModal } from './SetlistPdfModal';
 import { ChordModal } from './ChordModal';
 import { LanguageVersionModal } from './LanguageVersionModal';
-import { BatteryIndicator } from './BatteryIndicator';
 import { getLanguageMeta, getLinkedSongVersions } from '../utils/languageUtils';
 
 const PRESET_VOCAL_ROLES = [
@@ -831,13 +829,6 @@ export const SongReader: React.FC<SongReaderProps> = ({
         />
       </div>
 
-      {/* Indicateur de batterie dans le coin de l'interface en mode scène */}
-      {!isEmbedded && stageSettings.showBatteryIndicator !== false && (
-        <div className="no-print absolute top-2.5 right-3 sm:top-3 sm:right-5 z-40 pointer-events-auto">
-          <BatteryIndicator />
-        </div>
-      )}
-
       {/* Settings Drawer (Overlay) */}
       {showSettingsDrawer && (
         <div className="no-print bg-[#111112] border-b border-[#242428] px-3 sm:px-4 py-2 sm:py-2.5 text-xs shadow-2xl z-30 animate-in fade-in slide-in-from-top-1 duration-150">
@@ -899,32 +890,6 @@ export const SongReader: React.FC<SongReaderProps> = ({
               </div>
             </div>
 
-            {/* Battery Indicator Toggle */}
-            <div className="flex items-center gap-1.5">
-              <span className="text-gray-400 text-[11px] font-medium shrink-0">Batterie :</span>
-              <div className="inline-flex items-center bg-[#1C1C1E] p-0.5 rounded-md border border-[#333]">
-                <button
-                  type="button"
-                  onClick={() => updateStageSettings({ showBatteryIndicator: true })}
-                  className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-all cursor-pointer ${
-                    stageSettings.showBatteryIndicator !== false ? 'bg-blue-600 text-white font-semibold shadow-xs' : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  <Battery className="w-3 h-3" />
-                  <span>Afficher</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => updateStageSettings({ showBatteryIndicator: false })}
-                  className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-all cursor-pointer ${
-                    stageSettings.showBatteryIndicator === false ? 'bg-blue-600 text-white font-semibold shadow-xs' : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  <span>Masquer</span>
-                </button>
-              </div>
-            </div>
-
             {/* Auto-Scroll Controller */}
             <div className="flex items-center gap-1.5">
               <span className="text-gray-400 text-[11px] font-medium shrink-0">Défilement :</span>
@@ -960,7 +925,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
               <MidiStatusIndicator showLabel className="!py-0.5 !text-[11px]" />
             </div>
 
-            {/* Actions : PDF & Éditer le chant */}
+            {/* Action : PDF */}
             <div className="flex items-center gap-1.5 sm:ml-auto w-full sm:w-auto pt-1 sm:pt-0 border-t sm:border-t-0 border-[#222224]">
               <button
                 type="button"
@@ -971,18 +936,6 @@ export const SongReader: React.FC<SongReaderProps> = ({
                 <FileDown className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                 <span>Exporter PDF</span>
               </button>
-              {currentUser?.role === 'admin' && (
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('editor')}
-                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-md bg-[#1C1C1E] hover:bg-amber-500/15 text-gray-200 hover:text-amber-300 border border-[#333] hover:border-amber-500/50 font-medium text-[11px] sm:text-xs transition-colors cursor-pointer group"
-                  title="Éditer le chant"
-                  aria-label="Éditer le chant"
-                >
-                  <FileEdit className="w-3.5 h-3.5 text-amber-400 group-hover:scale-110 transition-transform shrink-0" />
-                  <span>Éditer le chant</span>
-                </button>
-              )}
             </div>
           </div>
 
@@ -1541,12 +1494,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                 <div 
                   key={sIdx}
                   className="rounded-lg p-4 transition-all"
-                  style={{
-                    borderLeftWidth: '3.5px',
-                    borderLeftStyle: 'solid',
-                    borderLeftColor: secColor,
-                    backgroundColor: `${secColor}0D`
-                  }}
+                  style={getSectionBorderStyles(secColor, displaySettings.sectionBorders)}
                 >
                   {/* Section Title Header & Vocal Arrangement Pastille & Repeat Badge */}
                   <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">

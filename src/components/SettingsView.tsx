@@ -25,7 +25,8 @@ import {
   LayoutGrid,
   Gauge,
   Clock,
-  Tag
+  Tag,
+  Square
 } from 'lucide-react';
 import { useMidi } from '../context/MidiContext';
 import { MidiSettingsModal } from './MidiSettingsModal';
@@ -34,9 +35,11 @@ import {
   COLOR_PRESETS, 
   SECTION_TYPES_LIST, 
   DEFAULT_DISPLAY_SETTINGS,
+  DEFAULT_SECTION_BORDERS,
+  getSectionBorderStyles,
   getSectionColor 
 } from '../utils/displayDefaults';
-import { SectionColors, SongTypographySettings } from '../types';
+import { SectionColors, SongTypographySettings, SectionBorders } from '../types';
 import { transposeChord } from '../utils/chordUtils';
 
 interface QuickStepperProps {
@@ -143,7 +146,11 @@ export const SettingsView: React.FC = () => {
     updateSongCardMetadata
   } = useApp();
 
-  const { typography, sectionColors } = displaySettings;
+  const { 
+    typography, 
+    sectionColors, 
+    sectionBorders = DEFAULT_SECTION_BORDERS 
+  } = displaySettings;
   const [showNotification, setShowNotification] = useState<string | null>(null);
   const [isMobilePreviewCollapsed, setIsMobilePreviewCollapsed] = useState(false);
   const [isMobilePreviewFullscreen, setIsMobilePreviewFullscreen] = useState(false);
@@ -206,6 +213,20 @@ export const SettingsView: React.FC = () => {
   const updateSectionColor = (key: keyof SectionColors, color: string) => {
     updateDisplaySettings({
       sectionColors: { [key]: color }
+    });
+  };
+
+  const toggleSectionBorder = (side: keyof SectionBorders) => {
+    updateDisplaySettings({
+      sectionBorders: {
+        [side]: !sectionBorders[side]
+      }
+    });
+  };
+
+  const applyBorderPreset = (borders: SectionBorders) => {
+    updateDisplaySettings({
+      sectionBorders: borders
     });
   };
 
@@ -277,12 +298,7 @@ export const SettingsView: React.FC = () => {
       {/* Section 1: Couplet */}
       <div 
         className="rounded-lg p-3 transition-all"
-        style={{
-          borderLeftWidth: '3.5px',
-          borderLeftStyle: 'solid',
-          borderLeftColor: sectionColors.verse,
-          backgroundColor: `${sectionColors.verse}0D`
-        }}
+        style={getSectionBorderStyles(sectionColors.verse, sectionBorders)}
       >
         <div className="mb-2 flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-2 flex-wrap">
@@ -384,12 +400,7 @@ export const SettingsView: React.FC = () => {
       {/* Section 2: Refrain */}
       <div 
         className="rounded-lg p-3 transition-all"
-        style={{
-          borderLeftWidth: '3.5px',
-          borderLeftStyle: 'solid',
-          borderLeftColor: sectionColors.chorus,
-          backgroundColor: `${sectionColors.chorus}0D`
-        }}
+        style={getSectionBorderStyles(sectionColors.chorus, sectionBorders)}
       >
         <div className="mb-2 flex items-center justify-between gap-2 flex-wrap">
           <span 
@@ -450,12 +461,7 @@ export const SettingsView: React.FC = () => {
       {/* Section 3: Pont */}
       <div 
         className="rounded-lg p-3 transition-all"
-        style={{
-          borderLeftWidth: '3.5px',
-          borderLeftStyle: 'solid',
-          borderLeftColor: sectionColors.bridge,
-          backgroundColor: `${sectionColors.bridge}0D`
-        }}
+        style={getSectionBorderStyles(sectionColors.bridge, sectionBorders)}
       >
         <div className="mb-2 flex items-center justify-between gap-2 flex-wrap">
           <span 
@@ -499,12 +505,7 @@ export const SettingsView: React.FC = () => {
       {/* Section 4: Outro */}
       <div 
         className="rounded-lg p-3 transition-all"
-        style={{
-          borderLeftWidth: '3.5px',
-          borderLeftStyle: 'solid',
-          borderLeftColor: sectionColors.outro,
-          backgroundColor: `${sectionColors.outro}0D`
-        }}
+        style={getSectionBorderStyles(sectionColors.outro, sectionBorders)}
       >
         <div className="mb-2 flex items-center justify-between gap-2 flex-wrap">
           <span 
@@ -1208,7 +1209,221 @@ export const SettingsView: React.FC = () => {
             </div>
           </div>
 
-          {/* 2. SECTION COLORS SECTION */}
+          {/* 2. SECTION BORDERS SECTION */}
+          <div className="bg-[#111112] border border-[#222224] rounded-xl p-4 sm:p-5 shadow-sm">
+            <div className="flex items-center justify-between pb-3 mb-4 border-b border-[#222224] flex-wrap gap-2">
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+                  <Square className="w-4 h-4" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-bold text-white">
+                    Bordures des Sections
+                  </h2>
+                  <p className="text-[11px] text-gray-400">
+                    Sélection multiple des bordures à afficher autour des couplets, refrains et ponts
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-[#1C1C20] text-blue-400 border border-[#2B2B30]">
+                  {[
+                    sectionBorders.left && 'Gauche',
+                    sectionBorders.right && 'Droite',
+                    sectionBorders.top && 'Haut',
+                    sectionBorders.bottom && 'Bas'
+                  ].filter(Boolean).join(', ') || 'Aucune'}
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {/* Multi-selection toggle buttons */}
+              <div>
+                <div className="text-xs font-semibold text-gray-300 mb-2">
+                  Côtés actifs :
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  {/* Gauche */}
+                  <button
+                    type="button"
+                    onClick={() => toggleSectionBorder('left')}
+                    className={`flex items-center justify-between px-3.5 py-2.5 rounded-lg border text-xs font-medium transition-all cursor-pointer ${
+                      sectionBorders.left
+                        ? 'bg-blue-500/15 border-blue-500/60 text-blue-300 shadow-xs font-semibold'
+                        : 'bg-[#18181A] border-[#262629] text-gray-400 hover:text-gray-200 hover:border-[#3A3A3E]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="w-3.5 h-3.5 rounded-xs border border-gray-500 relative flex items-center">
+                        <span className={`absolute left-0 top-0 bottom-0 w-1 rounded-l-xs ${sectionBorders.left ? 'bg-blue-400' : 'bg-transparent'}`} />
+                      </span>
+                      <span>Gauche</span>
+                    </div>
+                    {sectionBorders.left && <Check className="w-3.5 h-3.5 text-blue-400" />}
+                  </button>
+
+                  {/* Droite */}
+                  <button
+                    type="button"
+                    onClick={() => toggleSectionBorder('right')}
+                    className={`flex items-center justify-between px-3.5 py-2.5 rounded-lg border text-xs font-medium transition-all cursor-pointer ${
+                      sectionBorders.right
+                        ? 'bg-blue-500/15 border-blue-500/60 text-blue-300 shadow-xs font-semibold'
+                        : 'bg-[#18181A] border-[#262629] text-gray-400 hover:text-gray-200 hover:border-[#3A3A3E]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="w-3.5 h-3.5 rounded-xs border border-gray-500 relative flex items-center">
+                        <span className={`absolute right-0 top-0 bottom-0 w-1 rounded-r-xs ${sectionBorders.right ? 'bg-blue-400' : 'bg-transparent'}`} />
+                      </span>
+                      <span>Droite</span>
+                    </div>
+                    {sectionBorders.right && <Check className="w-3.5 h-3.5 text-blue-400" />}
+                  </button>
+
+                  {/* Haut */}
+                  <button
+                    type="button"
+                    onClick={() => toggleSectionBorder('top')}
+                    className={`flex items-center justify-between px-3.5 py-2.5 rounded-lg border text-xs font-medium transition-all cursor-pointer ${
+                      sectionBorders.top
+                        ? 'bg-blue-500/15 border-blue-500/60 text-blue-300 shadow-xs font-semibold'
+                        : 'bg-[#18181A] border-[#262629] text-gray-400 hover:text-gray-200 hover:border-[#3A3A3E]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="w-3.5 h-3.5 rounded-xs border border-gray-500 relative flex items-center">
+                        <span className={`absolute top-0 left-0 right-0 h-1 rounded-t-xs ${sectionBorders.top ? 'bg-blue-400' : 'bg-transparent'}`} />
+                      </span>
+                      <span>Haut</span>
+                    </div>
+                    {sectionBorders.top && <Check className="w-3.5 h-3.5 text-blue-400" />}
+                  </button>
+
+                  {/* Bas */}
+                  <button
+                    type="button"
+                    onClick={() => toggleSectionBorder('bottom')}
+                    className={`flex items-center justify-between px-3.5 py-2.5 rounded-lg border text-xs font-medium transition-all cursor-pointer ${
+                      sectionBorders.bottom
+                        ? 'bg-blue-500/15 border-blue-500/60 text-blue-300 shadow-xs font-semibold'
+                        : 'bg-[#18181A] border-[#262629] text-gray-400 hover:text-gray-200 hover:border-[#3A3A3E]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="w-3.5 h-3.5 rounded-xs border border-gray-500 relative flex items-center">
+                        <span className={`absolute bottom-0 left-0 right-0 h-1 rounded-b-xs ${sectionBorders.bottom ? 'bg-blue-400' : 'bg-transparent'}`} />
+                      </span>
+                      <span>Bas</span>
+                    </div>
+                    {sectionBorders.bottom && <Check className="w-3.5 h-3.5 text-blue-400" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Interactive Visual Box & Presets */}
+              <div className="flex flex-col sm:flex-row items-center gap-4 pt-3 border-t border-[#222224]">
+                {/* Visual interactive diagram where clicking edges toggles them */}
+                <div className="relative w-40 h-28 rounded-lg bg-[#18181A] border border-[#2B2B30] flex items-center justify-center p-3 select-none shrink-0">
+                  {/* Top edge button */}
+                  <button
+                    type="button"
+                    onClick={() => toggleSectionBorder('top')}
+                    title="Bordure du haut"
+                    className={`absolute top-1.5 left-5 right-5 h-2 rounded-full transition-all cursor-pointer ${
+                      sectionBorders.top ? 'bg-blue-500 ring-2 ring-blue-400/50 shadow-sm' : 'bg-gray-700/60 hover:bg-gray-600'
+                    }`}
+                  />
+                  {/* Bottom edge button */}
+                  <button
+                    type="button"
+                    onClick={() => toggleSectionBorder('bottom')}
+                    title="Bordure du bas"
+                    className={`absolute bottom-1.5 left-5 right-5 h-2 rounded-full transition-all cursor-pointer ${
+                      sectionBorders.bottom ? 'bg-blue-500 ring-2 ring-blue-400/50 shadow-sm' : 'bg-gray-700/60 hover:bg-gray-600'
+                    }`}
+                  />
+                  {/* Left edge button */}
+                  <button
+                    type="button"
+                    onClick={() => toggleSectionBorder('left')}
+                    title="Bordure gauche"
+                    className={`absolute left-1.5 top-5 bottom-5 w-2 rounded-full transition-all cursor-pointer ${
+                      sectionBorders.left ? 'bg-blue-500 ring-2 ring-blue-400/50 shadow-sm' : 'bg-gray-700/60 hover:bg-gray-600'
+                    }`}
+                  />
+                  {/* Right edge button */}
+                  <button
+                    type="button"
+                    onClick={() => toggleSectionBorder('right')}
+                    title="Bordure droite"
+                    className={`absolute right-1.5 top-5 bottom-5 w-2 rounded-full transition-all cursor-pointer ${
+                      sectionBorders.right ? 'bg-blue-500 ring-2 ring-blue-400/50 shadow-sm' : 'bg-gray-700/60 hover:bg-gray-600'
+                    }`}
+                  />
+                  <div className="text-center pointer-events-none">
+                    <span className="text-[10px] font-bold text-blue-400 block uppercase tracking-wider">Aperçu</span>
+                    <span className="text-[9px] text-gray-400">Cliquez un bord</span>
+                  </div>
+                </div>
+
+                {/* Presets */}
+                <div className="flex-1 w-full flex flex-col gap-2">
+                  <span className="text-[11px] font-semibold text-gray-400">Préréglages rapides :</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => applyBorderPreset({ left: true, right: false, top: false, bottom: false })}
+                      className={`px-2.5 py-1.5 rounded-md text-[11px] font-medium border transition-colors cursor-pointer ${
+                        sectionBorders.left && !sectionBorders.right && !sectionBorders.top && !sectionBorders.bottom
+                          ? 'bg-blue-500/20 text-blue-300 border-blue-500/50'
+                          : 'bg-[#18181A] hover:bg-[#222226] text-gray-300 border-[#2E2E32]'
+                      }`}
+                    >
+                      Gauche seule
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => applyBorderPreset({ left: true, right: true, top: true, bottom: true })}
+                      className={`px-2.5 py-1.5 rounded-md text-[11px] font-medium border transition-colors cursor-pointer ${
+                        sectionBorders.left && sectionBorders.right && sectionBorders.top && sectionBorders.bottom
+                          ? 'bg-blue-500/20 text-blue-300 border-blue-500/50'
+                          : 'bg-[#18181A] hover:bg-[#222226] text-gray-300 border-[#2E2E32]'
+                      }`}
+                    >
+                      Encadré complet
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => applyBorderPreset({ left: false, right: false, top: true, bottom: true })}
+                      className={`px-2.5 py-1.5 rounded-md text-[11px] font-medium border transition-colors cursor-pointer ${
+                        !sectionBorders.left && !sectionBorders.right && sectionBorders.top && sectionBorders.bottom
+                          ? 'bg-blue-500/20 text-blue-300 border-blue-500/50'
+                          : 'bg-[#18181A] hover:bg-[#222226] text-gray-300 border-[#2E2E32]'
+                      }`}
+                    >
+                      Haut et bas
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => applyBorderPreset({ left: false, right: false, top: false, bottom: false })}
+                      className={`px-2.5 py-1.5 rounded-md text-[11px] font-medium border transition-colors cursor-pointer ${
+                        !sectionBorders.left && !sectionBorders.right && !sectionBorders.top && !sectionBorders.bottom
+                          ? 'bg-blue-500/20 text-blue-300 border-blue-500/50'
+                          : 'bg-[#18181A] hover:bg-[#222226] text-gray-300 border-[#2E2E32]'
+                      }`}
+                    >
+                      Aucune bordure
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 3. SECTION COLORS SECTION */}
           <div className="bg-[#111112] border border-[#222224] rounded-xl p-4 sm:p-5 shadow-sm">
             <div className="flex items-center gap-2.5 pb-3 mb-4 border-b border-[#222224]">
               <div className="w-7 h-7 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">

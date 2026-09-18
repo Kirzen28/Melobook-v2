@@ -664,30 +664,30 @@ export const SongEditor: React.FC = () => {
       
       {/* Bandeau en haut : Mode Éditeur */}
       <div className="mb-4 flex items-center justify-between px-3.5 sm:px-4 py-2.5 rounded-xl bg-[#18181C] border border-amber-500/30 text-xs shadow-xs">
-        <div className="flex items-center gap-2.5">
-          <div className="w-6 h-6 rounded-md bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0">
-            <FileEdit className="w-3.5 h-3.5" />
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-amber-400 uppercase tracking-wider text-xs">
-              Mode Éditeur
-            </span>
-            <span className="text-gray-500 text-xs hidden sm:inline">•</span>
-            <span className="text-gray-300 text-xs hidden sm:inline">
-              Glissez et déposez les sections, modifiez les accords en un clic
-            </span>
-          </div>
-        </div>
-
         <button
           type="button"
-          onClick={() => setActiveTab('repertoire')}
+          onClick={() => {
+            if (selectedSong) {
+              setActiveTab('stage');
+            } else {
+              setActiveTab('repertoire');
+            }
+          }}
           className="flex items-center gap-1 text-xs text-gray-400 hover:text-white transition-colors cursor-pointer px-2.5 py-1 rounded-md hover:bg-[#25252A]"
-          title="Quitter le mode éditeur et retourner au répertoire"
+          title={selectedSong ? "Quitter le mode éditeur et afficher le chant en direct" : "Quitter le mode éditeur et retourner au répertoire"}
         >
           <ChevronLeft className="w-3.5 h-3.5" />
           <span>Quitter l'éditeur</span>
         </button>
+
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-md bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0">
+            <FileEdit className="w-3.5 h-3.5" />
+          </div>
+          <span className="font-bold text-amber-400 uppercase tracking-wider text-xs">
+            Mode Éditeur
+          </span>
+        </div>
       </div>
 
       {/* Top Header & Save Actions */}

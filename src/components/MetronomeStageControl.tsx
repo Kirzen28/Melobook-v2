@@ -5,7 +5,6 @@ import {
   Volume2, 
   VolumeX, 
   Gauge, 
-  Music2, 
   Zap
 } from 'lucide-react';
 import { metronome, parseTimeSignatureToBeats, TimeSignatureInfo } from '../utils/chordUtils';
@@ -20,15 +19,6 @@ interface MetronomeStageControlProps {
   readOnly?: boolean;
   onOpenSettings?: () => void;
 }
-
-const PRESET_SIGNATURES = [
-  { value: '4/4', label: '4/4', desc: 'Standard (Pop, Rock, Louange)' },
-  { value: '3/4', label: '3/4', desc: 'Valse / Ballade' },
-  { value: '6/8', label: '6/8', desc: 'Ternaire / Ballade lente' },
-  { value: '2/4', label: '2/4', desc: 'Marche / Rythme binaire' },
-  { value: '12/8', label: '12/8', desc: 'Blues / Gospel lent' },
-  { value: '5/4', label: '5/4', desc: 'Asymétrique' }
-];
 
 export const MetronomeStageControl: React.FC<MetronomeStageControlProps> = ({
   initialBpm = 120,
@@ -139,16 +129,6 @@ export const MetronomeStageControl: React.FC<MetronomeStageControlProps> = ({
       metronome.setBpm(clamped);
     }
     onBpmChange?.(clamped);
-  };
-
-  // Mettre à jour la signature rythmique
-  const handleSignatureUpdate = (newSig: string) => {
-    setTimeSignature(newSig);
-    const newSigInfo = parseTimeSignatureToBeats(newSig);
-    if (isPlaying) {
-      metronome.setSignature(newSigInfo.beatsPerMeasure, newSigInfo.accents);
-    }
-    onTimeSignatureChange?.(newSig);
   };
 
   // Muter / Démuter le son
@@ -262,62 +242,6 @@ export const MetronomeStageControl: React.FC<MetronomeStageControlProps> = ({
             <span className="text-[10px] text-gray-400 font-mono">BPM</span>
           </div>
         )}
-
-        {/* Signature rythmique active (interactive ou lecture seule) */}
-        {readOnly ? (
-          <div 
-            className="flex items-center gap-1 border-l border-[#242428] pl-2 select-none cursor-default"
-            title={onOpenSettings ? "Modifier la mesure dans les réglages du morceau" : undefined}
-            onClick={onOpenSettings}
-          >
-            <Music2 className="w-3.5 h-3.5 text-purple-400 shrink-0" />
-            <span className="px-1.5 py-0.5 rounded bg-[#18181C] border border-[#242428] text-purple-300 font-bold font-mono text-xs">
-              {timeSignature}
-            </span>
-          </div>
-        ) : (
-          <div className="flex items-center gap-1 border-l border-[#242428] pl-2">
-            <Music2 className="w-3.5 h-3.5 text-purple-400 shrink-0" />
-            <select
-              value={timeSignature}
-              onChange={(e) => handleSignatureUpdate(e.target.value)}
-              className="bg-[#18181C] hover:bg-[#202026] text-purple-300 font-bold font-mono text-xs border border-purple-500/30 focus:border-purple-400 rounded py-0.5 px-1 cursor-pointer focus:outline-none transition-colors"
-              title="Signature rythmique"
-            >
-              {PRESET_SIGNATURES.map(sig => (
-                <option key={sig.value} value={sig.value} className="bg-[#18181C] text-gray-200">
-                  {sig.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {/* Visualisation des battements par points */}
-        <div className="flex items-center gap-1 border-l border-[#242428] pl-2 pr-1">
-          {Array.from({ length: sigInfo.beatsPerMeasure }).map((_, idx) => {
-            const isCurrent = isPlaying && currentBeat === idx;
-            const isAccent = sigInfo.accents.includes(idx);
-
-            let dotClass = 'bg-[#28282E] scale-90 opacity-40';
-            if (isCurrent) {
-              if (isAccent) {
-                dotClass = 'bg-emerald-400 ring-2 ring-emerald-300/80 shadow-[0_0_8px_#34d399] scale-125 opacity-100';
-              } else {
-                dotClass = 'bg-blue-400 ring-2 ring-blue-300/80 shadow-[0_0_8px_#60a5fa] scale-110 opacity-100';
-              }
-            } else if (isAccent) {
-              dotClass = 'bg-[#3A3A42] opacity-70';
-            }
-
-            return (
-              <span
-                key={idx}
-                className={`w-2 h-2 rounded-full transition-all duration-75 inline-block ${dotClass}`}
-              />
-            );
-          })}
-        </div>
 
         {/* Bouton Toggle Sonore (Mute / Unmute) */}
         <button

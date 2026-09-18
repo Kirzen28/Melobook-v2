@@ -11,6 +11,7 @@ import {
   DisplaySettings, 
   SongTypographySettings, 
   SectionColors, 
+  SectionBorders,
   SongCardMetadataSettings,
   UserRole,
   SyncStatus 
@@ -84,7 +85,11 @@ interface AppContextType {
   stageSettings: StageSettings;
   updateStageSettings: (settings: Partial<StageSettings>) => void;
   displaySettings: DisplaySettings;
-  updateDisplaySettings: (settings: { typography?: Partial<SongTypographySettings>; sectionColors?: Partial<SectionColors> }) => void;
+  updateDisplaySettings: (settings: { 
+    typography?: Partial<SongTypographySettings>; 
+    sectionColors?: Partial<SectionColors>;
+    sectionBorders?: Partial<SectionBorders>;
+  }) => void;
   resetDisplaySettings: () => void;
   songCardMetadata: SongCardMetadataSettings;
   updateSongCardMetadata: (settings: Partial<SongCardMetadataSettings>) => void;
@@ -253,7 +258,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return DEFAULT_STAGE_SETTINGS;
   });
 
-  // Display Typography & Section Colors (synced with localStorage)
+  // Display Typography, Section Colors & Section Borders (synced with localStorage)
   const [displaySettings, setDisplaySettings] = useState<DisplaySettings>(() => {
     const saved = localStorage.getItem('songbook_display_settings');
     if (saved) {
@@ -262,13 +267,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return {
           typography: { ...DEFAULT_DISPLAY_SETTINGS.typography, ...(parsed.typography || {}) },
           sectionColors: { ...DEFAULT_DISPLAY_SETTINGS.sectionColors, ...(parsed.sectionColors || {}) },
+          sectionBorders: { ...DEFAULT_DISPLAY_SETTINGS.sectionBorders, ...(parsed.sectionBorders || {}) },
         };
       } catch (e) {}
     }
     return DEFAULT_DISPLAY_SETTINGS;
   });
 
-  const updateDisplaySettings = useCallback((newSettings: { typography?: Partial<SongTypographySettings>; sectionColors?: Partial<SectionColors> }) => {
+  const updateDisplaySettings = useCallback((newSettings: { 
+    typography?: Partial<SongTypographySettings>; 
+    sectionColors?: Partial<SectionColors>;
+    sectionBorders?: Partial<SectionBorders>;
+  }) => {
     setDisplaySettings(prev => {
       const updated: DisplaySettings = {
         typography: {
@@ -278,6 +288,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         sectionColors: {
           ...prev.sectionColors,
           ...(newSettings.sectionColors || {})
+        },
+        sectionBorders: {
+          ...(prev.sectionBorders || DEFAULT_DISPLAY_SETTINGS.sectionBorders!),
+          ...(newSettings.sectionBorders || {})
         }
       };
       localStorage.setItem('songbook_display_settings', JSON.stringify(updated));

@@ -1,4 +1,12 @@
-import { DisplaySettings, SectionColors } from '../types';
+import React from 'react';
+import { DisplaySettings, SectionColors, SectionBorders } from '../types';
+
+export const DEFAULT_SECTION_BORDERS: SectionBorders = {
+  left: true,
+  right: false,
+  top: false,
+  bottom: false,
+};
 
 export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
   typography: {
@@ -19,6 +27,12 @@ export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
     instrumental: '#eab308', // Instrumental (Ambre / Or)
     tag: '#06b6d4',          // Tag / Coda (Cyan)
     general: '#64748b'       // Général / Autre
+  },
+  sectionBorders: {
+    left: true,
+    right: false,
+    top: false,
+    bottom: false,
   }
 };
 
@@ -84,6 +98,34 @@ export function getSectionColor(sectionType: string | undefined, colors: Section
 }
 
 /**
+ * Calculates CSS border and background properties for song sections based on active borders
+ */
+export function getSectionBorderStyles(secColor: string, borders?: SectionBorders): React.CSSProperties {
+  const b = borders || DEFAULT_SECTION_BORDERS;
+  const borderWidth = '3.5px';
+
+  return {
+    borderLeftWidth: b.left ? borderWidth : '0px',
+    borderLeftStyle: b.left ? 'solid' : 'none',
+    borderLeftColor: b.left ? secColor : 'transparent',
+
+    borderRightWidth: b.right ? borderWidth : '0px',
+    borderRightStyle: b.right ? 'solid' : 'none',
+    borderRightColor: b.right ? secColor : 'transparent',
+
+    borderTopWidth: b.top ? borderWidth : '0px',
+    borderTopStyle: b.top ? 'solid' : 'none',
+    borderTopColor: b.top ? secColor : 'transparent',
+
+    borderBottomWidth: b.bottom ? borderWidth : '0px',
+    borderBottomStyle: b.bottom ? 'solid' : 'none',
+    borderBottomColor: b.bottom ? secColor : 'transparent',
+
+    backgroundColor: `${secColor}0D`
+  };
+}
+
+/**
  * Loads display settings from local storage or returns defaults
  */
 export function loadSavedDisplaySettings(): DisplaySettings {
@@ -93,7 +135,8 @@ export function loadSavedDisplaySettings(): DisplaySettings {
       const parsed = JSON.parse(raw);
       return {
         typography: { ...DEFAULT_DISPLAY_SETTINGS.typography, ...(parsed.typography || {}) },
-        sectionColors: { ...DEFAULT_DISPLAY_SETTINGS.sectionColors, ...(parsed.sectionColors || {}) }
+        sectionColors: { ...DEFAULT_DISPLAY_SETTINGS.sectionColors, ...(parsed.sectionColors || {}) },
+        sectionBorders: { ...DEFAULT_SECTION_BORDERS, ...(parsed.sectionBorders || {}) }
       };
     }
   } catch (e) {

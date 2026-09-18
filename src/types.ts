@@ -132,9 +132,17 @@ export interface SectionColors {
   general: string; // Général / Autre
 }
 
+export interface SectionBorders {
+  left: boolean;
+  right: boolean;
+  top: boolean;
+  bottom: boolean;
+}
+
 export interface DisplaySettings {
   typography: SongTypographySettings;
   sectionColors: SectionColors;
+  sectionBorders?: SectionBorders;
 }
 
 export interface SongCardMetadataSettings {

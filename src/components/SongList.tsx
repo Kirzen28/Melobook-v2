@@ -6,7 +6,7 @@ import { generateSetlistPdf, DEFAULT_PDF_OPTIONS } from '../utils/pdfExport';
 import { SongImportModal } from './SongImportModal';
 import { LanguageVersionModal } from './LanguageVersionModal';
 import { VoiceSearchControl } from './VoiceSearchControl';
-import { PRESET_LANGUAGES } from '../utils/languageUtils';
+import { PRESET_LANGUAGES, getLanguageMeta } from '../utils/languageUtils';
 import { 
   DEFAULT_CATEGORY_SUGGESTIONS, 
   getCustomCategories, 
@@ -151,6 +151,13 @@ export const SongList: React.FC = () => {
   const [isSavingBatchCategories, setIsSavingBatchCategories] = useState(false);
   const [batchDeletingCatName, setBatchDeletingCatName] = useState<string | null>(null);
 
+  // Multi-select modal states for Language assignment
+  const [isAssignLanguageModalOpen, setIsAssignLanguageModalOpen] = useState(false);
+  const [selectedBatchLanguage, setSelectedBatchLanguage] = useState<string>('');
+  const [customBatchLanguageInput, setCustomBatchLanguageInput] = useState<string>('');
+  const [batchLanguageSearch, setBatchLanguageSearch] = useState<string>('');
+  const [isSavingBatchLanguages, setIsSavingBatchLanguages] = useState(false);
+
   // Multi-select modal states for Setlist assignment
   const [isAssignSetlistModalOpen, setIsAssignSetlistModalOpen] = useState(false);
   const [selectedBatchSetlistIds, setSelectedBatchSetlistIds] = useState<string[]>([]);
@@ -208,6 +215,11 @@ export const SongList: React.FC = () => {
           setMultiCategoryInput('');
           setMultiCategorySearch('');
         }
+        if (isAssignLanguageModalOpen) {
+          setIsAssignLanguageModalOpen(false);
+          setCustomBatchLanguageInput('');
+          setBatchLanguageSearch('');
+        }
         if (isAssignSetlistModalOpen) {
           setIsAssignSetlistModalOpen(false);
           setMultiSetlistNameInput('');
@@ -229,7 +241,7 @@ export const SongList: React.FC = () => {
       document.removeEventListener('mousedown', handleClickOutside);
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [openCategorySongId, isAssignCategoryModalOpen, isAssignSetlistModalOpen, isMultiSelectMode]);
+  }, [openCategorySongId, isAssignCategoryModalOpen, isAssignLanguageModalOpen, isAssignSetlistModalOpen, isMultiSelectMode]);
   
   // Setlist modal state (Search, Sort, Multi-select, Quick-create)
   const [addToSetlistSong, setAddToSetlistSong] = useState<Song | null>(null);
@@ -1011,6 +1023,89 @@ export const SongList: React.FC = () => {
       console.error('Error saving batch categories:', e);
     } finally {
       setIsSavingBatchCategories(false);
+    }
+  };
+
+  // Available languages list for batch selection
+  const allBatchAvailableLanguages = useMemo(() => {
+    const list: { name: string; code: string; badgeClass: string }[] = [];
+    const addedNames = new Set<string>();
+
+    PRESET_LANGUAGES.forEach(pl => {
+      if (pl.code !== 'OTHER') {
+        list.push({ name: pl.name, code: pl.code, badgeClass: pl.badgeClass });
+        addedNames.add(pl.name.toLowerCase());
+      }
+    });
+
+    songs.forEach(s => {
+      const l = (s.language || '').trim();
+      if (l && !addedNames.has(l.toLowerCase())) {
+        const meta = getLanguageMeta(l);
+        list.push({ name: l, code: meta.code, badgeClass: meta.badgeClass });
+        addedNames.add(l.toLowerCase());
+      }
+    });
+
+    return list;
+  }, [songs]);
+
+  // Filtered languages for batch modal search
+  const filteredBatchLanguages = useMemo(() => {
+    const q = batchLanguageSearch.toLowerCase().trim();
+    if (!q) return allBatchAvailableLanguages;
+    return allBatchAvailableLanguages.filter(l => 
+      l.name.toLowerCase().includes(q) || l.code.toLowerCase().includes(q)
+    );
+  }, [allBatchAvailableLanguages, batchLanguageSearch]);
+
+  // Open the batch language assignment modal
+  const handleOpenBatchLanguageModal = () => {
+    if (selectedSongIds.length === 0) return;
+    const selectedSongsList = songs.filter(s => selectedSongIds.includes(s.id));
+
+    const firstLang = selectedSongsList[0]?.language?.trim() || '';
+    const allSame = firstLang && selectedSongsList.every(
+      s => (s.language || '').trim().toLowerCase() === firstLang.toLowerCase()
+    );
+
+    setSelectedBatchLanguage(allSame ? firstLang : '');
+    setCustomBatchLanguageInput('');
+    setBatchLanguageSearch('');
+    setIsAssignLanguageModalOpen(true);
+  };
+
+  // Save batch language selection
+  const handleSaveBatchLanguage = async (explicitLanguage?: string) => {
+    if (selectedSongIds.length === 0) return;
+    const targetLang = (explicitLanguage !== undefined 
+      ? explicitLanguage 
+      : (customBatchLanguageInput.trim() || selectedBatchLanguage)
+    ).trim();
+
+    setIsSavingBatchLanguages(true);
+    try {
+      for (const songId of selectedSongIds) {
+        await updateSong(songId, { language: targetLang || undefined });
+      }
+
+      const msg = targetLang 
+        ? `Langue définie sur ${targetLang}`
+        : 'Langue retirée';
+
+      setExportNotification(
+        selectedSongIds.length === 1
+          ? `${msg} pour 1 chant`
+          : `${msg} pour ${selectedSongIds.length} chants`
+      );
+      setTimeout(() => setExportNotification(null), 2500);
+      setIsAssignLanguageModalOpen(false);
+      setCustomBatchLanguageInput('');
+      setBatchLanguageSearch('');
+    } catch (e) {
+      console.error('Error saving batch language:', e);
+    } finally {
+      setIsSavingBatchLanguages(false);
     }
   };
 
@@ -3032,6 +3127,19 @@ export const SongList: React.FC = () => {
               <span className="hidden sm:inline">Catégorie</span>
             </button>
 
+            {/* Language Button */}
+            <button
+              type="button"
+              id="toolbar-assign-language-btn"
+              onClick={handleOpenBatchLanguageModal}
+              className="h-8 sm:h-8.5 px-2 sm:px-3 rounded-lg text-xs font-semibold bg-violet-600 hover:bg-violet-500 active:scale-95 text-white shadow-sm border border-violet-500/60 cursor-pointer transition-all flex items-center justify-center gap-1.5 shrink-0"
+              title="Déterminer la langue des chants sélectionnés"
+              aria-label="Déterminer la langue des chants sélectionnés"
+            >
+              <Globe className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+              <span className="hidden sm:inline">Langue</span>
+            </button>
+
             {/* Export Button */}
             <button
               type="button"
@@ -3352,7 +3460,291 @@ export const SongList: React.FC = () => {
         </div>
       )}
 
-      {/* Modal: Assigner à une ou plusieurs setlists (Multi-sélection) */}
+      {/* Modal: Déterminer la langue (Multi-sélection) */}
+      {isAssignLanguageModalOpen && (
+        <div
+          id="batch-assign-language-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="batch-assign-language-title"
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150"
+          onClick={() => {
+            if (!isSavingBatchLanguages) {
+              setIsAssignLanguageModalOpen(false);
+              setCustomBatchLanguageInput('');
+              setBatchLanguageSearch('');
+            }
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-lg bg-[#141416] border border-[#2A2A2D] rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[88vh] animate-in zoom-in-95 duration-100"
+          >
+            {/* Modal Header */}
+            <div className="p-3.5 sm:p-4 border-b border-[#222224] bg-[#171719] flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="p-2 rounded-lg bg-violet-500/10 text-violet-400 border border-violet-500/20 shrink-0">
+                  <Globe className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <h3 id="batch-assign-language-title" className="text-sm sm:text-base font-bold text-white tracking-tight truncate">
+                    Langue • {selectedSongIds.length} chant{selectedSongIds.length > 1 ? 's' : ''}
+                  </h3>
+                  <p className="text-xs text-gray-400 truncate">
+                    {selectedSongIds.length === 1
+                      ? songs.find(s => s.id === selectedSongIds[0])?.title || 'Chant sélectionné'
+                      : `Attribuer une langue aux ${selectedSongIds.length} chants sélectionnés`}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                id="batch-language-close-btn"
+                disabled={isSavingBatchLanguages}
+                onClick={() => {
+                  setIsAssignLanguageModalOpen(false);
+                  setCustomBatchLanguageInput('');
+                  setBatchLanguageSearch('');
+                }}
+                className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#252528] transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-3.5 sm:p-4 space-y-3 overflow-y-auto flex-1">
+              {/* Quick Custom Language Input */}
+              <div className="bg-[#19191C] border border-[#262629] p-2.5 rounded-lg">
+                <label className="block text-[11px] font-semibold text-gray-300 mb-1.5 uppercase tracking-wider">
+                  Autre langue personnalisée
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    id="batch-language-custom-input"
+                    value={customBatchLanguageInput}
+                    onChange={(e) => {
+                      setCustomBatchLanguageInput(e.target.value);
+                      if (e.target.value.trim()) {
+                        setSelectedBatchLanguage('');
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (customBatchLanguageInput.trim()) {
+                          handleSaveBatchLanguage(customBatchLanguageInput.trim());
+                        }
+                      }
+                    }}
+                    placeholder="Exemple : Malgache, Latin, Néerlandais..."
+                    className="flex-1 bg-[#141416] border border-[#333] focus:border-violet-500 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-500 outline-none transition-all"
+                  />
+                  <button
+                    type="button"
+                    id="batch-language-apply-custom-btn"
+                    disabled={!customBatchLanguageInput.trim() || isSavingBatchLanguages}
+                    onClick={() => handleSaveBatchLanguage(customBatchLanguageInput.trim())}
+                    className="px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 disabled:opacity-40 text-white text-xs font-semibold transition-all cursor-pointer shrink-0 flex items-center gap-1 shadow-sm"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Appliquer</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Search Filter */}
+              <div className="space-y-2 pt-1">
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    id="batch-language-search-input"
+                    value={batchLanguageSearch}
+                    onChange={(e) => setBatchLanguageSearch(e.target.value)}
+                    placeholder="Filtrer les langues..."
+                    className="w-full bg-[#18181A] border border-[#2E2E32] focus:border-violet-500 rounded-lg pl-8 pr-7 py-1.5 text-xs text-white placeholder-gray-500 outline-none transition-all"
+                  />
+                  {batchLanguageSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setBatchLanguageSearch('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white p-0.5"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between text-[11px] text-gray-400 px-0.5">
+                  <span>Sélectionnez une langue à attribuer</span>
+                  <span>{filteredBatchLanguages.length} disponibles</span>
+                </div>
+              </div>
+
+              {/* Language Options List */}
+              <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
+                {filteredBatchLanguages.length === 0 ? (
+                  <div className="text-center py-6 text-gray-500 text-xs">
+                    Aucune langue correspondante
+                  </div>
+                ) : (
+                  filteredBatchLanguages.map((langItem) => {
+                    const isSelected = !customBatchLanguageInput.trim() && selectedBatchLanguage.toLowerCase() === langItem.name.toLowerCase();
+                    const inSelectedCount = selectedSongIds.filter(id => {
+                      const s = songs.find(x => x.id === id);
+                      return (s?.language || '').trim().toLowerCase() === langItem.name.toLowerCase();
+                    }).length;
+
+                    return (
+                      <div
+                        key={langItem.name}
+                        id={`batch-lang-item-${langItem.code.toLowerCase()}`}
+                        onClick={() => {
+                          setSelectedBatchLanguage(langItem.name);
+                          setCustomBatchLanguageInput('');
+                        }}
+                        className={`w-full flex items-center justify-between p-2.5 rounded-lg border transition-all cursor-pointer select-none ${
+                          isSelected
+                            ? 'bg-violet-950/30 border-violet-500/50 text-violet-100 shadow-sm'
+                            : 'bg-[#18181A] hover:bg-[#1E1E22] border-[#26262A] text-gray-300'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          {/* Radio circle indicator */}
+                          <div
+                            className={`w-4 h-4 rounded-full shrink-0 flex items-center justify-center border transition-all ${
+                              isSelected
+                                ? 'border-violet-500 bg-violet-600 text-white'
+                                : 'border-[#444] bg-[#161618]'
+                            }`}
+                          >
+                            {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                          </div>
+
+                          {/* Language Code Badge */}
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${langItem.badgeClass}`}>
+                            {langItem.code}
+                          </span>
+
+                          <span className={`text-xs font-medium truncate ${isSelected ? 'text-white' : 'text-gray-200'}`}>
+                            {langItem.name}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {inSelectedCount > 0 && (
+                            <span
+                              className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
+                                inSelectedCount === selectedSongIds.length
+                                  ? 'bg-violet-900/60 text-violet-300 border border-violet-700/50'
+                                  : 'bg-[#222226] text-gray-300 border border-[#333]'
+                              }`}
+                            >
+                              {inSelectedCount === selectedSongIds.length
+                                ? 'Sur tous'
+                                : `${inSelectedCount} sur ${selectedSongIds.length}`}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+
+                {/* Option to clear language */}
+                <div
+                  id="batch-lang-item-clear"
+                  onClick={() => {
+                    setSelectedBatchLanguage('__NONE__');
+                    setCustomBatchLanguageInput('');
+                  }}
+                  className={`w-full flex items-center justify-between p-2.5 rounded-lg border transition-all cursor-pointer select-none mt-2 ${
+                    selectedBatchLanguage === '__NONE__' && !customBatchLanguageInput.trim()
+                      ? 'bg-rose-950/20 border-rose-500/40 text-rose-200 shadow-sm'
+                      : 'bg-[#18181A] hover:bg-[#1E1E22] border-[#26262A] text-gray-400 hover:text-gray-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div
+                      className={`w-4 h-4 rounded-full shrink-0 flex items-center justify-center border transition-all ${
+                        selectedBatchLanguage === '__NONE__' && !customBatchLanguageInput.trim()
+                          ? 'border-rose-500 bg-rose-600 text-white'
+                          : 'border-[#444] bg-[#161618]'
+                      }`}
+                    >
+                      {selectedBatchLanguage === '__NONE__' && !customBatchLanguageInput.trim() && (
+                        <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                      )}
+                    </div>
+                    <span className="text-xs font-medium">
+                      Sans langue • Effacer la langue assignée
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-3 sm:p-3.5 border-t border-[#222224] bg-[#171719] flex items-center justify-between gap-2">
+              <span className="text-xs text-gray-400 truncate hidden xs:inline">
+                {customBatchLanguageInput.trim()
+                  ? `Langue : ${customBatchLanguageInput.trim()}`
+                  : selectedBatchLanguage === '__NONE__'
+                  ? 'Effacement de la langue'
+                  : selectedBatchLanguage
+                  ? `Langue : ${selectedBatchLanguage}`
+                  : 'Aucune langue choisie'}
+              </span>
+
+              <div className="flex items-center gap-2 ml-auto">
+                <button
+                  type="button"
+                  id="batch-language-cancel-btn"
+                  disabled={isSavingBatchLanguages}
+                  onClick={() => {
+                    setIsAssignLanguageModalOpen(false);
+                    setCustomBatchLanguageInput('');
+                    setBatchLanguageSearch('');
+                  }}
+                  className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-gray-300 hover:text-white hover:bg-[#252528] border border-[#333] transition-colors cursor-pointer"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  id="batch-language-save-btn"
+                  disabled={
+                    isSavingBatchLanguages ||
+                    (!selectedBatchLanguage && !customBatchLanguageInput.trim())
+                  }
+                  onClick={() => {
+                    if (selectedBatchLanguage === '__NONE__') {
+                      handleSaveBatchLanguage('');
+                    } else {
+                      handleSaveBatchLanguage();
+                    }
+                  }}
+                  className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white shadow-sm border border-violet-500 transition-all cursor-pointer flex items-center gap-1.5"
+                >
+                  {isSavingBatchLanguages ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Enregistrement...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                      <span>Appliquer</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {isAssignSetlistModalOpen && (
         <div
           id="batch-assign-setlist-modal"
@@ -3415,7 +3807,7 @@ export const SongList: React.FC = () => {
                     id="batch-setlist-search-input"
                     value={multiSetlistSearch}
                     onChange={(e) => setMultiSetlistSearch(e.target.value)}
-                    placeholder="Rechercher une setlist (nom, date)..."
+                    placeholder="Rechercher une setlist par nom ou date..."
                     className="w-full bg-[#18181A] border border-[#2E2E32] focus:border-indigo-500 rounded-lg pl-8 pr-7 py-1.5 text-xs text-white placeholder-gray-500 outline-none transition-all"
                   />
                   {multiSetlistSearch && (

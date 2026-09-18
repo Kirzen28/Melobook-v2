@@ -21,13 +21,13 @@ import {
   Info
 } from 'lucide-react';
 
-// Normalisation du texte (minuscules, sans accents, sans ponctuations parasites)
+// Normalisation du texte
 const normalizeText = (text: string): string => {
   return (text || '')
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') // supprime les accents
-    .replace(/[^a-z0-9]/g, ' ') // remplace la ponctuation par des espaces
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 };
@@ -38,8 +38,8 @@ const normalizeLyrics = (chordPro: string): string => {
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
-    .replace(/\[.*?\]/g, ' ') // supprime les accords entre crochets
-    .replace(/\{.*?\}/g, ' ') // supprime les directives type {title:...}
+    .replace(/\[.*?\]/g, ' ')
+    .replace(/\{.*?\}/g, ' ')
     .replace(/[^a-z0-9]/g, '')
     .trim();
 };
@@ -47,18 +47,12 @@ const normalizeLyrics = (chordPro: string): string => {
 // Score de complétude d'un chant pour recommander la meilleure version à conserver
 const getSongCompletenessScore = (song: Song): number => {
   let score = 0;
-  // Longueur du contenu
   score += Math.min((song.contentChordPro || '').length, 2000) / 10;
-  // Présence d'artiste
   if (song.artist && song.artist.trim().length > 0) score += 25;
-  // Présence de tonalité
   if (song.key && song.key.trim().length > 0) score += 20;
-  // Présence de tempo
   if (song.tempo && song.tempo > 0) score += 15;
-  // Présence de tags ou notes
   if (song.tags && song.tags.length > 0) score += song.tags.length * 5;
   if (song.notes && song.notes.trim().length > 0) score += 10;
-  // Date de mise à jour récente (si présente)
   if (song.updatedAt) {
     try {
       const time = typeof song.updatedAt === 'string' ? new Date(song.updatedAt).getTime() : 
@@ -82,10 +76,10 @@ export const DuplicateCleanerSection: React.FC = () => {
   const { songs, setlists, updateSetlist, deleteSong } = useApp();
 
   const [criteria, setCriteria] = useState<DetectionCriteria>('title_only');
-  const [selectedToKeep, setSelectedToKeep] = useState<Record<string, string>>({}); // groupId -> songId to KEEP
-  const [selectedToDelete, setSelectedToDelete] = useState<Record<string, boolean>>({}); // songId -> boolean (to delete)
+  const [userKeepMap, setUserKeepMap] = useState<Record<string, string>>({});
+  const [userDeleteOverrides, setUserDeleteOverrides] = useState<Record<string, boolean>>({});
   const [previewSongId, setPreviewSongId] = useState<string | null>(null);
-  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+  const [userCollapsedGroups, setUserCollapsedGroups] = useState<Record<string, boolean>>({});
   const [migrateSetlists, setMigrateSetlists] = useState<boolean>(true);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState<boolean>(false);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
@@ -120,13 +114,11 @@ export const DuplicateCleanerSection: React.FC = () => {
       map.get(key)!.push(song);
     });
 
-    // Garder uniquement les groupes avec au moins 2 chants
     const groups: DuplicateGroup[] = [];
     let groupIdx = 1;
 
     map.forEach((groupedSongs, key) => {
       if (groupedSongs.length >= 2) {
-        // Déterminer la version recommandée à conserver (score de complétude le plus élevé)
         const sorted = [...groupedSongs].sort((a, b) => getSongCompletenessScore(b) - getSongCompletenessScore(a));
         const recommendedKeepId = sorted[0].id;
 
@@ -142,49 +134,39 @@ export const DuplicateCleanerSection: React.FC = () => {
     return groups;
   }, [songs, criteria]);
 
-  // Synchroniser l'état de sélection quand les groupes changent
-  React.useEffect(() => {
-    const newKeepMap: Record<string, string> = {};
-    const newDeleteMap: Record<string, boolean> = {};
-    const newExpanded: Record<string, boolean> = {};
+  // Détermination du chant conservé dans un groupe
+  const getKeepSongId = (group: DuplicateGroup): string => {
+    const userChosen = userKeepMap[group.id];
+    if (userChosen && group.songs.some(s => s.id === userChosen)) {
+      return userChosen;
+    }
+    return group.recommendedKeepId;
+  };
 
-    duplicateGroups.forEach(group => {
-      // Déterminer quel chant est gardé (soit celui déjà choisi par l'utilisateur s'il existe encore, soit le recommandé)
-      const currentKeep = selectedToKeep[group.id];
-      const validKeep = group.songs.some(s => s.id === currentKeep) ? currentKeep : group.recommendedKeepId;
-      newKeepMap[group.id] = validKeep;
-
-      // Par défaut, tous les autres chants du groupe sont marqués pour suppression
-      group.songs.forEach(song => {
-        if (song.id !== validKeep) {
-          newDeleteMap[song.id] = true;
-        } else {
-          newDeleteMap[song.id] = false;
-        }
-      });
-
-      newExpanded[group.id] = true; // Déplié par défaut pour faciliter la vue
-    });
-
-    setSelectedToKeep(newKeepMap);
-    setSelectedToDelete(newDeleteMap);
-    setExpandedGroups(newExpanded);
-  }, [duplicateGroups]);
+  // Détermination de l'état de suppression pour un chant
+  const isSongMarkedForDelete = (songId: string, group: DuplicateGroup): boolean => {
+    const keepId = getKeepSongId(group);
+    if (songId === keepId) return false;
+    if (userDeleteOverrides[songId] !== undefined) {
+      return userDeleteOverrides[songId];
+    }
+    return true;
+  };
 
   // Gestion du choix de conservation d'un chant dans un groupe
   const handleSelectSongToKeep = (groupId: string, songId: string) => {
     const group = duplicateGroups.find(g => g.id === groupId);
     if (!group) return;
 
-    setSelectedToKeep(prev => ({ ...prev, [groupId]: songId }));
+    setUserKeepMap(prev => ({ ...prev, [groupId]: songId }));
 
-    setSelectedToDelete(prev => {
+    setUserDeleteOverrides(prev => {
       const updated = { ...prev };
       group.songs.forEach(s => {
         if (s.id === songId) {
-          updated[s.id] = false; // Ne pas supprimer celui qu'on garde
+          updated[s.id] = false;
         } else {
-          updated[s.id] = true; // Marquer les autres pour suppression
+          updated[s.id] = true;
         }
       });
       return updated;
@@ -193,34 +175,44 @@ export const DuplicateCleanerSection: React.FC = () => {
 
   // Toggle suppression d'un chant spécifique
   const handleToggleSongDelete = (songId: string, groupId: string) => {
-    const keepId = selectedToKeep[groupId];
-    if (songId === keepId) return; // On ne peut pas cocher pour suppression le chant conservé
+    const group = duplicateGroups.find(g => g.id === groupId);
+    if (!group) return;
+    const keepId = getKeepSongId(group);
+    if (songId === keepId) return;
 
-    setSelectedToDelete(prev => ({
+    const currentMarked = isSongMarkedForDelete(songId, group);
+    setUserDeleteOverrides(prev => ({
       ...prev,
-      [songId]: !prev[songId]
+      [songId]: !currentMarked
     }));
   };
 
   // Calcul du nombre total de chants cochés pour suppression
   const totalToDeleteCount = useMemo(() => {
-    return Object.values(selectedToDelete).filter(Boolean).length;
-  }, [selectedToDelete]);
+    let count = 0;
+    duplicateGroups.forEach(group => {
+      const keepId = getKeepSongId(group);
+      group.songs.forEach(song => {
+        if (song.id !== keepId && isSongMarkedForDelete(song.id, group)) {
+          count++;
+        }
+      });
+    });
+    return count;
+  }, [duplicateGroups, userKeepMap, userDeleteOverrides]);
 
   // Toggle tout sélectionner / tout désélectionner
   const handleToggleSelectAll = (select: boolean) => {
-    setSelectedToDelete(prev => {
-      const updated = { ...prev };
-      duplicateGroups.forEach(group => {
-        const keepId = selectedToKeep[group.id] || group.recommendedKeepId;
-        group.songs.forEach(s => {
-          if (s.id !== keepId) {
-            updated[s.id] = select;
-          }
-        });
+    const newOverrides: Record<string, boolean> = {};
+    duplicateGroups.forEach(group => {
+      const keepId = getKeepSongId(group);
+      group.songs.forEach(song => {
+        if (song.id !== keepId) {
+          newOverrides[song.id] = select;
+        }
       });
-      return updated;
     });
+    setUserDeleteOverrides(newOverrides);
   };
 
   // Trouver dans quelles setlists se trouve un chant
@@ -230,26 +222,26 @@ export const DuplicateCleanerSection: React.FC = () => {
 
   // Exécution de la suppression
   const handleExecuteDelete = async () => {
-    const idsToDelete = Object.keys(selectedToDelete).filter(id => selectedToDelete[id]);
+    const idsToDelete: string[] = [];
+    const replacementMap: Record<string, string> = {};
+
+    duplicateGroups.forEach(group => {
+      const keepId = getKeepSongId(group);
+      group.songs.forEach(song => {
+        if (song.id !== keepId && isSongMarkedForDelete(song.id, group)) {
+          idsToDelete.push(song.id);
+          replacementMap[song.id] = keepId;
+        }
+      });
+    });
+
     if (idsToDelete.length === 0) return;
 
     setIsDeleting(true);
     setDeleteProgress({ current: 0, total: idsToDelete.length });
 
     try {
-      // 1. Si migration des setlists activée, remplacer les références dans les setlists
       if (migrateSetlists) {
-        // Construire la map: songIdToDelete -> songIdToKeep
-        const replacementMap: Record<string, string> = {};
-        duplicateGroups.forEach(group => {
-          const keepId = selectedToKeep[group.id] || group.recommendedKeepId;
-          group.songs.forEach(song => {
-            if (idsToDelete.includes(song.id) && song.id !== keepId) {
-              replacementMap[song.id] = keepId;
-            }
-          });
-        });
-
         for (const setlist of setlists) {
           let hasChanges = false;
           const updatedSongIds = setlist.songIds.map(sId => {
@@ -261,24 +253,21 @@ export const DuplicateCleanerSection: React.FC = () => {
           });
 
           if (hasChanges) {
-            // Éliminer les doublons successifs dans la même setlist
             const cleanedSongIds = updatedSongIds.filter((id, index) => updatedSongIds.indexOf(id) === index);
             await updateSetlist(setlist.id, { songIds: cleanedSongIds });
           }
         }
       }
 
-      // 2. Supprimer les chants un par un
       let count = 0;
       for (const id of idsToDelete) {
         await deleteSong(id);
         count++;
         setDeleteProgress({ current: count, total: idsToDelete.length });
-        // Petit délai pour laisser respirer l'UI et la synchronisation
         await new Promise(resolve => setTimeout(resolve, 50));
       }
 
-      setLastCleanResult(`${idsToDelete.length} doublon(s) supprimé(s) avec succès de la bibliothèque.`);
+      setLastCleanResult(`${idsToDelete.length} doublons supprimés avec succès de la bibliothèque.`);
       setTimeout(() => setLastCleanResult(null), 5000);
     } catch (err) {
       console.error('Erreur lors de la suppression des doublons:', err);
@@ -303,7 +292,7 @@ export const DuplicateCleanerSection: React.FC = () => {
               Nettoyage des Doublons
               {duplicateGroups.length > 0 ? (
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                  {duplicateGroups.length} groupe(s) trouvé(s)
+                  {duplicateGroups.length} groupes trouvés
                 </span>
               ) : (
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
@@ -329,7 +318,7 @@ export const DuplicateCleanerSection: React.FC = () => {
                   ? 'bg-blue-600 text-white shadow-xs'
                   : 'text-gray-400 hover:text-white'
               }`}
-              title="Compare les titres uniquement (insensible à la casse et accents)"
+              title="Compare les titres uniquement sans tenir compte de la casse ni des accents"
             >
               Même titre
             </button>
@@ -341,7 +330,7 @@ export const DuplicateCleanerSection: React.FC = () => {
                   ? 'bg-blue-600 text-white shadow-xs'
                   : 'text-gray-400 hover:text-white'
               }`}
-              title="Compare le titre ET l'artiste"
+              title="Compare le titre et l'artiste"
             >
               Titre & Artiste
             </button>
@@ -390,7 +379,7 @@ export const DuplicateCleanerSection: React.FC = () => {
           <div className="p-3 rounded-lg bg-[#18181A] border border-[#28282D] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs text-gray-300 font-medium">
-                <strong className="text-rose-400 font-bold">{totalToDeleteCount}</strong> doublon(s) sélectionné(s) pour suppression
+                <strong className="text-rose-400 font-bold">{totalToDeleteCount}</strong> doublons sélectionnés pour suppression
               </span>
               <span className="text-gray-500">•</span>
               <button
@@ -419,7 +408,7 @@ export const DuplicateCleanerSection: React.FC = () => {
                   onChange={(e) => setMigrateSetlists(e.target.checked)}
                   className="rounded border-[#444] bg-[#222] text-blue-600 focus:ring-0 w-3.5 h-3.5"
                 />
-                <span>Préserver les listes (remplacer par la version gardée)</span>
+                <span>Préserver les listes en remplaçant par la version gardée</span>
               </label>
 
               {/* Bouton de suppression primaire */}
@@ -430,7 +419,7 @@ export const DuplicateCleanerSection: React.FC = () => {
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer shrink-0"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                <span>Supprimer ({totalToDeleteCount})</span>
+                <span>Supprimer {totalToDeleteCount}</span>
               </button>
             </div>
           </div>
@@ -438,8 +427,8 @@ export const DuplicateCleanerSection: React.FC = () => {
           {/* Liste des groupes de doublons */}
           <div className="space-y-3">
             {duplicateGroups.map(group => {
-              const keepSongId = selectedToKeep[group.id] || group.recommendedKeepId;
-              const isExpanded = expandedGroups[group.id] !== false;
+              const keepSongId = getKeepSongId(group);
+              const isExpanded = !userCollapsedGroups[group.id];
 
               return (
                 <div
@@ -448,7 +437,7 @@ export const DuplicateCleanerSection: React.FC = () => {
                 >
                   {/* Barre de titre du groupe */}
                   <div
-                    onClick={() => setExpandedGroups(prev => ({ ...prev, [group.id]: !prev[group.id] }))}
+                    onClick={() => setUserCollapsedGroups(prev => ({ ...prev, [group.id]: !prev[group.id] }))}
                     className="px-3.5 py-2.5 bg-[#18181C] border-b border-[#222226] flex items-center justify-between cursor-pointer hover:bg-[#1C1C20] transition-colors"
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
@@ -469,7 +458,7 @@ export const DuplicateCleanerSection: React.FC = () => {
 
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="text-[10px] text-gray-400 hidden sm:inline">
-                        1 conservé • {group.songs.length - 1} doublon(s)
+                        1 conservé • {group.songs.length - 1} doublons
                       </span>
                       {isExpanded ? (
                         <ChevronUp className="w-4 h-4 text-gray-400" />
@@ -484,7 +473,7 @@ export const DuplicateCleanerSection: React.FC = () => {
                     <div className="p-3 space-y-2">
                       {group.songs.map((song) => {
                         const isKept = song.id === keepSongId;
-                        const isMarkedForDelete = !isKept && Boolean(selectedToDelete[song.id]);
+                        const isMarkedForDelete = isSongMarkedForDelete(song.id, group);
                         const isRecommended = song.id === group.recommendedKeepId;
                         const inSetlists = getSongSetlists(song.id);
                         const isPreviewOpen = previewSongId === song.id;
@@ -503,7 +492,7 @@ export const DuplicateCleanerSection: React.FC = () => {
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                               {/* Colonne gauche : infos du chant */}
                               <div className="flex items-start gap-2.5 min-w-0">
-                                {/* Choix de conservation (Radio) */}
+                                {/* Choix de conservation */}
                                 <button
                                   type="button"
                                   onClick={() => handleSelectSongToKeep(group.id, song.id)}
@@ -543,7 +532,7 @@ export const DuplicateCleanerSection: React.FC = () => {
                                     {inSetlists.length > 0 && (
                                       <span className="text-cyan-400 flex items-center gap-0.5">
                                         <ListMusic className="w-2.5 h-2.5" />
-                                        Dans {inSetlists.length} liste(s)
+                                        Dans {inSetlists.length} listes
                                       </span>
                                     )}
                                   </div>
@@ -563,7 +552,7 @@ export const DuplicateCleanerSection: React.FC = () => {
                                   <span className="hidden sm:inline">Aperçu</span>
                                 </button>
 
-                                {/* Checkbox pour marquer pour suppression si ce n'est pas le chant conservé */}
+                                {/* Checkbox pour marquer pour suppression */}
                                 {!isKept && (
                                   <label 
                                     onClick={() => handleToggleSongDelete(song.id, group.id)}
@@ -576,7 +565,7 @@ export const DuplicateCleanerSection: React.FC = () => {
                                     <input
                                       type="checkbox"
                                       checked={isMarkedForDelete}
-                                      onChange={() => {}} // géré par le parent
+                                      onChange={() => {}}
                                       className="hidden"
                                     />
                                     <Trash2 className="w-3 h-3" />
@@ -630,11 +619,11 @@ export const DuplicateCleanerSection: React.FC = () => {
             <div className="p-3.5 rounded-xl bg-[#111112] border border-[#252528] text-xs space-y-2">
               <div className="flex items-center justify-between text-gray-300">
                 <span>Chants à supprimer :</span>
-                <strong className="text-rose-400 font-bold">{totalToDeleteCount} chant(s)</strong>
+                <strong className="text-rose-400 font-bold">{totalToDeleteCount} chants</strong>
               </div>
               <div className="flex items-center justify-between text-gray-300">
                 <span>Groupes nettoyés :</span>
-                <strong className="text-white font-bold">{duplicateGroups.length} groupe(s)</strong>
+                <strong className="text-white font-bold">{duplicateGroups.length} groupes</strong>
               </div>
               {migrateSetlists && (
                 <div className="pt-2 border-t border-[#202024] text-[11px] text-cyan-300 flex items-center gap-1.5">

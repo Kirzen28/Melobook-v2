@@ -41,6 +41,7 @@ import {
 } from '../utils/displayDefaults';
 import { SectionColors, SongTypographySettings, SectionBorders } from '../types';
 import { transposeChord } from '../utils/chordUtils';
+import { DuplicateCleanerSection } from './DuplicateCleanerSection';
 
 interface QuickStepperProps {
   label?: string;
@@ -1106,6 +1107,9 @@ export const SettingsView: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* NETTOYAGE & GESTION DES DOUBLONS */}
+          <DuplicateCleanerSection />
 
           {/* 2. TYPOGRAPHY / FONT SIZES SECTION */}
           <div className="bg-[#111112] border border-[#222224] rounded-xl p-4 sm:p-5 shadow-sm">

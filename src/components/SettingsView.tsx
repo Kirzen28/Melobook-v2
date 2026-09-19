@@ -16,7 +16,6 @@ import {
   Monitor,
   Maximize2,
   Minimize2,
-  Battery,
   X,
   Radio,
   Footprints,
@@ -155,6 +154,33 @@ export const SettingsView: React.FC = () => {
   const [showNotification, setShowNotification] = useState<string | null>(null);
   const [isMobilePreviewCollapsed, setIsMobilePreviewCollapsed] = useState(false);
   const [isMobilePreviewFullscreen, setIsMobilePreviewFullscreen] = useState(false);
+
+  // État des catégories pliables / dépliables sur mobile
+  type SettingsCategory = 
+    | 'display'
+    | 'song_cards'
+    | 'typography'
+    | 'borders'
+    | 'colors'
+    | 'midi'
+    | 'duplicates';
+
+  const [openCategories, setOpenCategories] = useState<Record<SettingsCategory, boolean>>({
+    display: false,      // Plié par défaut sur mobile
+    song_cards: false,
+    typography: false,
+    borders: false,
+    colors: false,
+    midi: false,
+    duplicates: false,
+  });
+
+  const toggleCategory = (cat: SettingsCategory) => {
+    setOpenCategories(prev => ({
+      ...prev,
+      [cat]: !prev[cat]
+    }));
+  };
 
   const {
     isSupported: isMidiSupported,
@@ -296,7 +322,19 @@ export const SettingsView: React.FC = () => {
         </div>
       </div>
 
-      {/* Section 1: Couplet */}
+      {/* Sections Container (1 to 5 columns preview) */}
+      <div className={
+        stageSettings.columns === 2
+          ? 'grid grid-cols-1 sm:grid-cols-2 gap-3 items-start'
+          : stageSettings.columns === 3
+          ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 items-start'
+          : stageSettings.columns === 4
+          ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 items-start'
+          : stageSettings.columns === 5
+          ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2 items-start'
+          : 'space-y-4'
+      }>
+        {/* Section 1: Couplet */}
       <div 
         className="rounded-lg p-3 transition-all"
         style={getSectionBorderStyles(sectionColors.verse, sectionBorders)}
@@ -546,6 +584,7 @@ export const SettingsView: React.FC = () => {
           </div>
         </div>
       </div>
+      </div>
     </div>
   );
 
@@ -670,22 +709,35 @@ export const SettingsView: React.FC = () => {
         </div>
 
         {/* SCROLLABLE SETTINGS PANEL (FULL WIDTH ON MOBILE, LEFT ON DESKTOP) */}
-        <div className="flex-1 w-full lg:w-7/12 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 pb-24">
+        <div className="flex-1 w-full lg:w-7/12 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-5 pb-24">
           
           {/* 1. STAGE DISPLAY & NOTATION SETTINGS */}
-          <div className="bg-[#111112] border border-[#222224] rounded-xl p-4 sm:p-5 shadow-sm">
-            <div className="flex items-center gap-2.5 pb-3 mb-4 border-b border-[#222224]">
-              <div className="w-7 h-7 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
-                <Music className="w-4 h-4" />
-              </div>
-              <div>
-                <h2 className="text-sm font-bold text-white">
-                  Affichage
+          <div className="bg-[#111112] border border-[#222224] rounded-xl overflow-hidden shadow-sm transition-colors hover:border-[#303036]">
+            {/* Header / Trigger */}
+            <div 
+              onClick={() => toggleCategory('display')}
+              className="w-full text-left p-3.5 sm:p-4.5 flex items-center justify-between gap-3 cursor-pointer lg:cursor-default transition-colors hover:bg-[#151518]/50 select-none"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 shrink-0">
+                  <Music className="w-4 h-4" />
+                </div>
+                <h2 className="text-sm font-bold text-white truncate">
+                  Affichage & Thème
                 </h2>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0 lg:hidden">
+                <div className={`p-1.5 rounded-lg bg-[#18181C] border border-[#2B2B30] text-gray-400 transition-transform duration-200 ${openCategories.display ? 'rotate-180 text-blue-400 border-blue-500/30' : ''}`}>
+                  <ChevronDown className="w-4 h-4" />
+                </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Content (Collapsible on mobile) */}
+            <div className={`p-4 sm:p-5 pt-0 sm:pt-0 ${openCategories.display ? 'block' : 'hidden lg:block'}`}>
+              <div className="border-t border-[#222224] mb-4" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               
               {/* Notation Selection */}
               <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex flex-col justify-between gap-2.5">
@@ -720,34 +772,37 @@ export const SettingsView: React.FC = () => {
               </div>
 
               {/* Columns Toggle */}
-              <div className="hidden lg:flex p-3 rounded-lg bg-[#18181A] border border-[#262629] flex-col justify-between gap-2.5">
-                <div>
-                  <span className="text-xs font-bold text-gray-200 block">Colonnes</span>
-                  <span className="text-[11px] text-gray-400">Colonnes en mode scène</span>
+              <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex flex-col justify-between gap-2.5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-bold text-gray-200 block">Disposition</span>
+                    <span className="text-[11px] text-gray-400">Colonnes d'affichage du chant (1 à 5)</span>
+                  </div>
+                  <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-[#121214] text-blue-400 border border-[#2B2B30]">
+                    {(typeof stageSettings.columns === 'number' && stageSettings.columns >= 1 && stageSettings.columns <= 5 ? stageSettings.columns : 1)} {stageSettings.columns === 1 ? 'colonne' : 'colonnes'}
+                  </span>
                 </div>
                 <div className="theme-toggle-group flex items-center gap-1 bg-[#121214] p-0.5 rounded-lg border border-[#2B2B30]">
-                  <button
-                    type="button"
-                    onClick={() => updateStageSettings({ columns: 1 })}
-                    className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-all ${
-                      stageSettings.columns === 1
-                        ? 'bg-blue-600 text-white shadow-xs'
-                        : 'theme-toggle-inactive text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    1 Col
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => updateStageSettings({ columns: 2 })}
-                    className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-all ${
-                      stageSettings.columns === 2
-                        ? 'bg-blue-600 text-white shadow-xs'
-                        : 'theme-toggle-inactive text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    2 Col
-                  </button>
+                  {([1, 2, 3, 4, 5] as const).map((cols) => {
+                    const activeCols = typeof stageSettings.columns === 'number' && stageSettings.columns >= 1 && stageSettings.columns <= 5
+                      ? stageSettings.columns
+                      : 1;
+                    return (
+                      <button
+                        key={cols}
+                        type="button"
+                        onClick={() => updateStageSettings({ columns: cols })}
+                        className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                          activeCols === cols
+                            ? 'bg-blue-600 text-white shadow-xs'
+                            : 'theme-toggle-inactive text-gray-400 hover:text-white'
+                        }`}
+                        title={`Afficher sur ${cols} colonne${cols > 1 ? 's' : ''}`}
+                      >
+                        {cols} {cols === 1 ? 'col' : 'cols'}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -800,61 +855,37 @@ export const SettingsView: React.FC = () => {
                 </div>
               </div>
 
-              {/* Battery Indicator Toggle */}
-              <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex flex-col justify-between gap-2.5">
-                <div>
-                  <span className="text-xs font-bold text-gray-200 block">Indicateur de batterie</span>
-                  <span className="text-[11px] text-gray-400">Niveau de charge en mode scène</span>
-                </div>
-                <div className="theme-toggle-group flex items-center gap-1 bg-[#121214] p-0.5 rounded-lg border border-[#2B2B30]">
-                  <button
-                    type="button"
-                    onClick={() => updateStageSettings({ showBatteryIndicator: true })}
-                    className={`flex-1 py-1.5 rounded-md text-xs font-semibold flex items-center justify-center gap-1 transition-all cursor-pointer ${
-                      stageSettings.showBatteryIndicator !== false
-                        ? 'bg-blue-600 text-white shadow-xs'
-                        : 'theme-toggle-inactive text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    <Battery className="w-3.5 h-3.5 shrink-0" />
-                    <span>Activé</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => updateStageSettings({ showBatteryIndicator: false })}
-                    className={`flex-1 py-1.5 rounded-md text-xs font-semibold flex items-center justify-center gap-1 transition-all cursor-pointer ${
-                      stageSettings.showBatteryIndicator === false
-                        ? 'bg-blue-600 text-white shadow-xs'
-                        : 'theme-toggle-inactive text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    <span>Désactivé</span>
-                  </button>
-                </div>
-              </div>
-
             </div>
           </div>
+        </div>
 
-          {/* CARTES DE CHANTS - VISIBILITE DES METADONNEES DANS LA BIBLIOTHEQUE */}
-          <div className="bg-[#111112] border border-[#222224] rounded-xl p-4 sm:p-5 shadow-sm">
-            <div className="flex items-center justify-between pb-3 mb-4 border-b border-[#222224]">
-              <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+          {/* 2. CARTES DE CHANTS - VISIBILITE DES METADONNEES DANS LA BIBLIOTHEQUE */}
+          <div className="bg-[#111112] border border-[#222224] rounded-xl overflow-hidden shadow-sm transition-colors hover:border-[#303036]">
+            {/* Header / Trigger */}
+            <div 
+              onClick={() => toggleCategory('song_cards')}
+              className="w-full text-left p-3.5 sm:p-4.5 flex items-center justify-between gap-3 cursor-pointer lg:cursor-default transition-colors hover:bg-[#151518]/50 select-none"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 shrink-0">
                   <LayoutGrid className="w-4 h-4" />
                 </div>
-                <div>
-                  <h2 className="text-sm font-bold text-white">
-                    Cartes des chants dans la bibliothèque
-                  </h2>
-                  <p className="text-[11px] text-gray-400">
-                    Visibilité des métadonnées sur les vignettes du répertoire
-                  </p>
+                <h2 className="text-sm font-bold text-white truncate">
+                  Cartes des Chants
+                </h2>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0 lg:hidden">
+                <div className={`p-1.5 rounded-lg bg-[#18181C] border border-[#2B2B30] text-gray-400 transition-transform duration-200 ${openCategories.song_cards ? 'rotate-180 text-blue-400 border-blue-500/30' : ''}`}>
+                  <ChevronDown className="w-4 h-4" />
                 </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {/* Content (Collapsible on mobile) */}
+            <div className={`p-4 sm:p-5 pt-0 sm:pt-0 ${openCategories.song_cards ? 'block' : 'hidden lg:block'}`}>
+              <div className="border-t border-[#222224] mb-4" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               {/* Tonalite */}
               <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex flex-col justify-between gap-2.5">
                 <div className="flex items-center justify-between">
@@ -1106,25 +1137,36 @@ export const SettingsView: React.FC = () => {
                 )}
               </div>
             </div>
+            </div>
           </div>
 
-          {/* NETTOYAGE & GESTION DES DOUBLONS */}
-          <DuplicateCleanerSection />
-
-          {/* 2. TYPOGRAPHY / FONT SIZES SECTION */}
-          <div className="bg-[#111112] border border-[#222224] rounded-xl p-4 sm:p-5 shadow-sm">
-            <div className="flex items-center gap-2.5 pb-3 mb-4 border-b border-[#222224]">
-              <div className="w-7 h-7 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
-                <Type className="w-4 h-4" />
-              </div>
-              <div>
-                <h2 className="text-sm font-bold text-white">
+          {/* 3. TYPOGRAPHY / FONT SIZES SECTION */}
+          <div className="bg-[#111112] border border-[#222224] rounded-xl overflow-hidden shadow-sm transition-colors hover:border-[#303036]">
+            {/* Header / Trigger */}
+            <div 
+              onClick={() => toggleCategory('typography')}
+              className="w-full text-left p-3.5 sm:p-4.5 flex items-center justify-between gap-3 cursor-pointer lg:cursor-default transition-colors hover:bg-[#151518]/50 select-none"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 shrink-0">
+                  <Type className="w-4 h-4" />
+                </div>
+                <h2 className="text-sm font-bold text-white truncate">
                   Tailles de Police
                 </h2>
               </div>
+
+              <div className="flex items-center gap-2 shrink-0 lg:hidden">
+                <div className={`p-1.5 rounded-lg bg-[#18181C] border border-[#2B2B30] text-gray-400 transition-transform duration-200 ${openCategories.typography ? 'rotate-180 text-purple-400 border-purple-500/30' : ''}`}>
+                  <ChevronDown className="w-4 h-4" />
+                </div>
+              </div>
             </div>
 
-            <div className="space-y-4">
+            {/* Content (Collapsible on mobile) */}
+            <div className={`p-4 sm:p-5 pt-0 sm:pt-0 ${openCategories.typography ? 'block' : 'hidden lg:block'}`}>
+              <div className="border-t border-[#222224] mb-4" />
+              <div className="space-y-4">
               
               {/* Title Size Slider */}
               <div className="space-y-1.5">
@@ -1211,36 +1253,35 @@ export const SettingsView: React.FC = () => {
               </div>
 
             </div>
+            </div>
           </div>
 
-          {/* 2. SECTION BORDERS SECTION */}
-          <div className="bg-[#111112] border border-[#222224] rounded-xl p-4 sm:p-5 shadow-sm">
-            <div className="flex items-center justify-between pb-3 mb-4 border-b border-[#222224] flex-wrap gap-2">
-              <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+          {/* 4. SECTION BORDERS SECTION */}
+          <div className="bg-[#111112] border border-[#222224] rounded-xl overflow-hidden shadow-sm transition-colors hover:border-[#303036]">
+            {/* Header / Trigger */}
+            <div 
+              onClick={() => toggleCategory('borders')}
+              className="w-full text-left p-3.5 sm:p-4.5 flex items-center justify-between gap-3 cursor-pointer lg:cursor-default transition-colors hover:bg-[#151518]/50 select-none"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 shrink-0">
                   <Square className="w-4 h-4" />
                 </div>
-                <div>
-                  <h2 className="text-sm font-bold text-white">
-                    Bordures des Sections
-                  </h2>
-                  <p className="text-[11px] text-gray-400">
-                    Sélection multiple des bordures à afficher autour des couplets, refrains et ponts
-                  </p>
-                </div>
+                <h2 className="text-sm font-bold text-white truncate">
+                  Bordures des Sections
+                </h2>
               </div>
 
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-[#1C1C20] text-blue-400 border border-[#2B2B30]">
-                  {[
-                    sectionBorders.left && 'Gauche',
-                    sectionBorders.right && 'Droite',
-                    sectionBorders.top && 'Haut',
-                    sectionBorders.bottom && 'Bas'
-                  ].filter(Boolean).join(', ') || 'Aucune'}
-                </span>
+              <div className="flex items-center gap-2 shrink-0 lg:hidden">
+                <div className={`p-1.5 rounded-lg bg-[#18181C] border border-[#2B2B30] text-gray-400 transition-transform duration-200 ${openCategories.borders ? 'rotate-180 text-blue-400 border-blue-500/30' : ''}`}>
+                  <ChevronDown className="w-4 h-4" />
+                </div>
               </div>
             </div>
+
+            {/* Content (Collapsible on mobile) */}
+            <div className={`p-4 sm:p-5 pt-0 sm:pt-0 ${openCategories.borders ? 'block' : 'hidden lg:block'}`}>
+              <div className="border-t border-[#222224] mb-4" />
 
             <div className="space-y-4">
               {/* Multi-selection toggle buttons */}
@@ -1425,22 +1466,36 @@ export const SettingsView: React.FC = () => {
                 </div>
               </div>
             </div>
+            </div>
           </div>
 
-          {/* 3. SECTION COLORS SECTION */}
-          <div className="bg-[#111112] border border-[#222224] rounded-xl p-4 sm:p-5 shadow-sm">
-            <div className="flex items-center gap-2.5 pb-3 mb-4 border-b border-[#222224]">
-              <div className="w-7 h-7 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
-                <Palette className="w-4 h-4" />
-              </div>
-              <div>
-                <h2 className="text-sm font-bold text-white">
-                  Couleurs
+          {/* 5. SECTION COLORS SECTION */}
+          <div className="bg-[#111112] border border-[#222224] rounded-xl overflow-hidden shadow-sm transition-colors hover:border-[#303036]">
+            {/* Header / Trigger */}
+            <div 
+              onClick={() => toggleCategory('colors')}
+              className="w-full text-left p-3.5 sm:p-4.5 flex items-center justify-between gap-3 cursor-pointer lg:cursor-default transition-colors hover:bg-[#151518]/50 select-none"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+                  <Palette className="w-4 h-4" />
+                </div>
+                <h2 className="text-sm font-bold text-white truncate">
+                  Couleurs des Sections
                 </h2>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0 lg:hidden">
+                <div className={`p-1.5 rounded-lg bg-[#18181C] border border-[#2B2B30] text-gray-400 transition-transform duration-200 ${openCategories.colors ? 'rotate-180 text-emerald-400 border-emerald-500/30' : ''}`}>
+                  <ChevronDown className="w-4 h-4" />
+                </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Content (Collapsible on mobile) */}
+            <div className={`p-4 sm:p-5 pt-0 sm:pt-0 ${openCategories.colors ? 'block' : 'hidden lg:block'}`}>
+              <div className="border-t border-[#222224] mb-4" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {SECTION_TYPES_LIST.map((sec) => {
                 const currentColor = sectionColors[sec.key] || '#64748b';
 
@@ -1507,43 +1562,49 @@ export const SettingsView: React.FC = () => {
                 );
               })}
             </div>
+            </div>
           </div>
 
-          {/* 4. MIDI DEVICES & FOOT PEDAL CONTROLS */}
-          <div className="bg-[#111112] border border-[#222224] rounded-xl p-4 sm:p-5 shadow-sm">
-            <div className="flex items-center justify-between pb-3 mb-4 border-b border-[#222224]">
-              <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+          {/* 6. MIDI DEVICES & FOOT PEDAL CONTROLS */}
+          <div className="bg-[#111112] border border-[#222224] rounded-xl overflow-hidden shadow-sm transition-colors hover:border-[#303036]">
+            {/* Header / Trigger */}
+            <div 
+              onClick={() => toggleCategory('midi')}
+              className="w-full text-left p-3.5 sm:p-4.5 flex items-center justify-between gap-3 cursor-pointer lg:cursor-default transition-colors hover:bg-[#151518]/50 select-none"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 shrink-0">
                   <Radio className="w-4 h-4" />
                 </div>
-                <div>
-                  <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                    Contrôle MIDI & Pédaliers
-                    {hasConnectedDevices ? (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                        {midiDevices.filter(d => d.state === 'connected').length} connecté(s)
-                      </span>
-                    ) : (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#1C1C20] text-gray-400 border border-[#2C2C30]">
-                        Prêt
-                      </span>
-                    )}
-                  </h2>
-                  <p className="text-[11px] text-gray-400">
-                    Contrôle à distance sans fil ou USB (changement de chant, défilement auto, vitesse)
-                  </p>
-                </div>
+                <h2 className="text-sm font-bold text-white truncate">
+                  Contrôle MIDI & Pédaliers
+                </h2>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setIsMidiModalOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all active:scale-95 shadow-sm"
-              >
-                <Sliders className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Configurer</span>
-              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsMidiModalOpen(true);
+                  }}
+                  className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all active:scale-95 shadow-sm cursor-pointer"
+                >
+                  <Sliders className="w-3.5 h-3.5" />
+                  <span>Configurer</span>
+                </button>
+
+                <div className="flex items-center gap-2 lg:hidden">
+                  <div className={`p-1.5 rounded-lg bg-[#18181C] border border-[#2B2B30] text-gray-400 transition-transform duration-200 ${openCategories.midi ? 'rotate-180 text-blue-400 border-blue-500/30' : ''}`}>
+                    <ChevronDown className="w-4 h-4" />
+                  </div>
+                </div>
+              </div>
             </div>
+
+            {/* Content (Collapsible on mobile) */}
+            <div className={`p-4 sm:p-5 pt-0 sm:pt-0 ${openCategories.midi ? 'block' : 'hidden lg:block'}`}>
+              <div className="border-t border-[#222224] mb-4" />
 
             {/* Quick status & master toggle */}
             <div className="space-y-4">
@@ -1677,7 +1738,14 @@ export const SettingsView: React.FC = () => {
               </div>
 
             </div>
+            </div>
           </div>
+
+          {/* 7. NETTOYAGE & GESTION DES DOUBLONS */}
+          <DuplicateCleanerSection 
+            isOpen={openCategories.duplicates}
+            onToggle={() => toggleCategory('duplicates')}
+          />
 
         </div>
 

@@ -30,6 +30,7 @@ import {
   ChevronRight, 
   Maximize2, 
   Minimize2, 
+  RectangleVertical,
   Eye, 
   EyeOff, 
   Type, 
@@ -62,7 +63,7 @@ import {
 import { SetlistPdfModal } from './SetlistPdfModal';
 import { ChordModal } from './ChordModal';
 import { LanguageVersionModal } from './LanguageVersionModal';
-import { getLanguageMeta, getLinkedSongVersions } from '../utils/languageUtils';
+import { PRESET_LANGUAGES, getLanguageMeta, getLinkedSongVersions } from '../utils/languageUtils';
 
 const PRESET_VOCAL_ROLES = [
   'Unisson', 
@@ -771,14 +772,76 @@ export const SongReader: React.FC<SongReaderProps> = ({
     };
   }, [stageSettings.isAutoScrolling, stageSettings.autoScrollSpeed, updateStageSettings, onNext, onPrev, registerActionHandler]);
 
+  // Fullscreen event synchronization
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+
   // Fullscreen Handler
-  const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(() => {});
+  const toggleFullscreen = (targetState?: boolean) => {
+    const shouldBeFs = targetState !== undefined ? targetState : !isFullscreen;
+    if (shouldBeFs) {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      }
       setIsFullscreen(true);
     } else {
-      document.exitFullscreen().catch(() => {});
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      }
       setIsFullscreen(false);
+    }
+  };
+
+  const handleSetColumns = (cols: 1 | 2 | 3 | 4 | 5) => {
+    updateStageSettings({ columns: cols });
+  };
+
+  const handleSetOneColumnMode = () => {
+    updateStageSettings({ columns: 1 });
+    if (isFullscreen) {
+      toggleFullscreen(false);
+    }
+  };
+
+  const handleToggleFullscreenMode = () => {
+    if (isFullscreen) {
+      toggleFullscreen(false);
+    } else {
+      toggleFullscreen(true);
+    }
+  };
+
+  const numColumns = (typeof stageSettings.columns === 'number' && stageSettings.columns >= 1 && stageSettings.columns <= 5)
+    ? stageSettings.columns
+    : (stageSettings.columns === 'auto' ? 2 : 1);
+
+  const isWideLayout = isFullscreen || numColumns > 1;
+
+  const getColumnsGridClass = (cols: number) => {
+    switch (cols) {
+      case 1:
+        return 'space-y-6';
+      case 2:
+        return 'grid grid-cols-1 md:grid-cols-2 gap-x-6 lg:gap-x-8 gap-y-6 items-start';
+      case 3:
+        return 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-5 lg:gap-x-6 gap-y-6 items-start';
+      case 4:
+        return 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 lg:gap-x-5 gap-y-5 items-start';
+      case 5:
+        return 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-x-3 lg:gap-x-4 gap-y-4 items-start';
+      default:
+        return 'space-y-6';
     }
   };
 
@@ -816,7 +879,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
   const isEmbedded = Boolean(propSong || setlistId || onBack);
   const containerClasses = isEmbedded
     ? 'relative flex-1 w-full h-full min-h-0'
-    : 'fixed inset-0 top-16 md:top-16 z-30';
+    : (isFullscreen ? 'fixed inset-0 top-0 z-50' : 'fixed inset-0 top-16 md:top-16 z-30');
 
   return (
     <div className={`${containerClasses} flex flex-col ${themeClasses} select-none transition-colors`}>
@@ -863,6 +926,47 @@ export const SongReader: React.FC<SongReaderProps> = ({
 
           {/* Outils & Affichage de scène - compact layout */}
           <div className="flex flex-wrap items-center gap-x-3 sm:gap-x-4 gap-y-1.5 text-xs">
+            {/* Disposition : Choix de 1 à 5 colonnes */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-gray-400 text-[11px] font-medium shrink-0">Disposition :</span>
+              <div className="inline-flex items-center bg-[#1C1C1E] p-0.5 rounded-md border border-[#333]">
+                {([1, 2, 3, 4, 5] as const).map((cols) => (
+                  <button
+                    key={cols}
+                    type="button"
+                    id={`drawer-stage-${cols}col`}
+                    onClick={() => handleSetColumns(cols)}
+                    className={`px-2 py-0.5 rounded text-[11px] font-medium transition-all cursor-pointer ${
+                      numColumns === cols
+                        ? 'bg-blue-600 text-white font-semibold shadow-xs'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                    title={`Affichage sur ${cols} colonne${cols > 1 ? 's' : ''}`}
+                  >
+                    <span>{cols} {cols === 1 ? 'col' : 'cols'}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Plein écran */}
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                id="drawer-stage-fullscreen"
+                onClick={() => toggleFullscreen()}
+                className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-all cursor-pointer border ${
+                  isFullscreen
+                    ? 'bg-blue-600 text-white font-semibold border-blue-500 shadow-xs'
+                    : 'bg-[#1C1C1E] border-[#333] text-gray-400 hover:text-white'
+                }`}
+                title="Basculer en mode plein écran"
+              >
+                {isFullscreen ? <Minimize2 className="w-3 h-3 text-blue-200" /> : <Maximize2 className="w-3 h-3" />}
+                <span>Plein écran</span>
+              </button>
+            </div>
+
             {/* Chords Visibility */}
             <div className="flex items-center gap-1.5">
               <span className="text-gray-400 text-[11px] font-medium shrink-0">Accords :</span>
@@ -946,12 +1050,12 @@ export const SongReader: React.FC<SongReaderProps> = ({
       <div 
         ref={containerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto px-4 sm:px-12 py-8 scroll-smooth print-sheet pb-32"
+        className={`flex-1 overflow-y-auto ${isWideLayout ? 'px-3 sm:px-6 lg:px-8' : 'px-4 sm:px-12'} py-6 sm:py-8 scroll-smooth print-sheet pb-32`}
         style={{ 
           lineHeight: displaySettings.typography.lineSpacing 
         }}
       >
-        <div className="max-w-4xl mx-auto">
+        <div className={isWideLayout ? 'w-full max-w-none' : 'max-w-4xl mx-auto'}>
           
           {/* Song Sheet Header */}
           <div className="border-b border-[#222224] pb-4 mb-6">
@@ -975,11 +1079,13 @@ export const SongReader: React.FC<SongReaderProps> = ({
                       <div className="relative inline-block">
                         <button
                           type="button"
+                          id="btn-song-language"
                           onClick={() => setShowLanguageMenu(!showLanguageMenu)}
-                          className={`inline-flex items-center justify-center p-1 rounded-md border text-xs font-semibold transition-all shadow-sm hover:brightness-110 active:scale-95 cursor-pointer ${lMeta.badgeClass}`}
-                          title={`Langue : ${lMeta.name}${linkedVersions.length > 0 ? ` (+${linkedVersions.length} version(s) disponible(s))` : ''}`}
+                          className={`inline-flex items-center justify-center gap-1.5 px-2 py-0.5 rounded-md border text-xs font-bold transition-all shadow-xs hover:brightness-110 active:scale-95 cursor-pointer ${lMeta.badgeClass}`}
+                          title={`Langue : ${lMeta.name} (${lMeta.code})${linkedVersions.length > 0 ? ` • ${linkedVersions.length} version(s) liée(s)` : ''}`}
                         >
                           <Globe className="w-3.5 h-3.5 shrink-0" />
+                          <span className="leading-none text-[11px] font-bold tracking-tight">{lMeta.code}</span>
                         </button>
 
                         {showLanguageMenu && (
@@ -988,9 +1094,46 @@ export const SongReader: React.FC<SongReaderProps> = ({
                               className="fixed inset-0 z-40" 
                               onClick={() => setShowLanguageMenu(false)} 
                             />
-                            <div className="absolute left-0 top-full mt-1.5 z-50 w-64 bg-[#18181C] border border-[#2E2E36] rounded-xl shadow-2xl p-2.5 backdrop-blur-md">
-                              {/* En-tête */}
-                              <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider px-1 pb-1.5 border-b border-[#282830] mb-2 flex items-center justify-between">
+                            <div className="absolute left-0 top-full mt-1.5 z-50 w-72 max-w-[calc(100vw-32px)] bg-[#18181C] border border-[#2E2E36] rounded-xl shadow-2xl p-2.5 backdrop-blur-md">
+                              {/* Section: Langue du chant actuel & Sélecteur rapide */}
+                              <div className="mb-2.5 pb-2.5 border-b border-[#282830]">
+                                <div className="flex items-center justify-between mb-1.5 px-1">
+                                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                                    <Globe className="w-3 h-3 text-blue-400" />
+                                    <span>Langue actuelle</span>
+                                  </span>
+                                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${lMeta.badgeClass}`}>
+                                    {lMeta.name} ({lMeta.code})
+                                  </span>
+                                </div>
+
+                                <div className="relative mt-1">
+                                  <select
+                                    id="select-quick-song-language"
+                                    value={song.language || 'Français'}
+                                    onChange={async (e) => {
+                                      const newLang = e.target.value;
+                                      await updateSong(song.id, { language: newLang });
+                                    }}
+                                    className="w-full h-8 bg-[#121215] border border-[#333] hover:border-blue-500/60 rounded-lg px-2.5 pr-8 text-xs text-white font-medium focus:outline-none focus:border-blue-500 cursor-pointer transition-colors appearance-none"
+                                  >
+                                    {PRESET_LANGUAGES.map((lang) => (
+                                      <option key={lang.code} value={lang.name} className="bg-[#1C1C1E] text-white">
+                                        {lang.name} ({lang.code})
+                                      </option>
+                                    ))}
+                                    {song.language && !PRESET_LANGUAGES.some(p => p.name.toLowerCase() === song.language?.toLowerCase() || p.code.toLowerCase() === song.language?.toLowerCase()) && (
+                                      <option value={song.language} className="bg-[#1C1C1E] text-white">
+                                        {song.language} ({lMeta.code})
+                                      </option>
+                                    )}
+                                  </select>
+                                  <ChevronDown className="w-3.5 h-3.5 text-gray-400 pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2" />
+                                </div>
+                              </div>
+
+                              {/* En-tête versions disponibles */}
+                              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-1 pb-1 flex items-center justify-between mb-1.5">
                                 <span>Versions disponibles</span>
                                 {linkedVersions.length > 0 && (
                                   <span className="text-[10px] font-mono font-normal text-indigo-400 bg-indigo-950/60 px-1.5 py-0.5 rounded border border-indigo-500/30">
@@ -1001,7 +1144,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
 
                               {/* Autres versions liées disponibles */}
                               {linkedVersions.length > 0 ? (
-                                <div className="max-h-48 overflow-y-auto space-y-1 pr-0.5 custom-scrollbar">
+                                <div className="max-h-40 overflow-y-auto space-y-1 pr-0.5 custom-scrollbar">
                                   {linkedVersions.map((lv) => {
                                     const lvMeta = getLanguageMeta(lv.language);
                                     return (
@@ -1016,7 +1159,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                                       >
                                         <div className="flex items-center gap-1.5 min-w-0">
                                           <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${lvMeta.badgeClass}`}>
-                                            {lvMeta.name}
+                                            {lvMeta.code}
                                           </span>
                                           <span className="truncate group-hover:text-blue-300">{lv.title}</span>
                                         </div>
@@ -1026,7 +1169,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                                   })}
                                 </div>
                               ) : (
-                                <div className="py-2.5 px-2 text-center text-xs text-gray-400 bg-[#141416] rounded-lg border border-[#26262E]">
+                                <div className="py-2 px-2 text-center text-xs text-gray-400 bg-[#141416] rounded-lg border border-[#26262E]">
                                   Aucune autre version disponible
                                 </div>
                               )}
@@ -1483,7 +1626,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
           </div>
 
           {/* Structured ChordPro Sections */}
-          <div className={stageSettings.columns === 2 ? 'grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6' : 'space-y-6'}>
+          <div className={getColumnsGridClass(numColumns)}>
             {parsedData.sections.map((section, sIdx) => {
               const secColor = getSectionColor(section.type, displaySettings.sectionColors);
               const sectionRepeat = (setlistOverride?.sectionRepeats && setlistOverride.sectionRepeats[sIdx] !== undefined)

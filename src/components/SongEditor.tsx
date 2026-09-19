@@ -28,7 +28,13 @@ import {
 import { VisualSectionCard } from './editor/VisualSectionCard';
 import { ChordPickerModal } from './editor/ChordPickerModal';
 import { LanguageVersionModal } from './LanguageVersionModal';
-import { PRESET_LANGUAGES, getLanguageMeta, getLinkedSongVersions } from '../utils/languageUtils';
+import { 
+  PRESET_LANGUAGES, 
+  getLanguageMeta, 
+  getLinkedSongVersions, 
+  detectSongLanguage, 
+  detectSongLanguageWithConfidence 
+} from '../utils/languageUtils';
 import { 
   DEFAULT_ARTIST_SUGGESTIONS,
   parseArtistsString,
@@ -127,7 +133,16 @@ export const SongEditor: React.FC = () => {
   const [timeSignature, setTimeSignature] = useState(selectedSong?.timeSignature || '4/4');
   const [duration, setDuration] = useState(selectedSong?.duration ? formatDurationToMMSS(selectedSong.duration) : '03:30');
   const [capo, setCapo] = useState<number>(selectedSong?.capo || 0);
-  const [language, setLanguage] = useState<string>(selectedSong?.language || 'Français');
+  const [language, setLanguage] = useState<string>(() => {
+    if (selectedSong?.language) return selectedSong.language;
+    if (selectedSong) return detectSongLanguage(selectedSong.title, selectedSong.contentChordPro || selectedSong.content);
+    return detectSongLanguage('', SAMPLE_TEMPLATE);
+  });
+  const [isLanguageManual, setIsLanguageManual] = useState<boolean>(Boolean(selectedSong?.language));
+  const [detectedLangInfo, setDetectedLangInfo] = useState<{ language: string; confidence: number; detectedFrom: 'title' | 'content' | 'both' | 'default' } | null>(() => {
+    if (selectedSong) return detectSongLanguageWithConfidence(selectedSong.title, selectedSong.contentChordPro || selectedSong.content);
+    return detectSongLanguageWithConfidence('', SAMPLE_TEMPLATE);
+  });
   const [linkedSongIds, setLinkedSongIds] = useState<string[]>(selectedSong?.linkedSongIds || []);
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
   const [categories, setCategories] = useState<string[]>(selectedSong?.tags || []);
@@ -358,7 +373,13 @@ export const SongEditor: React.FC = () => {
       setTimeSignature(selectedSong.timeSignature || '4/4');
       setDuration(selectedSong.duration && selectedSong.duration !== 'auto' ? formatDurationToMMSS(selectedSong.duration) : '03:30');
       setCapo(selectedSong.capo || 0);
-      setLanguage(selectedSong.language || 'Français');
+      
+      const detected = detectSongLanguageWithConfidence(selectedSong.title, selectedSong.contentChordPro || selectedSong.content);
+      const initialLang = (selectedSong.language && selectedSong.language.trim()) ? selectedSong.language : detected.language;
+      setLanguage(initialLang);
+      setIsLanguageManual(Boolean(selectedSong.language && selectedSong.language.trim()));
+      setDetectedLangInfo(detected);
+
       setLinkedSongIds(selectedSong.linkedSongIds || []);
       setCategories(selectedSong.tags || []);
       setNotes(selectedSong.notes || '');
@@ -373,7 +394,12 @@ export const SongEditor: React.FC = () => {
       setTimeSignature('4/4');
       setDuration('3:30');
       setCapo(0);
-      setLanguage('Français');
+      
+      const initialDetected = detectSongLanguageWithConfidence('', SAMPLE_TEMPLATE);
+      setLanguage(initialDetected.language);
+      setDetectedLangInfo(initialDetected);
+      setIsLanguageManual(false);
+
       setLinkedSongIds([]);
       setCategories([]);
       setNotes('');
@@ -398,6 +424,26 @@ export const SongEditor: React.FC = () => {
     return Array.from(set);
   }, [visualSections, contentChordPro]);
 
+  // Handle title input with automatic language guessing if not manually set
+  const handleTitleChange = (newTitle: string) => {
+    setTitle(newTitle);
+    if (!isLanguageManual) {
+      const currentChordPro = visualSectionsToChordPro(visualSections, { title: newTitle });
+      const detected = detectSongLanguageWithConfidence(newTitle, currentChordPro);
+      setLanguage(detected.language);
+      setDetectedLangInfo(detected);
+    }
+  };
+
+  // Explicit user trigger to auto-detect language from title & lyrics
+  const handleAutoDetectLanguage = () => {
+    const currentChordPro = visualSectionsToChordPro(visualSections, { title });
+    const detected = detectSongLanguageWithConfidence(title, currentChordPro);
+    setLanguage(detected.language);
+    setDetectedLangInfo(detected);
+    setIsLanguageManual(false);
+  };
+
   // Update a section in Visual Mode and sync ChordPro text
   const handleUpdateSection = (updatedSection: VisualSection) => {
     const updatedSections = visualSections.map(sec => 
@@ -415,6 +461,13 @@ export const SongEditor: React.FC = () => {
       capo
     });
     setContentChordPro(newChordPro);
+
+    // If language has not been manually pinned, re-evaluate with updated lyrics
+    if (!isLanguageManual) {
+      const detected = detectSongLanguageWithConfidence(title, newChordPro);
+      setLanguage(detected.language);
+      setDetectedLangInfo(detected);
+    }
   };
 
   // Add a new section
@@ -632,7 +685,7 @@ export const SongEditor: React.FC = () => {
       duration: resolvedDuration,
       durationMode: 'custom',
       capo: Number(capo) || 0,
-      language: language || 'Français',
+      language: language || detectSongLanguage(title.trim(), finalChordPro),
       linkedSongIds: linkedSongIds || [],
       tags: categories,
       notes: notes.trim(),
@@ -750,7 +803,7 @@ export const SongEditor: React.FC = () => {
               type="text"
               placeholder="Entrez le titre du chant"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(e) => handleTitleChange(e.target.value)}
               className="w-full h-8 bg-[#1C1C1E] border border-[#333] hover:border-[#444] rounded-lg px-2.5 text-xs text-white focus:outline-none focus:border-blue-500 font-semibold transition-colors"
               required
             />
@@ -982,21 +1035,35 @@ export const SongEditor: React.FC = () => {
                 <Globe className="w-3 h-3 text-blue-400" />
                 <span>Langue & Versions</span>
               </label>
-              {selectedSong && (
+              <div className="flex items-center gap-1.5">
                 <button
                   type="button"
-                  onClick={() => setIsLanguageModalOpen(true)}
-                  className="text-[10px] text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1 transition-colors"
+                  onClick={handleAutoDetectLanguage}
+                  className="text-[10px] text-emerald-400 hover:text-emerald-300 font-medium flex items-center gap-1 transition-colors px-1.5 py-0.5 rounded bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 cursor-pointer"
+                  title="Deviner la langue automatiquement grâce au titre et aux paroles"
                 >
-                  <Link className="w-2.5 h-2.5" />
-                  <span>Relations</span>
+                  <Sparkles className="w-2.5 h-2.5" />
+                  <span>Deviner</span>
                 </button>
-              )}
+                {selectedSong && (
+                  <button
+                    type="button"
+                    onClick={() => setIsLanguageModalOpen(true)}
+                    className="text-[10px] text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1 transition-colors"
+                  >
+                    <Link className="w-2.5 h-2.5" />
+                    <span>Relations</span>
+                  </button>
+                )}
+              </div>
             </div>
 
             <select
               value={language}
-              onChange={(e) => setLanguage(e.target.value)}
+              onChange={(e) => {
+                setLanguage(e.target.value);
+                setIsLanguageManual(true);
+              }}
               className="w-full h-8 bg-[#1C1C1E] border border-[#333] hover:border-[#444] rounded-lg px-2.5 text-xs text-white focus:outline-none focus:border-blue-500 cursor-pointer font-medium transition-colors"
             >
               {PRESET_LANGUAGES.map(lang => (
@@ -1005,6 +1072,13 @@ export const SongEditor: React.FC = () => {
                 </option>
               ))}
             </select>
+
+            {!isLanguageManual && detectedLangInfo && (
+              <p className="text-[10px] text-emerald-400/80 mt-1 flex items-center gap-1">
+                <Sparkles className="w-2.5 h-2.5 shrink-0 text-emerald-400" />
+                <span>Devinée d'après {detectedLangInfo.detectedFrom === 'title' ? 'le titre' : detectedLangInfo.detectedFrom === 'content' ? 'les paroles' : 'le titre et les paroles'}</span>
+              </p>
+            )}
 
             {/* Inline linked versions shortcuts if song exists */}
             {selectedSong && (() => {

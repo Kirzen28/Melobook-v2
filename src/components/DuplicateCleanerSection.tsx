@@ -72,7 +72,15 @@ interface DuplicateGroup {
   recommendedKeepId: string;
 }
 
-export const DuplicateCleanerSection: React.FC = () => {
+interface DuplicateCleanerSectionProps {
+  isOpen?: boolean;
+  onToggle?: () => void;
+}
+
+export const DuplicateCleanerSection: React.FC<DuplicateCleanerSectionProps> = ({
+  isOpen = true,
+  onToggle
+}) => {
   const { songs, setlists, updateSetlist, deleteSong } = useApp();
 
   const [criteria, setCriteria] = useState<DetectionCriteria>('title_only');
@@ -280,75 +288,80 @@ export const DuplicateCleanerSection: React.FC = () => {
   };
 
   return (
-    <div className="bg-[#111112] border border-[#222224] rounded-xl p-4 sm:p-5 shadow-sm">
+    <div className="bg-[#111112] border border-[#222224] rounded-xl overflow-hidden shadow-sm transition-colors hover:border-[#303036]">
       {/* En-tête de section */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 mb-4 border-b border-[#222224] gap-3">
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 shrink-0">
+      <div 
+        onClick={onToggle}
+        className={`w-full text-left p-3.5 sm:p-4.5 flex items-center justify-between gap-3 ${
+          onToggle ? 'cursor-pointer lg:cursor-default hover:bg-[#151518]/50' : ''
+        } transition-colors select-none`}
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-8 h-8 rounded-lg bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 shrink-0">
             <Copy className="w-4 h-4" />
           </div>
-          <div>
-            <h2 className="text-sm font-bold text-white flex items-center gap-2">
-              Nettoyage des Doublons
-              {duplicateGroups.length > 0 ? (
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                  {duplicateGroups.length} groupes trouvés
-                </span>
-              ) : (
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                  Bibliothèque propre
-                </span>
-              )}
-            </h2>
-            <p className="text-[11px] text-gray-400">
-              Détectez, comparez et supprimez les chants en double dans votre répertoire
-            </p>
-          </div>
+          <h2 className="text-sm font-bold text-white truncate">
+            Nettoyage des Doublons
+          </h2>
         </div>
 
+        {onToggle && (
+          <div className="flex items-center gap-2 shrink-0 lg:hidden">
+            <div className={`p-1.5 rounded-lg bg-[#18181C] border border-[#2B2B30] text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180 text-rose-400 border-rose-500/30' : ''}`}>
+              <ChevronDown className="w-4 h-4" />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Contenu de la section (pliable sur mobile) */}
+      <div className={`p-4 sm:p-5 pt-0 sm:pt-0 ${isOpen ? 'block' : 'hidden lg:block'}`}>
+        <div className="border-t border-[#222224] mb-4" />
+
         {/* Critère de détection */}
-        <div className="flex items-center gap-1.5 self-start sm:self-auto">
-          <span className="text-[11px] text-gray-400 font-medium hidden md:inline">Critère :</span>
-          <div className="flex items-center bg-[#18181A] border border-[#2B2B30] rounded-lg p-0.5 text-xs">
-            <button
-              type="button"
-              onClick={() => setCriteria('title_only')}
-              className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
-                criteria === 'title_only'
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'text-gray-400 hover:text-white'
-              }`}
-              title="Compare les titres uniquement sans tenir compte de la casse ni des accents"
-            >
-              Même titre
-            </button>
-            <button
-              type="button"
-              onClick={() => setCriteria('title_and_artist')}
-              className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
-                criteria === 'title_and_artist'
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'text-gray-400 hover:text-white'
-              }`}
-              title="Compare le titre et l'artiste"
-            >
-              Titre & Artiste
-            </button>
-            <button
-              type="button"
-              onClick={() => setCriteria('similar_content')}
-              className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
-                criteria === 'similar_content'
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'text-gray-400 hover:text-white'
-              }`}
-              title="Compare le début des paroles pour détecter les copies identiques"
-            >
-              Paroles
-            </button>
+        <div className="flex flex-wrap items-center justify-between gap-2.5 pb-3 mb-4 border-b border-[#1E1E22]">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] text-gray-400 font-medium">Critère de détection :</span>
+            <div className="flex items-center bg-[#18181A] border border-[#2B2B30] rounded-lg p-0.5 text-xs">
+              <button
+                type="button"
+                onClick={() => setCriteria('title_only')}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
+                  criteria === 'title_only'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+                title="Compare les titres uniquement sans tenir compte de la casse ni des accents"
+              >
+                Même titre
+              </button>
+              <button
+                type="button"
+                onClick={() => setCriteria('title_and_artist')}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
+                  criteria === 'title_and_artist'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+                title="Compare le titre et l'artiste"
+              >
+                Titre & Artiste
+              </button>
+              <button
+                type="button"
+                onClick={() => setCriteria('similar_content')}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
+                  criteria === 'similar_content'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+                title="Compare le début des paroles pour détecter les copies identiques"
+              >
+                Paroles
+              </button>
+            </div>
           </div>
         </div>
-      </div>
 
       {/* Notification de résultat */}
       {lastCleanResult && (
@@ -680,6 +693,7 @@ export const DuplicateCleanerSection: React.FC = () => {
         </div>
       )}
 
+      </div>
     </div>
   );
 };

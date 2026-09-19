@@ -6,7 +6,7 @@ import { generateSetlistPdf, DEFAULT_PDF_OPTIONS } from '../utils/pdfExport';
 import { SongImportModal } from './SongImportModal';
 import { LanguageVersionModal } from './LanguageVersionModal';
 import { VoiceSearchControl } from './VoiceSearchControl';
-import { PRESET_LANGUAGES, getLanguageMeta } from '../utils/languageUtils';
+import { PRESET_LANGUAGES, getLanguageMeta, detectSongLanguage } from '../utils/languageUtils';
 import { 
   DEFAULT_CATEGORY_SUGGESTIONS, 
   getCustomCategories, 
@@ -62,7 +62,8 @@ export const SongList: React.FC = () => {
     createSetlist,
     createSong,
     importSong,
-    songCardMetadata
+    songCardMetadata,
+    autoDetectSongLanguages
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -1085,19 +1086,36 @@ export const SongList: React.FC = () => {
 
     setIsSavingBatchLanguages(true);
     try {
-      for (const songId of selectedSongIds) {
-        await updateSong(songId, { language: targetLang || undefined });
+      if (targetLang === '__AUTO_DETECT__') {
+        let count = 0;
+        for (const songId of selectedSongIds) {
+          const s = songs.find(x => x.id === songId);
+          if (s) {
+            const detected = detectSongLanguage(s.title, s.contentChordPro || s.content);
+            await updateSong(songId, { language: detected });
+            count++;
+          }
+        }
+        setExportNotification(
+          selectedSongIds.length === 1
+            ? `Langue devinée et assignée pour 1 chant`
+            : `Langues devinées et assignées pour ${count} chants`
+        );
+      } else {
+        for (const songId of selectedSongIds) {
+          await updateSong(songId, { language: targetLang === '__NONE__' ? undefined : (targetLang || undefined) });
+        }
+
+        const msg = targetLang && targetLang !== '__NONE__'
+          ? `Langue définie sur ${targetLang}`
+          : 'Langue retirée';
+
+        setExportNotification(
+          selectedSongIds.length === 1
+            ? `${msg} pour 1 chant`
+            : `${msg} pour ${selectedSongIds.length} chants`
+        );
       }
-
-      const msg = targetLang 
-        ? `Langue définie sur ${targetLang}`
-        : 'Langue retirée';
-
-      setExportNotification(
-        selectedSongIds.length === 1
-          ? `${msg} pour 1 chant`
-          : `${msg} pour ${selectedSongIds.length} chants`
-      );
       setTimeout(() => setExportNotification(null), 2500);
       setIsAssignLanguageModalOpen(false);
       setCustomBatchLanguageInput('');
@@ -2185,18 +2203,35 @@ export const SongList: React.FC = () => {
                 </div>
 
                 {/* Footer bar */}
-                <div className="flex items-center justify-between pt-2 mt-2 border-t border-[#222224]">
-                  {selectedLanguages.length > 0 ? (
+                <div className="flex items-center justify-between pt-2 mt-2 border-t border-[#222224] gap-2">
+                  <div className="flex items-center gap-2">
+                    {selectedLanguages.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedLanguages([])}
+                        className="text-[11px] text-gray-400 hover:text-rose-400 transition-colors"
+                      >
+                        Tout désélectionner
+                      </button>
+                    )}
                     <button
                       type="button"
-                      onClick={() => setSelectedLanguages([])}
-                      className="text-[11px] text-gray-400 hover:text-rose-400 transition-colors"
+                      onClick={async () => {
+                        const updated = await autoDetectSongLanguages();
+                        setExportNotification(
+                          updated > 0 
+                            ? `Langues devinées et mises à jour pour ${updated} chant${updated > 1 ? 's' : ''}`
+                            : 'Toutes les langues sont déjà synchronisées'
+                        );
+                        setTimeout(() => setExportNotification(null), 3000);
+                      }}
+                      className="text-[11px] text-emerald-400 hover:text-emerald-300 font-medium flex items-center gap-1 transition-colors"
+                      title="Deviner et actualiser automatiquement la langue de tous les chants du répertoire"
                     >
-                      Tout désélectionner
+                      <Sparkles className="w-3 h-3" />
+                      <span>Tout deviner</span>
                     </button>
-                  ) : (
-                    <span />
-                  )}
+                  </div>
                   <button
                     type="button"
                     onClick={() => setIsLanguageFilterOpen(false)}
@@ -3585,6 +3620,43 @@ export const SongList: React.FC = () => {
 
               {/* Language Options List */}
               <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
+                {/* Option to Auto-Detect Language automatically */}
+                <div
+                  id="batch-lang-item-autodetect"
+                  onClick={() => {
+                    setSelectedBatchLanguage('__AUTO_DETECT__');
+                    setCustomBatchLanguageInput('');
+                  }}
+                  className={`w-full flex items-center justify-between p-2.5 rounded-lg border transition-all cursor-pointer select-none mb-1.5 ${
+                    selectedBatchLanguage === '__AUTO_DETECT__' && !customBatchLanguageInput.trim()
+                      ? 'bg-emerald-950/30 border-emerald-500/50 text-emerald-100 shadow-sm'
+                      : 'bg-[#18181A] hover:bg-[#1E1E22] border-[#26262A] text-gray-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div
+                      className={`w-4 h-4 rounded-full shrink-0 flex items-center justify-center border transition-all ${
+                        selectedBatchLanguage === '__AUTO_DETECT__' && !customBatchLanguageInput.trim()
+                          ? 'border-emerald-500 bg-emerald-600 text-white'
+                          : 'border-[#444] bg-[#161618]'
+                      }`}
+                    >
+                      {selectedBatchLanguage === '__AUTO_DETECT__' && !customBatchLanguageInput.trim() && (
+                        <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                      )}
+                    </div>
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <div className="flex flex-col text-left">
+                      <span className="text-xs font-semibold text-white">
+                        Deviner automatiquement la langue
+                      </span>
+                      <span className="text-[10px] text-gray-400">
+                        Analyse individuelle du titre et des paroles pour chaque chant
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
                 {filteredBatchLanguages.length === 0 ? (
                   <div className="text-center py-6 text-gray-500 text-xs">
                     Aucune langue correspondante
@@ -3691,6 +3763,8 @@ export const SongList: React.FC = () => {
               <span className="text-xs text-gray-400 truncate hidden xs:inline">
                 {customBatchLanguageInput.trim()
                   ? `Langue : ${customBatchLanguageInput.trim()}`
+                  : selectedBatchLanguage === '__AUTO_DETECT__'
+                  ? 'Deviner selon titre & paroles'
                   : selectedBatchLanguage === '__NONE__'
                   ? 'Effacement de la langue'
                   : selectedBatchLanguage
@@ -3720,7 +3794,11 @@ export const SongList: React.FC = () => {
                     (!selectedBatchLanguage && !customBatchLanguageInput.trim())
                   }
                   onClick={() => {
-                    if (selectedBatchLanguage === '__NONE__') {
+                    if (customBatchLanguageInput.trim()) {
+                      handleSaveBatchLanguage(customBatchLanguageInput.trim());
+                    } else if (selectedBatchLanguage === '__AUTO_DETECT__') {
+                      handleSaveBatchLanguage('__AUTO_DETECT__');
+                    } else if (selectedBatchLanguage === '__NONE__') {
                       handleSaveBatchLanguage('');
                     } else {
                       handleSaveBatchLanguage();

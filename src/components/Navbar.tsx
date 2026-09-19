@@ -24,7 +24,6 @@ import {
   Cloud
 } from 'lucide-react';
 import { MelobookLogo } from './MelobookLogo';
-import { BatteryIndicator } from './BatteryIndicator';
 
 export const Navbar: React.FC = () => {
   const { 
@@ -41,8 +40,7 @@ export const Navbar: React.FC = () => {
     handleSignOut,
     syncStatus,
     lastSyncedAt,
-    syncNow,
-    stageSettings
+    syncNow
   } = useApp();
 
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -255,11 +253,6 @@ export const Navbar: React.FC = () => {
                 <Download className="w-3.5 h-3.5" />
                 <span>Installer</span>
               </button>
-            )}
-
-            {/* Indicateur de niveau de batterie */}
-            {stageSettings.showBatteryIndicator !== false && (
-              <BatteryIndicator />
             )}
 
             {/* Bouton profil avec indicateur de synchronisation intégré - masqué sur mobile, visible dès md */}

@@ -5,7 +5,6 @@ import { parseDurationToSeconds, formatSetlistDuration, getSongDuration } from '
 import { cacheSetlistInWorker } from '../utils/pwaCache';
 import { SongReader } from './SongReader';
 import { SetlistPdfModal } from './SetlistPdfModal';
-import { BatteryIndicator } from './BatteryIndicator';
 import { MidiStatusIndicator } from './MidiStatusIndicator';
 import { useMidi } from '../context/MidiContext';
 import { 
@@ -14,7 +13,9 @@ import {
   Layers, 
   Music,
   CheckCircle2,
-  FileDown
+  FileDown,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
 
 interface LiveSetlistPlayerProps {
@@ -51,9 +52,32 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
 
   const [showPdfModal, setShowPdfModal] = useState(false);
   const [direction, setDirection] = useState<number>(1);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const prevIndexRef = useRef<number>(activeSetlistIndex);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
+
+  useEffect(() => {
+    const handleFs = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+    document.addEventListener('fullscreenchange', handleFs);
+    document.addEventListener('webkitfullscreenchange', handleFs);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFs);
+      document.removeEventListener('webkitfullscreenchange', handleFs);
+    };
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen().catch(() => {});
+      setIsFullscreen(false);
+    }
+  };
 
   // Track transition direction whenever index changes
   useEffect(() => {
@@ -179,7 +203,7 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
 
   return (
     <div 
-      className="fixed inset-0 top-16 z-30 bg-[#0A0A0B] flex flex-col text-[#E0E0E0] overflow-hidden"
+      className={`fixed inset-0 ${isFullscreen ? 'top-0 z-50' : 'top-16 z-30'} bg-[#0A0A0B] flex flex-col text-[#E0E0E0] overflow-hidden transition-all`}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
@@ -254,12 +278,21 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
             )}
           </div>
 
-          {/* Indicateur de batterie pour la scène */}
-          {stageSettings.showBatteryIndicator !== false && (
-            <div className="pl-1 border-l border-[#28282E] shrink-0">
-              <BatteryIndicator />
-            </div>
-          )}
+          {/* Plein écran */}
+          <button
+            type="button"
+            id="btn-live-fullscreen"
+            onClick={toggleFullscreen}
+            className={`p-1.5 rounded-md border text-xs font-medium flex items-center gap-1 transition-colors shrink-0 cursor-pointer ${
+              isFullscreen
+                ? 'bg-blue-600 border-blue-500 text-white'
+                : 'bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 hover:text-white border-[#333]'
+            }`}
+            title="Plein écran"
+            aria-label="Plein écran"
+          >
+            {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+          </button>
         </div>
 
       </div>

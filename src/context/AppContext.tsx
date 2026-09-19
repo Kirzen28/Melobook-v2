@@ -36,6 +36,7 @@ import {
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { SAMPLE_SONGS, SAMPLE_SETLISTS, SAMPLE_SETLIST_HISTORY } from '../data/sampleSongs';
 import { getSongDuration } from '../utils/chordUtils';
+import { detectSongLanguage } from '../utils/languageUtils';
 import { 
   registerServiceWorker, 
   cacheSongInWorker, 
@@ -63,8 +64,7 @@ const DEFAULT_STAGE_SETTINGS: StageSettings = {
   theme: 'dark',
   capo: 0,
   showMetronome: false,
-  soundMetronome: false,
-  showBatteryIndicator: true
+  soundMetronome: false
 };
 
 interface AppContextType {
@@ -111,6 +111,7 @@ interface AppContextType {
   linkSongs: (songId1: string, songId2: string) => Promise<void>;
   unlinkSongs: (songId1: string, songId2: string) => Promise<void>;
   createLanguageVersion: (sourceSongId: string, targetLanguage: string, customTitle?: string) => Promise<string>;
+  autoDetectSongLanguages: (songIds?: string[]) => Promise<number>;
   
   createSetlist: (setlistData: Omit<Setlist, 'id' | 'groupId' | 'createdAt'>) => Promise<string>;
   updateSetlist: (id: string, setlistData: Partial<Setlist>) => Promise<void>;
@@ -203,14 +204,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (Array.isArray(parsed) && parsed.length > 0) {
           const loaded = parsed.map((s: Song) => {
             const resolvedDuration = s.duration || getSongDuration(s) || SAMPLE_SONGS.find(sm => sm.id === s.id || sm.title.toLowerCase() === s.title?.toLowerCase())?.duration;
-            return resolvedDuration ? { ...s, duration: resolvedDuration } : s;
+            const resolvedLanguage = (s.language && s.language.trim())
+              ? s.language
+              : detectSongLanguage(s.title, s.contentChordPro || s.content);
+            const base = resolvedDuration ? { ...s, duration: resolvedDuration } : s;
+            return { ...base, language: resolvedLanguage };
           });
-          const missingSamples = SAMPLE_SONGS.filter(sm => !deletedIds.has(sm.id) && !loaded.some((ls: Song) => ls.id === sm.id));
+          const missingSamples = SAMPLE_SONGS.filter(sm => !deletedIds.has(sm.id) && !loaded.some((ls: Song) => ls.id === sm.id)).map(sm => ({
+            ...sm,
+            language: (sm.language && sm.language.trim()) ? sm.language : detectSongLanguage(sm.title, sm.contentChordPro || sm.content)
+          }));
           return [...loaded, ...missingSamples];
         }
       } catch (e) {}
     }
-    return SAMPLE_SONGS.filter(sm => !deletedIds.has(sm.id));
+    return SAMPLE_SONGS.filter(sm => !deletedIds.has(sm.id)).map(sm => ({
+      ...sm,
+      language: (sm.language && sm.language.trim()) ? sm.language : detectSongLanguage(sm.title, sm.contentChordPro || sm.content)
+    }));
   });
   const [setlists, setSetlists] = useState<Setlist[]>(() => {
     const deletedSetlistIds = getDeletedSetlistIds();
@@ -250,8 +261,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const parsed = JSON.parse(saved);
         return {
           ...DEFAULT_STAGE_SETTINGS,
-          ...parsed,
-          showBatteryIndicator: parsed.showBatteryIndicator !== undefined ? parsed.showBatteryIndicator : true
+          ...parsed
         };
       } catch (e) {}
     }
@@ -566,7 +576,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         snapshot.forEach((d) => {
           const raw = { id: d.id, ...d.data() } as Song;
           const resolvedDuration = raw.duration || getSongDuration(raw) || SAMPLE_SONGS.find(sm => sm.id === raw.id || sm.title.toLowerCase() === raw.title?.toLowerCase())?.duration;
-          loadedSongs.push(resolvedDuration ? { ...raw, duration: resolvedDuration } : raw);
+          const resolvedLanguage = (raw.language && raw.language.trim())
+            ? raw.language
+            : detectSongLanguage(raw.title, raw.contentChordPro || raw.content);
+          const withDuration = resolvedDuration ? { ...raw, duration: resolvedDuration } : raw;
+          loadedSongs.push({ ...withDuration, language: resolvedLanguage });
         });
       }
 
@@ -746,8 +760,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const createSong = useCallback(async (songData: Omit<Song, 'id' | 'groupId' | 'createdAt' | 'updatedAt'>) => {
     const groupId = currentGroup?.id || 'default-group';
     const newId = 'song_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+    const resolvedLanguage = (songData.language && songData.language.trim())
+      ? songData.language
+      : detectSongLanguage(songData.title, songData.contentChordPro || songData.content);
+
     const newSong: Song = {
       ...songData,
+      language: resolvedLanguage,
       id: newId,
       groupId,
       createdAt: new Date().toISOString(),
@@ -778,19 +797,69 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [createSong]);
 
   const updateSong = useCallback(async (id: string, songData: Partial<Song>) => {
+    const resolvedData: Partial<Song> = { ...songData };
+    if (songData.language !== undefined && (!songData.language || !songData.language.trim())) {
+      const existing = songs.find(s => s.id === id);
+      const titleToUse = songData.title || existing?.title;
+      const contentToUse = songData.contentChordPro || songData.content || existing?.contentChordPro || existing?.content;
+      resolvedData.language = detectSongLanguage(titleToUse, contentToUse);
+    }
+
     // Optimistic local update
-    setSongs(prev => prev.map(s => s.id === id ? { ...s, ...songData, updatedAt: new Date().toISOString() } : s));
+    setSongs(prev => prev.map(s => s.id === id ? { ...s, ...resolvedData, updatedAt: new Date().toISOString() } : s));
     if (selectedSong?.id === id) {
-      setSelectedSong(prev => prev ? { ...prev, ...songData } : null);
+      setSelectedSong(prev => prev ? { ...prev, ...resolvedData } : null);
     }
 
     try {
       const docRef = doc(db, 'songs', id);
-      await updateDoc(docRef, { ...songData, updatedAt: serverTimestamp() });
+      await updateDoc(docRef, { ...resolvedData, updatedAt: serverTimestamp() });
     } catch (e) {
       console.warn('Updated song locally:', e);
     }
-  }, [selectedSong?.id]);
+  }, [selectedSong?.id, songs]);
+
+  // Bulk / individual automatic language detection and assignment
+  const autoDetectSongLanguages = useCallback(async (songIds?: string[]): Promise<number> => {
+    const targetSongs = songIds && songIds.length > 0
+      ? songs.filter(s => songIds.includes(s.id))
+      : songs;
+
+    const updates: { id: string; language: string }[] = [];
+    for (const s of targetSongs) {
+      const detected = detectSongLanguage(s.title, s.contentChordPro || s.content);
+      if (detected && detected !== s.language) {
+        updates.push({ id: s.id, language: detected });
+      }
+    }
+
+    if (updates.length === 0) return 0;
+
+    // Optimistic local update
+    setSongs(prev => prev.map(s => {
+      const found = updates.find(u => u.id === s.id);
+      return found ? { ...s, language: found.language, updatedAt: new Date().toISOString() } : s;
+    }));
+
+    if (selectedSong) {
+      const found = updates.find(u => u.id === selectedSong.id);
+      if (found) {
+        setSelectedSong(prev => prev ? { ...prev, language: found.language } : null);
+      }
+    }
+
+    // Persist to Firestore
+    for (const u of updates) {
+      try {
+        const docRef = doc(db, 'songs', u.id);
+        await updateDoc(docRef, { language: u.language, updatedAt: serverTimestamp() });
+      } catch (e) {
+        console.warn('Updated song language locally (Firestore offline/error):', e);
+      }
+    }
+
+    return updates.length;
+  }, [songs, selectedSong]);
 
   const deleteSong = useCallback(async (id: string) => {
     try {
@@ -1274,6 +1343,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       linkSongs,
       unlinkSongs,
       createLanguageVersion,
+      autoDetectSongLanguages,
       createSetlist,
       updateSetlist,
       deleteSetlist,

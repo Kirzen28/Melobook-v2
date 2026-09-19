@@ -36,6 +36,7 @@ export interface Song {
   duration?: string; // ex: 4:30, 03:45, 5 min
   durationMode?: 'auto' | 'custom';
   contentChordPro: string;
+  content?: string;
   folderId?: string | null;
   capo?: number;
   tags?: string[];
@@ -103,12 +104,11 @@ export interface StageSettings {
   notation: NotationSystem; // 'standard' (A, B, C) or 'latin' (Do, Ré, Mi)
   autoScrollSpeed: number; // 1 to 10
   isAutoScrolling: boolean;
-  columns: 1 | 2;
+  columns: 1 | 2 | 3 | 4 | 5 | 'auto';
   theme: 'dark' | 'oled' | 'sepia' | 'light' | 'system';
   capo: number; // 0 to 7
   showMetronome: boolean;
   soundMetronome: boolean;
-  showBatteryIndicator?: boolean;
 }
 
 export interface SongTypographySettings {

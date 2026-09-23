@@ -5,7 +5,6 @@ import {
   parseChordPro, 
   transposeChord, 
   metronome,
-  updateSectionVocalsInChordPro,
   updateSectionRepeatInChordPro,
   getVocalBadgeStyle,
   getSongDuration,
@@ -19,6 +18,11 @@ import {
 } from '../utils/chordUtils';
 import { cacheSongInWorker } from '../utils/pwaCache';
 import { getSectionColor, getSectionBorderStyles } from '../utils/displayDefaults';
+import { 
+  requestFullscreenSafe, 
+  exitFullscreenSafe, 
+  addFullscreenChangeListener 
+} from '../utils/fullscreen';
 import { MetronomeStageControl } from './MetronomeStageControl';
 import { MidiStatusIndicator } from './MidiStatusIndicator';
 import { useMidi } from '../context/MidiContext';
@@ -56,7 +60,6 @@ import {
   Trash2,
   Clock,
   Layers,
-  Pencil,
   Globe,
   Repeat
 } from 'lucide-react';
@@ -160,15 +163,6 @@ export const SongReader: React.FC<SongReaderProps> = ({
     chord: 'C'
   });
 
-  // Vocal Arrangement Pop-up Modal State
-  const [vocalModalSection, setVocalModalSection] = useState<{
-    index: number;
-    title: string;
-    vocals: string[];
-  } | null>(null);
-  const [customVocalInput, setCustomVocalInput] = useState('');
-
-  // Section Repetition Pop-up Modal State removed in favor of direct dropdown
 
   // Minimalist Metadata Pop-up Modals States
   const [showKeyModal, setShowKeyModal] = useState(false);
@@ -220,14 +214,18 @@ export const SongReader: React.FC<SongReaderProps> = ({
   const effectiveNotes = setlistOverride?.notes !== undefined ? setlistOverride.notes : (song?.notes || '');
   const effectiveCapo = setlistOverride?.capo !== undefined ? setlistOverride.capo : (song?.capo || 0);
 
-  // Semitone difference for live transposed chords
+  // Semitone difference for song base key
   const baseKeySemitones = useMemo(() => {
     return getSemitoneDifference(catalogBaseKey, effectiveBaseKey);
   }, [catalogBaseKey, effectiveBaseKey]);
 
-  const totalTransposeSemitones = (baseKeySemitones + effectiveTransposeOffset) % 12;
+  // Piano-style Transposition: chords displayed in the lyrics remain UNCHANGED by piano transpose offset!
+  const visualChordTransposeSemitones = baseKeySemitones % 12;
 
-  // Extract all unique chords in the current song
+  // Real acoustic / auditory pitch semitones (for sound synthesis when played)
+  const auditoryTransposeSemitones = (baseKeySemitones + effectiveTransposeOffset) % 12;
+
+  // Extract all unique chords in the current song (as written / fingered)
   const allSongChords = useMemo(() => {
     if (!parsedData) return [];
     const set = new Set<string>();
@@ -235,29 +233,26 @@ export const SongReader: React.FC<SongReaderProps> = ({
       sec.lines.forEach(l => {
         l.items.forEach(item => {
           if (item.chord) {
-            const transposed = transposeChord(item.chord, totalTransposeSemitones, stageSettings.notation);
-            if (transposed && transposed.trim()) {
-              set.add(transposed.trim());
+            const chordStr = transposeChord(item.chord, visualChordTransposeSemitones, stageSettings.notation);
+            if (chordStr && chordStr.trim()) {
+              set.add(chordStr.trim());
             }
           }
         });
       });
     });
     return Array.from(set);
-  }, [parsedData, totalTransposeSemitones, stageSettings.notation]);
+  }, [parsedData, visualChordTransposeSemitones, stageSettings.notation]);
 
   // Local inline duration, tempo, key & notes state
   const [inlineDurationValue, setInlineDurationValue] = useState<string>('03:30');
   const [inlineTempoValue, setInlineTempoValue] = useState<string>('120');
   const [showKeyMenu, setShowKeyMenu] = useState(false);
   const [showTransposeMenu, setShowTransposeMenu] = useState(false);
-  const [isEditingNotes, setIsEditingNotes] = useState(false);
-  const [notesInput, setNotesInput] = useState('');
 
   useEffect(() => {
     setInlineDurationValue(effectiveDuration);
-    setNotesInput(effectiveNotes);
-  }, [effectiveDuration, effectiveNotes]);
+  }, [effectiveDuration]);
 
   useEffect(() => {
     setInlineTempoValue(String(effectiveTempo));
@@ -309,33 +304,6 @@ export const SongReader: React.FC<SongReaderProps> = ({
     await handleSetDurationCustom(formatted);
   };
 
-  const handleSaveNotes = async () => {
-    if (!song) return;
-    const trimmed = notesInput.trim();
-    if (isSetlistMode && currentSetlist) {
-      await updateSetlistSongOverride(currentSetlist.id, song.id, { notes: trimmed || undefined });
-    } else {
-      await updateSong(song.id, { notes: trimmed || undefined });
-      if (selectedSong && selectedSong.id === song.id) {
-        setSelectedSong({ ...selectedSong, notes: trimmed || undefined });
-      }
-    }
-    setIsEditingNotes(false);
-  };
-
-  const handleDeleteNotes = async () => {
-    if (!song) return;
-    setNotesInput('');
-    if (isSetlistMode && currentSetlist) {
-      await updateSetlistSongOverride(currentSetlist.id, song.id, { notes: undefined });
-    } else {
-      await updateSong(song.id, { notes: undefined });
-      if (selectedSong && selectedSong.id === song.id) {
-        setSelectedSong({ ...selectedSong, notes: undefined });
-      }
-    }
-    setIsEditingNotes(false);
-  };
 
   // Key & Transposition Handlers
   const handleTransposeDelta = async (delta: number) => {
@@ -583,108 +551,6 @@ export const SongReader: React.FC<SongReaderProps> = ({
     }
   };
 
-  // Vocal Arrangement Helpers
-  const handleToggleVocalRole = async (role: string) => {
-    if (!vocalModalSection || !song) return;
-    const currentVocals = vocalModalSection.vocals || [];
-    const updatedVocals = currentVocals.includes(role)
-      ? currentVocals.filter(r => r !== role)
-      : [...currentVocals, role];
-
-    setVocalModalSection({
-      ...vocalModalSection,
-      vocals: updatedVocals
-    });
-
-    const updatedChordPro = updateSectionVocalsInChordPro(
-      song.contentChordPro,
-      vocalModalSection.index,
-      updatedVocals
-    );
-
-    await updateSong(song.id, { contentChordPro: updatedChordPro });
-    if (selectedSong && selectedSong.id === song.id) {
-      setSelectedSong({
-        ...selectedSong,
-        contentChordPro: updatedChordPro
-      });
-    }
-  };
-
-  const handleAddCustomVocalRole = async () => {
-    if (!vocalModalSection || !song || !customVocalInput.trim()) return;
-    const trimmed = customVocalInput.trim();
-    const currentVocals = vocalModalSection.vocals || [];
-    if (!currentVocals.includes(trimmed)) {
-      const updatedVocals = [...currentVocals, trimmed];
-      setVocalModalSection({
-        ...vocalModalSection,
-        vocals: updatedVocals
-      });
-
-      const updatedChordPro = updateSectionVocalsInChordPro(
-        song.contentChordPro,
-        vocalModalSection.index,
-        updatedVocals
-      );
-
-      await updateSong(song.id, { contentChordPro: updatedChordPro });
-      if (selectedSong && selectedSong.id === song.id) {
-        setSelectedSong({
-          ...selectedSong,
-          contentChordPro: updatedChordPro
-        });
-      }
-    }
-    setCustomVocalInput('');
-  };
-
-  const handleRemoveVocalRole = async (role: string) => {
-    if (!vocalModalSection || !song) return;
-    const updatedVocals = (vocalModalSection.vocals || []).filter(r => r !== role);
-    setVocalModalSection({
-      ...vocalModalSection,
-      vocals: updatedVocals
-    });
-
-    const updatedChordPro = updateSectionVocalsInChordPro(
-      song.contentChordPro,
-      vocalModalSection.index,
-      updatedVocals
-    );
-
-    await updateSong(song.id, { contentChordPro: updatedChordPro });
-    if (selectedSong && selectedSong.id === song.id) {
-      setSelectedSong({
-        ...selectedSong,
-        contentChordPro: updatedChordPro
-      });
-    }
-  };
-
-  const handleClearSectionVocals = async () => {
-    if (!vocalModalSection || !song) return;
-    const updatedVocals: string[] = [];
-    setVocalModalSection({
-      ...vocalModalSection,
-      vocals: updatedVocals
-    });
-
-    const updatedChordPro = updateSectionVocalsInChordPro(
-      song.contentChordPro,
-      vocalModalSection.index,
-      updatedVocals
-    );
-
-    await updateSong(song.id, { contentChordPro: updatedChordPro });
-    if (selectedSong && selectedSong.id === song.id) {
-      setSelectedSong({
-        ...selectedSong,
-        contentChordPro: updatedChordPro
-      });
-    }
-  };
-
   // Keyboard Shortcuts (Space, Up/Down, Left/Right, Page Turner pedals)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -774,31 +640,19 @@ export const SongReader: React.FC<SongReaderProps> = ({
 
   // Fullscreen event synchronization
   useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(Boolean(document.fullscreenElement));
-    };
-
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
-
-    return () => {
-      document.removeEventListener('fullscreenchange', handleFullscreenChange);
-      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
-    };
+    return addFullscreenChangeListener((isFs) => {
+      setIsFullscreen(isFs);
+    });
   }, []);
 
   // Fullscreen Handler
   const toggleFullscreen = (targetState?: boolean) => {
     const shouldBeFs = targetState !== undefined ? targetState : !isFullscreen;
     if (shouldBeFs) {
-      if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen().catch(() => {});
-      }
+      requestFullscreenSafe(document.documentElement);
       setIsFullscreen(true);
     } else {
-      if (document.fullscreenElement) {
-        document.exitFullscreen().catch(() => {});
-      }
+      exitFullscreenSafe();
       setIsFullscreen(false);
     }
   };
@@ -1209,32 +1063,31 @@ export const SongReader: React.FC<SongReaderProps> = ({
                 </div>
               </div>
 
-              {/* Right: Boutons Réglages & Édition */}
+              {/* Right: Boutons Réglages & Édition (icônes uniquement) */}
               <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                 {currentUser?.role === 'admin' && (
                   <button
                     type="button"
                     onClick={() => setActiveTab('editor')}
-                    className="flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg bg-[#1C1C1E] hover:bg-amber-500/15 text-gray-200 hover:text-amber-300 border border-[#333] hover:border-amber-500/50 text-xs font-semibold transition-all shadow-sm cursor-pointer group"
+                    className="p-2 rounded-lg bg-[#1C1C1E] hover:bg-amber-500/15 text-gray-200 hover:text-amber-300 border border-[#333] hover:border-amber-500/50 transition-all shadow-sm cursor-pointer group flex items-center justify-center"
                     title="Éditer le chant"
                     aria-label="Éditer le chant"
                   >
-                    <FileEdit className="w-3.5 h-3.5 text-amber-400 group-hover:scale-110 transition-transform shrink-0" />
-                    <span className="hidden sm:inline">Éditer</span>
+                    <FileEdit className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform shrink-0" />
                   </button>
                 )}
                 <button
                   type="button"
                   onClick={() => setShowSettingsDrawer(!showSettingsDrawer)}
-                  className={`flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all shadow-sm cursor-pointer ${
+                  className={`p-2 rounded-lg border transition-all shadow-sm cursor-pointer flex items-center justify-center ${
                     showSettingsDrawer
                       ? 'bg-blue-600 border-blue-500 text-white shadow-blue-500/20'
                       : 'bg-[#1C1C1E] hover:bg-[#28282C] border-[#333] hover:border-[#444] text-gray-200 hover:text-white'
                   }`}
                   title="Ouvrir les options et réglages du chant"
+                  aria-label="Options et réglages du chant"
                 >
-                  <Settings2 className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Réglages</span>
+                  <Settings2 className="w-4 h-4" />
                 </button>
               </div>
             </div>
@@ -1288,9 +1141,12 @@ export const SongReader: React.FC<SongReaderProps> = ({
                   <Music className="w-3.5 h-3.5 text-blue-400 shrink-0" />
                   <span className="text-gray-400 font-sans text-xs hidden sm:inline">Tonalité :</span>
                   <span className="text-blue-400 font-bold font-mono text-xs">{baseKeyDisplay}</span>
-                  {stageSettings.transposeOffset !== 0 && transposedKeyDisplay && (
-                    <span className="text-amber-400 font-bold font-mono text-xs ml-0.5" title={`Transposé : ${stageSettings.transposeOffset > 0 ? `+${stageSettings.transposeOffset}` : stageSettings.transposeOffset} demi-tons`}>
-                      → {transposedKeyDisplay}
+                  {effectiveTransposeOffset !== 0 && transposedKeyDisplay && (
+                    <span 
+                      className="text-amber-400 font-bold font-mono text-xs ml-0.5" 
+                      title={`Transposition piano : ${effectiveTransposeOffset > 0 ? `+${effectiveTransposeOffset}` : effectiveTransposeOffset} demi-tons (sonorité réelle : ${transposedKeyDisplay})`}
+                    >
+                      (Sonne {transposedKeyDisplay})
                     </span>
                   )}
                   <ChevronDown className={`w-3 h-3 text-blue-400/80 transition-transform ${showKeyMenu ? 'rotate-180' : ''}`} />
@@ -1386,24 +1242,29 @@ export const SongReader: React.FC<SongReaderProps> = ({
                   className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border font-mono shadow-sm transition-all cursor-pointer ${
                     showTransposeMenu
                       ? 'bg-amber-950/40 border-amber-500 text-amber-300 ring-1 ring-amber-500/40'
-                      : stageSettings.transposeOffset !== 0
+                      : effectiveTransposeOffset !== 0
                         ? 'bg-amber-950/30 hover:bg-amber-950/50 border-amber-500/40 text-amber-300'
                         : 'bg-[#141416] hover:bg-[#1A1A1E] border-[#242428] hover:border-amber-500/40 text-gray-300'
                   }`}
                   style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
-                  title="Cliquer pour choisir la transposition - liste déroulante"
+                  title="Cliquer pour choisir la transposition (logique piano) - liste déroulante"
                 >
                   <ArrowUpDown className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                   <span className="text-amber-400/90 font-sans text-xs shrink-0 hidden sm:inline">Transpose :</span>
                   <span className={`px-1.5 py-0.5 rounded font-mono font-bold text-xs ${
-                    stageSettings.transposeOffset !== 0
+                    effectiveTransposeOffset !== 0
                       ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                       : 'bg-[#18181C] text-gray-300 border border-[#242428]'
                   }`}>
-                    {stageSettings.transposeOffset === 0 
+                    {effectiveTransposeOffset === 0 
                       ? '0' 
-                      : (stageSettings.transposeOffset > 0 ? `+${stageSettings.transposeOffset}` : `${stageSettings.transposeOffset}`)}
+                      : (effectiveTransposeOffset > 0 ? `+${effectiveTransposeOffset}` : `${effectiveTransposeOffset}`)}
                   </span>
+                  {effectiveTransposeOffset !== 0 && transposedKeyDisplay && (
+                    <span className="text-amber-300/90 text-[11px] font-mono font-semibold hidden md:inline">
+                      (Sonne {transposedKeyDisplay})
+                    </span>
+                  )}
                   <ChevronDown className={`w-3 h-3 text-amber-400/80 transition-transform ${showTransposeMenu ? 'rotate-180' : ''}`} />
                 </button>
 
@@ -1413,9 +1274,12 @@ export const SongReader: React.FC<SongReaderProps> = ({
                       className="fixed inset-0 z-40" 
                       onClick={() => setShowTransposeMenu(false)} 
                     />
-                    <div className="absolute left-0 top-full mt-1.5 z-50 w-60 bg-[#16161A] border border-[#2E2E36] rounded-xl shadow-2xl p-2.5 backdrop-blur-md animate-in fade-in zoom-in-95 duration-100">
+                    <div className="absolute left-0 top-full mt-1.5 z-50 w-72 bg-[#16161A] border border-[#2E2E36] rounded-xl shadow-2xl p-2.5 backdrop-blur-md animate-in fade-in zoom-in-95 duration-100">
                       <div className="text-[11px] font-semibold text-gray-400 pb-2 mb-2 border-b border-[#282830] flex items-center justify-between">
-                        <span>Transposition</span>
+                        <div className="flex items-center gap-1.5">
+                          <span>Transposition</span>
+                          <span className="text-[10px] text-gray-500 font-normal">(logique piano)</span>
+                        </div>
                         {effectiveTransposeOffset !== 0 ? (
                           <button
                             type="button"
@@ -1430,6 +1294,11 @@ export const SongReader: React.FC<SongReaderProps> = ({
                         ) : (
                           <span className="text-[10px] text-amber-400 font-mono">0</span>
                         )}
+                      </div>
+
+                      {/* Info Logique Piano / Clavier */}
+                      <div className="mb-2 p-1.5 rounded-lg bg-[#111116] border border-[#262632] text-[10px] text-gray-400 leading-tight">
+                        🎹 Les accords écrits restent <strong className="text-blue-300">{baseKeyDisplay}</strong>. Le transpose modifie la sonorité réelle comme sur un piano électronique.
                       </div>
 
                       {/* Option centrale 0 : Tonalité d'origine */}
@@ -1460,7 +1329,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                         </button>
                       </div>
 
-                      {/* Deux colonnes compactes sans labels */}
+                      {/* Deux colonnes compactes */}
                       <div className="grid grid-cols-2 gap-1.5 text-xs">
                         {/* Colonne Gauche : Baisser */}
                         <div className="grid grid-cols-1 gap-1 max-h-60 overflow-y-auto pr-0.5 custom-scrollbar">
@@ -1480,15 +1349,16 @@ export const SongReader: React.FC<SongReaderProps> = ({
                                     ? 'bg-rose-600 text-white font-bold shadow-xs'
                                     : 'text-gray-300 hover:bg-[#25252D] hover:text-white'
                                 }`}
+                                title={`Accords écrits : ${baseKeyDisplay} • Sonorité produite : ${resultingKey}`}
                               >
                                 <span className={isSelected ? 'text-white' : 'text-rose-300/90 font-medium'}>
                                   {step}
                                 </span>
                                 {resultingKey && (
                                   <span className={`text-[10px] font-bold px-1 rounded ${
-                                    isSelected ? 'bg-rose-700/80 text-white' : 'bg-[#202026] text-blue-300 border border-[#2A2A32]'
+                                    isSelected ? 'bg-rose-700/80 text-white' : 'bg-[#202026] text-amber-300 border border-[#2A2A32]'
                                   }`}>
-                                    {resultingKey}
+                                    Sonne {resultingKey}
                                   </span>
                                 )}
                               </button>
@@ -1514,15 +1384,16 @@ export const SongReader: React.FC<SongReaderProps> = ({
                                     ? 'bg-emerald-600 text-white font-bold shadow-xs'
                                     : 'text-gray-300 hover:bg-[#25252D] hover:text-white'
                                 }`}
+                                title={`Accords écrits : ${baseKeyDisplay} • Sonorité produite : ${resultingKey}`}
                               >
                                 <span className={isSelected ? 'text-white' : 'text-emerald-300/90 font-medium'}>
                                   +{step}
                                 </span>
                                 {resultingKey && (
                                   <span className={`text-[10px] font-bold px-1 rounded ${
-                                    isSelected ? 'bg-emerald-700/80 text-white' : 'bg-[#202026] text-blue-300 border border-[#2A2A32]'
+                                    isSelected ? 'bg-emerald-700/80 text-white' : 'bg-[#202026] text-amber-300 border border-[#2A2A32]'
                                   }`}>
-                                    {resultingKey}
+                                    Sonne {resultingKey}
                                   </span>
                                 )}
                               </button>
@@ -1545,82 +1416,16 @@ export const SongReader: React.FC<SongReaderProps> = ({
               />
             </div>
 
-            {/* Note / Instructions Section */}
-            {isEditingNotes ? (
-              <div className="mt-3 p-3 rounded-lg bg-[#141418] border border-amber-500/40 shadow-lg space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
-                    <Pencil className="w-3.5 h-3.5" />
-                    <span>Instructions / Notes pour le chant :</span>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setIsEditingNotes(false)}
-                    className="text-gray-400 hover:text-white p-0.5 rounded cursor-pointer transition-colors"
-                    title="Fermer"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-                <textarea
-                  value={notesInput}
-                  onChange={(e) => setNotesInput(e.target.value)}
-                  placeholder="Ex: Commencer directement par le refrain doux au piano..."
-                  rows={2}
-                  className="w-full bg-[#0D0D10] text-gray-200 text-xs border border-[#2E2E36] focus:border-amber-500/60 rounded-md p-2 focus:outline-none custom-scrollbar"
-                  autoFocus
-                />
-                <div className="flex items-center justify-between gap-2 pt-1">
-                  {song.notes ? (
-                    <button
-                      type="button"
-                      onClick={handleDeleteNotes}
-                      className="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-red-950/20 transition-colors cursor-pointer flex items-center gap-1"
-                      title="Supprimer la note"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                      <span>Supprimer</span>
-                    </button>
-                  ) : <div />}
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setIsEditingNotes(false)}
-                      className="px-2.5 py-1 rounded text-xs font-semibold text-gray-400 hover:text-white hover:bg-[#202026] transition-colors cursor-pointer"
-                    >
-                      Annuler
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleSaveNotes}
-                      className="px-3 py-1 rounded text-xs font-semibold bg-amber-600 hover:bg-amber-500 text-white shadow-sm flex items-center gap-1 transition-colors cursor-pointer"
-                    >
-                      <Check className="w-3 h-3" />
-                      <span>Enregistrer</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : song.notes ? (
+            {/* Note / Instructions Section (Lecture seule) */}
+            {effectiveNotes ? (
               <div 
-                className="mt-3 p-2.5 rounded-lg bg-[#111112] border border-[#222224] flex items-start justify-between gap-3 group transition-all"
+                className="mt-3 p-2.5 rounded-lg bg-[#111112] border border-[#222224] flex items-start gap-3 transition-all"
                 style={{ fontSize: `${Math.max(11, displaySettings.typography.metadataSize)}px` }}
               >
                 <div className="text-gray-300 font-sans italic flex-1">
                   <span className="text-amber-400/90 font-semibold not-italic mr-1.5">Note :</span>
-                  {song.notes}
+                  {effectiveNotes}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setNotesInput(song.notes || '');
-                    setIsEditingNotes(true);
-                  }}
-                  className="p-1 rounded bg-[#1C1C1E] hover:bg-[#2A2A2E] text-gray-400 hover:text-amber-300 border border-[#2C2C30] hover:border-amber-500/40 shrink-0 transition-colors cursor-pointer"
-                  title="Modifier les instructions / notes"
-                >
-                  <Pencil className="w-3.5 h-3.5" />
-                </button>
               </div>
             ) : null}
           </div>
@@ -1639,129 +1444,52 @@ export const SongReader: React.FC<SongReaderProps> = ({
                   className="rounded-lg p-4 transition-all"
                   style={getSectionBorderStyles(secColor, displaySettings.sectionBorders)}
                 >
-                  {/* Section Title Header & Vocal Arrangement Pastille & Repeat Badge */}
+                  {/* Section Title Header & Vocal Arrangement Pastille & Repeat Badge (Lecture seule) */}
                   <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       {section.title ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const vocalsList = section.vocals && section.vocals.length > 0
-                              ? section.vocals
-                              : section.vocal ? [section.vocal] : [];
-                            setVocalModalSection({
-                              index: sIdx,
-                              title: section.title || `Section ${sIdx + 1}`,
-                              vocals: vocalsList
-                            });
-                          }}
-                          className="inline-block font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border shadow-xs text-left hover:brightness-125 transition-all cursor-pointer"
+                        <span
+                          className="inline-block font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border shadow-xs text-left select-none"
                           style={{
                             fontSize: `${displaySettings.typography.headerSize}px`,
                             color: secColor,
                             borderColor: `${secColor}50`,
                             backgroundColor: `${secColor}1C`
                           }}
-                          title="Cliquer pour gérer l'arrangement vocal de cette section"
                         >
                           {section.title}
-                        </button>
+                        </span>
                       ) : <div />}
 
-                      {/* Section Repeat Selector */}
-                      <div 
-                        onClick={(e) => e.stopPropagation()}
-                        className={`flex items-center gap-1 px-2 py-0.5 rounded border transition-colors ${
-                          sectionRepeat > 1 
-                            ? 'bg-emerald-950/40 border-emerald-500/50 text-emerald-300' 
-                            : 'bg-[#18181B] border-[#2B2B30] text-gray-400 hover:border-gray-600'
-                        }`}
-                      >
-                        <Repeat className={`w-3 h-3 ${sectionRepeat > 1 ? 'text-emerald-400' : 'text-gray-500'} shrink-0`} />
-                        <select
-                          value={sectionRepeat}
-                          onChange={(e) => handleUpdateSectionRepeat(sIdx, parseInt(e.target.value, 10))}
-                          className={`bg-transparent text-xs font-bold font-mono focus:outline-none cursor-pointer ${
-                            sectionRepeat > 1 ? 'text-emerald-300' : 'text-gray-400 hover:text-gray-200'
-                          }`}
-                          title="Nombre de répétitions pour cette section"
+                      {/* Section Repeat Badge (Lecture seule) */}
+                      {sectionRepeat > 1 && (
+                        <span 
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded border bg-emerald-950/40 border-emerald-500/50 text-emerald-300 text-xs font-bold font-mono select-none"
+                          title={`Répété ${sectionRepeat} fois`}
                         >
-                          {[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 16].map((n) => (
-                            <option key={n} value={n} className="bg-[#141416] text-white">
-                              x{n}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-
-                    {/* Pastilles Arrangement Vocal alignées côte à côte */}
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      {((section.vocals && section.vocals.length > 0) || section.vocal) ? (
-                        <>
-                          {(section.vocals && section.vocals.length > 0 ? section.vocals : [section.vocal!]).map((voc, vIdx) => {
-                            const vStyle = getVocalBadgeStyle(voc);
-                            return (
-                              <button
-                                key={vIdx}
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const vocalsList = section.vocals && section.vocals.length > 0
-                                    ? section.vocals
-                                    : section.vocal ? [section.vocal] : [];
-                                  setVocalModalSection({
-                                    index: sIdx,
-                                    title: section.title || `Section ${sIdx + 1}`,
-                                    vocals: vocalsList
-                                  });
-                                }}
-                                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full ${vStyle.bg} border ${vStyle.border} ${vStyle.text} text-xs font-semibold shadow-xs select-none transition-all active:scale-95 cursor-pointer`}
-                                title="Modifier l'arrangement vocal"
-                              >
-                                <Mic className={`w-3.5 h-3.5 ${vStyle.icon} shrink-0`} />
-                                <span>{voc}</span>
-                              </button>
-                            );
-                          })}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const vocalsList = section.vocals && section.vocals.length > 0
-                                ? section.vocals
-                                : section.vocal ? [section.vocal] : [];
-                              setVocalModalSection({
-                                index: sIdx,
-                                title: section.title || `Section ${sIdx + 1}`,
-                                vocals: vocalsList
-                              });
-                            }}
-                            className="w-6 h-6 flex items-center justify-center rounded-full bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-400 hover:text-cyan-300 border border-[#333] hover:border-cyan-500/50 transition-colors shadow-xs cursor-pointer"
-                            title="Ajouter d'autres voix à cette section"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                          </button>
-                        </>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setVocalModalSection({
-                              index: sIdx,
-                              title: section.title || `Section ${sIdx + 1}`,
-                              vocals: []
-                            });
-                          }}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#161618] hover:bg-[#222226] border border-[#2E2E32] hover:border-cyan-500/50 text-gray-400 hover:text-cyan-300 text-xs font-medium transition-all cursor-pointer group/vocal"
-                          title="Ajouter un arrangement vocal à cette section"
-                        >
-                          <Mic className="w-3.5 h-3.5 text-cyan-400/70 group-hover/vocal:text-cyan-400" />
-                          <span className="text-[11px] text-gray-400 group-hover/vocal:text-cyan-300">+ Voix</span>
-                        </button>
+                          <Repeat className="w-3 h-3 text-emerald-400 shrink-0" />
+                          <span>x{sectionRepeat}</span>
+                        </span>
                       )}
                     </div>
+
+                    {/* Pastilles Arrangement Vocal en lecture seule */}
+                    {((section.vocals && section.vocals.length > 0) || section.vocal) && (
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {(section.vocals && section.vocals.length > 0 ? section.vocals : [section.vocal!]).map((voc, vIdx) => {
+                          const vStyle = getVocalBadgeStyle(voc);
+                          return (
+                            <span
+                              key={vIdx}
+                              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full ${vStyle.bg} border ${vStyle.border} ${vStyle.text} text-xs font-semibold shadow-xs select-none`}
+                            >
+                              <Mic className={`w-3.5 h-3.5 ${vStyle.icon} shrink-0`} />
+                              <span>{voc}</span>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
 
                   {/* Section Lines */}
@@ -1774,32 +1502,39 @@ export const SongReader: React.FC<SongReaderProps> = ({
                       return (
                         <div key={lIdx} className="flex flex-wrap items-end gap-x-0.5">
                           {line.items.map((item, iIdx) => {
-                            const transposedChord = item.chord 
-                              ? transposeChord(item.chord, totalTransposeSemitones, stageSettings.notation) 
+                            const displayedChord = item.chord 
+                              ? transposeChord(item.chord, visualChordTransposeSemitones, stageSettings.notation) 
                               : '';
 
                             return (
                               <div key={iIdx} className="inline-flex flex-col">
-                                {/* Chord on top - Clickable to open Chord Library Diagram */}
+                                 {/* Chord on top - Clickable to open Chord Library Diagram */}
                                 {stageSettings.showChords && (
                                   <button 
                                     type="button"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      if (transposedChord) {
+                                      if (displayedChord) {
                                         setChordModalData({
                                           isOpen: true,
-                                          chord: transposedChord
+                                          chord: displayedChord
                                         });
                                       }
                                     }}
-                                    className={`chord-badge font-mono font-bold text-blue-400 hover:text-cyan-300 hover:underline select-none leading-none mb-1 pr-1 text-left inline-flex items-center cursor-pointer transition-all active:scale-95 group/chord ${
-                                      transposedChord ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                                    className={`chord-badge font-mono font-bold hover:underline select-none leading-none mb-1 pr-1 text-left inline-flex items-center cursor-pointer transition-all active:scale-95 group/chord ${
+                                      displayedChord ? 'opacity-100' : 'opacity-0 pointer-events-none'
                                     }`}
-                                    style={{ fontSize: `${displaySettings.typography.chordSize}px` }}
-                                    title={transposedChord ? `Diagramme de l'accord ${transposedChord}` : undefined}
+                                    style={{ 
+                                      fontSize: `${displaySettings.typography.chordSize}px`,
+                                      color: displaySettings.chordColor || '#60a5fa'
+                                    }}
+                                    title={displayedChord 
+                                      ? (effectiveTransposeOffset !== 0 && transposedKeyDisplay
+                                          ? `Accord joué : ${displayedChord} - Sonnera ${transposeChord(item.chord, auditoryTransposeSemitones, stageSettings.notation)} au clavier`
+                                          : `Diagramme de l accord ${displayedChord}`)
+                                      : undefined}
                                   >
-                                    {transposedChord || '\u00A0'}
+                                    {displayedChord || '\u00A0'}
                                   </button>
                                 )}
                                 
@@ -1881,157 +1616,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
         />
       )}
 
-      {/* Vocal Arrangement Multi-select Pop-up Modal */}
-      {vocalModalSection && song && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in duration-150 select-auto"
-          onClick={() => setVocalModalSection(null)}
-        >
-          <div 
-            className="bg-[#141416] border border-[#2E2E34] rounded-2xl max-w-md w-full p-5 shadow-2xl space-y-4 text-white"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-[#25252A] pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-cyan-950/60 border border-cyan-500/50 flex items-center justify-center shadow-xs">
-                  <Mic className="w-5 h-5 text-cyan-400" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-sm text-white">Arrangement vocal</h3>
-                  <p className="text-xs text-cyan-400 font-mono uppercase font-semibold">{vocalModalSection.title}</p>
-                </div>
-              </div>
-              <button 
-                onClick={() => setVocalModalSection(null)}
-                className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#25252A] transition-colors"
-                title="Fermer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
 
-            {/* Currently selected badges preview */}
-            {vocalModalSection.vocals && vocalModalSection.vocals.length > 0 ? (
-              <div>
-                <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5 block">
-                  Voix actives sur cette section :
-                </label>
-                <div className="flex flex-wrap gap-1.5 p-2.5 rounded-xl bg-[#0D0D0E] border border-[#222226]">
-                  {vocalModalSection.vocals.map((voc) => {
-                    const vStyle = getVocalBadgeStyle(voc);
-                    return (
-                      <span
-                        key={voc}
-                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full ${vStyle.bg} border ${vStyle.border} ${vStyle.text} text-xs font-semibold shadow-xs`}
-                      >
-                        <Mic className={`w-3.5 h-3.5 ${vStyle.icon}`} />
-                        <span>{voc}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveVocalRole(voc)}
-                          className="p-0.5 hover:bg-white/10 rounded-full text-current hover:text-white transition-colors ml-0.5"
-                          title={`Supprimer ${voc}`}
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </span>
-                    );
-                  })}
-                </div>
-              </div>
-            ) : (
-              <p className="text-xs text-gray-400 italic bg-[#0D0D0E] p-2.5 rounded-xl border border-[#222226]">
-                Aucun arrangement vocal pour cette section. Cliquez sur un pupitre ci-dessous pour l'ajouter.
-              </p>
-            )}
-
-            {/* Preset Vocals Grid (Multiselect) */}
-            <div>
-              <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2 block">
-                Pupitres & Voix - sélection multiple :
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto pr-1">
-                {PRESET_VOCAL_ROLES.map((role) => {
-                  const isSelected = vocalModalSection.vocals.includes(role);
-                  return (
-                    <button
-                      key={role}
-                      type="button"
-                      onClick={() => handleToggleVocalRole(role)}
-                      className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold border transition-all ${
-                        isSelected
-                          ? 'bg-cyan-950/70 border-cyan-500 text-cyan-200 shadow-sm shadow-cyan-950/40 font-bold'
-                          : 'bg-[#18181C] border-[#2A2A30] text-gray-300 hover:border-cyan-500/40 hover:bg-[#202026]'
-                      }`}
-                    >
-                      <span>{role}</span>
-                      {isSelected ? (
-                        <Check className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-                      ) : (
-                        <Plus className="w-3 h-3 text-gray-500 shrink-0" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Add Custom Vocal Part */}
-            <div className="pt-2 border-t border-[#25252A]">
-              <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5 block">
-                Ajouter une voix personnalisée : Solo Sarah, Voix 4...
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={customVocalInput}
-                  onChange={(e) => setCustomVocalInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleAddCustomVocalRole();
-                    }
-                  }}
-                  placeholder="Nom de la voix ou soliste..."
-                  className="flex-1 bg-[#18181C] border border-[#333] focus:border-cyan-500 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={handleAddCustomVocalRole}
-                  disabled={!customVocalInput.trim()}
-                  className="px-3.5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 disabled:opacity-40 disabled:hover:bg-cyan-600 text-slate-950 font-bold text-xs flex items-center gap-1 transition-colors"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Ajouter</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Modal Footer */}
-            <div className="flex items-center justify-between pt-3 border-t border-[#25252A]">
-              {vocalModalSection.vocals.length > 0 ? (
-                <button
-                  type="button"
-                  onClick={handleClearSectionVocals}
-                  className="text-xs text-red-400 hover:text-red-300 transition-colors flex items-center gap-1 px-2 py-1 rounded hover:bg-red-950/20"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Effacer les voix</span>
-                </button>
-              ) : <div />}
-
-              <button
-                type="button"
-                onClick={() => setVocalModalSection(null)}
-                className="px-4 py-2 rounded-xl bg-[#25252A] hover:bg-[#323238] text-white text-xs font-semibold transition-colors ml-auto"
-              >
-                Terminé
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
 
 
@@ -2043,6 +1628,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
         songChords={allSongChords}
         notation={stageSettings.notation}
         onSelectChord={(ch) => setChordModalData(prev => ({ ...prev, chord: ch }))}
+        transposeOffset={effectiveTransposeOffset}
       />
 
       {/* Language Version & Relations Modal */}

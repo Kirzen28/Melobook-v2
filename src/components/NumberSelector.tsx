@@ -32,7 +32,7 @@ export const NumberSelector: React.FC<NumberSelectorProps> = ({ value, min, max,
   };
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-1.5 shrink-0">
       <button
         type="button"
         onClick={handleDecrement}
@@ -48,7 +48,7 @@ export const NumberSelector: React.FC<NumberSelectorProps> = ({ value, min, max,
         min={min}
         max={max}
         step={step}
-        className="number-selector-input w-16 bg-[#1C1C1E] border border-[#333] rounded px-2 py-1 text-center text-xs text-white focus:outline-none focus:border-purple-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none font-medium"
+        className="number-selector-input w-14 sm:w-16 bg-[#1C1C1E] border border-[#333] rounded px-1.5 py-1 text-center text-xs text-white focus:outline-none focus:border-purple-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none font-medium"
       />
       <button
         type="button"

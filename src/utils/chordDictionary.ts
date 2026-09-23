@@ -744,8 +744,8 @@ class ChordSynth {
     return this.ctx;
   }
 
-  // Play Guitar Strum
-  playGuitar(voicing: GuitarVoicing, rootPitch: number) {
+  // Play Guitar Strum with optional piano/keyboard style transposeOffset
+  playGuitar(voicing: GuitarVoicing, rootPitch: number, transposeOffset: number = 0) {
     const ctx = this.getContext();
     const now = ctx.currentTime;
 
@@ -754,7 +754,7 @@ class ChordSynth {
 
     voicing.frets.forEach((fret, stringIdx) => {
       if (fret < 0) return; // muted string
-      const midi = openMidis[stringIdx] + fret;
+      const midi = openMidis[stringIdx] + fret + transposeOffset;
       const freq = 440 * Math.pow(2, (midi - 69) / 12);
 
       // Strum delay: strings are plucked sequentially downwards (e.g. 25ms between strings)
@@ -795,8 +795,8 @@ class ChordSynth {
     });
   }
 
-  // Play Piano Chord
-  playPiano(keys: number[], rootKey: number) {
+  // Play Piano Chord with optional piano/keyboard style transposeOffset
+  playPiano(keys: number[], rootKey: number, transposeOffset: number = 0) {
     const ctx = this.getContext();
     const now = ctx.currentTime;
 
@@ -804,7 +804,7 @@ class ChordSynth {
     const baseMidi = 48;
 
     keys.forEach((keyOffset, idx) => {
-      const midi = baseMidi + keyOffset;
+      const midi = baseMidi + keyOffset + transposeOffset;
       const freq = 440 * Math.pow(2, (midi - 69) / 12);
       const noteDelay = idx * 0.015; // very slight humanized chord roll
       const startTime = now + noteDelay;

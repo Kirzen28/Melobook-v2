@@ -14,8 +14,8 @@ import {
 import { 
   ListMusic, 
   Plus, 
-  PlayCircle, 
-  Calendar, 
+  PlayCircle,
+  Play,
   Clock, 
   Trash2, 
   ChevronUp, 
@@ -46,9 +46,11 @@ export const SetlistManager: React.FC = () => {
     currentUser,
     setSelectedSong,
     setActiveTab,
-    setActiveSetlistIndex
+    setActiveSetlistIndex,
+    showNotification
   } = useApp();
 
+  const [expandedSetlistId, setExpandedSetlistId] = useState<string | null>(null);
   const [isLiveModeOpen, setIsLiveModeOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newSetName, setNewSetName] = useState('');
@@ -112,6 +114,10 @@ export const SetlistManager: React.FC = () => {
       notes: '',
       targetDuration: Number(newSetDuration) || 20
     });
+
+    if (newId) {
+      setExpandedSetlistId(newId);
+    }
 
     setNewSetName('');
     setIsCreateModalOpen(false);
@@ -301,22 +307,22 @@ export const SetlistManager: React.FC = () => {
       )}
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <div className="flex items-center gap-3">
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
-            <ListMusic className="w-6 h-6 text-blue-500" />
+      <div className="flex items-center justify-between gap-3 mb-6">
+        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-2 sm:gap-2.5">
+            <ListMusic className="w-5 h-5 sm:w-6 sm:h-6 text-blue-500 shrink-0" />
             <span>Setlists</span>
-            <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-[#1C1C1E] border border-[#2E2E34] text-gray-400">
+            <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-[#1C1C1E] border border-[#2E2E34] text-gray-400 shrink-0">
               {setlists.length}
             </span>
           </h1>
         </div>
 
         {currentUser?.role === 'admin' && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={() => setIsCreateModalOpen(true)}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-md bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-sm transition-all active:scale-95"
+              className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-md bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-sm transition-all active:scale-95 whitespace-nowrap"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Nouvelle Setlist</span>
@@ -347,7 +353,7 @@ export const SetlistManager: React.FC = () => {
           ) : (
             <div className="space-y-3.5">
               {setlists.map((st) => {
-                const isExpanded = selectedSetlist?.id === st.id;
+                const isExpanded = expandedSetlistId === st.id;
                 const totalSecs = getSetlistTotalDurationSeconds(st);
 
             return (
@@ -359,106 +365,92 @@ export const SetlistManager: React.FC = () => {
                     : 'bg-[#111112] border-[#222224] hover:border-[#333] hover:bg-[#141416]'
                 }`}
               >
-                {/* Accordion Header / Setlist Bar */}
+                {/* Accordion Header / Setlist Bar : clic direct sur le bloc = lancement du Live dès le 1er chant */}
                 <div
                   onClick={() => {
-                    if (isExpanded) {
-                      setSelectedSetlist(null);
+                    if (st.songIds.length > 0) {
+                      handleLaunchLive(st, 0);
                     } else {
+                      setExpandedSetlistId(prev => (prev === st.id ? null : st.id));
                       setSelectedSetlist(st);
+                      showNotification?.({
+                        title: st.name,
+                        message: 'Cette setlist est vide. Ajoutez des chants pour lancer le mode Live.',
+                        type: 'info'
+                      });
                     }
                   }}
-                  className="p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer select-none"
+                  className="p-3.5 sm:p-5 flex items-center justify-between gap-3 cursor-pointer select-none group/card hover:bg-[#151519] transition-colors"
+                  title={st.songIds.length > 0 ? "Lancer le mode Live (dès la première chanson)" : "Dérouler la setlist"}
                 >
-                  {/* Left info: Chevron + Name + Metadata Badges */}
-                  <div className="flex items-start sm:items-center gap-3.5 min-w-0 flex-1">
-                    {/* Expand/Collapse Toggle icon */}
-                    <div className={`p-2 rounded-lg border transition-colors shrink-0 mt-0.5 sm:mt-0 ${
-                      isExpanded
-                        ? 'bg-blue-600/20 border-blue-500/40 text-blue-400'
-                        : 'bg-[#1C1C1E] border-[#2E2E32] text-gray-400 group-hover:text-white'
-                    }`}>
+                  {/* Left info: Bouton déroulant + Titre + Indicateur Live */}
+                  <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 flex-1">
+                    {/* Bouton pour dérouler la liste et les informations */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setExpandedSetlistId(prev => (prev === st.id ? null : st.id));
+                        setSelectedSetlist(st);
+                      }}
+                      className={`p-2 rounded-lg border transition-all shrink-0 cursor-pointer ${
+                        isExpanded
+                          ? 'bg-blue-600/20 border-blue-500/40 text-blue-400'
+                          : 'bg-[#1C1C1E] border-[#2E2E32] text-gray-400 hover:text-white hover:bg-[#252529]'
+                      }`}
+                      title={isExpanded ? "Replier la liste" : "Dérouler la liste des chants et informations"}
+                      aria-label={isExpanded ? "Replier la setlist" : "Dérouler la setlist"}
+                    >
                       {isExpanded ? (
                         <ChevronUp className="w-4 h-4" />
                       ) : (
                         <ChevronDown className="w-4 h-4" />
                       )}
-                    </div>
+                    </button>
 
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className={`text-base font-bold truncate transition-colors ${
+                      <div className="flex items-center gap-2">
+                        <h3 className={`text-sm sm:text-base font-bold truncate transition-colors group-hover/card:text-blue-300 ${
                           isExpanded ? 'text-blue-300' : 'text-white'
                         }`}>
                           {st.name}
                         </h3>
-                        {currentUser?.role === 'admin' && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleOpenEditModal(st);
-                            }}
-                            className="p-1 rounded-md text-gray-400 hover:text-blue-400 hover:bg-blue-500/15 border border-transparent hover:border-blue-500/30 transition-all active:scale-90"
-                            title="Modifier les métadonnées"
-                          >
-                            <Pencil className="w-3.5 h-3.5" />
-                          </button>
+
+                        {st.songIds.length > 0 && (
+                          <span className="opacity-0 group-hover/card:opacity-100 transition-opacity flex items-center gap-1 text-[11px] font-semibold text-blue-400 shrink-0">
+                            <Play className="w-3 h-3 fill-current" />
+                            <span className="hidden sm:inline">Lancer Live</span>
+                          </span>
                         )}
-                      </div>
-
-                      {/* Metadata row */}
-                      <div className="flex items-center gap-2 sm:gap-3 text-xs text-gray-400 mt-1.5 flex-wrap">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                          <span className="text-gray-300 font-medium">{st.date}</span>
-                        </span>
-                        
-                        <span className="text-gray-600">•</span>
-                        
-                        <span className="flex items-center gap-1 font-semibold text-blue-400">
-                          <Music className="w-3.5 h-3.5 shrink-0" />
-                          <span>{st.songIds.length} chant{st.songIds.length > 1 ? 's' : ''}</span>
-                        </span>
-
-                        {totalSecs > 0 && (
-                          <>
-                            <span className="text-gray-600">•</span>
-                            <span className="flex items-center gap-1 font-semibold text-cyan-300 font-mono text-[11px]">
-                              <Clock className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-                              <span>{formatSetlistDuration(totalSecs)}</span>
-                            </span>
-                          </>
-                        )}
-
-
                       </div>
                     </div>
                   </div>
 
-                  {/* Right Actions: Edit, PDF, Live Mode, Delete */}
+                  {/* Right Actions: Edit, PDF, Delete */}
                   <div 
-                    className="flex items-center gap-2 shrink-0 self-start md:self-center"
+                    className="flex items-center gap-1.5 sm:gap-2 shrink-0"
                     onClick={(e) => e.stopPropagation()}
                   >
+                    {currentUser?.role === 'admin' && (
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditModal(st)}
+                        className="p-2 rounded-lg bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-400 hover:text-blue-400 border border-[#333] hover:border-blue-500/40 text-xs font-medium shadow-sm transition-all active:scale-95 flex items-center justify-center"
+                        title="Modifier les infos de la setlist"
+                        aria-label="Modifier les infos de la setlist"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+
                     <button
+                      type="button"
                       onClick={() => setPdfModalSetlist(st)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-200 hover:text-white border border-[#333] text-xs font-semibold shadow-sm transition-all active:scale-95"
+                      className="p-2 rounded-lg bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-400 hover:text-emerald-400 border border-[#333] hover:border-emerald-500/40 text-xs font-medium shadow-sm transition-all active:scale-95 flex items-center justify-center"
                       title="Exporter en PDF / Partager"
+                      aria-label="Exporter en PDF"
                     >
                       <FileDown className="w-3.5 h-3.5 text-emerald-400" />
-                      <span className="hidden sm:inline">Exporter PDF</span>
-                    </button>
-
-
-
-                    <button
-                      onClick={() => handleLaunchLive(st, 0)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-sm transition-all active:scale-95"
-                      title="Lancer le mode Live"
-                    >
-                      <PlayCircle className="w-3.5 h-3.5" />
-                      <span>Mode Live</span>
                     </button>
 
                     {currentUser?.role === 'admin' && (
@@ -470,6 +462,9 @@ export const SetlistManager: React.FC = () => {
                             setConfirmDeleteSetlistId(null);
                             if (selectedSetlist?.id === st.id) {
                               setSelectedSetlist(null);
+                            }
+                            if (expandedSetlistId === st.id) {
+                              setExpandedSetlistId(null);
                             }
                           } else {
                             setConfirmDeleteSetlistId(st.id);
@@ -498,29 +493,57 @@ export const SetlistManager: React.FC = () => {
                   <div className="px-4 sm:px-6 pb-6 pt-2 border-t border-[#1F1F24] bg-[#0C0C0E]/70 space-y-4">
                     {/* Songs Sequence Management */}
                     <div>
-                      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                        <div className="flex items-center gap-2">
-                          {currentUser?.role === 'admin' && st.songIds.length > 1 && (
-                            <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-medium text-blue-400/80 bg-blue-950/40 px-2 py-0.5 rounded border border-blue-800/40">
-                              <GripVertical className="w-3 h-3 text-blue-400" />
-                              Glisser-déposer pour réordonner
+                      {/* Notes and metadata block */}
+                      <div className="mb-3.5 p-3.5 bg-[#121215] border border-[#222226] rounded-lg text-xs text-gray-300">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <div className="text-[11px] font-bold text-gray-400 flex items-center gap-1.5">
+                            <Info className="w-3.5 h-3.5 text-blue-400" />
+                            <span>Notes</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs text-gray-400 font-medium">
+                            <span className="text-blue-400 font-semibold shrink-0">
+                              {st.songIds.length} chant{st.songIds.length > 1 ? 's' : ''}
                             </span>
-                          )}
+                            {totalSecs > 0 && (
+                              <>
+                                <span className="text-gray-600 shrink-0">•</span>
+                                <span className="inline-flex items-center gap-1 text-cyan-300 font-mono font-medium shrink-0">
+                                  <Clock className="w-3 h-3 text-cyan-400 shrink-0" />
+                                  <span>{formatSetlistDuration(totalSecs)}</span>
+                                </span>
+                              </>
+                            )}
+                            {st.date && (
+                              <>
+                                <span className="text-gray-600 shrink-0">•</span>
+                                <span className="text-gray-300 truncate shrink-0">
+                                  {st.date}
+                                </span>
+                              </>
+                            )}
+                          </div>
                         </div>
+                        {st.notes && (
+                          <div className="whitespace-pre-wrap font-sans text-gray-300 leading-relaxed border-t border-[#1E1E22] pt-2.5 mt-2.5 text-xs">
+                            {st.notes}
+                          </div>
+                        )}
+                      </div>
 
-                        {currentUser?.role === 'admin' && (
+                      {currentUser?.role === 'admin' && (
+                        <div className="flex items-center justify-end mb-3">
                           <button
                             onClick={() => {
                               setSelectedSetlist(st);
                               setIsAddSongModalOpen(true);
                             }}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold transition-all shadow-sm active:scale-95 ml-auto"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold transition-all shadow-sm active:scale-95"
                           >
                             <Plus className="w-3.5 h-3.5" />
                             <span>Ajouter un chant</span>
                           </button>
-                        )}
-                      </div>
+                        </div>
+                      )}
 
                       {st.songIds.length === 0 ? (
                         <div className="text-center py-10 bg-[#0E0E10] rounded-xl border border-dashed border-[#2A2A2E] p-4">
@@ -566,48 +589,39 @@ export const SetlistManager: React.FC = () => {
                                     : 'bg-[#121215] border-[#222226] hover:border-blue-500/40 hover:bg-[#16161c]'
                                 }`}
                               >
-                                <div className="flex items-start gap-2.5 flex-1 min-w-0">
-                                  {/* Song Number & Drag Grip Handle in vertical column: Number on top, Grip below */}
-                                  <div className="flex flex-col items-center justify-center gap-1 shrink-0 -ml-1 mt-0.5">
-                                    {/* Song number badge */}
-                                    <span 
-                                      onClick={() => handleLaunchLive(st, index)}
-                                      className={`w-5 h-5 rounded font-mono text-[11px] font-bold flex items-center justify-center transition-colors cursor-pointer ${
-                                        isDragOver
-                                          ? 'bg-blue-600 text-white border border-blue-400 font-black shadow-sm'
-                                          : 'bg-[#1C1C1E] text-gray-300 border border-[#333] group-hover:border-blue-500/40 group-hover:text-blue-200'
+                                <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                                  {currentUser?.role === 'admin' && (
+                                    <div
+                                      onClick={(e) => e.stopPropagation()}
+                                      onTouchStart={(e) => handleTouchStartHandle(e, index)}
+                                      onTouchMove={handleTouchMoveHandle}
+                                      onTouchEnd={() => handleTouchEndHandle(st)}
+                                      className={`p-1 rounded cursor-grab active:cursor-grabbing transition-all duration-150 touch-none shrink-0 -ml-1 ${
+                                        isBeingDragged
+                                          ? 'text-blue-400 bg-blue-500/20 ring-1 ring-blue-400/40'
+                                          : 'text-gray-500 hover:text-blue-400 hover:bg-blue-500/10 active:text-blue-300 active:bg-blue-500/20'
                                       }`}
-                                      title="Lancer ce chant en mode Live"
+                                      title="Glisser pour réorganiser"
                                     >
-                                      {index + 1}
-                                    </span>
-
-                                    {currentUser?.role === 'admin' && (
-                                      <div
-                                        onClick={(e) => e.stopPropagation()}
-                                        onTouchStart={(e) => handleTouchStartHandle(e, index)}
-                                        onTouchMove={handleTouchMoveHandle}
-                                        onTouchEnd={() => handleTouchEndHandle(st)}
-                                        className={`p-1 rounded cursor-grab active:cursor-grabbing transition-all duration-150 touch-none ${
-                                          isBeingDragged
-                                            ? 'text-blue-400 bg-blue-500/20 ring-1 ring-blue-400/40'
-                                            : 'text-gray-500 hover:text-blue-400 hover:bg-blue-500/10 active:text-blue-300 active:bg-blue-500/20'
-                                        }`}
-                                        title="Glisser pour réorganiser"
-                                      >
-                                        <GripVertical className="w-4 h-4" />
-                                      </div>
-                                    )}
-                                  </div>
+                                      <GripVertical className="w-4 h-4" />
+                                    </div>
+                                  )}
 
                                   <div 
                                     className="min-w-0 flex-1 cursor-pointer"
                                     onClick={() => handleLaunchLive(st, index)}
                                     title="Lancer ce chant en mode Live"
                                   >
-                                    <h5 className="text-xs sm:text-sm font-bold text-white group-hover:text-blue-300 truncate transition-colors">
-                                      {stripParentheses(song.title)}
+                                    {/* Compteur et titre dans la même balise/div sans colonne séparée */}
+                                    <h5 className="text-xs sm:text-sm font-bold text-white group-hover:text-blue-300 truncate transition-colors flex items-center gap-2 min-w-0">
+                                      <span className="text-blue-400 font-mono font-bold shrink-0">
+                                        {index + 1}.
+                                      </span>
+                                      <span className="truncate">
+                                        {stripParentheses(song.title)}
+                                      </span>
                                     </h5>
+
                                     <p className="text-[11px] text-gray-400 truncate flex items-center gap-1.5 flex-wrap mt-0.5">
                                       <span>{song.artist || 'Auteur inconnu'}</span>
                                       <span className="text-gray-600">•</span>
@@ -645,27 +659,6 @@ export const SetlistManager: React.FC = () => {
                               </div>
                             );
                           })}
-                        </div>
-                      )}
-                      {st.notes && (
-                        <div className="mt-3 p-3.5 bg-[#121215] border border-[#222226] rounded-lg text-xs text-gray-300">
-                          <div className="flex items-center justify-between gap-2 mb-1.5">
-                            <div className="text-[11px] font-bold text-gray-400 flex items-center gap-1.5">
-                              <Info className="w-3.5 h-3.5 text-blue-400" />
-                              <span>Notes et déroulé</span>
-                            </div>
-                            {currentUser?.role === 'admin' && (
-                              <button
-                                type="button"
-                                onClick={() => handleOpenEditModal(st)}
-                                className="text-[11px] text-blue-400 hover:text-blue-300 font-medium hover:underline flex items-center gap-1"
-                              >
-                                <Pencil className="w-3 h-3" />
-                                <span>Modifier</span>
-                              </button>
-                            )}
-                          </div>
-                          <div className="whitespace-pre-wrap font-sans text-gray-300 leading-relaxed">{st.notes}</div>
                         </div>
                       )}
                     </div>

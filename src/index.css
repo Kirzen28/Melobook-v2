@@ -236,6 +236,21 @@ html.light-theme .color-hex-badge:hover {
   background-color: #CBD5E1 !important;
 }
 
+/* Dedicated Color Picker Popover */
+html.light-theme .color-picker-popover {
+  background-color: #FFFFFF !important;
+  border-color: #CBD5E1 !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+}
+
+html.light-theme .color-picker-popover * {
+  border-color: #E2E8F0;
+}
+
+html.light-theme .color-picker-popover .text-white {
+  color: #111827 !important;
+}
+
 /* Dedicated Toggle Group Pills */
 html.light-theme .theme-toggle-group {
   background-color: #E2E6EA !important;
@@ -249,6 +264,17 @@ html.light-theme .theme-toggle-inactive {
 html.light-theme .theme-toggle-inactive:hover {
   color: #111827 !important;
   background-color: #CBD5E1 !important;
+}
+
+html.light-theme .metadata-toggle-btn-inactive {
+  background-color: #E2E6EA !important;
+  color: #4B5563 !important;
+  border-color: #CBD5E1 !important;
+}
+
+html.light-theme .metadata-toggle-btn-inactive:hover {
+  background-color: #CBD5E1 !important;
+  color: #111827 !important;
 }
 
 /* Maintain crisp white text inside solid colored primary buttons */

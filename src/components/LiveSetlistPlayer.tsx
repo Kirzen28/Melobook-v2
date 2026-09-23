@@ -1,19 +1,22 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useApp } from '../context/AppContext';
-import { parseDurationToSeconds, formatSetlistDuration, getSongDuration } from '../utils/chordUtils';
 import { cacheSetlistInWorker } from '../utils/pwaCache';
 import { SongReader } from './SongReader';
-import { SetlistPdfModal } from './SetlistPdfModal';
 import { MidiStatusIndicator } from './MidiStatusIndicator';
 import { useMidi } from '../context/MidiContext';
+import { 
+  requestFullscreenSafe, 
+  exitFullscreenSafe, 
+  addFullscreenChangeListener, 
+  getIsNativeFullscreen 
+} from '../utils/fullscreen';
 import { 
   ListMusic, 
   X, 
   Layers, 
   Music,
   CheckCircle2,
-  FileDown,
   Maximize2,
   Minimize2
 } from 'lucide-react';
@@ -50,7 +53,6 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
 
   const { registerActionHandler } = useMidi();
 
-  const [showPdfModal, setShowPdfModal] = useState(false);
   const [direction, setDirection] = useState<number>(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const prevIndexRef = useRef<number>(activeSetlistIndex);
@@ -58,23 +60,17 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
 
   useEffect(() => {
-    const handleFs = () => {
-      setIsFullscreen(Boolean(document.fullscreenElement));
-    };
-    document.addEventListener('fullscreenchange', handleFs);
-    document.addEventListener('webkitfullscreenchange', handleFs);
-    return () => {
-      document.removeEventListener('fullscreenchange', handleFs);
-      document.removeEventListener('webkitfullscreenchange', handleFs);
-    };
+    return addFullscreenChangeListener((isFs) => {
+      setIsFullscreen(isFs);
+    });
   }, []);
 
   const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(() => {});
+    if (!isFullscreen) {
+      requestFullscreenSafe(document.documentElement);
       setIsFullscreen(true);
     } else {
-      document.exitFullscreen().catch(() => {});
+      exitFullscreenSafe();
       setIsFullscreen(false);
     }
   };
@@ -214,11 +210,11 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
         <div className="flex items-center gap-2.5 min-w-0">
           <button
             onClick={onClose}
-            className="p-1.5 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 hover:text-white border border-[#333] text-xs font-medium flex items-center gap-1.5 transition-colors shrink-0"
+            className="p-1.5 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 hover:text-white border border-[#333] transition-colors shrink-0 flex items-center justify-center cursor-pointer"
             title="Quitter le mode Live"
+            aria-label="Quitter le mode Live"
           >
             <X className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Quitter Live</span>
           </button>
 
           <div className="min-w-0">
@@ -234,29 +230,13 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
                 {activeSetlistIndex + 1}/{setlistSongs.length}
               </span>
             </div>
-            <p className="text-[10px] text-gray-400 hidden sm:block truncate">
-              {setlistSongs.length} morceaux • Date : {selectedSetlist.date}
-              {(() => {
-                const totalSecs = setlistSongs.reduce((acc, s) => acc + parseDurationToSeconds(s), 0);
-                return totalSecs > 0 ? ` • Durée : ${formatSetlistDuration(totalSecs)}` : '';
-              })()}
-            </p>
           </div>
         </div>
 
-        {/* Right: MIDI Remote, Next Song Quick Peek & PDF Export */}
+        {/* Right: MIDI Remote, Next Song Quick Peek */}
         <div className="flex items-center gap-2 text-right shrink-0">
-          {/* Contrôle MIDI / Pédalier */}
-          <MidiStatusIndicator showLabel />
-
-          <button
-            onClick={() => setShowPdfModal(true)}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 hover:text-white border border-[#333] text-xs font-medium transition-colors"
-            title="Exporter la setlist en PDF / Partager"
-          >
-            <FileDown className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="hidden sm:inline">PDF</span>
-          </button>
+          {/* Contrôle MIDI / Pédalier (icône uniquement) */}
+          <MidiStatusIndicator />
 
           <div className="hidden lg:flex items-center gap-2">
             {activeSetlistIndex < setlistSongs.length - 1 ? (
@@ -329,15 +309,6 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
           )}
         </AnimatePresence>
       </div>
-
-      {/* PDF Export & Share Modal */}
-      {showPdfModal && selectedSetlist && (
-        <SetlistPdfModal
-          setlist={selectedSetlist}
-          songs={songs}
-          onClose={() => setShowPdfModal(false)}
-        />
-      )}
     </div>
   );
 };

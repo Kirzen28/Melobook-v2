@@ -143,6 +143,7 @@ export interface DisplaySettings {
   typography: SongTypographySettings;
   sectionColors: SectionColors;
   sectionBorders?: SectionBorders;
+  chordColor?: string;
 }
 
 export interface SongCardMetadataSettings {
@@ -150,4 +151,14 @@ export interface SongCardMetadataSettings {
   showTempo: boolean;
   showDuration: boolean;
   showCategories: boolean;
+}
+
+export type NotificationType = 'success' | 'info' | 'warning' | 'error';
+
+export interface AppNotification {
+  id: string;
+  title?: string;
+  message: string;
+  type?: NotificationType;
+  duration?: number;
 }

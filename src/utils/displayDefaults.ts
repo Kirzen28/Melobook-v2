@@ -8,6 +8,8 @@ export const DEFAULT_SECTION_BORDERS: SectionBorders = {
   bottom: false,
 };
 
+export const DEFAULT_CHORD_COLOR = '#60a5fa';
+
 export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
   typography: {
     titleSize: 26,
@@ -18,14 +20,14 @@ export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
     lineSpacing: 1.4,
   },
   sectionColors: {
-    verse: '#94a3b8',        // Couplet (Ardoise clair)
-    chorus: '#3b82f6',       // Refrain (Bleu électrique)
-    bridge: '#a855f7',       // Pont (Violet)
-    intro: '#10b981',        // Intro (Émeraude)
-    outro: '#f43f5e',        // Outro / Fin (Rose corail)
-    preChorus: '#ec4899',    // Pré-Refrain (Rose bonbon)
-    instrumental: '#eab308', // Instrumental (Ambre / Or)
-    tag: '#06b6d4',          // Tag / Coda (Cyan)
+    verse: '#94a3b8',        // Couplet
+    chorus: '#3b82f6',       // Refrain
+    bridge: '#a855f7',       // Pont
+    intro: '#10b981',        // Intro
+    outro: '#f43f5e',        // Outro / Fin
+    preChorus: '#ec4899',    // Pré-Refrain
+    instrumental: '#eab308', // Instrumental
+    tag: '#06b6d4',          // Tag / Coda
     general: '#64748b'       // Général / Autre
   },
   sectionBorders: {
@@ -33,7 +35,8 @@ export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
     right: false,
     top: false,
     bottom: false,
-  }
+  },
+  chordColor: DEFAULT_CHORD_COLOR
 };
 
 export const COLOR_PRESETS = [
@@ -136,7 +139,8 @@ export function loadSavedDisplaySettings(): DisplaySettings {
       return {
         typography: { ...DEFAULT_DISPLAY_SETTINGS.typography, ...(parsed.typography || {}) },
         sectionColors: { ...DEFAULT_DISPLAY_SETTINGS.sectionColors, ...(parsed.sectionColors || {}) },
-        sectionBorders: { ...DEFAULT_SECTION_BORDERS, ...(parsed.sectionBorders || {}) }
+        sectionBorders: { ...DEFAULT_SECTION_BORDERS, ...(parsed.sectionBorders || {}) },
+        chordColor: parsed.chordColor || DEFAULT_CHORD_COLOR
       };
     }
   } catch (e) {

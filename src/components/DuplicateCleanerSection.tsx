@@ -293,7 +293,7 @@ export const DuplicateCleanerSection: React.FC<DuplicateCleanerSectionProps> = (
       <div 
         onClick={onToggle}
         className={`w-full text-left p-3.5 sm:p-4.5 flex items-center justify-between gap-3 ${
-          onToggle ? 'cursor-pointer lg:cursor-default hover:bg-[#151518]/50' : ''
+          onToggle ? 'cursor-pointer hover:bg-[#151518]/50' : ''
         } transition-colors select-none`}
       >
         <div className="flex items-center gap-3 min-w-0">
@@ -306,7 +306,7 @@ export const DuplicateCleanerSection: React.FC<DuplicateCleanerSectionProps> = (
         </div>
 
         {onToggle && (
-          <div className="flex items-center gap-2 shrink-0 lg:hidden">
+          <div className="flex items-center gap-2 shrink-0">
             <div className={`p-1.5 rounded-lg bg-[#18181C] border border-[#2B2B30] text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180 text-rose-400 border-rose-500/30' : ''}`}>
               <ChevronDown className="w-4 h-4" />
             </div>
@@ -314,8 +314,8 @@ export const DuplicateCleanerSection: React.FC<DuplicateCleanerSectionProps> = (
         )}
       </div>
 
-      {/* Contenu de la section (pliable sur mobile) */}
-      <div className={`p-4 sm:p-5 pt-0 sm:pt-0 ${isOpen ? 'block' : 'hidden lg:block'}`}>
+      {/* Contenu de la section (pliable sur tous les appareils) */}
+      <div className={`p-4 sm:p-5 pt-0 sm:pt-0 ${isOpen ? 'block' : 'hidden'}`}>
         <div className="border-t border-[#222224] mb-4" />
 
         {/* Critère de détection */}

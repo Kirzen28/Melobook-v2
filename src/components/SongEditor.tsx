@@ -117,7 +117,8 @@ export const SongEditor: React.FC = () => {
     songs, 
     createSong, 
     updateSong, 
-    setActiveTab 
+    setActiveTab,
+    showNotification
   } = useApp();
 
   // Basic Song Metadata
@@ -658,7 +659,10 @@ export const SongEditor: React.FC = () => {
   const handleSave = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!title.trim()) {
-      alert('Veuillez spécifier un titre pour le chant.');
+      showNotification({
+        title: 'Titre requis',
+        type: 'warning'
+      });
       return;
     }
 
@@ -702,6 +706,7 @@ export const SongEditor: React.FC = () => {
       setTimeout(() => setSaveSuccess(false), 2500);
     } catch (err) {
       console.error('Error saving song:', err);
+      showNotification({ title: 'Erreur', type: 'error' });
     } finally {
       setIsSaving(false);
     }

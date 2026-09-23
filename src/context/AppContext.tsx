@@ -14,7 +14,9 @@ import {
   SectionBorders,
   SongCardMetadataSettings,
   UserRole,
-  SyncStatus 
+  SyncStatus,
+  NotificationType,
+  AppNotification
 } from '../types';
 import { DEFAULT_DISPLAY_SETTINGS } from '../utils/displayDefaults';
 import { 
@@ -103,6 +105,15 @@ interface AppContextType {
   isInstallable: boolean;
   promptInstall: () => void;
   
+  // Snackbar Notifications
+  notifications: AppNotification[];
+  showNotification: (
+    messageOrOptions: string | { title?: string; message: string; type?: NotificationType; duration?: number },
+    type?: NotificationType,
+    duration?: number
+  ) => void;
+  dismissNotification: (id: string) => void;
+  
   // Actions
   createSong: (songData: Omit<Song, 'id' | 'groupId' | 'createdAt' | 'updatedAt'>) => Promise<string>;
   importSong: (songData: Omit<Song, 'id' | 'groupId' | 'createdAt' | 'updatedAt'>) => Promise<string>;
@@ -160,6 +171,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   });
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+
+  // Snackbar notifications state & handlers (bottom-right notifications)
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+
+  const dismissNotification = useCallback((id: string) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
+  }, []);
+
+  const showNotification = useCallback((
+    messageOrOptions?: string | { title?: string; message?: string; type?: NotificationType; duration?: number },
+    type: NotificationType = 'success',
+    duration: number = 2200
+  ) => {
+    const isString = typeof messageOrOptions === 'string';
+    const resolvedType = isString ? type : (messageOrOptions?.type || type);
+    const resolvedTitle = isString
+      ? messageOrOptions
+      : (messageOrOptions?.title || (resolvedType === 'success' ? 'Enregistré' : 'Info'));
+    const resolvedMessage = isString ? '' : (messageOrOptions?.message || '');
+    const resolvedDuration = isString ? duration : (messageOrOptions?.duration || duration);
+
+    const newNotif: AppNotification = {
+      id: 'notif_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+      title: resolvedTitle,
+      message: resolvedMessage,
+      type: resolvedType,
+      duration: resolvedDuration
+    };
+
+    setNotifications(prev => {
+      const existingIdx = prev.findIndex(n => n.title === resolvedTitle);
+      if (existingIdx !== -1) {
+        const copy = [...prev];
+        copy[existingIdx] = newNotif;
+        return copy;
+      }
+      return [...prev.slice(-1), newNotif];
+    });
+  }, []);
 
   // Helper to read deleted item IDs so sample items are not restored if explicitly deleted by user
   const getDeletedSongIds = (): Set<string> => {
@@ -278,6 +328,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           typography: { ...DEFAULT_DISPLAY_SETTINGS.typography, ...(parsed.typography || {}) },
           sectionColors: { ...DEFAULT_DISPLAY_SETTINGS.sectionColors, ...(parsed.sectionColors || {}) },
           sectionBorders: { ...DEFAULT_DISPLAY_SETTINGS.sectionBorders, ...(parsed.sectionBorders || {}) },
+          chordColor: parsed.chordColor || DEFAULT_DISPLAY_SETTINGS.chordColor || '#60a5fa',
         };
       } catch (e) {}
     }
@@ -288,6 +339,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     typography?: Partial<SongTypographySettings>; 
     sectionColors?: Partial<SectionColors>;
     sectionBorders?: Partial<SectionBorders>;
+    chordColor?: string;
   }) => {
     setDisplaySettings(prev => {
       const updated: DisplaySettings = {
@@ -302,12 +354,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         sectionBorders: {
           ...(prev.sectionBorders || DEFAULT_DISPLAY_SETTINGS.sectionBorders!),
           ...(newSettings.sectionBorders || {})
-        }
+        },
+        chordColor: newSettings.chordColor !== undefined ? newSettings.chordColor : (prev.chordColor || DEFAULT_DISPLAY_SETTINGS.chordColor || '#60a5fa')
       };
       localStorage.setItem('songbook_display_settings', JSON.stringify(updated));
       return updated;
     });
-  }, []);
+    showNotification('Enregistré');
+  }, [showNotification]);
 
   const DEFAULT_SONG_CARD_METADATA: SongCardMetadataSettings = {
     showKey: false,
@@ -342,14 +396,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       localStorage.setItem('songbook_song_card_metadata', JSON.stringify(updated));
       return updated;
     });
-  }, []);
+    showNotification('Enregistré');
+  }, [showNotification]);
 
   const resetDisplaySettings = useCallback(() => {
     setDisplaySettings(DEFAULT_DISPLAY_SETTINGS);
     localStorage.setItem('songbook_display_settings', JSON.stringify(DEFAULT_DISPLAY_SETTINGS));
     setSongCardMetadata(DEFAULT_SONG_CARD_METADATA);
     localStorage.setItem('songbook_song_card_metadata', JSON.stringify(DEFAULT_SONG_CARD_METADATA));
-  }, []);
+    showNotification({ title: 'Réinitialisé', type: 'info' });
+  }, [showNotification]);
 
   // Network & PWA status
   const [isOnline, setIsOnline] = useState(typeof window !== 'undefined' ? navigator.onLine : true);
@@ -477,7 +533,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       localStorage.setItem('songbook_stage_settings', JSON.stringify(updated));
       return updated;
     });
-  }, []);
+    showNotification('Enregistré');
+  }, [showNotification]);
 
   // Sync theme mode (dark, light, system) with document root
   useEffect(() => {
@@ -614,7 +671,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return merged;
       });
     }, (error) => {
-      console.warn('Firestore songs snapshot notice:', error.message);
+      if (error?.code !== 'unavailable') {
+        console.warn('Firestore songs snapshot notice:', error.message);
+      }
     });
 
     // 2. Sync Setlists
@@ -657,7 +716,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return Array.from(setlistMap.values());
       });
     }, (error) => {
-      console.warn('Firestore setlists snapshot notice:', error.message);
+      if (error?.code !== 'unavailable') {
+        console.warn('Firestore setlists snapshot notice:', error.message);
+      }
     });
 
     // 3. Sync Setlist History
@@ -697,7 +758,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return Array.from(historyMap.values()).sort((a, b) => b.date.localeCompare(a.date));
       });
     }, (error) => {
-      console.warn('Firestore setlist history snapshot notice:', error.message);
+      if (error?.code !== 'unavailable') {
+        console.warn('Firestore setlist history snapshot notice:', error.message);
+      }
     });
 
     // 4. Sync Groups if user is logged in
@@ -711,7 +774,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           });
           setGroups(loadedGroups);
         }
-      }, (err) => console.warn('Groups sync error:', err.message));
+      }, (err) => {
+        if (err?.code !== 'unavailable') {
+          console.warn('Groups sync error:', err.message);
+        }
+      });
 
       return () => {
         unsubSongs();
@@ -780,6 +847,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
     setSelectedSong(newSong);
 
+    showNotification('Enregistré');
+
     // Save to Firestore
     try {
       const docRef = doc(db, 'songs', newId);
@@ -789,7 +858,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     return newId;
-  }, [currentGroup?.id]);
+  }, [currentGroup?.id, showNotification]);
 
   // Dedicated importSong action that explicitly appends imported songs to the existing library
   const importSong = useCallback(async (songData: Omit<Song, 'id' | 'groupId' | 'createdAt' | 'updatedAt'>) => {
@@ -811,13 +880,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setSelectedSong(prev => prev ? { ...prev, ...resolvedData } : null);
     }
 
+    showNotification('Enregistré');
+
     try {
       const docRef = doc(db, 'songs', id);
       await updateDoc(docRef, { ...resolvedData, updatedAt: serverTimestamp() });
     } catch (e) {
       console.warn('Updated song locally:', e);
     }
-  }, [selectedSong?.id, songs]);
+  }, [selectedSong?.id, showNotification]);
 
   // Bulk / individual automatic language detection and assignment
   const autoDetectSongLanguages = useCallback(async (songIds?: string[]): Promise<number> => {
@@ -848,6 +919,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
+    showNotification('Enregistré');
+
     // Persist to Firestore
     for (const u of updates) {
       try {
@@ -859,7 +932,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     return updates.length;
-  }, [songs, selectedSong]);
+  }, [songs, selectedSong, showNotification]);
 
   const deleteSong = useCallback(async (id: string) => {
     try {
@@ -878,12 +951,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       songIds: st.songIds.filter(sId => sId !== id)
     })));
 
+    showNotification({ title: 'Supprimé', type: 'info' });
+
     try {
       await deleteDoc(doc(db, 'songs', id));
     } catch (e) {
       console.warn('Deleted song locally:', e);
     }
-  }, [selectedSong?.id, songs]);
+  }, [selectedSong?.id, songs, showNotification]);
 
   const linkSongs = useCallback(async (songId1: string, songId2: string) => {
     if (!songId1 || !songId2 || songId1 === songId2) return;
@@ -936,7 +1011,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (e) {
       console.warn('Updated links locally:', e);
     }
-  }, [songs]);
+
+    showNotification('Enregistré');
+  }, [songs, showNotification]);
 
   const unlinkSongs = useCallback(async (songId1: string, songId2: string) => {
     if (!songId1 || !songId2 || songId1 === songId2) return;
@@ -1002,7 +1079,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (e) {
       console.warn('Unlinked songs locally:', e);
     }
-  }, [songs]);
+
+    showNotification({ title: 'Dissocié', type: 'info' });
+  }, [songs, showNotification]);
 
   const createLanguageVersion = useCallback(async (sourceSongId: string, targetLanguage: string, customTitle?: string) => {
     const sourceSong = songs.find(s => s.id === sourceSongId);
@@ -1035,8 +1114,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
+    showNotification('Enregistré');
+
     return newId;
-  }, [songs, createSong, linkSongs]);
+  }, [songs, createSong, linkSongs, showNotification]);
 
   // Setlist Actions
   const createSetlist = useCallback(async (setlistData: Omit<Setlist, 'id' | 'groupId' | 'createdAt'>) => {
@@ -1052,6 +1133,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSetlists(prev => [newSetlist, ...prev]);
     setSelectedSetlist(newSetlist);
 
+    showNotification('Enregistré');
+
     try {
       await setDoc(doc(db, 'setlists', newId), { ...newSetlist, createdAt: serverTimestamp() });
     } catch (e) {
@@ -1059,7 +1142,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     return newId;
-  }, [currentGroup?.id]);
+  }, [currentGroup?.id, showNotification]);
 
   const updateSetlist = useCallback(async (id: string, setlistData: Partial<Setlist>) => {
     setSetlists(prev => prev.map(st => st.id === id ? { ...st, ...setlistData } : st));
@@ -1067,13 +1150,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setSelectedSetlist(prev => prev ? { ...prev, ...setlistData } : null);
     }
 
+    showNotification('Enregistré');
+
     try {
       const docRef = doc(db, 'setlists', id);
       await updateDoc(docRef, setlistData);
     } catch (e) {
       console.warn('Updated setlist locally:', e);
     }
-  }, [selectedSetlist?.id]);
+  }, [selectedSetlist?.id, showNotification]);
 
   const deleteSetlist = useCallback(async (id: string) => {
     try {
@@ -1087,12 +1172,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setSelectedSetlist(null);
     }
 
+    showNotification({ title: 'Supprimé', type: 'info' });
+
     try {
       await deleteDoc(doc(db, 'setlists', id));
     } catch (e) {
       console.warn('Deleted setlist locally:', e);
     }
-  }, [selectedSetlist?.id]);
+  }, [selectedSetlist?.id, showNotification]);
 
   const updateSetlistSongOverride = useCallback(async (setlistId: string, songId: string, override: Partial<SetlistSongOverride>) => {
     let updatedOverrides: Record<string, SetlistSongOverride> = {};
@@ -1118,13 +1205,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
     }
 
+    showNotification('Enregistré');
+
     try {
       const docRef = doc(db, 'setlists', setlistId);
       await updateDoc(docRef, { songOverrides: updatedOverrides });
     } catch (e) {
       console.warn('Updated setlist song override locally:', e);
     }
-  }, [selectedSetlist?.id]);
+  }, [selectedSetlist?.id, showNotification]);
 
   const removeSetlistSongOverride = useCallback(async (setlistId: string, songId: string) => {
     let updatedOverrides: Record<string, SetlistSongOverride> = {};
@@ -1146,13 +1235,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
     }
 
+    showNotification({ title: 'Réinitialisé', type: 'info' });
+
     try {
       const docRef = doc(db, 'setlists', setlistId);
       await updateDoc(docRef, { songOverrides: updatedOverrides });
     } catch (e) {
       console.warn('Removed setlist song override locally:', e);
     }
-  }, [selectedSetlist?.id]);
+  }, [selectedSetlist?.id, showNotification]);
 
   // Setlist History Actions
   const recordSetlistHistory = useCallback(async (recordData: Omit<SetlistHistoryRecord, 'id' | 'groupId' | 'createdAt'>) => {
@@ -1336,6 +1427,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setIsAuthModalOpen,
       isInstallable,
       promptInstall,
+      notifications,
+      showNotification,
+      dismissNotification,
       createSong,
       importSong,
       updateSong,

@@ -34,11 +34,27 @@ import {
 } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
 
-// Silence non-critical transport warnings (e.g. initial streaming probes in iframes)
+// Silence non-critical transport warnings, offline logs, and reconnect notices
 try {
-  setLogLevel('error');
+  setLogLevel('silent');
 } catch {
   // Ignore in environments where setLogLevel is not supported
+}
+
+// Suppress transient offline connection warnings from triggering developer overlays
+if (typeof window !== 'undefined') {
+  window.addEventListener('unhandledrejection', (event) => {
+    const msg = event.reason?.message || String(event.reason || '');
+    const code = event.reason?.code;
+    if (
+      code === 'unavailable' ||
+      msg.includes('Could not reach Cloud Firestore backend') ||
+      msg.includes('operate in offline mode') ||
+      msg.includes('[code=unavailable]')
+    ) {
+      event.preventDefault();
+    }
+  });
 }
 
 // Initialize Firebase App

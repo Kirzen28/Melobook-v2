@@ -30,6 +30,7 @@ import {
   Gauge,
   ChevronDown,
   Globe,
+  Upload,
   FileCode,
   FileUp,
   Calendar,
@@ -270,7 +271,7 @@ export const SongList: React.FC = () => {
   // Importer state
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isImportDropdownOpen, setIsImportDropdownOpen] = useState(false);
-  const [importSource, setImportSource] = useState<'search' | 'chordpro' | 'shir' | 'webchords'>('search');
+  const [importSource, setImportSource] = useState<'search' | 'file' | 'chordpro' | 'shir' | 'webchords'>('search');
 
   // Key filter counts and filtering logic
   const allKeysWithCounts = useMemo(() => {
@@ -1541,7 +1542,7 @@ export const SongList: React.FC = () => {
   };
 
   // Open import modal for specific option
-  const handleOpenImport = (source: 'search' | 'chordpro' | 'shir' | 'webchords' = 'search') => {
+  const handleOpenImport = (source: 'search' | 'file' | 'chordpro' | 'shir' | 'webchords' = 'search') => {
     setImportSource(source);
     setIsImportDropdownOpen(false);
     setIsImportModalOpen(true);
@@ -1609,7 +1610,25 @@ export const SongList: React.FC = () => {
                   </div>
                 </button>
 
-                {/* Option 2: Files & Manual Paste */}
+                {/* Option 2: File upload */}
+                <button
+                  onClick={() => handleOpenImport('file')}
+                  className="w-full text-left px-3.5 py-2.5 hover:bg-[#1C1C1E] flex items-start gap-2.5 transition-colors group border-b border-[#222224]"
+                >
+                  <div className="p-1.5 rounded bg-[#1C1C1E] border border-[#333] text-blue-400 mt-0.5 group-hover:border-blue-500">
+                    <Upload className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-white group-hover:text-blue-400">
+                      Importer un fichier
+                    </div>
+                    <p className="text-[11px] text-gray-400 mt-0.5">
+                      Fichiers locaux (.cho, .pro, .txt, .crd) par glisser-déposer
+                    </p>
+                  </div>
+                </button>
+
+                {/* Option 3: ChordPro Text */}
                 <button
                   onClick={() => handleOpenImport('chordpro')}
                   className="w-full text-left px-3.5 py-2.5 hover:bg-[#1C1C1E] flex items-start gap-2.5 transition-colors group"
@@ -1619,10 +1638,10 @@ export const SongList: React.FC = () => {
                   </div>
                   <div>
                     <div className="font-semibold text-white group-hover:text-blue-400">
-                      Fichiers & Copier-Coller
+                      Écrire / Coller ChordPro
                     </div>
                     <p className="text-[11px] text-gray-400 mt-0.5">
-                      Fichiers locaux ou saisie directe de paroles et accords
+                      Saisie directe de paroles et accords ou texte brut
                     </p>
                   </div>
                 </button>
@@ -4407,7 +4426,7 @@ export const SongList: React.FC = () => {
 
       {/* Toast Notification for Export */}
       {exportNotification && (
-        <div className="fixed top-6 right-6 z-50 bg-[#18181B] text-white border border-[#333] shadow-2xl rounded-xl px-4 py-2.5 flex items-center gap-2 text-xs font-medium animate-in fade-in slide-in-from-top-3 duration-200">
+        <div className="fixed top-6 left-6 z-50 bg-[#18181B] text-white border border-[#333] shadow-2xl rounded-xl px-4 py-2.5 flex items-center gap-2 text-xs font-medium animate-in fade-in slide-in-from-top-3 duration-200">
           <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
           <span>{exportNotification}</span>
         </div>

@@ -8,8 +8,11 @@ import {
   Type, 
   Palette, 
   Eye, 
+  EyeOff, 
   ChevronDown,
   ChevronUp,
+  ChevronsDown,
+  ChevronsUp,
   Music,
   Sun,
   Moon,
@@ -25,7 +28,12 @@ import {
   Gauge,
   Clock,
   Tag,
-  Square
+  Square,
+  Heading1,
+  FileText,
+  Bookmark,
+  AlignLeft,
+  MoveVertical
 } from 'lucide-react';
 import { useMidi } from '../context/MidiContext';
 import { MidiSettingsModal } from './MidiSettingsModal';
@@ -35,6 +43,7 @@ import {
   SECTION_TYPES_LIST, 
   DEFAULT_DISPLAY_SETTINGS,
   DEFAULT_SECTION_BORDERS,
+  DEFAULT_CHORD_COLOR,
   getSectionBorderStyles,
   getSectionColor 
 } from '../utils/displayDefaults';
@@ -133,6 +142,114 @@ const QuickSectionColorPicker: React.FC<QuickSectionColorPickerProps> = ({
   );
 };
 
+interface ColorPickerPopoverProps {
+  title: string;
+  currentColor: string;
+  defaultColor: string;
+  onChange: (color: string) => void;
+  onClose: () => void;
+}
+
+const ColorPickerPopover: React.FC<ColorPickerPopoverProps> = ({
+  title,
+  currentColor,
+  defaultColor,
+  onChange,
+  onClose
+}) => {
+  return (
+    <>
+      {/* Invisible backdrop for dismiss on outside click */}
+      <div 
+        className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[1px]" 
+        onClick={(e) => {
+          e.stopPropagation();
+          onClose();
+        }} 
+      />
+
+      {/* Popover Card */}
+      <div 
+        onClick={(e) => e.stopPropagation()}
+        className="color-picker-popover absolute right-0 top-full mt-2 z-50 p-3 rounded-xl bg-[#1C1C20] border border-[#333338] shadow-2xl w-64 max-w-[calc(100vw-2rem)] select-none animate-in fade-in zoom-in-95 duration-100"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#2A2A30]">
+          <div className="flex items-center gap-2 min-w-0">
+            <span 
+              className="w-3.5 h-3.5 rounded-full border border-white/30 shadow-xs shrink-0" 
+              style={{ backgroundColor: currentColor }} 
+            />
+            <span className="text-xs font-bold text-white truncate">{title}</span>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-5 h-5 rounded flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+            title="Fermer"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* 16 Presets grid */}
+        <div className="text-[10px] text-gray-400 font-semibold mb-1.5 flex items-center justify-between">
+          <span>Nuancier rapide</span>
+          <span className="text-[9px] text-gray-500 font-mono">16 teintes</span>
+        </div>
+        <div className="grid grid-cols-8 gap-1.5 mb-2.5">
+          {COLOR_PRESETS.map((preset) => {
+            const isSelected = currentColor.toLowerCase() === preset.value.toLowerCase();
+            return (
+              <button
+                key={preset.value}
+                type="button"
+                onClick={() => onChange(preset.value)}
+                className={`w-5 h-5 rounded-full transition-transform hover:scale-125 border cursor-pointer ${
+                  isSelected ? 'border-white ring-2 ring-blue-500 scale-110 shadow-xs' : 'border-transparent'
+                }`}
+                style={{ backgroundColor: preset.value }}
+                title={preset.name}
+              />
+            );
+          })}
+        </div>
+
+        {/* Custom hex picker & default reset button */}
+        <div className="pt-2 border-t border-[#2A2A30] flex items-center justify-between gap-2">
+          <label 
+            className="cursor-pointer flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#24242A] hover:bg-[#2C2C32] text-xs font-mono text-gray-200 border border-[#3A3A40] transition-colors"
+            title="Choisir une couleur personnalisée"
+          >
+            <span 
+              className="w-3.5 h-3.5 rounded-full border border-white/20 shrink-0"
+              style={{ backgroundColor: currentColor }}
+            />
+            <input
+              type="color"
+              value={currentColor}
+              onChange={(e) => onChange(e.target.value)}
+              className="sr-only"
+            />
+            <span className="uppercase text-[11px] font-semibold tracking-wider">{currentColor}</span>
+          </label>
+
+          {currentColor.toLowerCase() !== defaultColor.toLowerCase() && (
+            <button
+              type="button"
+              onClick={() => onChange(defaultColor)}
+              className="px-2 py-1 rounded-lg bg-[#24242A] hover:bg-[#2C2C32] text-gray-300 hover:text-white text-xs font-medium transition-colors cursor-pointer border border-[#3A3A40]"
+              title={`Rétablir la couleur par défaut (${defaultColor})`}
+            >
+              Défaut
+            </button>
+          )}
+        </div>
+      </div>
+    </>
+  );
+};
+
 export const SettingsView: React.FC = () => {
   const { 
     displaySettings, 
@@ -149,13 +266,15 @@ export const SettingsView: React.FC = () => {
   const { 
     typography, 
     sectionColors, 
-    sectionBorders = DEFAULT_SECTION_BORDERS 
+    sectionBorders = DEFAULT_SECTION_BORDERS,
+    chordColor = DEFAULT_CHORD_COLOR
   } = displaySettings;
   const [showNotification, setShowNotification] = useState<string | null>(null);
   const [isMobilePreviewCollapsed, setIsMobilePreviewCollapsed] = useState(false);
   const [isMobilePreviewFullscreen, setIsMobilePreviewFullscreen] = useState(false);
+  const [activeColorTarget, setActiveColorTarget] = useState<string | null>(null);
 
-  // État des catégories pliables / dépliables sur mobile
+  // État des catégories pliables / dépliables sur tous les appareils (plié par défaut)
   type SettingsCategory = 
     | 'display'
     | 'song_cards'
@@ -166,7 +285,7 @@ export const SettingsView: React.FC = () => {
     | 'duplicates';
 
   const [openCategories, setOpenCategories] = useState<Record<SettingsCategory, boolean>>({
-    display: false,      // Plié par défaut sur mobile
+    display: false,      // Plié par défaut sur tous les appareils
     song_cards: false,
     typography: false,
     borders: false,
@@ -180,6 +299,20 @@ export const SettingsView: React.FC = () => {
       ...prev,
       [cat]: !prev[cat]
     }));
+  };
+
+  const allCollapsed = Object.values(openCategories).every(v => !v);
+  const toggleAllCategories = () => {
+    const nextState = allCollapsed;
+    setOpenCategories({
+      display: nextState,
+      song_cards: nextState,
+      typography: nextState,
+      borders: nextState,
+      colors: nextState,
+      midi: nextState,
+      duplicates: nextState,
+    });
   };
 
   const {
@@ -240,6 +373,12 @@ export const SettingsView: React.FC = () => {
   const updateSectionColor = (key: keyof SectionColors, color: string) => {
     updateDisplaySettings({
       sectionColors: { [key]: color }
+    });
+  };
+
+  const updateChordColor = (color: string) => {
+    updateDisplaySettings({
+      chordColor: color
     });
   };
 
@@ -378,6 +517,18 @@ export const SettingsView: React.FC = () => {
               max={32}
               onChange={(val) => updateTypography('chordSize', val)}
             />
+            <label
+              className="w-5 h-5 rounded-md border border-white/20 shadow-xs cursor-pointer flex items-center justify-center transition-transform hover:scale-110 shrink-0"
+              style={{ backgroundColor: chordColor }}
+              title="Couleur des accords"
+            >
+              <input
+                type="color"
+                value={chordColor}
+                onChange={(e) => updateChordColor(e.target.value)}
+                className="sr-only"
+              />
+            </label>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <QuickStepper
@@ -403,8 +554,8 @@ export const SettingsView: React.FC = () => {
           <div className="inline-flex flex-col mr-2">
             {stageSettings.showChords && (
               <span 
-                className="font-mono font-bold text-blue-500 leading-none mb-1"
-                style={{ fontSize: `${typography.chordSize}px` }}
+                className="font-mono font-bold leading-none mb-1"
+                style={{ fontSize: `${typography.chordSize}px`, color: chordColor }}
               >
                 {transposeChord('G', 0, stageSettings.notation)}
               </span>
@@ -420,8 +571,8 @@ export const SettingsView: React.FC = () => {
           <div className="inline-flex flex-col">
             {stageSettings.showChords && (
               <span 
-                className="font-mono font-bold text-blue-500 leading-none mb-1"
-                style={{ fontSize: `${typography.chordSize}px` }}
+                className="font-mono font-bold leading-none mb-1"
+                style={{ fontSize: `${typography.chordSize}px`, color: chordColor }}
               >
                 {transposeChord('C', 0, stageSettings.notation)}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{transposeChord('G', 0, stageSettings.notation)}
               </span>
@@ -464,8 +615,8 @@ export const SettingsView: React.FC = () => {
           <div className="inline-flex flex-col mr-2">
             {stageSettings.showChords && (
               <span 
-                className="font-mono font-bold text-blue-500 leading-none mb-1"
-                style={{ fontSize: `${typography.chordSize}px` }}
+                className="font-mono font-bold leading-none mb-1"
+                style={{ fontSize: `${typography.chordSize}px`, color: chordColor }}
               >
                 {transposeChord('Em', 0, stageSettings.notation)}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{transposeChord('D', 0, stageSettings.notation)}
               </span>
@@ -481,8 +632,8 @@ export const SettingsView: React.FC = () => {
           <div className="inline-flex flex-col">
             {stageSettings.showChords && (
               <span 
-                className="font-mono font-bold text-blue-500 leading-none mb-1"
-                style={{ fontSize: `${typography.chordSize}px` }}
+                className="font-mono font-bold leading-none mb-1"
+                style={{ fontSize: `${typography.chordSize}px`, color: chordColor }}
               >
                 {transposeChord('G', 0, stageSettings.notation)}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{transposeChord('D7', 0, stageSettings.notation)}&nbsp;&nbsp;&nbsp;{transposeChord('G', 0, stageSettings.notation)}
               </span>
@@ -525,8 +676,8 @@ export const SettingsView: React.FC = () => {
           <div className="inline-flex flex-col">
             {stageSettings.showChords && (
               <span 
-                className="font-mono font-bold text-blue-500 leading-none mb-1"
-                style={{ fontSize: `${typography.chordSize}px` }}
+                className="font-mono font-bold leading-none mb-1"
+                style={{ fontSize: `${typography.chordSize}px`, color: chordColor }}
               >
                 {transposeChord('C', 0, stageSettings.notation)}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{transposeChord('G/B', 0, stageSettings.notation)}
               </span>
@@ -569,8 +720,8 @@ export const SettingsView: React.FC = () => {
           <div className="inline-flex flex-col">
             {stageSettings.showChords && (
               <span 
-                className="font-mono font-bold text-blue-500 leading-none mb-1"
-                style={{ fontSize: `${typography.chordSize}px` }}
+                className="font-mono font-bold leading-none mb-1"
+                style={{ fontSize: `${typography.chordSize}px`, color: chordColor }}
               >
                 {transposeChord('C', 0, stageSettings.notation)}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{transposeChord('G', 0, stageSettings.notation)}
               </span>
@@ -613,8 +764,27 @@ export const SettingsView: React.FC = () => {
 
         <div className="flex items-center gap-2 sm:gap-3">
           <button
+            type="button"
+            onClick={toggleAllCategories}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 hover:text-white border border-[#333] text-xs font-semibold transition-all active:scale-95 cursor-pointer"
+            title={allCollapsed ? "Tout déplier (toutes les sections)" : "Tout plier (toutes les sections)"}
+          >
+            {allCollapsed ? (
+              <>
+                <ChevronsDown className="w-3.5 h-3.5 text-blue-400" />
+                <span className="hidden sm:inline">Tout déplier</span>
+              </>
+            ) : (
+              <>
+                <ChevronsUp className="w-3.5 h-3.5 text-blue-400" />
+                <span className="hidden sm:inline">Tout plier</span>
+              </>
+            )}
+          </button>
+
+          <button
             onClick={handleReset}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 hover:text-white border border-[#333] text-xs font-semibold transition-all active:scale-95"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 hover:text-white border border-[#333] text-xs font-semibold transition-all active:scale-95 cursor-pointer"
             title="Rétablir les polices et couleurs par défaut"
           >
             <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
@@ -625,7 +795,7 @@ export const SettingsView: React.FC = () => {
 
       {/* Notification Toast */}
       {showNotification && (
-        <div className="absolute top-16 right-6 z-50 px-4 py-2 rounded-lg bg-green-600/90 border border-green-500 text-white text-xs font-medium flex items-center gap-2 shadow-2xl animate-in fade-in slide-in-from-top-2">
+        <div className="absolute top-16 left-6 z-50 px-4 py-2 rounded-lg bg-green-600/90 border border-green-500 text-white text-xs font-medium flex items-center gap-2 shadow-2xl animate-in fade-in slide-in-from-top-2">
           <Check className="w-4 h-4" />
           <span>{showNotification}</span>
         </div>
@@ -716,7 +886,7 @@ export const SettingsView: React.FC = () => {
             {/* Header / Trigger */}
             <div 
               onClick={() => toggleCategory('display')}
-              className="w-full text-left p-3.5 sm:p-4.5 flex items-center justify-between gap-3 cursor-pointer lg:cursor-default transition-colors hover:bg-[#151518]/50 select-none"
+              className="w-full text-left p-3.5 sm:p-4.5 flex items-center justify-between gap-3 cursor-pointer transition-colors hover:bg-[#151518]/50 select-none"
             >
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 shrink-0">
@@ -727,15 +897,15 @@ export const SettingsView: React.FC = () => {
                 </h2>
               </div>
 
-              <div className="flex items-center gap-2 shrink-0 lg:hidden">
+              <div className="flex items-center gap-2 shrink-0">
                 <div className={`p-1.5 rounded-lg bg-[#18181C] border border-[#2B2B30] text-gray-400 transition-transform duration-200 ${openCategories.display ? 'rotate-180 text-blue-400 border-blue-500/30' : ''}`}>
                   <ChevronDown className="w-4 h-4" />
                 </div>
               </div>
             </div>
 
-            {/* Content (Collapsible on mobile) */}
-            <div className={`p-4 sm:p-5 pt-0 sm:pt-0 ${openCategories.display ? 'block' : 'hidden lg:block'}`}>
+            {/* Content (Collapsible on all devices) */}
+            <div className={`p-4 sm:p-5 pt-0 sm:pt-0 ${openCategories.display ? 'block' : 'hidden'}`}>
               <div className="border-t border-[#222224] mb-4" />
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               
@@ -864,7 +1034,7 @@ export const SettingsView: React.FC = () => {
             {/* Header / Trigger */}
             <div 
               onClick={() => toggleCategory('song_cards')}
-              className="w-full text-left p-3.5 sm:p-4.5 flex items-center justify-between gap-3 cursor-pointer lg:cursor-default transition-colors hover:bg-[#151518]/50 select-none"
+              className="w-full text-left p-3.5 sm:p-4.5 flex items-center justify-between gap-3 cursor-pointer transition-colors hover:bg-[#151518]/50 select-none"
             >
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 shrink-0">
@@ -875,211 +1045,159 @@ export const SettingsView: React.FC = () => {
                 </h2>
               </div>
 
-              <div className="flex items-center gap-2 shrink-0 lg:hidden">
+              <div className="flex items-center gap-2 shrink-0">
                 <div className={`p-1.5 rounded-lg bg-[#18181C] border border-[#2B2B30] text-gray-400 transition-transform duration-200 ${openCategories.song_cards ? 'rotate-180 text-blue-400 border-blue-500/30' : ''}`}>
                   <ChevronDown className="w-4 h-4" />
                 </div>
               </div>
             </div>
 
-            {/* Content (Collapsible on mobile) */}
-            <div className={`p-4 sm:p-5 pt-0 sm:pt-0 ${openCategories.song_cards ? 'block' : 'hidden lg:block'}`}>
+            {/* Content (Collapsible on all devices) */}
+            <div className={`p-4 sm:p-5 pt-0 sm:pt-0 ${openCategories.song_cards ? 'block' : 'hidden'}`}>
               <div className="border-t border-[#222224] mb-4" />
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               {/* Tonalite */}
-              <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex flex-col justify-between gap-2.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="w-5 h-5 rounded bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[10px] font-bold flex items-center justify-center">
-                      C
-                    </span>
-                    <span className="text-xs font-bold text-gray-200">Tonalité</span>
-                  </div>
-                  <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${
-                    songCardMetadata?.showKey
-                      ? 'bg-blue-500/20 text-blue-300 border-blue-500/40'
-                      : 'bg-[#222] text-gray-400 border-[#333]'
-                  }`}>
-                    {songCardMetadata?.showKey ? 'Visible' : 'Masquée'}
+              <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="w-5 h-5 rounded bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[10px] font-bold flex items-center justify-center shrink-0">
+                    C
                   </span>
+                  <span className="text-xs font-bold text-gray-200">Tonalité</span>
                 </div>
-                <div className="theme-toggle-group flex items-center gap-1 bg-[#121214] p-0.5 rounded-lg border border-[#2B2B30]">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      updateSongCardMetadata({ showKey: true });
-                      notify('Tonalité activée sur les cartes');
-                    }}
-                    className={`flex-1 py-1.5 rounded-md text-xs font-semibold flex items-center justify-center gap-1 transition-all cursor-pointer ${
-                      songCardMetadata?.showKey
-                        ? 'bg-blue-600 text-white shadow-xs'
-                        : 'theme-toggle-inactive text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    <span>Visible</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      updateSongCardMetadata({ showKey: false });
-                      notify('Tonalité masquée sur les cartes');
-                    }}
-                    className={`flex-1 py-1.5 rounded-md text-xs font-semibold flex items-center justify-center gap-1 transition-all cursor-pointer ${
-                      !songCardMetadata?.showKey
-                        ? 'bg-blue-600 text-white shadow-xs'
-                        : 'theme-toggle-inactive text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    <span>Masquée</span>
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !songCardMetadata?.showKey;
+                    updateSongCardMetadata({ showKey: next });
+                    notify(next ? 'Tonalité activée sur les cartes' : 'Tonalité masquée sur les cartes');
+                  }}
+                  className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border ${
+                    songCardMetadata?.showKey
+                      ? 'bg-blue-600 text-white border-blue-500 shadow-xs hover:bg-blue-500'
+                      : 'metadata-toggle-btn-inactive bg-[#121214] text-gray-400 border-[#2B2B30] hover:text-white'
+                  }`}
+                  title={songCardMetadata?.showKey ? 'Cliquer pour masquer la tonalité' : 'Cliquer pour afficher la tonalité'}
+                >
+                  {songCardMetadata?.showKey ? (
+                    <>
+                      <Eye className="w-3.5 h-3.5 shrink-0" />
+                      <span>Visible</span>
+                    </>
+                  ) : (
+                    <>
+                      <EyeOff className="w-3.5 h-3.5 shrink-0" />
+                      <span>Masquée</span>
+                    </>
+                  )}
+                </button>
               </div>
 
               {/* BPM et Tempo */}
-              <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex flex-col justify-between gap-2.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="w-5 h-5 rounded bg-blue-500/20 border border-blue-500/40 text-blue-300 text-[10px] font-bold flex items-center justify-center">
-                      <Gauge className="w-3 h-3 text-blue-400" />
-                    </span>
-                    <span className="text-xs font-bold text-gray-200">BPM et Tempo</span>
-                  </div>
-                  <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${
-                    songCardMetadata?.showTempo
-                      ? 'bg-blue-500/20 text-blue-300 border-blue-500/40'
-                      : 'bg-[#222] text-gray-400 border-[#333]'
-                  }`}>
-                    {songCardMetadata?.showTempo ? 'Visible' : 'Masqué'}
+              <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="w-5 h-5 rounded bg-blue-500/20 border border-blue-500/40 text-blue-300 text-[10px] font-bold flex items-center justify-center shrink-0">
+                    <Gauge className="w-3 h-3 text-blue-400" />
                   </span>
+                  <span className="text-xs font-bold text-gray-200">BPM et Tempo</span>
                 </div>
-                <div className="theme-toggle-group flex items-center gap-1 bg-[#121214] p-0.5 rounded-lg border border-[#2B2B30]">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      updateSongCardMetadata({ showTempo: true });
-                      notify('BPM activé sur les cartes');
-                    }}
-                    className={`flex-1 py-1.5 rounded-md text-xs font-semibold flex items-center justify-center gap-1 transition-all cursor-pointer ${
-                      songCardMetadata?.showTempo
-                        ? 'bg-blue-600 text-white shadow-xs'
-                        : 'theme-toggle-inactive text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    <span>Visible</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      updateSongCardMetadata({ showTempo: false });
-                      notify('BPM masqué sur les cartes');
-                    }}
-                    className={`flex-1 py-1.5 rounded-md text-xs font-semibold flex items-center justify-center gap-1 transition-all cursor-pointer ${
-                      !songCardMetadata?.showTempo
-                        ? 'bg-blue-600 text-white shadow-xs'
-                        : 'theme-toggle-inactive text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    <span>Masqué</span>
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !songCardMetadata?.showTempo;
+                    updateSongCardMetadata({ showTempo: next });
+                    notify(next ? 'BPM activé sur les cartes' : 'BPM masqué sur les cartes');
+                  }}
+                  className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border ${
+                    songCardMetadata?.showTempo
+                      ? 'bg-blue-600 text-white border-blue-500 shadow-xs hover:bg-blue-500'
+                      : 'metadata-toggle-btn-inactive bg-[#121214] text-gray-400 border-[#2B2B30] hover:text-white'
+                  }`}
+                  title={songCardMetadata?.showTempo ? 'Cliquer pour masquer le BPM' : 'Cliquer pour afficher le BPM'}
+                >
+                  {songCardMetadata?.showTempo ? (
+                    <>
+                      <Eye className="w-3.5 h-3.5 shrink-0" />
+                      <span>Visible</span>
+                    </>
+                  ) : (
+                    <>
+                      <EyeOff className="w-3.5 h-3.5 shrink-0" />
+                      <span>Masqué</span>
+                    </>
+                  )}
+                </button>
               </div>
 
               {/* Duree */}
-              <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex flex-col justify-between gap-2.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="w-5 h-5 rounded bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 text-[10px] font-bold flex items-center justify-center">
-                      <Clock className="w-3 h-3 text-cyan-400" />
-                    </span>
-                    <span className="text-xs font-bold text-gray-200">Durée</span>
-                  </div>
-                  <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${
-                    songCardMetadata?.showDuration
-                      ? 'bg-blue-500/20 text-blue-300 border-blue-500/40'
-                      : 'bg-[#222] text-gray-400 border-[#333]'
-                  }`}>
-                    {songCardMetadata?.showDuration ? 'Visible' : 'Masquée'}
+              <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="w-5 h-5 rounded bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 text-[10px] font-bold flex items-center justify-center shrink-0">
+                    <Clock className="w-3 h-3 text-cyan-400" />
                   </span>
+                  <span className="text-xs font-bold text-gray-200">Durée</span>
                 </div>
-                <div className="theme-toggle-group flex items-center gap-1 bg-[#121214] p-0.5 rounded-lg border border-[#2B2B30]">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      updateSongCardMetadata({ showDuration: true });
-                      notify('Durée activée sur les cartes');
-                    }}
-                    className={`flex-1 py-1.5 rounded-md text-xs font-semibold flex items-center justify-center gap-1 transition-all cursor-pointer ${
-                      songCardMetadata?.showDuration
-                        ? 'bg-blue-600 text-white shadow-xs'
-                        : 'theme-toggle-inactive text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    <span>Visible</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      updateSongCardMetadata({ showDuration: false });
-                      notify('Durée masquée sur les cartes');
-                    }}
-                    className={`flex-1 py-1.5 rounded-md text-xs font-semibold flex items-center justify-center gap-1 transition-all cursor-pointer ${
-                      !songCardMetadata?.showDuration
-                        ? 'bg-blue-600 text-white shadow-xs'
-                        : 'theme-toggle-inactive text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    <span>Masquée</span>
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !songCardMetadata?.showDuration;
+                    updateSongCardMetadata({ showDuration: next });
+                    notify(next ? 'Durée activée sur les cartes' : 'Durée masquée sur les cartes');
+                  }}
+                  className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border ${
+                    songCardMetadata?.showDuration
+                      ? 'bg-blue-600 text-white border-blue-500 shadow-xs hover:bg-blue-500'
+                      : 'metadata-toggle-btn-inactive bg-[#121214] text-gray-400 border-[#2B2B30] hover:text-white'
+                  }`}
+                  title={songCardMetadata?.showDuration ? 'Cliquer pour masquer la durée' : 'Cliquer pour afficher la durée'}
+                >
+                  {songCardMetadata?.showDuration ? (
+                    <>
+                      <Eye className="w-3.5 h-3.5 shrink-0" />
+                      <span>Visible</span>
+                    </>
+                  ) : (
+                    <>
+                      <EyeOff className="w-3.5 h-3.5 shrink-0" />
+                      <span>Masquée</span>
+                    </>
+                  )}
+                </button>
               </div>
 
               {/* Categories */}
-              <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex flex-col justify-between gap-2.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="w-5 h-5 rounded bg-blue-500/20 border border-blue-500/40 text-blue-300 text-[10px] font-bold flex items-center justify-center">
-                      <Tag className="w-3 h-3 text-blue-400" />
-                    </span>
-                    <span className="text-xs font-bold text-gray-200">Catégories</span>
-                  </div>
-                  <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${
-                    songCardMetadata?.showCategories
-                      ? 'bg-blue-500/20 text-blue-300 border-blue-500/40'
-                      : 'bg-[#222] text-gray-400 border-[#333]'
-                  }`}>
-                    {songCardMetadata?.showCategories ? 'Visible' : 'Masquée'}
+              <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="w-5 h-5 rounded bg-blue-500/20 border border-blue-500/40 text-blue-300 text-[10px] font-bold flex items-center justify-center shrink-0">
+                    <Tag className="w-3 h-3 text-blue-400" />
                   </span>
+                  <span className="text-xs font-bold text-gray-200">Catégories</span>
                 </div>
-                <div className="theme-toggle-group flex items-center gap-1 bg-[#121214] p-0.5 rounded-lg border border-[#2B2B30]">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      updateSongCardMetadata({ showCategories: true });
-                      notify('Catégories activées sur les cartes');
-                    }}
-                    className={`flex-1 py-1.5 rounded-md text-xs font-semibold flex items-center justify-center gap-1 transition-all cursor-pointer ${
-                      songCardMetadata?.showCategories
-                        ? 'bg-blue-600 text-white shadow-xs'
-                        : 'theme-toggle-inactive text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    <span>Visible</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      updateSongCardMetadata({ showCategories: false });
-                      notify('Catégories masquées sur les cartes');
-                    }}
-                    className={`flex-1 py-1.5 rounded-md text-xs font-semibold flex items-center justify-center gap-1 transition-all cursor-pointer ${
-                      !songCardMetadata?.showCategories
-                        ? 'bg-blue-600 text-white shadow-xs'
-                        : 'theme-toggle-inactive text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    <span>Masquée</span>
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !songCardMetadata?.showCategories;
+                    updateSongCardMetadata({ showCategories: next });
+                    notify(next ? 'Catégories activées sur les cartes' : 'Catégories masquées sur les cartes');
+                  }}
+                  className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border ${
+                    songCardMetadata?.showCategories
+                      ? 'bg-blue-600 text-white border-blue-500 shadow-xs hover:bg-blue-500'
+                      : 'metadata-toggle-btn-inactive bg-[#121214] text-gray-400 border-[#2B2B30] hover:text-white'
+                  }`}
+                  title={songCardMetadata?.showCategories ? 'Cliquer pour masquer les catégories' : 'Cliquer pour afficher les catégories'}
+                >
+                  {songCardMetadata?.showCategories ? (
+                    <>
+                      <Eye className="w-3.5 h-3.5 shrink-0" />
+                      <span>Visible</span>
+                    </>
+                  ) : (
+                    <>
+                      <EyeOff className="w-3.5 h-3.5 shrink-0" />
+                      <span>Masquée</span>
+                    </>
+                  )}
+                </button>
               </div>
             </div>
 
@@ -1145,7 +1263,7 @@ export const SettingsView: React.FC = () => {
             {/* Header / Trigger */}
             <div 
               onClick={() => toggleCategory('typography')}
-              className="w-full text-left p-3.5 sm:p-4.5 flex items-center justify-between gap-3 cursor-pointer lg:cursor-default transition-colors hover:bg-[#151518]/50 select-none"
+              className="w-full text-left p-3.5 sm:p-4.5 flex items-center justify-between gap-3 cursor-pointer transition-colors hover:bg-[#151518]/50 select-none"
             >
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 shrink-0">
@@ -1156,22 +1274,26 @@ export const SettingsView: React.FC = () => {
                 </h2>
               </div>
 
-              <div className="flex items-center gap-2 shrink-0 lg:hidden">
+              <div className="flex items-center gap-2 shrink-0">
                 <div className={`p-1.5 rounded-lg bg-[#18181C] border border-[#2B2B30] text-gray-400 transition-transform duration-200 ${openCategories.typography ? 'rotate-180 text-purple-400 border-purple-500/30' : ''}`}>
                   <ChevronDown className="w-4 h-4" />
                 </div>
               </div>
             </div>
 
-            {/* Content (Collapsible on mobile) */}
-            <div className={`p-4 sm:p-5 pt-0 sm:pt-0 ${openCategories.typography ? 'block' : 'hidden lg:block'}`}>
+            {/* Content (Collapsible on all devices) */}
+            <div className={`p-4 sm:p-5 pt-0 sm:pt-0 ${openCategories.typography ? 'block' : 'hidden'}`}>
               <div className="border-t border-[#222224] mb-4" />
-              <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
               
-              {/* Title Size Slider */}
-              <div className="space-y-1.5">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="font-semibold text-gray-200">Titre de la Chanson</span>
+                {/* Title Size */}
+                <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex items-center justify-between gap-2.5">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="w-5 h-5 rounded bg-purple-500/20 border border-purple-500/40 text-purple-300 text-[10px] font-bold flex items-center justify-center shrink-0">
+                      <Heading1 className="w-3 h-3 text-purple-400" />
+                    </span>
+                    <span className="text-xs font-bold text-gray-200 truncate" title="Titre de la Chanson">Titre de la Chanson</span>
+                  </div>
                   <NumberSelector
                     value={typography.titleSize}
                     min={16}
@@ -1180,12 +1302,15 @@ export const SettingsView: React.FC = () => {
                     onChange={(val) => updateTypography('titleSize', val)}
                   />
                 </div>
-              </div>
 
-              {/* Metadata Size Slider */}
-              <div className="space-y-1.5">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="font-semibold text-gray-200">Méta-données</span>
+                {/* Metadata Size */}
+                <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex items-center justify-between gap-2.5">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="w-5 h-5 rounded bg-blue-500/20 border border-blue-500/40 text-blue-300 text-[10px] font-bold flex items-center justify-center shrink-0">
+                      <FileText className="w-3 h-3 text-blue-400" />
+                    </span>
+                    <span className="text-xs font-bold text-gray-200 truncate" title="Méta-données">Méta-données</span>
+                  </div>
                   <NumberSelector
                     value={typography.metadataSize}
                     min={10}
@@ -1194,12 +1319,15 @@ export const SettingsView: React.FC = () => {
                     onChange={(val) => updateTypography('metadataSize', val)}
                   />
                 </div>
-              </div>
 
-              {/* Section Headers Size Slider */}
-              <div className="space-y-1.5">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="font-semibold text-gray-200">En-têtes de Sections</span>
+                {/* Section Headers Size */}
+                <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex items-center justify-between gap-2.5">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="w-5 h-5 rounded bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[10px] font-bold flex items-center justify-center shrink-0">
+                      <Bookmark className="w-3 h-3 text-emerald-400" />
+                    </span>
+                    <span className="text-xs font-bold text-gray-200 truncate" title="En-têtes de Sections">En-têtes de Sections</span>
+                  </div>
                   <NumberSelector
                     value={typography.headerSize}
                     min={10}
@@ -1208,12 +1336,15 @@ export const SettingsView: React.FC = () => {
                     onChange={(val) => updateTypography('headerSize', val)}
                   />
                 </div>
-              </div>
 
-              {/* Lyrics Size Slider */}
-              <div className="space-y-1.5">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="font-semibold text-gray-200">Paroles</span>
+                {/* Lyrics Size */}
+                <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex items-center justify-between gap-2.5">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="w-5 h-5 rounded bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[10px] font-bold flex items-center justify-center shrink-0">
+                      <AlignLeft className="w-3 h-3 text-amber-400" />
+                    </span>
+                    <span className="text-xs font-bold text-gray-200 truncate" title="Paroles">Paroles</span>
+                  </div>
                   <NumberSelector
                     value={typography.lyricsSize}
                     min={12}
@@ -1222,12 +1353,27 @@ export const SettingsView: React.FC = () => {
                     onChange={(val) => updateTypography('lyricsSize', val)}
                   />
                 </div>
-              </div>
 
-              {/* Chord Size Slider */}
-              <div className="space-y-1.5">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="font-semibold text-gray-200">Accords</span>
+                {/* Chord Size & Color */}
+                <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex items-center justify-between gap-2.5">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="w-5 h-5 rounded bg-pink-500/20 border border-pink-500/40 text-pink-300 text-[10px] font-bold flex items-center justify-center shrink-0">
+                      <Music className="w-3 h-3 text-pink-400" />
+                    </span>
+                    <span className="text-xs font-bold text-gray-200 truncate">Accords</span>
+                    <label 
+                      className="w-3.5 h-3.5 rounded-full border border-white/30 cursor-pointer transition-transform hover:scale-110 shrink-0 shadow-xs block"
+                      style={{ backgroundColor: chordColor }}
+                      title="Couleur des accords (cliquer pour changer)"
+                    >
+                      <input
+                        type="color"
+                        value={chordColor}
+                        onChange={(e) => updateChordColor(e.target.value)}
+                        className="sr-only"
+                      />
+                    </label>
+                  </div>
                   <NumberSelector
                     value={typography.chordSize}
                     min={11}
@@ -1236,12 +1382,15 @@ export const SettingsView: React.FC = () => {
                     onChange={(val) => updateTypography('chordSize', val)}
                   />
                 </div>
-              </div>
 
-              {/* Line Height / Spacing */}
-              <div className="space-y-1.5 pt-2 border-t border-[#222224]">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="font-semibold text-gray-200">Interligne des Paroles</span>
+                {/* Line Height / Spacing */}
+                <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex items-center justify-between gap-2.5">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="w-5 h-5 rounded bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 text-[10px] font-bold flex items-center justify-center shrink-0">
+                      <MoveVertical className="w-3 h-3 text-cyan-400" />
+                    </span>
+                    <span className="text-xs font-bold text-gray-200 truncate" title="Interligne des Paroles">Interligne Paroles</span>
+                  </div>
                   <NumberSelector
                     value={typography.lineSpacing}
                     min={1.1}
@@ -1250,9 +1399,8 @@ export const SettingsView: React.FC = () => {
                     onChange={(val) => updateTypography('lineSpacing', val)}
                   />
                 </div>
-              </div>
 
-            </div>
+              </div>
             </div>
           </div>
 
@@ -1261,7 +1409,7 @@ export const SettingsView: React.FC = () => {
             {/* Header / Trigger */}
             <div 
               onClick={() => toggleCategory('borders')}
-              className="w-full text-left p-3.5 sm:p-4.5 flex items-center justify-between gap-3 cursor-pointer lg:cursor-default transition-colors hover:bg-[#151518]/50 select-none"
+              className="w-full text-left p-3.5 sm:p-4.5 flex items-center justify-between gap-3 cursor-pointer transition-colors hover:bg-[#151518]/50 select-none"
             >
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 shrink-0">
@@ -1272,15 +1420,15 @@ export const SettingsView: React.FC = () => {
                 </h2>
               </div>
 
-              <div className="flex items-center gap-2 shrink-0 lg:hidden">
+              <div className="flex items-center gap-2 shrink-0">
                 <div className={`p-1.5 rounded-lg bg-[#18181C] border border-[#2B2B30] text-gray-400 transition-transform duration-200 ${openCategories.borders ? 'rotate-180 text-blue-400 border-blue-500/30' : ''}`}>
                   <ChevronDown className="w-4 h-4" />
                 </div>
               </div>
             </div>
 
-            {/* Content (Collapsible on mobile) */}
-            <div className={`p-4 sm:p-5 pt-0 sm:pt-0 ${openCategories.borders ? 'block' : 'hidden lg:block'}`}>
+            {/* Content (Collapsible on all devices) */}
+            <div className={`p-4 sm:p-5 pt-0 sm:pt-0 ${openCategories.borders ? 'block' : 'hidden'}`}>
               <div className="border-t border-[#222224] mb-4" />
 
             <div className="space-y-4">
@@ -1469,99 +1617,187 @@ export const SettingsView: React.FC = () => {
             </div>
           </div>
 
-          {/* 5. SECTION COLORS SECTION */}
-          <div className="bg-[#111112] border border-[#222224] rounded-xl overflow-hidden shadow-sm transition-colors hover:border-[#303036]">
+          {/* 5. SECTION & CHORD COLORS SECTION */}
+          <div className={`bg-[#111112] border border-[#222224] rounded-xl shadow-sm transition-colors hover:border-[#303036] ${openCategories.colors ? 'overflow-visible' : 'overflow-hidden'}`}>
             {/* Header / Trigger */}
             <div 
               onClick={() => toggleCategory('colors')}
-              className="w-full text-left p-3.5 sm:p-4.5 flex items-center justify-between gap-3 cursor-pointer lg:cursor-default transition-colors hover:bg-[#151518]/50 select-none"
+              className="w-full text-left p-3.5 sm:p-4.5 flex items-center justify-between gap-3 cursor-pointer transition-colors hover:bg-[#151518]/50 select-none"
             >
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
                   <Palette className="w-4 h-4" />
                 </div>
-                <h2 className="text-sm font-bold text-white truncate">
-                  Couleurs des Sections
-                </h2>
+                <div>
+                  <h2 className="text-sm font-bold text-white truncate">
+                    Couleurs des Sections et Accords
+                  </h2>
+                  <p className="text-[11px] text-gray-400 hidden sm:block">
+                    Personnalisez les teintes des accords et des 9 sections musicales
+                  </p>
+                </div>
               </div>
 
-              <div className="flex items-center gap-2 shrink-0 lg:hidden">
+              <div className="flex items-center gap-2 shrink-0">
                 <div className={`p-1.5 rounded-lg bg-[#18181C] border border-[#2B2B30] text-gray-400 transition-transform duration-200 ${openCategories.colors ? 'rotate-180 text-emerald-400 border-emerald-500/30' : ''}`}>
                   <ChevronDown className="w-4 h-4" />
                 </div>
               </div>
             </div>
 
-            {/* Content (Collapsible on mobile) */}
-            <div className={`p-4 sm:p-5 pt-0 sm:pt-0 ${openCategories.colors ? 'block' : 'hidden lg:block'}`}>
-              <div className="border-t border-[#222224] mb-4" />
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {SECTION_TYPES_LIST.map((sec) => {
-                const currentColor = sectionColors[sec.key] || '#64748b';
+            {/* Content (Collapsible on all devices) */}
+            <div className={`p-4 sm:p-5 pt-0 sm:pt-0 ${openCategories.colors ? 'block' : 'hidden'}`}>
+              <div className="border-t border-[#222224] mb-3.5" />
 
-                return (
-                  <div 
-                    key={sec.key}
-                    className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex flex-col justify-between gap-2.5 relative"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
+              {/* Option Couleur des accords - Compact Bar */}
+              <div className="relative p-3 rounded-xl bg-[#16161A] border border-blue-500/30 mb-3.5 shadow-sm flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span 
+                    className="w-4 h-4 rounded-full border border-white/20 shadow-xs shrink-0"
+                    style={{ backgroundColor: chordColor }}
+                  />
+                  <div>
+                    <h3 className="text-xs sm:text-sm font-bold text-white flex items-center gap-1.5">
+                      <span>Couleur des Accords</span>
+                    </h3>
+                    <p className="text-[11px] text-gray-400">
+                      Appliquée à l'ensemble des grilles d'accords dans le lecteur
+                    </p>
+                  </div>
+                </div>
+
+                {/* Chords direct preview and color button */}
+                <div className="flex items-center gap-2 shrink-0">
+                  <div className="hidden xs:flex items-center gap-1.5">
+                    <span 
+                      className="px-2 py-0.5 rounded-md font-mono font-bold text-xs border bg-black/40 border-white/10 shadow-xs"
+                      style={{ color: chordColor }}
+                    >
+                      Do#m7
+                    </span>
+                    <span 
+                      className="px-2 py-0.5 rounded-md font-mono font-bold text-xs border bg-black/40 border-white/10 shadow-xs"
+                      style={{ color: chordColor }}
+                    >
+                      Sol/Si
+                    </span>
+                  </div>
+
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setActiveColorTarget(activeColorTarget === 'chord' ? null : 'chord')}
+                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-mono border transition-all cursor-pointer ${
+                        activeColorTarget === 'chord'
+                          ? 'bg-blue-600/25 border-blue-500 text-blue-300 ring-1 ring-blue-500/40 font-semibold'
+                          : 'color-hex-badge bg-[#202025] hover:bg-[#2A2A30] text-gray-200 border-[#3A3A40]'
+                      }`}
+                      title="Modifier la couleur des accords"
+                    >
+                      <span 
+                        className="w-3.5 h-3.5 rounded-full border border-white/30 shrink-0"
+                        style={{ backgroundColor: chordColor }}
+                      />
+                      <span className="uppercase font-semibold tracking-wider">{chordColor}</span>
+                      <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-200 ${activeColorTarget === 'chord' ? 'rotate-180 text-blue-400' : ''}`} />
+                    </button>
+
+                    {activeColorTarget === 'chord' && (
+                      <ColorPickerPopover
+                        title="Couleur des Accords"
+                        currentColor={chordColor}
+                        defaultColor={DEFAULT_CHORD_COLOR}
+                        onChange={(col) => updateChordColor(col)}
+                        onClose={() => setActiveColorTarget(null)}
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Titre de section pour les sections */}
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                  Couleurs des Sections
+                </div>
+                <span className="text-[11px] text-gray-500 font-medium">
+                  {SECTION_TYPES_LIST.length} sections configurables
+                </span>
+              </div>
+
+              {/* Responsive Compact Grid for Section Colors */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                {SECTION_TYPES_LIST.map((sec) => {
+                  const currentColor = sectionColors[sec.key] || '#64748b';
+                  const isEditing = activeColorTarget === sec.key;
+
+                  return (
+                    <div 
+                      key={sec.key}
+                      className={`relative p-2.5 rounded-lg bg-[#18181A] border transition-all flex items-center justify-between gap-2 ${
+                        isEditing 
+                          ? 'border-emerald-500/60 bg-[#1C1C20] ring-1 ring-emerald-500/30' 
+                          : 'border-[#262629] hover:border-[#38383D]'
+                      }`}
+                    >
+                      {/* Left: Section Indicator & Label */}
+                      <div className="flex items-center gap-2 min-w-0">
                         <span 
-                          className="w-3.5 h-3.5 rounded-full border border-white/20 shadow-sm"
+                          className="w-3.5 h-3.5 rounded-full border border-white/20 shadow-xs shrink-0"
                           style={{ backgroundColor: currentColor }}
                         />
-                        <span className="text-xs font-bold text-gray-200">
+                        <span className="text-xs font-bold text-gray-200 truncate" title={sec.label}>
                           {sec.label}
                         </span>
                       </div>
-                      <span 
-                        className="text-[10px] font-mono px-2 py-0.5 rounded border"
-                        style={{ 
-                          color: currentColor, 
-                          borderColor: `${currentColor}40`,
-                          backgroundColor: `${currentColor}15`
-                        }}
-                      >
-                        {sec.defaultBadge}
-                      </span>
-                    </div>
 
-                    {/* Presets color swatches */}
-                    <div className="flex items-center justify-between gap-1 pt-2 border-t border-[#2A2A2E]">
-                      <div className="flex items-center gap-1 overflow-x-auto py-1 scrollbar-none">
-                        {COLOR_PRESETS.slice(0, 10).map((preset) => (
+                      {/* Right: Badge Preview & Popover Trigger */}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span 
+                          className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded border hidden xs:inline-block"
+                          style={{ 
+                            color: currentColor, 
+                            borderColor: `${currentColor}40`,
+                            backgroundColor: `${currentColor}15`
+                          }}
+                        >
+                          {sec.defaultBadge}
+                        </span>
+
+                        <div className="relative">
                           <button
-                            key={preset.value}
-                            onClick={() => updateSectionColor(sec.key, preset.value)}
-                            className={`w-4 h-4 rounded-full transition-transform hover:scale-125 border ${
-                              currentColor.toLowerCase() === preset.value.toLowerCase()
-                                ? 'border-white ring-2 ring-blue-500 scale-110'
-                                : 'border-transparent'
+                            type="button"
+                            onClick={() => setActiveColorTarget(isEditing ? null : sec.key)}
+                            className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-mono border transition-all cursor-pointer ${
+                              isEditing
+                                ? 'bg-emerald-600/25 border-emerald-500 text-emerald-300 ring-1 ring-emerald-500/40 font-semibold'
+                                : 'color-hex-badge bg-[#222225] hover:bg-[#2C2C30] text-gray-300 border-[#3A3A3E]'
                             }`}
-                            style={{ backgroundColor: preset.value }}
-                            title={preset.name}
-                          />
-                        ))}
-                      </div>
+                            title={`Modifier la couleur (${sec.label})`}
+                          >
+                            <span 
+                              className="w-2.5 h-2.5 rounded-full border border-white/30 shrink-0"
+                              style={{ backgroundColor: currentColor }}
+                            />
+                            <span className="uppercase font-medium">{currentColor}</span>
+                            <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform duration-200 ${isEditing ? 'rotate-180 text-emerald-400' : ''}`} />
+                          </button>
 
-                      {/* Custom Color Picker input */}
-                      <label 
-                        className="color-hex-badge cursor-pointer flex items-center gap-1 px-2 py-0.5 rounded bg-[#222225] hover:bg-[#2C2C30] text-[10px] font-mono text-gray-300 border border-[#3A3A3E] transition-colors"
-                        title="Choisir une couleur hexadécimale personnalisée"
-                      >
-                        <input
-                          type="color"
-                          value={currentColor}
-                          onChange={(e) => updateSectionColor(sec.key, e.target.value)}
-                          className="sr-only"
-                        />
-                        <span>{currentColor}</span>
-                      </label>
+                          {isEditing && (
+                            <ColorPickerPopover
+                              title={`Couleur : ${sec.label}`}
+                              currentColor={currentColor}
+                              defaultColor={DEFAULT_DISPLAY_SETTINGS.sectionColors[sec.key]}
+                              onChange={(col) => updateSectionColor(sec.key, col)}
+                              onClose={() => setActiveColorTarget(null)}
+                            />
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
@@ -1570,7 +1806,7 @@ export const SettingsView: React.FC = () => {
             {/* Header / Trigger */}
             <div 
               onClick={() => toggleCategory('midi')}
-              className="w-full text-left p-3.5 sm:p-4.5 flex items-center justify-between gap-3 cursor-pointer lg:cursor-default transition-colors hover:bg-[#151518]/50 select-none"
+              className="w-full text-left p-3.5 sm:p-4.5 flex items-center justify-between gap-3 cursor-pointer transition-colors hover:bg-[#151518]/50 select-none"
             >
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 shrink-0">
@@ -1594,7 +1830,7 @@ export const SettingsView: React.FC = () => {
                   <span>Configurer</span>
                 </button>
 
-                <div className="flex items-center gap-2 lg:hidden">
+                <div className="flex items-center gap-2">
                   <div className={`p-1.5 rounded-lg bg-[#18181C] border border-[#2B2B30] text-gray-400 transition-transform duration-200 ${openCategories.midi ? 'rotate-180 text-blue-400 border-blue-500/30' : ''}`}>
                     <ChevronDown className="w-4 h-4" />
                   </div>
@@ -1602,8 +1838,8 @@ export const SettingsView: React.FC = () => {
               </div>
             </div>
 
-            {/* Content (Collapsible on mobile) */}
-            <div className={`p-4 sm:p-5 pt-0 sm:pt-0 ${openCategories.midi ? 'block' : 'hidden lg:block'}`}>
+            {/* Content (Collapsible on all devices) */}
+            <div className={`p-4 sm:p-5 pt-0 sm:pt-0 ${openCategories.midi ? 'block' : 'hidden'}`}>
               <div className="border-t border-[#222224] mb-4" />
 
             {/* Quick status & master toggle */}

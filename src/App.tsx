@@ -11,6 +11,7 @@ import { GroupManager } from './components/GroupManager';
 import { SettingsView } from './components/SettingsView';
 import { Tuner } from './components/Tuner';
 import { AuthModal } from './components/AuthModal';
+import { SnackbarNotification } from './components/SnackbarNotification';
 
 const viewVariants = {
   initial: {
@@ -67,6 +68,7 @@ const AppContent: React.FC = () => {
       </main>
 
       <AuthModal />
+      <SnackbarNotification />
     </div>
   );
 };

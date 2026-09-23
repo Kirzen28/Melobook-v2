@@ -57,6 +57,7 @@ import {
   Plus,
   Minus,
   ChevronDown,
+  ChevronUp,
   Trash2,
   Clock,
   Layers,
@@ -174,6 +175,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
   const [durationModalInput, setDurationModalInput] = useState('');
 
   // Setlist Context & Overrides Determination
+  const isInSetlist = Boolean(setlistId || setlistContextName || setlistPosition);
   const isSetlistMode = Boolean(setlistId || setlistContextName || (selectedSetlist && (activeTab === 'setlists' || activeTab === 'stage')));
   const currentSetlist = (setlistId ? setlists.find(st => st.id === setlistId) : null) || selectedSetlist;
   const setlistOverride = (isSetlistMode && currentSetlist && song) ? currentSetlist.songOverrides?.[song.id] : undefined;
@@ -249,6 +251,24 @@ export const SongReader: React.FC<SongReaderProps> = ({
   const [inlineTempoValue, setInlineTempoValue] = useState<string>('120');
   const [showKeyMenu, setShowKeyMenu] = useState(false);
   const [showTransposeMenu, setShowTransposeMenu] = useState(false);
+  const [showTempoMenu, setShowTempoMenu] = useState(false);
+  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('melobook_header_collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleHeaderCollapsed = () => {
+    setIsHeaderCollapsed(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem('melobook_header_collapsed', String(next));
+      } catch {}
+      return next;
+    });
+  };
 
   useEffect(() => {
     setInlineDurationValue(effectiveDuration);
@@ -877,6 +897,18 @@ export const SongReader: React.FC<SongReaderProps> = ({
               </div>
             </div>
 
+            {/* Métronome Visuel & Sonore */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-gray-400 text-[11px] font-medium shrink-0">Métronome :</span>
+              <MetronomeStageControl
+                initialBpm={effectiveTempo}
+                initialTimeSignature={song.timeSignature || parsedData?.timeSignature || '4/4'}
+                onBpmChange={handleUpdateTempo}
+                onTimeSignatureChange={handleUpdateTimeSignature}
+                songTitle={song.title}
+              />
+            </div>
+
             {/* Pédalier / Contrôleur MIDI */}
             <div className="flex items-center gap-1.5">
               <span className="text-gray-400 text-[11px] font-medium shrink-0">MIDI :</span>
@@ -904,25 +936,132 @@ export const SongReader: React.FC<SongReaderProps> = ({
       <div 
         ref={containerRef}
         onScroll={handleScroll}
-        className={`flex-1 overflow-y-auto ${isWideLayout ? 'px-3 sm:px-6 lg:px-8' : 'px-4 sm:px-12'} py-6 sm:py-8 scroll-smooth print-sheet pb-32`}
+        className={`flex-1 overflow-y-auto ${isWideLayout ? 'px-3 sm:px-6 lg:px-8' : 'px-3 sm:px-8 md:px-12'} pt-2 sm:pt-4 pb-28 sm:pb-32 scroll-smooth print-sheet`}
         style={{ 
           lineHeight: displaySettings.typography.lineSpacing 
         }}
       >
         <div className={isWideLayout ? 'w-full max-w-none' : 'max-w-4xl mx-auto'}>
           
-          {/* Song Sheet Header */}
-          <div className="border-b border-[#222224] pb-4 mb-6">
-            <div className="flex items-start justify-between gap-3 mb-3">
-              {/* Left: Title & Artist */}
-              <div className="flex-1 min-w-0 pr-2">
-                <div className="flex items-center flex-wrap gap-2.5 mb-1">
-                  <h1 
-                    className="font-bold tracking-tight text-white leading-tight break-words"
-                    style={{ fontSize: `${displaySettings.typography.titleSize}px` }}
+          {/* Song Sheet Header : Mode Ultra-Compact ou Déplié */}
+          {isHeaderCollapsed ? (
+            <div className="no-print border-b border-[#222224] pb-2 mb-2 sm:mb-3">
+              <div className="flex items-center justify-between gap-1.5 sm:gap-2 py-1 px-2 sm:px-2.5 rounded-lg bg-[#141418] border border-[#26262E] text-xs">
+                {/* Left: Bouton déplier + Titre + Artiste */}
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <button
+                    type="button"
+                    onClick={toggleHeaderCollapsed}
+                    className="p-1 rounded bg-[#1C1C22] hover:bg-[#282830] text-blue-400 border border-[#333] transition-colors cursor-pointer shrink-0 flex items-center justify-center"
+                    title="Agrandir l'en-tête complète"
+                    aria-label="Agrandir l'en-tête"
                   >
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  </button>
+                  <span className="font-bold text-white text-xs sm:text-sm truncate">
                     {stripParentheses(parsedData.title || song.title)}
-                  </h1>
+                  </span>
+                  {song.artist && (
+                    <span className="text-gray-400 hidden md:inline truncate text-[11px]">
+                      • {song.artist}
+                    </span>
+                  )}
+                </div>
+
+                {/* Right: Tonalité + Métronome + Actions */}
+                <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsHeaderCollapsed(false);
+                      setShowKeyMenu(true);
+                    }}
+                    className="px-2 py-0.5 rounded bg-[#1C1C22] border border-[#2E2E36] font-mono font-bold text-blue-400 hover:border-blue-500/50 cursor-pointer text-xs"
+                    title="Tonalité (cliquer pour modifier)"
+                  >
+                    {baseKeyDisplay}
+                    {effectiveTransposeOffset !== 0 && (
+                      <span className="text-amber-400 ml-1 text-[10px]">
+                        ({effectiveTransposeOffset > 0 ? `+${effectiveTransposeOffset}` : effectiveTransposeOffset})
+                      </span>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsHeaderCollapsed(false);
+                      setShowTempoMenu(true);
+                    }}
+                    className="px-2 py-0.5 rounded bg-[#1C1C22] border border-[#2E2E36] font-mono font-bold text-emerald-400 hover:border-emerald-500/50 cursor-pointer text-xs flex items-center gap-1"
+                    title="Tempo / BPM (cliquer pour modifier)"
+                  >
+                    <Gauge className="w-3 h-3 text-emerald-400" />
+                    <span>{effectiveTempo}</span>
+                  </button>
+
+                  {/* Plein écran (uniquement en chant individuel hors setlist) */}
+                  {!isInSetlist && (
+                    <button
+                      type="button"
+                      id="btn-song-fullscreen-compact"
+                      onClick={() => toggleFullscreen()}
+                      className={`p-1.5 rounded-lg border text-xs font-medium flex items-center justify-center transition-colors shrink-0 cursor-pointer ${
+                        isFullscreen
+                          ? 'bg-blue-600 border-blue-500 text-white'
+                          : 'bg-[#1C1C1E] hover:bg-[#28282C] text-gray-300 hover:text-white border-[#333]'
+                      }`}
+                      title={isFullscreen ? "Quitter le plein écran" : "Plein écran"}
+                      aria-label={isFullscreen ? "Quitter le plein écran" : "Plein écran"}
+                    >
+                      {isFullscreen ? (
+                        <Minimize2 className="w-3.5 h-3.5" />
+                      ) : (
+                        <Maximize2 className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  )}
+
+                  {currentUser?.role === 'admin' && (
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('editor')}
+                      className="p-1.5 rounded-lg bg-[#1C1C1E] hover:bg-amber-500/15 text-gray-200 hover:text-amber-300 border border-[#333] hover:border-amber-500/50 transition-all shadow-xs cursor-pointer group flex items-center justify-center"
+                      title="Éditer le chant"
+                      aria-label="Éditer le chant"
+                    >
+                      <FileEdit className="w-3.5 h-3.5 text-amber-400 group-hover:scale-110 transition-transform shrink-0" />
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => setShowSettingsDrawer(!showSettingsDrawer)}
+                    className={`p-1.5 rounded-lg border transition-all shadow-xs cursor-pointer flex items-center justify-center ${
+                      showSettingsDrawer
+                        ? 'bg-blue-600 border-blue-500 text-white shadow-blue-500/20'
+                        : 'bg-[#1C1C1E] hover:bg-[#28282C] border-[#333] hover:border-[#444] text-gray-200 hover:text-white'
+                    }`}
+                    title="Ouvrir les options et réglages"
+                    aria-label="Options et réglages du chant"
+                  >
+                    <Settings2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="border-b border-[#222224] pb-2 sm:pb-3 mb-2.5 sm:mb-4">
+              <div className="flex items-start justify-between gap-2 sm:gap-3 mb-1.5 sm:mb-2">
+                {/* Left: Title & Artist */}
+                <div className="flex-1 min-w-0 pr-1 sm:pr-2">
+                  <div className="flex items-center flex-wrap gap-1.5 sm:gap-2 mb-0.5">
+                    <h1 
+                      className="font-bold tracking-tight text-white leading-tight break-words"
+                      style={{ fontSize: `clamp(17px, 3.8vw, ${displaySettings.typography.titleSize}px)` }}
+                    >
+                      {stripParentheses(parsedData.title || song.title)}
+                    </h1>
 
                   {/* Liste dépliante : Langue et versions du chant à la suite du titre */}
                   {(() => {
@@ -1063,23 +1202,45 @@ export const SongReader: React.FC<SongReaderProps> = ({
                 </div>
               </div>
 
-              {/* Right: Boutons Réglages & Édition (icônes uniquement) */}
-              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              {/* Right: Boutons Plein écran, Édition & Réglages */}
+              <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+                {/* Bouton Plein écran (uniquement en lecture de chant individuel hors setlist) */}
+                {!isInSetlist && (
+                  <button
+                    type="button"
+                    id="btn-song-fullscreen"
+                    onClick={() => toggleFullscreen()}
+                    className={`p-1.5 sm:p-2 rounded-lg border text-xs font-medium flex items-center justify-center transition-colors shrink-0 cursor-pointer ${
+                      isFullscreen
+                        ? 'bg-blue-600 border-blue-500 text-white'
+                        : 'bg-[#1C1C1E] hover:bg-[#28282C] text-gray-300 hover:text-white border-[#333]'
+                    }`}
+                    title={isFullscreen ? "Quitter le plein écran" : "Plein écran"}
+                    aria-label={isFullscreen ? "Quitter le plein écran" : "Plein écran"}
+                  >
+                    {isFullscreen ? (
+                      <Minimize2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    ) : (
+                      <Maximize2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    )}
+                  </button>
+                )}
+
                 {currentUser?.role === 'admin' && (
                   <button
                     type="button"
                     onClick={() => setActiveTab('editor')}
-                    className="p-2 rounded-lg bg-[#1C1C1E] hover:bg-amber-500/15 text-gray-200 hover:text-amber-300 border border-[#333] hover:border-amber-500/50 transition-all shadow-sm cursor-pointer group flex items-center justify-center"
+                    className="p-1.5 sm:p-2 rounded-lg bg-[#1C1C1E] hover:bg-amber-500/15 text-gray-200 hover:text-amber-300 border border-[#333] hover:border-amber-500/50 transition-all shadow-xs cursor-pointer group flex items-center justify-center"
                     title="Éditer le chant"
                     aria-label="Éditer le chant"
                   >
-                    <FileEdit className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform shrink-0" />
+                    <FileEdit className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400 group-hover:scale-110 transition-transform shrink-0" />
                   </button>
                 )}
                 <button
                   type="button"
                   onClick={() => setShowSettingsDrawer(!showSettingsDrawer)}
-                  className={`p-2 rounded-lg border transition-all shadow-sm cursor-pointer flex items-center justify-center ${
+                  className={`p-1.5 sm:p-2 rounded-lg border transition-all shadow-xs cursor-pointer flex items-center justify-center ${
                     showSettingsDrawer
                       ? 'bg-blue-600 border-blue-500 text-white shadow-blue-500/20'
                       : 'bg-[#1C1C1E] hover:bg-[#28282C] border-[#333] hover:border-[#444] text-gray-200 hover:text-white'
@@ -1087,31 +1248,31 @@ export const SongReader: React.FC<SongReaderProps> = ({
                   title="Ouvrir les options et réglages du chant"
                   aria-label="Options et réglages du chant"
                 >
-                  <Settings2 className="w-4 h-4" />
+                  <Settings2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </button>
               </div>
             </div>
 
             {/* Ligne Artiste & Catégories : sur toute la largeur (w-full) au-dessus des métadonnées Tonalité / Transpose */}
             {(song.artist || (song.tags && song.tags.length > 0)) && (
-              <div className="w-full flex items-center gap-2 flex-wrap mb-3">
+              <div className="w-full flex items-center gap-1.5 sm:gap-2 flex-wrap mb-1.5 sm:mb-2 text-xs">
                 {song.artist && (
                   <div 
-                    className="text-gray-300 font-medium break-words shrink-0"
-                    style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
+                    className="text-gray-300 font-medium break-words shrink-0 text-xs sm:text-sm"
+                    style={{ fontSize: `clamp(11px, 2.5vw, ${displaySettings.typography.metadataSize}px)` }}
                   >
                     {song.artist}
                   </div>
                 )}
 
                 {song.tags && song.tags.length > 0 && (
-                  <div className={`w-full sm:w-auto flex items-center gap-1.5 flex-wrap ${song.artist ? 'sm:border-l sm:border-[#2A2A2E] sm:pl-2' : ''}`}>
+                  <div className={`w-full sm:w-auto flex items-center gap-1 sm:gap-1.5 flex-wrap ${song.artist ? 'sm:border-l sm:border-[#2A2A2E] sm:pl-2' : ''}`}>
                     {song.tags.map((cat, idx) => (
                       <span
                         key={idx}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#18181C] border border-[#2A2A30] text-gray-300 text-xs font-medium shadow-xs"
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-[#18181C] border border-[#2A2A30] text-gray-300 text-[11px] sm:text-xs font-medium shadow-xs"
                       >
-                        <Tag className="w-3 h-3 text-blue-400" />
+                        <Tag className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-blue-400" />
                         <span>{cat}</span>
                       </span>
                     ))}
@@ -1120,7 +1281,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
               </div>
             )}
 
-            {/* Single Line Toolbar: Stylized Inline Controls with Dropdowns for Tonalité & Transposition */}
+            {/* Single Line Toolbar: Stylized Inline Controls with Dropdowns for Tonalité, Transposition & BPM */}
             <div className="flex items-center gap-2 flex-wrap text-xs">
               {/* Tonalité : Liste déroulante */}
               <div className="relative inline-block">
@@ -1129,8 +1290,9 @@ export const SongReader: React.FC<SongReaderProps> = ({
                   onClick={() => {
                     setShowKeyMenu(!showKeyMenu);
                     setShowTransposeMenu(false);
+                    setShowTempoMenu(false);
                   }}
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border font-mono shadow-sm transition-all cursor-pointer ${
+                  className={`h-8 inline-flex items-center gap-1.5 px-2.5 rounded-lg border font-mono shadow-xs transition-all cursor-pointer ${
                     showKeyMenu
                       ? 'bg-[#1C1C22] border-blue-500 text-white ring-1 ring-blue-500/40'
                       : 'bg-[#141416] hover:bg-[#1A1A1E] border-[#242428] hover:border-blue-500/40 text-gray-300'
@@ -1238,8 +1400,9 @@ export const SongReader: React.FC<SongReaderProps> = ({
                   onClick={() => {
                     setShowTransposeMenu(!showTransposeMenu);
                     setShowKeyMenu(false);
+                    setShowTempoMenu(false);
                   }}
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border font-mono shadow-sm transition-all cursor-pointer ${
+                  className={`h-8 inline-flex items-center gap-1.5 px-2.5 rounded-lg border font-mono shadow-xs transition-all cursor-pointer ${
                     showTransposeMenu
                       ? 'bg-amber-950/40 border-amber-500 text-amber-300 ring-1 ring-amber-500/40'
                       : effectiveTransposeOffset !== 0
@@ -1406,20 +1569,125 @@ export const SongReader: React.FC<SongReaderProps> = ({
                 )}
               </div>
 
-              {/* Métronome Visuel & Sonore */}
-              <MetronomeStageControl
-                initialBpm={effectiveTempo}
-                initialTimeSignature={song.timeSignature || parsedData?.timeSignature || '4/4'}
-                onBpmChange={handleUpdateTempo}
-                onTimeSignatureChange={handleUpdateTimeSignature}
-                songTitle={song.title}
-              />
+              {/* Tempo / BPM : Module stylisé avec affichage et réglage rapide */}
+              <div className="relative inline-block">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowTempoMenu(!showTempoMenu);
+                    setShowKeyMenu(false);
+                    setShowTransposeMenu(false);
+                  }}
+                  className={`h-8 inline-flex items-center gap-1.5 px-2.5 rounded-lg border font-mono shadow-xs transition-all cursor-pointer ${
+                    showTempoMenu
+                      ? 'bg-emerald-950/40 border-emerald-500 text-emerald-300 ring-1 ring-emerald-500/40'
+                      : 'bg-[#141416] hover:bg-[#1A1A1E] border-[#242428] hover:border-emerald-500/40 text-gray-300'
+                  }`}
+                  style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
+                  title="Cliquer pour afficher et régler le tempo (BPM)"
+                >
+                  <Gauge className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <span className="text-gray-400 font-sans text-xs hidden sm:inline">Tempo :</span>
+                  <span className="text-emerald-400 font-bold font-mono text-xs">{effectiveTempo}</span>
+                  <span className="text-gray-400 font-mono text-[11px]">BPM</span>
+                  <ChevronDown className={`w-3 h-3 text-emerald-400/80 transition-transform ${showTempoMenu ? 'rotate-180' : ''}`} />
+                </button>
+
+                {showTempoMenu && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-40" 
+                      onClick={() => setShowTempoMenu(false)} 
+                    />
+                    <div className="absolute left-0 sm:left-auto sm:right-0 top-full mt-1.5 z-50 w-72 bg-[#16161A] border border-[#2E2E36] rounded-xl shadow-2xl p-3 backdrop-blur-md animate-in fade-in zoom-in-95 duration-100">
+                      <div className="text-[11px] font-semibold text-gray-400 pb-2 mb-2.5 border-b border-[#282830] flex items-center justify-between">
+                        <span>Réglage du tempo</span>
+                        <span className="text-[10px] text-emerald-400 font-mono font-bold">{effectiveTempo} BPM</span>
+                      </div>
+
+                      {/* Stepper rapide */}
+                      <div className="flex items-center justify-between gap-1 mb-3">
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateTempo(Math.max(30, effectiveTempo - 10))}
+                          className="px-2 py-1 rounded bg-[#202026] hover:bg-[#282832] text-gray-300 text-xs font-mono border border-[#30303A] cursor-pointer"
+                          title="-10 BPM"
+                        >
+                          -10
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateTempo(Math.max(30, effectiveTempo - 1))}
+                          className="p-1 rounded bg-[#202026] hover:bg-[#282832] text-gray-300 border border-[#30303A] cursor-pointer"
+                          title="-1 BPM"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <div className="text-center font-mono font-bold text-lg text-emerald-400 min-w-16">
+                          {effectiveTempo}
+                          <div className="text-[9px] text-gray-500 font-sans uppercase">BPM</div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateTempo(Math.min(260, effectiveTempo + 1))}
+                          className="p-1 rounded bg-[#202026] hover:bg-[#282832] text-gray-300 border border-[#30303A] cursor-pointer"
+                          title="+1 BPM"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateTempo(Math.min(260, effectiveTempo + 10))}
+                          className="px-2 py-1 rounded bg-[#202026] hover:bg-[#282832] text-gray-300 text-xs font-mono border border-[#30303A] cursor-pointer"
+                          title="+10 BPM"
+                        >
+                          +10
+                        </button>
+                      </div>
+
+                      {/* Tap Tempo */}
+                      <button
+                        type="button"
+                        onClick={handleTapTempo}
+                        className="w-full py-2 px-3 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 font-medium text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer mb-2.5"
+                      >
+                        <Gauge className="w-3.5 h-3.5" />
+                        <span>Tapez le tempo (Tap)</span>
+                      </button>
+
+                      {/* Presets rapides */}
+                      <div className="text-[10px] text-gray-500 font-semibold mb-1 uppercase tracking-wider">
+                        Tempos usuels
+                      </div>
+                      <div className="grid grid-cols-5 gap-1 text-xs">
+                        {[70, 85, 100, 120, 140].map((bpm) => (
+                          <button
+                            key={bpm}
+                            type="button"
+                            onClick={() => {
+                              handleUpdateTempo(bpm);
+                              setShowTempoMenu(false);
+                            }}
+                            className={`py-1 rounded font-mono text-[11px] transition-colors cursor-pointer text-center ${
+                              effectiveTempo === bpm
+                                ? 'bg-emerald-600 text-white font-bold'
+                                : 'bg-[#202026] text-gray-300 hover:bg-[#282832] border border-[#2E2E38]'
+                            }`}
+                          >
+                            {bpm}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
 
             {/* Note / Instructions Section (Lecture seule) */}
             {effectiveNotes ? (
               <div 
-                className="mt-3 p-2.5 rounded-lg bg-[#111112] border border-[#222224] flex items-start gap-3 transition-all"
+                className="mt-2 p-2 rounded-lg bg-[#111112] border border-[#222224] flex items-start gap-2.5 transition-all text-xs"
                 style={{ fontSize: `${Math.max(11, displaySettings.typography.metadataSize)}px` }}
               >
                 <div className="text-gray-300 font-sans italic flex-1">
@@ -1429,8 +1697,9 @@ export const SongReader: React.FC<SongReaderProps> = ({
               </div>
             ) : null}
           </div>
+        )}
 
-          {/* Structured ChordPro Sections */}
+        {/* Structured ChordPro Sections */}
           <div className={getColumnsGridClass(numColumns)}>
             {parsedData.sections.map((section, sIdx) => {
               const secColor = getSectionColor(section.type, displaySettings.sectionColors);

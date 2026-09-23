@@ -3,7 +3,6 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useApp } from '../context/AppContext';
 import { cacheSetlistInWorker } from '../utils/pwaCache';
 import { SongReader } from './SongReader';
-import { MidiStatusIndicator } from './MidiStatusIndicator';
 import { useMidi } from '../context/MidiContext';
 import { 
   requestFullscreenSafe, 
@@ -233,11 +232,8 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
           </div>
         </div>
 
-        {/* Right: MIDI Remote, Next Song Quick Peek */}
+        {/* Right: Next Song Quick Peek & Fullscreen */}
         <div className="flex items-center gap-2 text-right shrink-0">
-          {/* Contrôle MIDI / Pédalier (icône uniquement) */}
-          <MidiStatusIndicator />
-
           <div className="hidden lg:flex items-center gap-2">
             {activeSetlistIndex < setlistSongs.length - 1 ? (
               <button

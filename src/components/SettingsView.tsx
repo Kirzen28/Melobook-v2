@@ -508,7 +508,7 @@ export const SettingsView: React.FC = () => {
         </div>
 
         {/* Quick controls for Chords, Lyrics & Line Spacing */}
-        <div className="flex items-center justify-between gap-2 flex-wrap py-1.5 px-2 mb-2 rounded-lg bg-black/20 border border-white/5 text-xs">
+        <div className="flex items-center justify-between gap-2 flex-wrap py-1.5 px-2 mb-1.5 rounded-lg bg-black/20 border border-white/5 text-xs">
           <div className="flex items-center gap-2">
             <QuickStepper
               label="Accords"
@@ -547,6 +547,47 @@ export const SettingsView: React.FC = () => {
               unit="x"
               onChange={(val) => updateTypography('lineSpacing', val)}
             />
+          </div>
+        </div>
+
+        {/* Quick presets pills in preview */}
+        <div className="flex items-center gap-1.5 flex-wrap pb-1.5 text-xs">
+          <span className="text-[11px] text-gray-400 font-medium shrink-0">Préréglages :</span>
+          <div className="inline-flex items-center bg-black/30 p-0.5 rounded-md border border-white/10">
+            {[
+              { label: 'Petit', lyrics: 15, chords: 14, header: 10, title: 22, meta: 11 },
+              { label: 'Standard', lyrics: 18, chords: 16, header: 12, title: 26, meta: 12 },
+              { label: 'Grand', lyrics: 22, chords: 19, header: 14, title: 31, meta: 13 },
+              { label: 'Très grand', lyrics: 25, chords: 22, header: 17, title: 36, meta: 14 },
+            ].map((p) => {
+              const isAct = typography.lyricsSize === p.lyrics;
+              return (
+                <button
+                  key={p.label}
+                  type="button"
+                  onClick={() => {
+                    updateDisplaySettings({
+                      typography: {
+                        lyricsSize: p.lyrics,
+                        chordSize: p.chords,
+                        headerSize: p.header,
+                        titleSize: p.title,
+                        metadataSize: p.meta,
+                      }
+                    });
+                    notify(`Préréglage ${p.label} appliqué`);
+                  }}
+                  className={`px-2 py-0.5 rounded text-[11px] font-medium transition-all cursor-pointer ${
+                    isAct
+                      ? 'bg-blue-600 text-white font-semibold shadow-xs'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                  title={`Appliquer le préréglage ${p.label}`}
+                >
+                  {p.label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -1284,6 +1325,101 @@ export const SettingsView: React.FC = () => {
             {/* Content (Collapsible on all devices) */}
             <div className={`p-4 sm:p-5 pt-0 sm:pt-0 ${openCategories.typography ? 'block' : 'hidden'}`}>
               <div className="border-t border-[#222224] mb-4" />
+
+              {/* Préréglages rapides de taille de police (Presets) */}
+              <div className="mb-4 p-3.5 rounded-xl bg-[#16161A] border border-[#2A2A30]">
+                <div className="flex items-center justify-between mb-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="w-5 h-5 rounded bg-purple-500/20 border border-purple-500/40 text-purple-300 text-[10px] font-bold flex items-center justify-center shrink-0">
+                      <Type className="w-3 h-3 text-purple-400" />
+                    </span>
+                    <span className="text-xs font-bold text-gray-200">Préréglages rapides de taille</span>
+                  </div>
+                  <span className="text-[11px] text-gray-400 hidden sm:inline">Basculement global en 1 clic</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {[
+                    {
+                      id: 'small',
+                      name: 'Petit',
+                      badge: '85%',
+                      desc: 'Compact (paroles 15px)',
+                      lyricsSize: 15,
+                      chordSize: 14,
+                      headerSize: 10,
+                      titleSize: 22,
+                      metadataSize: 11,
+                    },
+                    {
+                      id: 'standard',
+                      name: 'Standard',
+                      badge: '100%',
+                      desc: 'Équilibré (paroles 18px)',
+                      lyricsSize: 18,
+                      chordSize: 16,
+                      headerSize: 12,
+                      titleSize: 26,
+                      metadataSize: 12,
+                    },
+                    {
+                      id: 'large',
+                      name: 'Grand',
+                      badge: '120%',
+                      desc: 'Lisible (paroles 22px)',
+                      lyricsSize: 22,
+                      chordSize: 19,
+                      headerSize: 14,
+                      titleSize: 31,
+                      metadataSize: 13,
+                    },
+                    {
+                      id: 'xlarge',
+                      name: 'Très grand',
+                      badge: '140%',
+                      desc: 'Scène (paroles 25px)',
+                      lyricsSize: 25,
+                      chordSize: 22,
+                      headerSize: 17,
+                      titleSize: 36,
+                      metadataSize: 14,
+                    },
+                  ].map((preset) => {
+                    const isSelected = typography.lyricsSize === preset.lyricsSize && typography.chordSize === preset.chordSize;
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() => {
+                          updateDisplaySettings({
+                            typography: {
+                              lyricsSize: preset.lyricsSize,
+                              chordSize: preset.chordSize,
+                              headerSize: preset.headerSize,
+                              titleSize: preset.titleSize,
+                              metadataSize: preset.metadataSize,
+                            }
+                          });
+                          notify(`Taille ${preset.name} appliquée`);
+                        }}
+                        className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                          isSelected
+                            ? 'bg-purple-600/20 border-purple-500 text-white ring-1 ring-purple-500/30 shadow-xs'
+                            : 'bg-[#1C1C20] hover:bg-[#232328] border-[#2A2A32] text-gray-300 hover:text-white'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-1 mb-1">
+                          <span className="text-xs font-bold">{preset.name}</span>
+                          <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${isSelected ? 'bg-purple-500/30 text-purple-200' : 'bg-[#282830] text-gray-400'}`}>
+                            {preset.badge}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-gray-400 line-clamp-1">{preset.desc}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
               
                 {/* Title Size */}

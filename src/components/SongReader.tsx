@@ -62,7 +62,10 @@ import {
   Clock,
   Layers,
   Globe,
-  Repeat
+  Repeat,
+  ZoomIn,
+  ZoomOut,
+  SlidersHorizontal
 } from 'lucide-react';
 import { SetlistPdfModal } from './SetlistPdfModal';
 import { ChordModal } from './ChordModal';
@@ -128,6 +131,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
     stageSettings, 
     updateStageSettings, 
     displaySettings,
+    updateDisplaySettings,
     setActiveTab, 
     activeTab,
     currentUser,
@@ -252,6 +256,92 @@ export const SongReader: React.FC<SongReaderProps> = ({
   const [showKeyMenu, setShowKeyMenu] = useState(false);
   const [showTransposeMenu, setShowTransposeMenu] = useState(false);
   const [showTempoMenu, setShowTempoMenu] = useState(false);
+  const [showZoomMenu, setShowZoomMenu] = useState(false);
+
+  // Refs for toolbar buttons to calculate viewport-safe placement
+  const keyButtonRef = useRef<HTMLButtonElement>(null);
+  const transposeButtonRef = useRef<HTMLButtonElement>(null);
+  const tempoButtonRef = useRef<HTMLButtonElement>(null);
+  const zoomButtonRef = useRef<HTMLButtonElement>(null);
+
+  const calculatePopoverPos = (btn: HTMLButtonElement | null) => {
+    if (!btn) return { right: 0, width: 288 };
+    const rect = btn.getBoundingClientRect();
+    const popoverWidth = Math.min(288, window.innerWidth - 24);
+    
+    // Desired viewport position: centered under button
+    let desiredLeft = rect.left + (rect.width / 2) - (popoverWidth / 2);
+    // Clamp to viewport edges with 12px margin
+    if (desiredLeft < 12) desiredLeft = 12;
+    if (desiredLeft + popoverWidth > window.innerWidth - 12) {
+      desiredLeft = window.innerWidth - 12 - popoverWidth;
+    }
+    
+    // Relative to the button's relative parent container
+    const relativeLeft = desiredLeft - rect.left;
+    return {
+      left: `${relativeLeft}px`,
+      width: `${popoverWidth}px`,
+    };
+  };
+
+  const [tempoPopoverStyle, setTempoPopoverStyle] = useState<React.CSSProperties>({ right: 0 });
+  const [transposePopoverStyle, setTransposePopoverStyle] = useState<React.CSSProperties>({ left: 0 });
+  const [keyPopoverStyle, setKeyPopoverStyle] = useState<React.CSSProperties>({ left: 0 });
+  const [zoomPopoverStyle, setZoomPopoverStyle] = useState<React.CSSProperties>({ left: 0 });
+
+  useEffect(() => {
+    if (showTempoMenu) {
+      const update = () => setTempoPopoverStyle(calculatePopoverPos(tempoButtonRef.current));
+      update();
+      window.addEventListener('resize', update);
+      window.addEventListener('scroll', update, true);
+      return () => {
+        window.removeEventListener('resize', update);
+        window.removeEventListener('scroll', update, true);
+      };
+    }
+  }, [showTempoMenu]);
+
+  useEffect(() => {
+    if (showTransposeMenu) {
+      const update = () => setTransposePopoverStyle(calculatePopoverPos(transposeButtonRef.current));
+      update();
+      window.addEventListener('resize', update);
+      window.addEventListener('scroll', update, true);
+      return () => {
+        window.removeEventListener('resize', update);
+        window.removeEventListener('scroll', update, true);
+      };
+    }
+  }, [showTransposeMenu]);
+
+  useEffect(() => {
+    if (showKeyMenu) {
+      const update = () => setKeyPopoverStyle(calculatePopoverPos(keyButtonRef.current));
+      update();
+      window.addEventListener('resize', update);
+      window.addEventListener('scroll', update, true);
+      return () => {
+        window.removeEventListener('resize', update);
+        window.removeEventListener('scroll', update, true);
+      };
+    }
+  }, [showKeyMenu]);
+
+  useEffect(() => {
+    if (showZoomMenu) {
+      const update = () => setZoomPopoverStyle(calculatePopoverPos(zoomButtonRef.current));
+      update();
+      window.addEventListener('resize', update);
+      window.addEventListener('scroll', update, true);
+      return () => {
+        window.removeEventListener('resize', update);
+        window.removeEventListener('scroll', update, true);
+      };
+    }
+  }, [showZoomMenu]);
+
   const [isHeaderCollapsed, setIsHeaderCollapsed] = useState<boolean>(() => {
     try {
       return localStorage.getItem('melobook_header_collapsed') === 'true';
@@ -268,6 +358,36 @@ export const SongReader: React.FC<SongReaderProps> = ({
       } catch {}
       return next;
     });
+  };
+
+  const zoomPercentage = Math.round(((displaySettings.typography?.lyricsSize || 18) / 18) * 100);
+
+  const handleSetZoomPercentage = (newPct: number) => {
+    const clampedPct = Math.max(65, Math.min(175, newPct));
+    const factor = clampedPct / 100;
+
+    // Scale all typography elements proportionally
+    const newLyricsSize = Math.max(11, Math.min(42, Math.round(18 * factor)));
+    const newChordSize = Math.max(10, Math.min(38, Math.round(16 * factor)));
+    const newHeaderSize = Math.max(9, Math.min(26, Math.round(12 * factor)));
+
+    updateDisplaySettings({
+      typography: {
+        lyricsSize: newLyricsSize,
+        chordSize: newChordSize,
+        headerSize: newHeaderSize,
+      }
+    }, true);
+  };
+
+  const handleResetZoom = () => {
+    updateDisplaySettings({
+      typography: {
+        lyricsSize: 18,
+        chordSize: 16,
+        headerSize: 12,
+      }
+    }, true);
   };
 
   useEffect(() => {
@@ -823,6 +943,229 @@ export const SongReader: React.FC<SongReaderProps> = ({
               </div>
             </div>
 
+            {/* Réglage de la taille de police : Bouton avec jauge déroulante, jauge rapide et presets */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-gray-400 text-[11px] font-medium shrink-0 flex items-center gap-1">
+                <SlidersHorizontal className="w-3 h-3 text-blue-400" />
+                <span>Taille :</span>
+              </span>
+
+              {/* Bouton unique avec jauge / slider déroulant */}
+              <div className="relative inline-block">
+                <button
+                  ref={zoomButtonRef}
+                  type="button"
+                  id="drawer-stage-zoom-btn"
+                  onClick={() => {
+                    const next = !showZoomMenu;
+                    setShowZoomMenu(next);
+                    if (next) {
+                      setZoomPopoverStyle(calculatePopoverPos(zoomButtonRef.current));
+                    }
+                  }}
+                  className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium transition-all cursor-pointer border ${
+                    showZoomMenu
+                      ? 'bg-blue-600 text-white font-semibold border-blue-500 shadow-xs ring-1 ring-blue-400/40'
+                      : 'bg-[#1C1C1E] border-[#333] hover:border-blue-500/50 text-gray-200 hover:text-white'
+                  }`}
+                  title="Cliquer pour afficher la jauge de zoom complète"
+                >
+                  <span className="font-mono font-bold text-blue-400">{zoomPercentage}%</span>
+                  <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform ${showZoomMenu ? 'rotate-180 text-blue-300' : ''}`} />
+                </button>
+
+                {showZoomMenu && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-40" 
+                      onClick={() => setShowZoomMenu(false)} 
+                    />
+                    <div 
+                      style={zoomPopoverStyle}
+                      className="absolute top-full mt-1.5 z-50 w-72 max-w-[calc(100vw-24px)] bg-[#16161A] border border-[#2E2E36] rounded-xl shadow-2xl p-3 backdrop-blur-md animate-in fade-in zoom-in-95 duration-100 box-border text-left"
+                    >
+                      {/* En-tête Popover */}
+                      <div className="text-[11px] font-semibold text-gray-400 pb-2 mb-2.5 border-b border-[#282830] flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <SlidersHorizontal className="w-3.5 h-3.5 text-blue-400" />
+                          <span className="text-gray-200">Taille de tous les textes</span>
+                        </div>
+                        <span className="text-[11px] text-blue-400 font-mono font-bold bg-blue-950/50 border border-blue-500/40 px-1.5 py-0.5 rounded">
+                          {zoomPercentage}%
+                        </span>
+                      </div>
+
+                      {/* Jauge / Slider avec boutons - / + */}
+                      <div className="mb-3">
+                        <div className="flex items-center justify-between text-[11px] text-gray-400 mb-1.5">
+                          <span className="flex items-center gap-1 font-medium text-gray-300">
+                            <Type className="w-3 h-3 text-gray-500" />
+                            <span>Jauge de zoom</span>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={handleResetZoom}
+                            className="text-[10px] text-blue-400 hover:text-blue-300 cursor-pointer transition-colors"
+                            title="Rétablir à 100% (par défaut)"
+                          >
+                            100% (Défaut)
+                          </button>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleSetZoomPercentage(zoomPercentage - 5)}
+                            disabled={zoomPercentage <= 65}
+                            className="p-1.5 rounded-lg bg-[#202026] hover:bg-[#282832] text-gray-300 disabled:opacity-30 border border-[#30303A] cursor-pointer shrink-0 transition-colors"
+                            title="Réduire (-5%)"
+                          >
+                            <Minus className="w-3.5 h-3.5" />
+                          </button>
+
+                          {/* Slider Track / Range Input */}
+                          <div className="relative flex-1 flex items-center py-1">
+                            <input
+                              type="range"
+                              min="65"
+                              max="175"
+                              step="5"
+                              value={zoomPercentage}
+                              onChange={(e) => handleSetZoomPercentage(Number(e.target.value))}
+                              className="w-full h-2 bg-[#26262E] rounded-lg appearance-none cursor-pointer accent-blue-500 hover:accent-blue-400 transition-all"
+                            />
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleSetZoomPercentage(zoomPercentage + 5)}
+                            disabled={zoomPercentage >= 175}
+                            className="p-1.5 rounded-lg bg-[#202026] hover:bg-[#282832] text-gray-300 disabled:opacity-30 border border-[#30303A] cursor-pointer shrink-0 transition-colors"
+                            title="Agrandir (+5%)"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Préréglages rapides (Presets) */}
+                      <div className="text-[10px] text-gray-400 font-semibold mb-1.5 uppercase tracking-wider flex items-center justify-between">
+                        <span>Préréglages rapides</span>
+                        <span className="text-[9px] text-gray-500 font-normal">1 clic</span>
+                      </div>
+                      <div className="grid grid-cols-4 gap-1.5 text-xs mb-3">
+                        {[
+                          { label: 'Petit', pct: 85 },
+                          { label: 'Standard', pct: 100 },
+                          { label: 'Grand', pct: 120 },
+                          { label: 'Très grand', pct: 140 },
+                        ].map((preset) => {
+                          const isActive = Math.abs(zoomPercentage - preset.pct) <= 4;
+                          return (
+                            <button
+                              key={preset.label}
+                              type="button"
+                              onClick={() => handleSetZoomPercentage(preset.pct)}
+                              className={`py-1.5 px-1 rounded-lg transition-all cursor-pointer flex flex-col items-center justify-center ${
+                                isActive
+                                  ? 'bg-blue-600 text-white font-bold shadow-xs border border-blue-400/50 ring-1 ring-blue-400/30'
+                                  : 'bg-[#202026] text-gray-300 hover:bg-[#282832] hover:text-white border border-[#2E2E38]'
+                              }`}
+                              title={`Préréglage ${preset.label} (${preset.pct}%)`}
+                            >
+                              <span className="text-[11px] font-medium leading-tight">{preset.label}</span>
+                              <span className={`text-[9px] font-mono leading-tight ${isActive ? 'text-blue-100' : 'text-gray-500'}`}>
+                                {preset.pct}%
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Détail en temps réel de tous les textes ajustés */}
+                      <div className="pt-2 border-t border-[#24242C] grid grid-cols-4 gap-1 text-center font-mono text-[10px]">
+                        <div className="p-1 rounded bg-[#18181E] border border-[#282832]">
+                          <span className="text-gray-400 block text-[9px] font-sans">Paroles</span>
+                          <span className="text-white font-semibold">{displaySettings.typography?.lyricsSize || 18}px</span>
+                        </div>
+                        <div className="p-1 rounded bg-[#18181E] border border-[#282832]">
+                          <span className="text-blue-400/90 block text-[9px] font-sans">Accords</span>
+                          <span className="text-blue-300 font-semibold">{displaySettings.typography?.chordSize || 16}px</span>
+                        </div>
+                        <div className="p-1 rounded bg-[#18181E] border border-[#282832]">
+                          <span className="text-amber-400/90 block text-[9px] font-sans">Sections</span>
+                          <span className="text-amber-300 font-semibold">{displaySettings.typography?.headerSize || 12}px</span>
+                        </div>
+                        <div className="p-1 rounded bg-[#18181E] border border-[#282832]">
+                          <span className="text-emerald-400/90 block text-[9px] font-sans">Voix</span>
+                          <span className="text-emerald-300 font-semibold">{Math.max(10, Math.round((displaySettings.typography?.headerSize || 12) * 0.95))}px</span>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Jauge rapide directe dans les réglages */}
+              <div className="inline-flex items-center gap-1 bg-[#1C1C1E] px-1.5 py-0.5 rounded-md border border-[#333]">
+                <button
+                  type="button"
+                  onClick={() => handleSetZoomPercentage(zoomPercentage - 5)}
+                  disabled={zoomPercentage <= 65}
+                  className="p-0.5 text-gray-400 hover:text-white disabled:opacity-30 cursor-pointer"
+                  title="Diminuer la taille (-5%)"
+                >
+                  <Minus className="w-3 h-3" />
+                </button>
+                <input
+                  type="range"
+                  min="65"
+                  max="175"
+                  step="5"
+                  value={zoomPercentage}
+                  onChange={(e) => handleSetZoomPercentage(Number(e.target.value))}
+                  className="w-14 sm:w-20 h-1.5 bg-[#26262E] rounded-lg appearance-none cursor-pointer accent-blue-500"
+                  title={`Jauge de zoom : ${zoomPercentage}%`}
+                />
+                <button
+                  type="button"
+                  onClick={() => handleSetZoomPercentage(zoomPercentage + 5)}
+                  disabled={zoomPercentage >= 175}
+                  className="p-0.5 text-gray-400 hover:text-white disabled:opacity-30 cursor-pointer"
+                  title="Augmenter la taille (+5%)"
+                >
+                  <Plus className="w-3 h-3" />
+                </button>
+              </div>
+
+              {/* Préréglages de taille de police (Presets rapides) */}
+              <div className="inline-flex items-center bg-[#1C1C1E] p-0.5 rounded-md border border-[#333]">
+                {[
+                  { label: 'Petit', pct: 85 },
+                  { label: 'Standard', pct: 100 },
+                  { label: 'Grand', pct: 120 },
+                  { label: 'Très grand', pct: 140 },
+                ].map((preset) => {
+                  const isActive = Math.abs(zoomPercentage - preset.pct) <= 4;
+                  return (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => handleSetZoomPercentage(preset.pct)}
+                      className={`px-2 py-0.5 rounded text-[11px] font-medium transition-all cursor-pointer ${
+                        isActive
+                          ? 'bg-blue-600 text-white font-semibold shadow-xs'
+                          : 'text-gray-400 hover:text-white'
+                      }`}
+                      title={`Préréglage ${preset.label} (${preset.pct}%)`}
+                    >
+                      {preset.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* Plein écran */}
             <div className="flex items-center gap-1.5">
               <button
@@ -1286,11 +1629,17 @@ export const SongReader: React.FC<SongReaderProps> = ({
               {/* Tonalité : Liste déroulante */}
               <div className="relative inline-block">
                 <button
+                  ref={keyButtonRef}
                   type="button"
                   onClick={() => {
-                    setShowKeyMenu(!showKeyMenu);
+                    const next = !showKeyMenu;
+                    setShowKeyMenu(next);
                     setShowTransposeMenu(false);
                     setShowTempoMenu(false);
+                    setShowZoomMenu(false);
+                    if (next) {
+                      setKeyPopoverStyle(calculatePopoverPos(keyButtonRef.current));
+                    }
                   }}
                   className={`h-8 inline-flex items-center gap-1.5 px-2.5 rounded-lg border font-mono shadow-xs transition-all cursor-pointer ${
                     showKeyMenu
@@ -1320,7 +1669,10 @@ export const SongReader: React.FC<SongReaderProps> = ({
                       className="fixed inset-0 z-40" 
                       onClick={() => setShowKeyMenu(false)} 
                     />
-                    <div className="absolute left-0 top-full mt-1.5 z-50 w-72 bg-[#16161A] border border-[#2E2E36] rounded-xl shadow-2xl p-2.5 backdrop-blur-md animate-in fade-in zoom-in-95 duration-100">
+                    <div 
+                      style={keyPopoverStyle}
+                      className="absolute top-full mt-1.5 z-50 w-72 max-w-[calc(100vw-24px)] bg-[#16161A] border border-[#2E2E36] rounded-xl shadow-2xl p-2.5 backdrop-blur-md animate-in fade-in zoom-in-95 duration-100 box-border"
+                    >
                       <div className="text-[11px] font-semibold text-gray-400 pb-2 mb-2 border-b border-[#282830] flex items-center justify-between">
                         <span>Choisir la tonalité</span>
                         <span className="text-[10px] text-blue-400 font-mono">Actuelle : {baseKeyDisplay}</span>
@@ -1396,11 +1748,17 @@ export const SongReader: React.FC<SongReaderProps> = ({
               {/* Transposition : Liste déroulante en deux colonnes */}
               <div className="relative inline-block">
                 <button
+                  ref={transposeButtonRef}
                   type="button"
                   onClick={() => {
-                    setShowTransposeMenu(!showTransposeMenu);
+                    const next = !showTransposeMenu;
+                    setShowTransposeMenu(next);
                     setShowKeyMenu(false);
                     setShowTempoMenu(false);
+                    setShowZoomMenu(false);
+                    if (next) {
+                      setTransposePopoverStyle(calculatePopoverPos(transposeButtonRef.current));
+                    }
                   }}
                   className={`h-8 inline-flex items-center gap-1.5 px-2.5 rounded-lg border font-mono shadow-xs transition-all cursor-pointer ${
                     showTransposeMenu
@@ -1437,7 +1795,10 @@ export const SongReader: React.FC<SongReaderProps> = ({
                       className="fixed inset-0 z-40" 
                       onClick={() => setShowTransposeMenu(false)} 
                     />
-                    <div className="absolute left-0 top-full mt-1.5 z-50 w-72 bg-[#16161A] border border-[#2E2E36] rounded-xl shadow-2xl p-2.5 backdrop-blur-md animate-in fade-in zoom-in-95 duration-100">
+                    <div 
+                      style={transposePopoverStyle}
+                      className="absolute top-full mt-1.5 z-50 w-72 max-w-[calc(100vw-24px)] bg-[#16161A] border border-[#2E2E36] rounded-xl shadow-2xl p-2.5 backdrop-blur-md animate-in fade-in zoom-in-95 duration-100 box-border"
+                    >
                       <div className="text-[11px] font-semibold text-gray-400 pb-2 mb-2 border-b border-[#282830] flex items-center justify-between">
                         <div className="flex items-center gap-1.5">
                           <span>Transposition</span>
@@ -1572,11 +1933,17 @@ export const SongReader: React.FC<SongReaderProps> = ({
               {/* Tempo / BPM : Module stylisé avec affichage et réglage rapide */}
               <div className="relative inline-block">
                 <button
+                  ref={tempoButtonRef}
                   type="button"
                   onClick={() => {
-                    setShowTempoMenu(!showTempoMenu);
+                    const next = !showTempoMenu;
+                    setShowTempoMenu(next);
                     setShowKeyMenu(false);
                     setShowTransposeMenu(false);
+                    setShowZoomMenu(false);
+                    if (next) {
+                      setTempoPopoverStyle(calculatePopoverPos(tempoButtonRef.current));
+                    }
                   }}
                   className={`h-8 inline-flex items-center gap-1.5 px-2.5 rounded-lg border font-mono shadow-xs transition-all cursor-pointer ${
                     showTempoMenu
@@ -1599,7 +1966,10 @@ export const SongReader: React.FC<SongReaderProps> = ({
                       className="fixed inset-0 z-40" 
                       onClick={() => setShowTempoMenu(false)} 
                     />
-                    <div className="absolute left-0 sm:left-auto sm:right-0 top-full mt-1.5 z-50 w-72 bg-[#16161A] border border-[#2E2E36] rounded-xl shadow-2xl p-3 backdrop-blur-md animate-in fade-in zoom-in-95 duration-100">
+                    <div 
+                      style={tempoPopoverStyle}
+                      className="absolute top-full mt-1.5 z-50 w-72 max-w-[calc(100vw-24px)] bg-[#16161A] border border-[#2E2E36] rounded-xl shadow-2xl p-3 backdrop-blur-md animate-in fade-in zoom-in-95 duration-100 box-border"
+                    >
                       <div className="text-[11px] font-semibold text-gray-400 pb-2 mb-2.5 border-b border-[#282830] flex items-center justify-between">
                         <span>Réglage du tempo</span>
                         <span className="text-[10px] text-emerald-400 font-mono font-bold">{effectiveTempo} BPM</span>
@@ -1610,7 +1980,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                         <button
                           type="button"
                           onClick={() => handleUpdateTempo(Math.max(30, effectiveTempo - 10))}
-                          className="px-2 py-1 rounded bg-[#202026] hover:bg-[#282832] text-gray-300 text-xs font-mono border border-[#30303A] cursor-pointer"
+                          className="px-2 py-1 rounded bg-[#202026] hover:bg-[#282832] text-gray-300 text-xs font-mono border border-[#30303A] cursor-pointer shrink-0"
                           title="-10 BPM"
                         >
                           -10
@@ -1618,7 +1988,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                         <button
                           type="button"
                           onClick={() => handleUpdateTempo(Math.max(30, effectiveTempo - 1))}
-                          className="p-1 rounded bg-[#202026] hover:bg-[#282832] text-gray-300 border border-[#30303A] cursor-pointer"
+                          className="p-1 rounded bg-[#202026] hover:bg-[#282832] text-gray-300 border border-[#30303A] cursor-pointer shrink-0"
                           title="-1 BPM"
                         >
                           <Minus className="w-3.5 h-3.5" />
@@ -1630,7 +2000,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                         <button
                           type="button"
                           onClick={() => handleUpdateTempo(Math.min(260, effectiveTempo + 1))}
-                          className="p-1 rounded bg-[#202026] hover:bg-[#282832] text-gray-300 border border-[#30303A] cursor-pointer"
+                          className="p-1 rounded bg-[#202026] hover:bg-[#282832] text-gray-300 border border-[#30303A] cursor-pointer shrink-0"
                           title="+1 BPM"
                         >
                           <Plus className="w-3.5 h-3.5" />
@@ -1638,7 +2008,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                         <button
                           type="button"
                           onClick={() => handleUpdateTempo(Math.min(260, effectiveTempo + 10))}
-                          className="px-2 py-1 rounded bg-[#202026] hover:bg-[#282832] text-gray-300 text-xs font-mono border border-[#30303A] cursor-pointer"
+                          className="px-2 py-1 rounded bg-[#202026] hover:bg-[#282832] text-gray-300 text-xs font-mono border border-[#30303A] cursor-pointer shrink-0"
                           title="+10 BPM"
                         >
                           +10
@@ -1651,7 +2021,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                         onClick={handleTapTempo}
                         className="w-full py-2 px-3 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 font-medium text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer mb-2.5"
                       >
-                        <Gauge className="w-3.5 h-3.5" />
+                        <Gauge className="w-3.5 h-3.5 shrink-0" />
                         <span>Tapez le tempo (Tap)</span>
                       </button>
 
@@ -1659,7 +2029,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                       <div className="text-[10px] text-gray-500 font-semibold mb-1 uppercase tracking-wider">
                         Tempos usuels
                       </div>
-                      <div className="grid grid-cols-5 gap-1 text-xs">
+                      <div className="grid grid-cols-5 gap-1.5 text-xs">
                         {[70, 85, 100, 120, 140].map((bpm) => (
                           <button
                             key={bpm}
@@ -1733,10 +2103,17 @@ export const SongReader: React.FC<SongReaderProps> = ({
                       {/* Section Repeat Badge (Lecture seule) */}
                       {sectionRepeat > 1 && (
                         <span 
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded border bg-emerald-950/40 border-emerald-500/50 text-emerald-300 text-xs font-bold font-mono select-none"
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded border bg-emerald-950/40 border-emerald-500/50 text-emerald-300 font-bold font-mono select-none"
+                          style={{ fontSize: `${Math.max(10, Math.round((displaySettings.typography?.headerSize || 12) * 0.9))}px` }}
                           title={`Répété ${sectionRepeat} fois`}
                         >
-                          <Repeat className="w-3 h-3 text-emerald-400 shrink-0" />
+                          <Repeat 
+                            style={{ 
+                              width: `${Math.max(11, Math.round((displaySettings.typography?.headerSize || 12) * 0.9))}px`,
+                              height: `${Math.max(11, Math.round((displaySettings.typography?.headerSize || 12) * 0.9))}px` 
+                            }}
+                            className="text-emerald-400 shrink-0" 
+                          />
                           <span>x{sectionRepeat}</span>
                         </span>
                       )}
@@ -1747,12 +2124,18 @@ export const SongReader: React.FC<SongReaderProps> = ({
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {(section.vocals && section.vocals.length > 0 ? section.vocals : [section.vocal!]).map((voc, vIdx) => {
                           const vStyle = getVocalBadgeStyle(voc);
+                          const vocalFontSize = Math.max(10, Math.round((displaySettings.typography?.headerSize || 12) * 0.95));
+                          const vocalIconSize = Math.max(11, Math.round(vocalFontSize * 1.05));
                           return (
                             <span
                               key={vIdx}
-                              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full ${vStyle.bg} border ${vStyle.border} ${vStyle.text} text-xs font-semibold shadow-xs select-none`}
+                              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full ${vStyle.bg} border ${vStyle.border} ${vStyle.text} font-semibold shadow-xs select-none`}
+                              style={{ fontSize: `${vocalFontSize}px` }}
                             >
-                              <Mic className={`w-3.5 h-3.5 ${vStyle.icon} shrink-0`} />
+                              <Mic 
+                                style={{ width: `${vocalIconSize}px`, height: `${vocalIconSize}px` }}
+                                className={`${vStyle.icon} shrink-0`} 
+                              />
                               <span>{voc}</span>
                             </span>
                           );

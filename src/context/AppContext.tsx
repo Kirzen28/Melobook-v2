@@ -91,7 +91,8 @@ interface AppContextType {
     typography?: Partial<SongTypographySettings>; 
     sectionColors?: Partial<SectionColors>;
     sectionBorders?: Partial<SectionBorders>;
-  }) => void;
+    chordColor?: string;
+  }, silent?: boolean) => void;
   resetDisplaySettings: () => void;
   songCardMetadata: SongCardMetadataSettings;
   updateSongCardMetadata: (settings: Partial<SongCardMetadataSettings>) => void;
@@ -340,7 +341,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     sectionColors?: Partial<SectionColors>;
     sectionBorders?: Partial<SectionBorders>;
     chordColor?: string;
-  }) => {
+  }, silent = false) => {
     setDisplaySettings(prev => {
       const updated: DisplaySettings = {
         typography: {
@@ -360,7 +361,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       localStorage.setItem('songbook_display_settings', JSON.stringify(updated));
       return updated;
     });
-    showNotification('Enregistré');
+    if (!silent) {
+      showNotification('Enregistré');
+    }
   }, [showNotification]);
 
   const DEFAULT_SONG_CARD_METADATA: SongCardMetadataSettings = {

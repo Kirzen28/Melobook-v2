@@ -66,7 +66,8 @@ import {
   ArrowRight,
   Search,
   Users,
-  User
+  User,
+  Loader2
 } from 'lucide-react';
 
 const SAMPLE_TEMPLATE = `{title: Mon Nouveau Chant}
@@ -770,26 +771,6 @@ export const SongEditor: React.FC = () => {
           >
             <Eye className="w-3.5 h-3.5" />
             <span>Aperçu</span>
-          </button>
-
-          {/* Save / Update Button */}
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={isSaving}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md transition-all active:scale-95 disabled:opacity-50"
-          >
-            {saveSuccess ? (
-              <>
-                <Check className="w-4 h-4" />
-                <span>Enregistré !</span>
-              </>
-            ) : (
-              <>
-                <Save className="w-4 h-4" />
-                <span>{selectedSong ? 'Mettre à jour' : 'Enregistrer le chant'}</span>
-              </>
-            )}
           </button>
         </div>
       </div>
@@ -1614,6 +1595,31 @@ export const SongEditor: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Bouton d'action flottant (Mettre à jour / Enregistrer - bas à droite, icône uniquement) */}
+      <button
+        type="button"
+        id="btn-editor-floating-save"
+        onClick={handleSave}
+        disabled={isSaving}
+        className={`fixed bottom-6 right-6 sm:bottom-8 sm:right-8 z-40 w-13 h-13 sm:w-14 sm:h-14 rounded-full flex items-center justify-center transition-all duration-200 active:scale-90 cursor-pointer shadow-2xl ${
+          saveSuccess
+            ? 'bg-emerald-600 hover:bg-emerald-500 text-white border-2 border-emerald-300 ring-4 ring-emerald-500/25 scale-105 shadow-emerald-950/60'
+            : isSaving
+            ? 'bg-blue-600/80 text-white border-2 border-blue-300/40 ring-4 ring-blue-500/20 cursor-wait shadow-blue-950/50'
+            : 'bg-blue-600 hover:bg-blue-500 text-white border-2 border-blue-400/50 hover:scale-110 shadow-blue-950/60 ring-4 ring-blue-500/20'
+        } disabled:opacity-75`}
+        title={saveSuccess ? "Enregistré avec succès !" : selectedSong ? "Mettre à jour" : "Enregistrer le chant"}
+        aria-label={selectedSong ? "Mettre à jour le chant" : "Enregistrer le chant"}
+      >
+        {saveSuccess ? (
+          <Check className="w-6 h-6 stroke-[3]" />
+        ) : isSaving ? (
+          <Loader2 className="w-6 h-6 animate-spin" />
+        ) : (
+          <Save className="w-6 h-6" />
+        )}
+      </button>
 
     </div>
   );

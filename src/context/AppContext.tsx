@@ -103,6 +103,10 @@ interface AppContextType {
   syncNow: () => Promise<void>;
   isAuthModalOpen: boolean;
   setIsAuthModalOpen: (open: boolean) => void;
+  isPianoOpen: boolean;
+  setIsPianoOpen: (open: boolean) => void;
+  isMetronomeOpen: boolean;
+  setIsMetronomeOpen: (open: boolean | ((prev: boolean) => boolean)) => void;
   isInstallable: boolean;
   promptInstall: () => void;
   
@@ -172,6 +176,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   });
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isPianoOpen, setIsPianoOpen] = useState(false);
+  const [isMetronomeOpen, setIsMetronomeOpen] = useState(false);
 
   // Snackbar notifications state & handlers (bottom-right notifications)
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
@@ -1428,6 +1434,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       syncNow,
       isAuthModalOpen,
       setIsAuthModalOpen,
+      isPianoOpen,
+      setIsPianoOpen,
+      isMetronomeOpen,
+      setIsMetronomeOpen,
       isInstallable,
       promptInstall,
       notifications,

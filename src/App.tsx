@@ -12,6 +12,8 @@ import { SettingsView } from './components/SettingsView';
 import { Tuner } from './components/Tuner';
 import { AuthModal } from './components/AuthModal';
 import { SnackbarNotification } from './components/SnackbarNotification';
+import { MiniPianoPopup } from './components/MiniPianoPopup';
+import { MetronomePopup } from './components/MetronomePopup';
 
 const viewVariants = {
   initial: {
@@ -68,6 +70,8 @@ const AppContent: React.FC = () => {
       </main>
 
       <AuthModal />
+      <MiniPianoPopup />
+      <MetronomePopup />
       <SnackbarNotification />
     </div>
   );

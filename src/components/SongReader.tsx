@@ -65,7 +65,9 @@ import {
   Repeat,
   ZoomIn,
   ZoomOut,
-  SlidersHorizontal
+  SlidersHorizontal,
+  RefreshCw,
+  ArrowRight
 } from 'lucide-react';
 import { SetlistPdfModal } from './SetlistPdfModal';
 import { ChordModal } from './ChordModal';
@@ -126,6 +128,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
     updateSong,
     setlists,
     selectedSetlist,
+    updateSetlist,
     updateSetlistSongOverride,
     removeSetlistSongOverride,
     stageSettings, 
@@ -135,7 +138,8 @@ export const SongReader: React.FC<SongReaderProps> = ({
     setActiveTab, 
     activeTab,
     currentUser,
-    currentGroup
+    currentGroup,
+    setActiveSetlistIndex
   } = useApp();
 
   const { registerActionHandler } = useMidi();
@@ -199,6 +203,98 @@ export const SongReader: React.FC<SongReaderProps> = ({
   // Tap Tempo state
   const tapTimesRef = useRef<number[]>([]);
   const [tapCount, setTapCount] = useState(0);
+
+  // Setlist Version Choice Modal & Actions
+  const [showSetlistVersionModal, setShowSetlistVersionModal] = useState(false);
+  const [targetVersionId, setTargetVersionId] = useState<string | null>(null);
+  const [feedbackToast, setFeedbackToast] = useState<string | null>(null);
+  const toastTimeoutRef = useRef<number | null>(null);
+
+  const showFeedbackToast = useCallback((msg: string) => {
+    setFeedbackToast(msg);
+    if (toastTimeoutRef.current) {
+      window.clearTimeout(toastTimeoutRef.current);
+    }
+    toastTimeoutRef.current = window.setTimeout(() => {
+      setFeedbackToast(null);
+    }, 3500);
+  }, []);
+
+  const getCurrentIndexInSetlist = useCallback((): number => {
+    if (setlistPosition && setlistPosition.current > 0) {
+      return setlistPosition.current - 1;
+    }
+    if (currentSetlist?.songIds && song) {
+      const idx = currentSetlist.songIds.indexOf(song.id);
+      if (idx >= 0) return idx;
+    }
+    return 0;
+  }, [setlistPosition, currentSetlist, song]);
+
+  const handleReplaceCurrentSongInSetlist = useCallback(async (targetSong: Song) => {
+    if (!currentSetlist || !song) return;
+    const idx = getCurrentIndexInSetlist();
+    const newSongIds = [...(currentSetlist.songIds || [])];
+    
+    if (idx >= 0 && idx < newSongIds.length) {
+      newSongIds[idx] = targetSong.id;
+    } else {
+      newSongIds.push(targetSong.id);
+    }
+
+    let updatedOverrides = currentSetlist.songOverrides ? { ...currentSetlist.songOverrides } : undefined;
+    if (updatedOverrides && updatedOverrides[song.id]) {
+      updatedOverrides = {
+        ...updatedOverrides,
+        [targetSong.id]: { ...updatedOverrides[song.id] }
+      };
+    }
+
+    await updateSetlist(currentSetlist.id, {
+      songIds: newSongIds,
+      ...(updatedOverrides ? { songOverrides: updatedOverrides } : {})
+    });
+
+    setSelectedSong(targetSong);
+    if (setActiveSetlistIndex) {
+      setActiveSetlistIndex(idx >= 0 ? idx : 0);
+    }
+
+    setShowSetlistVersionModal(false);
+    setShowLanguageMenu(false);
+    showFeedbackToast(`« ${targetSong.title} » remplace désormais ce chant dans la setlist.`);
+  }, [currentSetlist, song, getCurrentIndexInSetlist, updateSetlist, setSelectedSong, setActiveSetlistIndex, showFeedbackToast]);
+
+  const handleAddAfterCurrentSongInSetlist = useCallback(async (targetSong: Song, navigateToIt = true) => {
+    if (!currentSetlist || !song) return;
+    const idx = getCurrentIndexInSetlist();
+    const insertIdx = idx + 1;
+    const newSongIds = [...(currentSetlist.songIds || [])];
+    newSongIds.splice(insertIdx, 0, targetSong.id);
+
+    await updateSetlist(currentSetlist.id, {
+      songIds: newSongIds
+    });
+
+    setShowSetlistVersionModal(false);
+    setShowLanguageMenu(false);
+
+    if (navigateToIt) {
+      setSelectedSong(targetSong);
+      if (setActiveSetlistIndex) {
+        setActiveSetlistIndex(insertIdx);
+      }
+    }
+
+    showFeedbackToast(`« ${targetSong.title} » a été ajouté à la suite dans la setlist (position ${insertIdx + 1}/${newSongIds.length}).`);
+  }, [currentSetlist, song, getCurrentIndexInSetlist, updateSetlist, setSelectedSong, setActiveSetlistIndex, showFeedbackToast]);
+
+  const handleViewOnlyVersion = useCallback((targetSong: Song) => {
+    setSelectedSong(targetSong);
+    setShowSetlistVersionModal(false);
+    setShowLanguageMenu(false);
+    showFeedbackToast(`Affichage de la version « ${targetSong.title} » (non ajoutée à la setlist).`);
+  }, [setSelectedSong, showFeedbackToast]);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollAnimRef = useRef<number | null>(null);
@@ -1416,7 +1512,13 @@ export const SongReader: React.FC<SongReaderProps> = ({
                         <button
                           type="button"
                           id="btn-song-language"
-                          onClick={() => setShowLanguageMenu(!showLanguageMenu)}
+                          onClick={() => {
+                            if ((isInSetlist || isSetlistMode) && currentSetlist) {
+                              setShowSetlistVersionModal(true);
+                            } else {
+                              setShowLanguageMenu(!showLanguageMenu);
+                            }
+                          }}
                           className={`inline-flex items-center justify-center gap-1.5 px-2 py-0.5 rounded-md border text-xs font-bold transition-all shadow-xs hover:brightness-110 active:scale-95 cursor-pointer ${lMeta.badgeClass}`}
                           title={`Langue : ${lMeta.name} (${lMeta.code})${linkedVersions.length > 0 ? ` • ${linkedVersions.length} version(s) liée(s)` : ''}`}
                         >
@@ -1430,7 +1532,27 @@ export const SongReader: React.FC<SongReaderProps> = ({
                               className="fixed inset-0 z-40" 
                               onClick={() => setShowLanguageMenu(false)} 
                             />
-                            <div className="absolute left-0 top-full mt-1.5 z-50 w-72 max-w-[calc(100vw-32px)] bg-[#18181C] border border-[#2E2E36] rounded-xl shadow-2xl p-2.5 backdrop-blur-md">
+                            <div className="absolute left-0 top-full mt-1.5 z-50 w-76 max-w-[calc(100vw-32px)] bg-[#18181C] border border-[#2E2E36] rounded-xl shadow-2xl p-2.5 backdrop-blur-md">
+                              {/* Bannière mode setlist si actif */}
+                              {(isInSetlist || isSetlistMode) && currentSetlist && (
+                                <div className="mb-2.5 p-2 rounded-lg bg-blue-950/40 border border-blue-500/30 flex items-center justify-between">
+                                  <div className="min-w-0 pr-1">
+                                    <div className="text-[10px] font-bold text-blue-400 uppercase tracking-wider">Setlist active</div>
+                                    <div className="text-xs font-semibold text-white truncate">{currentSetlist.name}</div>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setShowLanguageMenu(false);
+                                      setShowSetlistVersionModal(true);
+                                    }}
+                                    className="px-2 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold shrink-0 transition-colors cursor-pointer"
+                                  >
+                                    Options
+                                  </button>
+                                </div>
+                              )}
+
                               {/* Section: Langue du chant actuel & Sélecteur rapide */}
                               <div className="mb-2.5 pb-2.5 border-b border-[#282830]">
                                 <div className="flex items-center justify-between mb-1.5 px-1">
@@ -1480,27 +1602,44 @@ export const SongReader: React.FC<SongReaderProps> = ({
 
                               {/* Autres versions liées disponibles */}
                               {linkedVersions.length > 0 ? (
-                                <div className="max-h-40 overflow-y-auto space-y-1 pr-0.5 custom-scrollbar">
+                                <div className="max-h-52 overflow-y-auto space-y-1.5 pr-0.5 custom-scrollbar">
                                   {linkedVersions.map((lv) => {
                                     const lvMeta = getLanguageMeta(lv.language);
+                                    const inSetlist = Boolean((isInSetlist || isSetlistMode) && currentSetlist);
+
                                     return (
-                                      <button
+                                      <div
                                         key={lv.id}
-                                        type="button"
-                                        onClick={() => {
-                                          setSelectedSong(lv);
-                                          setShowLanguageMenu(false);
-                                        }}
-                                        className="w-full py-1.5 px-2 rounded-lg bg-[#141416] hover:bg-[#202026] text-gray-300 hover:text-white transition-colors flex items-center justify-between text-xs border border-[#26262E] cursor-pointer text-left group"
+                                        className="flex items-center justify-between gap-2 p-2 rounded-lg bg-[#141416] border border-[#26262E] hover:border-[#33333E] transition-colors"
                                       >
                                         <div className="flex items-center gap-1.5 min-w-0">
-                                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${lvMeta.badgeClass}`}>
+                                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border shrink-0 ${lvMeta.badgeClass}`}>
                                             {lvMeta.code}
                                           </span>
-                                          <span className="truncate group-hover:text-blue-300">{lv.title}</span>
+                                          <span className="truncate font-semibold text-white text-xs block" title={lv.title}>
+                                            {lv.title}
+                                          </span>
                                         </div>
-                                        <span className="text-[10px] text-blue-400 shrink-0 ml-1 font-medium">Afficher</span>
-                                      </button>
+
+                                        <div className="flex items-center gap-1.5 shrink-0">
+                                          <button
+                                            type="button"
+                                            onClick={() => handleViewOnlyVersion(lv)}
+                                            className="px-2.5 py-1 rounded-lg bg-[#222228] hover:bg-[#2C2C34] text-gray-200 hover:text-white text-[11px] font-medium border border-[#33333E] transition-colors cursor-pointer"
+                                          >
+                                            Afficher
+                                          </button>
+                                          {inSetlist && (
+                                            <button
+                                              type="button"
+                                              onClick={() => handleReplaceCurrentSongInSetlist(lv)}
+                                              className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-semibold shadow-xs transition-colors cursor-pointer"
+                                            >
+                                              Remplacer
+                                            </button>
+                                          )}
+                                        </div>
+                                      </div>
                                     );
                                   })}
                                 </div>
@@ -2290,6 +2429,152 @@ export const SongReader: React.FC<SongReaderProps> = ({
           isOpen={showLanguageModal}
           onClose={() => setShowLanguageModal(false)}
         />
+      )}
+
+      {/* Setlist Language Version Modal (Liste simpliste avec boutons Afficher et Remplacer) */}
+      {showSetlistVersionModal && song && currentSetlist && (() => {
+        const currentLangMeta = getLanguageMeta(song.language);
+        const linkedVersions = getLinkedSongVersions(song, songs);
+
+        return (
+          <div 
+            className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-xs"
+            onClick={() => setShowSetlistVersionModal(false)}
+          >
+            <div 
+              className="w-full max-w-md bg-[#16161A] border border-[#2E2E38] rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header simple */}
+              <div className="px-4 py-3.5 bg-[#1B1B20] border-b border-[#282832] flex items-center justify-between">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-7 h-7 rounded-lg bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0">
+                    <Globe className="w-3.5 h-3.5" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-xs sm:text-sm font-bold text-white leading-none">
+                      Versions disponibles
+                    </h3>
+                    <p className="text-[10px] text-gray-400 truncate mt-0.5">
+                      Setlist : {currentSetlist.name}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowSetlistVersionModal(false)}
+                  className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-[#25252D] transition-colors cursor-pointer"
+                  aria-label="Fermer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Contenu simple : Liste des versions avec boutons Afficher et Remplacer */}
+              <div className="p-3 sm:p-4 space-y-2.5 max-h-[calc(80vh-90px)] overflow-y-auto custom-scrollbar">
+                {linkedVersions.length > 0 ? (
+                  <>
+                    <div className="space-y-2">
+                      {linkedVersions.map((lv) => {
+                        const lvMeta = getLanguageMeta(lv.language);
+                        return (
+                          <div
+                            key={lv.id}
+                            className="flex items-center justify-between gap-2.5 p-2.5 rounded-xl bg-[#121215] border border-[#26262E] hover:border-[#363642] transition-colors"
+                          >
+                            {/* Version info */}
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border shrink-0 ${lvMeta.badgeClass}`}>
+                                {lvMeta.code}
+                              </span>
+                              <span className="text-xs sm:text-sm font-semibold text-white truncate" title={lv.title}>
+                                {lv.title}
+                              </span>
+                            </div>
+
+                            {/* Les 2 boutons demandés : « Afficher » et « Remplacer » */}
+                            <div className="flex items-center gap-2 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => handleViewOnlyVersion(lv)}
+                                className="px-2.5 sm:px-3 py-1.5 rounded-lg bg-[#222228] hover:bg-[#2C2C34] text-gray-200 hover:text-white text-xs font-semibold border border-[#33333E] transition-colors cursor-pointer"
+                              >
+                                Afficher
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleReplaceCurrentSongInSetlist(lv)}
+                                className="px-2.5 sm:px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                              >
+                                Remplacer
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Option secondaire discrète : ajouter à la suite ou gérer */}
+                    <div className="pt-2 border-t border-[#24242C] flex items-center justify-between text-[11px]">
+                      {linkedVersions.length === 1 ? (
+                        <button
+                          type="button"
+                          onClick={() => handleAddAfterCurrentSongInSetlist(linkedVersions[0], true)}
+                          className="text-emerald-400 hover:text-emerald-300 font-medium flex items-center gap-1 transition-colors cursor-pointer"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Ajouter à la suite du chant</span>
+                        </button>
+                      ) : (
+                        <span className="text-gray-500">
+                          {linkedVersions.length} versions disponibles
+                        </span>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowSetlistVersionModal(false);
+                          setShowLanguageModal(true);
+                        }}
+                        className="text-gray-400 hover:text-white flex items-center gap-1 transition-colors cursor-pointer"
+                      >
+                        <Settings2 className="w-3.5 h-3.5" />
+                        <span>Gérer les versions</span>
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  /* Aucune version liée */
+                  <div className="text-center py-6 space-y-3">
+                    <p className="text-xs text-gray-400 leading-relaxed max-w-xs mx-auto">
+                      Ce chant ({currentLangMeta.name}) n'a pas encore d'autre version liée dans le répertoire.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowSetlistVersionModal(false);
+                        setShowLanguageModal(true);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-colors cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Lier une version</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Floating Toast Feedback for setlist modifications */}
+      {feedbackToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-[#1A1A20]/95 border border-emerald-500/40 text-emerald-300 px-4 py-2.5 rounded-xl shadow-2xl backdrop-blur-md text-xs font-semibold flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span>{feedbackToast}</span>
+        </div>
       )}
 
     </div>

@@ -24,6 +24,8 @@ import {
   Cloud
 } from 'lucide-react';
 import { MelobookLogo } from './MelobookLogo';
+import { MetronomeIcon } from './MetronomeIcon';
+import { metronomeAudio } from '../utils/metronomeAudio';
 
 export const Navbar: React.FC = () => {
   const { 
@@ -40,13 +42,24 @@ export const Navbar: React.FC = () => {
     handleSignOut,
     syncStatus,
     lastSyncedAt,
-    syncNow
+    syncNow,
+    isPianoOpen,
+    setIsPianoOpen,
+    isMetronomeOpen,
+    setIsMetronomeOpen
   } = useApp();
 
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isMetronomeActive, setIsMetronomeActive] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    return metronomeAudio.subscribeState(s => {
+      setIsMetronomeActive(s.isPlaying);
+    });
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -237,6 +250,37 @@ export const Navbar: React.FC = () => {
                 <Gauge className="w-3.5 h-3.5 text-blue-400" />
                 <span>Accordeur</span>
               </button>
+
+              <button
+                type="button"
+                onClick={() => setIsPianoOpen(prev => !prev)}
+                className={`relative z-10 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                  isPianoOpen
+                    ? 'bg-blue-600/20 text-blue-400 border border-blue-500/40 shadow-xs'
+                    : 'text-gray-400 hover:text-white hover:bg-[#1A1A1D]'
+                }`}
+                title="Mini piano popup pour repérer des notes et tonalités"
+              >
+                <span className="text-xs">🎹</span>
+                <span>Piano</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsMetronomeOpen(prev => !prev)}
+                className={`relative z-10 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                  isMetronomeOpen
+                    ? 'bg-blue-600/20 text-blue-400 border border-blue-500/40 shadow-xs'
+                    : 'text-gray-400 hover:text-white hover:bg-[#1A1A1D]'
+                }`}
+                title="Métronome interactif avec tap tempo et signatures de mesure"
+              >
+                <MetronomeIcon className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                <span>Métronome</span>
+                {isMetronomeActive && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                )}
+              </button>
             </nav>
           </div>
 
@@ -357,6 +401,30 @@ export const Navbar: React.FC = () => {
                       <Sliders className="w-3.5 h-3.5 text-purple-400" />
                       <span>Réglages</span>
                     </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsPianoOpen(true);
+                        setIsUserMenuOpen(false);
+                      }}
+                      className="w-full text-left px-3.5 py-2 flex items-center gap-2.5 text-gray-300 hover:bg-[#1C1C1E] hover:text-white transition-colors cursor-pointer"
+                    >
+                      <span className="text-sm">🎹</span>
+                      <span>Mini Piano</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsMetronomeOpen(true);
+                        setIsUserMenuOpen(false);
+                      }}
+                      className="w-full text-left px-3.5 py-2 flex items-center gap-2.5 text-gray-300 hover:bg-[#1C1C1E] hover:text-white transition-colors cursor-pointer"
+                    >
+                      <MetronomeIcon className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                      <span>Métronome</span>
+                    </button>
                   </div>
 
                   {/* Actions de compte */}
@@ -389,15 +457,16 @@ export const Navbar: React.FC = () => {
               )}
             </div>
 
-            {/* Mobile Hamburger Dropdown Menu */}
-            <div className="relative md:hidden" ref={mobileMenuRef}>
+            {/* Hamburger Dropdown Menu (accessible mobile et desktop) */}
+            <div className="relative" ref={mobileMenuRef}>
               <button
                 onClick={() => {
                   setIsMobileMenuOpen(!isMobileMenuOpen);
                   if (isUserMenuOpen) setIsUserMenuOpen(false);
                 }}
                 className="relative p-2 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-200 border border-[#333] transition-colors flex items-center justify-center cursor-pointer"
-                aria-label={isMobileMenuOpen ? "Fermer le menu" : "Ouvrir le menu de navigation"}
+                aria-label={isMobileMenuOpen ? "Fermer le menu" : "Menu"}
+                title="Menu"
               >
                 {isMobileMenuOpen ? (
                   <X className="w-4 h-4 text-blue-400" />
@@ -495,6 +564,53 @@ export const Navbar: React.FC = () => {
 
                   {/* Navigation principale */}
                   <div className="py-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsPianoOpen(true);
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className={`w-full text-left px-3.5 py-2 flex items-center justify-between transition-colors ${
+                        isPianoOpen
+                          ? 'bg-[#1C1C1E] text-blue-400 font-semibold'
+                          : 'text-gray-300 hover:bg-[#1C1C1E] hover:text-white'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-sm">🎹</span>
+                        <span>Mini clavier</span>
+                      </div>
+                      {isPianoOpen && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsMetronomeOpen(true);
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className={`w-full text-left px-3.5 py-2 flex items-center justify-between transition-colors ${
+                        isMetronomeOpen
+                          ? 'bg-[#1C1C1E] text-blue-400 font-semibold'
+                          : 'text-gray-300 hover:bg-[#1C1C1E] hover:text-white'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <MetronomeIcon className="w-4 h-4 text-blue-400 shrink-0" />
+                        <span>Métronome</span>
+                        {isMetronomeActive && (
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 animate-pulse">
+                            En cours
+                          </span>
+                        )}
+                      </div>
+                      {isMetronomeOpen && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                      )}
+                    </button>
+
                     <button
                       onClick={() => {
                         handleNavClick('tuner');

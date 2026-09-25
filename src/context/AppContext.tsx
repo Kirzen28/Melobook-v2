@@ -146,6 +146,7 @@ interface AppContextType {
   switchGroup: (groupId: string) => void;
   
   loginDemoUser: (role?: UserRole) => void;
+  loginLocalUser: (customEmail: string, customName?: string, role?: UserRole) => void;
   handleSignOut: () => Promise<void>;
   seedDemoDataToFirestore: () => Promise<void>;
 }
@@ -1396,6 +1397,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setIsAuthModalOpen(false);
   }, []);
 
+  const loginLocalUser = useCallback((customEmail: string, customName?: string, role: UserRole = 'admin') => {
+    const trimmedEmail = customEmail.trim() || 'musicien@songbook.pro';
+    const localUser: UserProfile = {
+      uid: 'user-' + Date.now().toString(36),
+      email: trimmedEmail,
+      displayName: customName?.trim() || trimmedEmail.split('@')[0] || 'Musicien',
+      currentGroupId: 'default-group',
+      role
+    };
+    setCurrentUser(localUser);
+    setIsAuthModalOpen(false);
+  }, []);
+
   const handleSignOut = useCallback(async () => {
     try {
       await signOut(auth);
@@ -1464,6 +1478,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       joinGroup,
       switchGroup,
       loginDemoUser,
+      loginLocalUser,
       handleSignOut,
       seedDemoDataToFirestore
     }}>

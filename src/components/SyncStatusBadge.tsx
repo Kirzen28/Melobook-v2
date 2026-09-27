@@ -8,12 +8,26 @@ import {
   Database, 
   Cloud, 
   X,
-  HardDrive
+  HardDrive,
+  Download,
+  FolderDown
 } from 'lucide-react';
 
 export const SyncStatusBadge: React.FC = () => {
-  const { syncStatus, lastSyncedAt, syncNow, isOffline, songs, setlists } = useApp();
+  const { 
+    syncStatus, 
+    lastSyncedAt, 
+    syncNow, 
+    isOffline, 
+    songs, 
+    setlists,
+    offlineStats,
+    cacheAllSongsOffline,
+    isInstallable,
+    promptInstall
+  } = useApp();
   const [isOpen, setIsOpen] = useState(false);
+  const [isCaching, setIsCaching] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
 
   // Close popover when clicking outside
@@ -158,24 +172,41 @@ export const SyncStatusBadge: React.FC = () => {
           {/* Quick Metrics */}
           <div className="mt-3 grid grid-cols-2 gap-2 text-[11px]">
             <div className="p-2 rounded bg-[#18181B] border border-[#26262A] flex items-center gap-2">
-              <HardDrive className="w-3.5 h-3.5 text-blue-400" />
+              <HardDrive className="w-3.5 h-3.5 text-blue-400 shrink-0" />
               <div>
-                <p className="text-gray-400 text-[10px]">Service Worker</p>
-                <p className="font-bold text-gray-200">{songs.length} chants prêts</p>
+                <p className="text-gray-400 text-[10px]">IndexedDB & SW</p>
+                <p className="font-bold text-gray-200">{offlineStats.songCount || songs.length} chants en cache</p>
               </div>
             </div>
             <div className="p-2 rounded bg-[#18181B] border border-[#26262A] flex items-center gap-2">
-              <Database className="w-3.5 h-3.5 text-emerald-400" />
+              <Database className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
               <div>
                 <p className="text-gray-400 text-[10px]">Setlists</p>
-                <p className="font-bold text-gray-200">{setlists.length} disponibles</p>
+                <p className="font-bold text-gray-200">{offlineStats.setlistCount || setlists.length} stockées</p>
               </div>
             </div>
           </div>
 
           <div className="mt-2.5 px-2 py-1.5 rounded bg-[#18181B]/70 border border-[#26262A] text-[10px] text-gray-400 flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
-            <span>Chants et setlists consultés mis en cache pour un accès hors connexion</span>
+            <span>Chants et setlists stockés en local dans IndexedDB pour répétitions hors-ligne</span>
+          </div>
+
+          {/* Bouton d'action de mise en cache complète */}
+          <div className="mt-2.5">
+            <button
+              type="button"
+              disabled={isCaching}
+              onClick={async () => {
+                setIsCaching(true);
+                await cacheAllSongsOffline();
+                setIsCaching(false);
+              }}
+              className="w-full py-1.5 px-2.5 rounded-lg bg-[#18181B] hover:bg-[#222226] border border-[#333338] text-gray-200 hover:text-white font-medium text-[11px] flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <FolderDown className={`w-3.5 h-3.5 text-emerald-400 ${isCaching ? 'animate-bounce' : ''}`} />
+              <span>{isCaching ? 'Mise en cache IndexedDB...' : 'Mettre tout le répertoire en cache local'}</span>
+            </button>
           </div>
 
           {/* Last sync time */}
@@ -184,8 +215,25 @@ export const SyncStatusBadge: React.FC = () => {
             <span className="font-medium text-gray-300">{formatLastSync(lastSyncedAt)}</span>
           </div>
 
+          {/* Bouton d'installation si disponible */}
+          {isInstallable && (
+            <div className="mt-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  promptInstall();
+                  setIsOpen(false);
+                }}
+                className="w-full py-1.5 px-2.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Installer l'application PWA</span>
+              </button>
+            </div>
+          )}
+
           {/* Manual Trigger Button */}
-          <div className="mt-3.5 pt-2.5 border-t border-[#222226]">
+          <div className="mt-3 pt-2.5 border-t border-[#222226]">
             <button
               type="button"
               disabled={syncStatus === 'syncing' || isOffline}

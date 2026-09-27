@@ -307,10 +307,14 @@ export const Navbar: React.FC = () => {
                   if (isMobileMenuOpen) setIsMobileMenuOpen(false);
                 }}
                 className="relative w-8 h-8 rounded-full bg-[#1C1C1E] hover:bg-[#2A2A2D] border border-[#333] hover:border-blue-500/50 flex items-center justify-center text-white font-bold text-xs transition-all shadow-sm active:scale-95 cursor-pointer select-none"
-                title={currentUser?.displayName ? `${currentUser.displayName} - ${syncConfig.label}` : `Mon compte - ${syncConfig.label}`}
+                title={currentUser?.displayName ? `${currentUser.displayName} (${currentUser.role === 'admin' ? 'Administrateur' : currentUser.role === 'leader' ? 'Responsable' : 'Membre'})` : "Non connecté (Mode invité)"}
                 aria-label="Profil et état de synchronisation"
               >
-                <span>{currentUser?.displayName ? currentUser.displayName.charAt(0).toUpperCase() : 'M'}</span>
+                {currentUser?.displayName ? (
+                  <span>{currentUser.displayName.charAt(0).toUpperCase()}</span>
+                ) : (
+                  <UserIcon className="w-4 h-4 text-gray-400" />
+                )}
 
                 {/* Pastille indiquant la synchronisation directement sur le bouton profil */}
                 <span className="absolute -bottom-0.5 -right-0.5 flex h-3 w-3 pointer-events-none">
@@ -327,11 +331,37 @@ export const Navbar: React.FC = () => {
                 >
                   {/* Informations profil */}
                   <div className="px-3.5 py-2.5">
-                    <p className="font-semibold text-white truncate">{currentUser?.displayName || 'Musicien'}</p>
-                    <p className="text-[11px] text-gray-400 truncate">{currentUser?.email || 'Non connecté'}</p>
-                    <span className="inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#1C1C1E] text-blue-400 border border-[#333]">
-                      Rôle: {currentUser?.role === 'admin' ? 'Administrateur' : 'Membre'}
-                    </span>
+                    {currentUser ? (
+                      <>
+                        <p className="font-semibold text-white truncate">{currentUser.displayName}</p>
+                        <p className="text-[11px] text-gray-400 truncate">{currentUser.email}</p>
+                        <span className={`inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] font-bold border ${
+                          currentUser.role === 'admin'
+                            ? 'bg-blue-600/20 text-blue-400 border-blue-500/30'
+                            : currentUser.role === 'leader'
+                            ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/30'
+                            : 'bg-[#1C1C1E] text-gray-400 border-[#333]'
+                        }`}>
+                          Rôle : {currentUser.role === 'admin' ? 'Administrateur 👑' : currentUser.role === 'leader' ? 'Responsable ⚡' : 'Membre 🎵'}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <p className="font-semibold text-white truncate">Non connecté</p>
+                        <p className="text-[11px] text-gray-400 truncate">Mode invité (lecture seule)</p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsAuthModalOpen(true);
+                            setIsUserMenuOpen(false);
+                          }}
+                          className="mt-2 w-full py-1.5 px-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+                        >
+                          <UserIcon className="w-3.5 h-3.5" />
+                          <span>Se connecter</span>
+                        </button>
+                      </>
+                    )}
                   </div>
 
                   {/* Bouton et état de synchronisation dans le menu profil */}
@@ -391,16 +421,23 @@ export const Navbar: React.FC = () => {
                       <span>Groupe</span>
                     </button>
 
-                    <button
-                      onClick={() => {
-                        handleNavClick('settings');
-                        setIsUserMenuOpen(false);
-                      }}
-                      className="w-full text-left px-3.5 py-2 flex items-center gap-2.5 text-gray-300 hover:bg-[#1C1C1E] hover:text-white transition-colors cursor-pointer"
-                    >
-                      <Sliders className="w-3.5 h-3.5 text-purple-400" />
-                      <span>Réglages</span>
-                    </button>
+                    {currentUser?.role === 'admin' && (
+                      <button
+                        onClick={() => {
+                          handleNavClick('settings');
+                          setIsUserMenuOpen(false);
+                        }}
+                        className="w-full text-left px-3.5 py-2 flex items-center justify-between text-gray-300 hover:bg-[#1C1C1E] hover:text-white transition-colors cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <Sliders className="w-3.5 h-3.5 text-purple-400" />
+                          <span>Réglages</span>
+                        </div>
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-600/20 text-blue-400 border border-blue-500/30">
+                          Admin
+                        </span>
+                      </button>
+                    )}
 
                     <button
                       type="button"
@@ -493,7 +530,11 @@ export const Navbar: React.FC = () => {
                     <div className="flex items-center gap-2 min-w-0 flex-1">
                       {/* Avatar avec pastille de synchronisation */}
                       <div className="relative w-7 h-7 rounded-full bg-[#1C1C1E] border border-[#333] flex items-center justify-center text-white font-bold text-xs shrink-0 shadow-xs">
-                        <span>{currentUser?.displayName ? currentUser.displayName.charAt(0).toUpperCase() : 'M'}</span>
+                        {currentUser?.displayName ? (
+                          <span>{currentUser.displayName.charAt(0).toUpperCase()}</span>
+                        ) : (
+                          <UserIcon className="w-3.5 h-3.5 text-gray-400" />
+                        )}
                         <span className="absolute -bottom-0.5 -right-0.5 flex h-2 w-2 pointer-events-none">
                           {syncStatus === 'syncing' && (
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
@@ -504,10 +545,10 @@ export const Navbar: React.FC = () => {
 
                       <div className="min-w-0 flex-1">
                         <p className="font-semibold text-white truncate text-xs leading-tight">
-                          {currentUser?.displayName || 'Musicien'}
+                          {currentUser ? currentUser.displayName : 'Non connecté'}
                         </p>
                         <p className="text-[10px] text-gray-400 truncate leading-tight">
-                          {currentUser?.email || (currentUser?.role === 'admin' ? 'Administrateur' : 'Membre')}
+                          {currentUser ? (currentUser.email || (currentUser.role === 'admin' ? 'Administrateur' : currentUser.role === 'leader' ? 'Responsable' : 'Membre')) : 'Mode invité (lecture seule)'}
                         </p>
                       </div>
                     </div>
@@ -648,22 +689,24 @@ export const Navbar: React.FC = () => {
                       )}
                     </button>
 
-                    <button
-                      onClick={() => handleNavClick('settings')}
-                      className={`w-full text-left px-3.5 py-2 flex items-center justify-between transition-colors ${
-                        activeTab === 'settings'
-                          ? 'bg-[#1C1C1E] text-purple-400 font-semibold'
-                          : 'text-gray-300 hover:bg-[#1C1C1E] hover:text-white'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <Sliders className="w-3.5 h-3.5 text-purple-400" />
-                        <span>Réglages</span>
-                      </div>
-                      {activeTab === 'settings' && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
-                      )}
-                    </button>
+                    {currentUser?.role === 'admin' && (
+                      <button
+                        onClick={() => handleNavClick('settings')}
+                        className={`w-full text-left px-3.5 py-2 flex items-center justify-between transition-colors ${
+                          activeTab === 'settings'
+                            ? 'bg-[#1C1C1E] text-purple-400 font-semibold'
+                            : 'text-gray-300 hover:bg-[#1C1C1E] hover:text-white'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <Sliders className="w-3.5 h-3.5 text-purple-400" />
+                          <span>Réglages</span>
+                        </div>
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-600/20 text-blue-400 border border-blue-500/30">
+                          Admin
+                        </span>
+                      </button>
+                    )}
                   </div>
 
                   {isInstallable && (

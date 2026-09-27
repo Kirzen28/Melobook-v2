@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'member';
+export type UserRole = 'admin' | 'leader' | 'member';
 
 export type SyncStatus = 'synced' | 'syncing' | 'offline' | 'error';
 

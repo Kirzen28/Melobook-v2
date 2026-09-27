@@ -33,7 +33,14 @@ import {
   FileText,
   Bookmark,
   AlignLeft,
-  MoveVertical
+  MoveVertical,
+  Shield,
+  Database,
+  HardDrive,
+  FolderDown,
+  Download,
+  WifiOff,
+  Trash2
 } from 'lucide-react';
 import { useMidi } from '../context/MidiContext';
 import { MidiSettingsModal } from './MidiSettingsModal';
@@ -260,8 +267,44 @@ export const SettingsView: React.FC = () => {
     stageSettings,
     updateStageSettings,
     songCardMetadata,
-    updateSongCardMetadata
+    updateSongCardMetadata,
+    currentUser,
+    songs,
+    setlists,
+    isOffline,
+    offlineStats,
+    refreshOfflineStats,
+    cacheAllSongsOffline,
+    clearOfflineStorage,
+    isInstallable,
+    promptInstall
   } = useApp();
+
+  if (currentUser?.role !== 'admin') {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-16 text-center text-white">
+        <div className="w-14 h-14 rounded-2xl bg-blue-600/10 border border-blue-500/20 text-blue-400 flex items-center justify-center mx-auto mb-4 shadow-sm">
+          <Shield className="w-7 h-7" />
+        </div>
+        <h2 className="text-xl font-bold text-white mb-2">Accès Réservé à l'Administrateur</h2>
+        <p className="text-sm text-gray-400 mb-4 max-w-md mx-auto leading-relaxed">
+          Seul l'Administrateur a accès à l'ensemble des réglages généraux de l'application, du nettoyage de doublons et des préférences système globales.
+        </p>
+        {currentUser?.role === 'leader' && (
+          <div className="mb-6 p-3 rounded-lg bg-emerald-950/30 border border-emerald-500/30 text-emerald-300 text-xs max-w-md mx-auto leading-relaxed">
+            ⚡ <strong>Rôle Responsable :</strong> Vous disposez des mêmes droits que l'Administrateur pour gérer toute la musique (chants, accords ChordPro, transpositions, dossiers, setlists et cultes), mais l'accès à tous les réglages généraux et la gestion des groupes sont réservés à l'Administrateur.
+          </div>
+        )}
+        <button
+          onClick={() => setActiveTab('repertoire')}
+          className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition-colors shadow-sm inline-flex items-center gap-2 cursor-pointer"
+        >
+          <Music className="w-4 h-4" />
+          <span>Retourner à la Bibliothèque</span>
+        </button>
+      </div>
+    );
+  }
 
   const { 
     typography, 
@@ -282,7 +325,8 @@ export const SettingsView: React.FC = () => {
     | 'borders'
     | 'colors'
     | 'midi'
-    | 'duplicates';
+    | 'duplicates'
+    | 'offline';
 
   const [openCategories, setOpenCategories] = useState<Record<SettingsCategory, boolean>>({
     display: false,      // Plié par défaut sur tous les appareils
@@ -292,6 +336,7 @@ export const SettingsView: React.FC = () => {
     colors: false,
     midi: false,
     duplicates: false,
+    offline: false,
   });
 
   const toggleCategory = (cat: SettingsCategory) => {
@@ -312,6 +357,7 @@ export const SettingsView: React.FC = () => {
       colors: nextState,
       midi: nextState,
       duplicates: nextState,
+      offline: nextState,
     });
   };
 
@@ -2118,6 +2164,147 @@ export const SettingsView: React.FC = () => {
             isOpen={openCategories.duplicates}
             onToggle={() => toggleCategory('duplicates')}
           />
+
+          {/* 8. STOCKAGE HORS-LIGNE & INDEXEDDB */}
+          <div className="bg-[#121214] border border-[#242428] rounded-xl overflow-hidden shadow-sm">
+            <button
+              type="button"
+              onClick={() => toggleCategory('offline')}
+              className="w-full px-4 sm:px-5 py-3.5 flex items-center justify-between hover:bg-[#161619] transition-colors cursor-pointer text-left"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-emerald-600/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                  <Database className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-white text-sm">
+                      Accès Hors-Ligne & Cache Local (IndexedDB & PWA)
+                    </span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      {offlineStats.songCount || songs.length} chants en cache
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    Stockage local haute performance dans IndexedDB et Service Worker pour les répétitions sans réseau
+                  </p>
+                </div>
+              </div>
+              <div className="text-gray-400">
+                {openCategories.offline ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </div>
+            </button>
+
+            {openCategories.offline && (
+              <div className="p-4 sm:p-5 border-t border-[#222226] bg-[#0E0E10] space-y-4">
+                {/* Status overview cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="p-3 rounded-lg bg-[#141416] border border-[#242428]">
+                    <div className="flex items-center gap-2 text-xs text-gray-400 mb-1">
+                      <Database className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Base locale IndexedDB</span>
+                    </div>
+                    <p className="text-base font-bold text-white">
+                      {offlineStats.songCount || songs.length} chants
+                    </p>
+                    <p className="text-[11px] text-gray-400 mt-0.5">
+                      {offlineStats.setlistCount || setlists.length} setlists stockées
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-lg bg-[#141416] border border-[#242428]">
+                    <div className="flex items-center gap-2 text-xs text-gray-400 mb-1">
+                      <HardDrive className="w-3.5 h-3.5 text-blue-400" />
+                      <span>Service Worker & Cache</span>
+                    </div>
+                    <p className="text-base font-bold text-blue-300">
+                      Prêt hors-ligne
+                    </p>
+                    <p className="text-[11px] text-gray-400 mt-0.5">
+                      PWA installable & assets mis en cache
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-lg bg-[#141416] border border-[#242428]">
+                    <div className="flex items-center gap-2 text-xs text-gray-400 mb-1">
+                      <Zap className="w-3.5 h-3.5 text-purple-400" />
+                      <span>Espace de stockage</span>
+                    </div>
+                    <p className="text-base font-bold text-white">
+                      {offlineStats.usageBytes > 0 
+                        ? `${(offlineStats.usageBytes / (1024 * 1024)).toFixed(1)} Mo`
+                        : 'Léger (< 5 Mo)'}
+                    </p>
+                    <p className="text-[11px] text-gray-400 mt-0.5">
+                      Quota alloué par le navigateur
+                    </p>
+                  </div>
+                </div>
+
+                {/* Information banner */}
+                <div className="p-3 rounded-lg bg-emerald-950/20 border border-emerald-500/30 text-emerald-200 text-xs flex items-start gap-2.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0 mt-1" />
+                  <div className="space-y-1">
+                    <p className="font-semibold text-white">Fonctionnement hors connexion garanti</p>
+                    <p className="text-gray-300 leading-relaxed text-[11px]">
+                      Tous les chants et setlists sont automatiquement persistés dans la base de données <strong>IndexedDB</strong> de votre navigateur et sécurisés par le <strong>Service Worker</strong>. Lors d'une répétition, d'un culte ou d'un concert sans connexion Internet ou en mode avion, l'intégralité de vos partitions reste immédiatement accessible et navigable.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Action buttons */}
+                <div className="flex flex-wrap items-center gap-2.5 pt-2 border-t border-[#222226]">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await cacheAllSongsOffline();
+                    }}
+                    className="px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center gap-2 transition-colors shadow-sm cursor-pointer"
+                  >
+                    <FolderDown className="w-4 h-4" />
+                    <span>Mettre en cache tous les chants maintenant</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await refreshOfflineStats();
+                      notify('État du stockage vérifié avec succès');
+                    }}
+                    className="px-3.5 py-2 rounded-lg bg-[#1C1C20] hover:bg-[#25252A] text-gray-200 hover:text-white border border-[#333] font-semibold text-xs flex items-center gap-2 transition-colors cursor-pointer"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5 text-blue-400" />
+                    <span>Vérifier le stockage</span>
+                  </button>
+
+                  {isInstallable && (
+                    <button
+                      type="button"
+                      onClick={() => promptInstall()}
+                      className="px-3.5 py-2 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/40 font-semibold text-xs flex items-center gap-2 transition-colors cursor-pointer"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span>Installer l'application (PWA)</span>
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (window.confirm('Voulez-vous vider le cache local ? Les chants seront re-téléchargés depuis Firestore.')) {
+                        await clearOfflineStorage();
+                      }
+                    }}
+                    className="px-3 py-2 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ml-auto"
+                    title="Vider le cache hors-ligne"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Vider le cache local</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
 
         </div>
 

@@ -30,6 +30,7 @@ import {
   where, 
   orderBy, 
   onSnapshot,
+  limit,
   serverTimestamp,
   enableNetwork,
   disableNetwork
@@ -110,6 +111,7 @@ export {
   where,
   orderBy,
   onSnapshot,
+  limit,
   serverTimestamp,
   enableNetwork,
   disableNetwork

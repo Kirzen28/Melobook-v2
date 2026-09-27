@@ -1,6 +1,6 @@
-const CACHE_STATIC_NAME = 'melobook-static-v2';
-const CACHE_RUNTIME_NAME = 'melobook-runtime-v2';
-const CACHE_DATA_NAME = 'melobook-data-v2';
+const CACHE_STATIC_NAME = 'melobook-static-v3';
+const CACHE_RUNTIME_NAME = 'melobook-runtime-v3';
+const CACHE_DATA_NAME = 'melobook-data-v3';
 
 const STATIC_ASSETS = [
   '/',
@@ -9,14 +9,22 @@ const STATIC_ASSETS = [
   '/icon.svg'
 ];
 
+// Installation du Service Worker : mise en cache sécurisée des assets critiques
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_STATIC_NAME).then((cache) => {
-      return cache.addAll(STATIC_ASSETS);
+    caches.open(CACHE_STATIC_NAME).then(async (cache) => {
+      // Met en cache chaque ressource de manière tolérante aux pannes
+      const promises = STATIC_ASSETS.map((asset) =>
+        cache.add(asset).catch((err) => {
+          console.warn('[SW] Pré-cache avertissement pour :', asset, err);
+        })
+      );
+      await Promise.all(promises);
     }).then(() => self.skipWaiting())
   );
 });
 
+// Activation du Service Worker : nettoyage des anciens caches obsolètes
 self.addEventListener('activate', (event) => {
   const allowedCaches = [CACHE_STATIC_NAME, CACHE_RUNTIME_NAME, CACHE_DATA_NAME];
   event.waitUntil(
@@ -30,6 +38,7 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// Écriture utilitaire d'une ressource JSON dans le cache de données
 async function storeItemInCache(cacheName, urlPath, data) {
   try {
     const cache = await caches.open(cacheName);
@@ -48,6 +57,7 @@ async function storeItemInCache(cacheName, urlPath, data) {
   }
 }
 
+// Traitement de la mise en cache d'un chant individuel
 async function handleCacheSongMessage(song) {
   if (!song || !song.id) return;
   await storeItemInCache(CACHE_DATA_NAME, `/offline-data/songs/${song.id}`, song);
@@ -63,10 +73,11 @@ async function handleCacheSongMessage(song) {
     filtered.push(song);
     await storeItemInCache(CACHE_DATA_NAME, '/offline-data/songs', filtered);
   } catch (e) {
-    // Continue silently
+    // Continue silencieusement
   }
 }
 
+// Traitement de la mise en cache d'une setlist et de ses partitions
 async function handleCacheSetlistMessage(setlist, songs) {
   if (!setlist || !setlist.id) return;
   await storeItemInCache(CACHE_DATA_NAME, `/offline-data/setlists/${setlist.id}`, setlist);
@@ -82,7 +93,7 @@ async function handleCacheSetlistMessage(setlist, songs) {
     filtered.push(setlist);
     await storeItemInCache(CACHE_DATA_NAME, '/offline-data/setlists', filtered);
   } catch (e) {
-    // Continue silently
+    // Continue silencieusement
   }
 
   if (Array.isArray(songs) && songs.length > 0) {
@@ -92,6 +103,7 @@ async function handleCacheSetlistMessage(setlist, songs) {
   }
 }
 
+// Traitement de la mise en cache globale (tous les chants et setlists)
 async function handleCacheAllDataMessage(songs, setlists) {
   if (Array.isArray(songs) && songs.length > 0) {
     await storeItemInCache(CACHE_DATA_NAME, '/offline-data/songs', songs);
@@ -111,6 +123,7 @@ async function handleCacheAllDataMessage(songs, setlists) {
   }
 }
 
+// Écoute des messages venant du thread principal React
 self.addEventListener('message', (event) => {
   if (!event.data) return;
 
@@ -162,11 +175,13 @@ self.addEventListener('message', (event) => {
   }
 });
 
+// Interception des requêtes réseau pour fonctionnement hors-ligne robuste
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
   const url = new URL(event.request.url);
 
+  // Ignorer les requêtes d'authentification et de flux Firestore distants
   if (
     url.origin.includes('firestore') ||
     url.origin.includes('identitytoolkit') ||
@@ -175,12 +190,13 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // 1. Requêtes de données hors-ligne spécifiques (/offline-data/*)
   if (url.pathname.startsWith('/offline-data/')) {
     event.respondWith(
       caches.open(CACHE_DATA_NAME).then((cache) => {
         return cache.match(event.request).then((cachedResponse) => {
           if (cachedResponse) return cachedResponse;
-          return new Response(JSON.stringify({ error: 'Item non trouve en cache hors-ligne' }), {
+          return new Response(JSON.stringify({ error: 'Élément non trouvé dans le cache hors-ligne' }), {
             status: 404,
             headers: { 'Content-Type': 'application/json' }
           });
@@ -190,6 +206,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // 2. Polices Google Fonts (CacheFirst avec mise en cache runtime)
   if (url.origin.includes('fonts.googleapis.com') || url.origin.includes('fonts.gstatic.com')) {
     event.respondWith(
       caches.open(CACHE_RUNTIME_NAME).then((cache) => {
@@ -208,6 +225,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // 3. Navigation HTML de l'application (NetworkFirst avec fallback offline index.html)
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request)
@@ -230,6 +248,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // 4. Assets statiques (JS, CSS, SVGs, images, fonts)
   const isStaticAsset =
     url.pathname.startsWith('/assets/') ||
     url.pathname.endsWith('.js') ||
@@ -259,6 +278,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // 5. Fallback par défaut : Cache puis réseau
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       return (

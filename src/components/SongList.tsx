@@ -64,7 +64,8 @@ export const SongList: React.FC = () => {
     createSong,
     importSong,
     songCardMetadata,
-    autoDetectSongLanguages
+    autoDetectSongLanguages,
+    canManageSongs
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -1425,7 +1426,7 @@ export const SongList: React.FC = () => {
             </div>
 
             {/* Buttons in the right corner */}
-            {currentUser?.role === 'admin' && (
+            {canManageSongs && (
               <div className="flex items-center gap-0.5 shrink-0">
                 <button
                   type="button"
@@ -1650,7 +1651,7 @@ export const SongList: React.FC = () => {
           </div>
 
           {/* Nouveau Chant */}
-          {currentUser?.role === 'admin' && (
+          {canManageSongs && (
             <button
               onClick={handleCreateNewSong}
               className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-md bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-sm transition-all active:scale-95"

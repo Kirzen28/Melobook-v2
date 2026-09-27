@@ -139,7 +139,8 @@ export const SongReader: React.FC<SongReaderProps> = ({
     activeTab,
     currentUser,
     currentGroup,
-    setActiveSetlistIndex
+    setActiveSetlistIndex,
+    canManageSongs
   } = useApp();
 
   const { registerActionHandler } = useMidi();
@@ -1461,7 +1462,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                     </button>
                   )}
 
-                  {currentUser?.role === 'admin' && (
+                  {canManageSongs && (
                     <button
                       type="button"
                       onClick={() => setActiveTab('editor')}
@@ -1708,7 +1709,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                   </button>
                 )}
 
-                {currentUser?.role === 'admin' && (
+                {canManageSongs && (
                   <button
                     type="button"
                     onClick={() => setActiveTab('editor')}

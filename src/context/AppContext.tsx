@@ -25,6 +25,8 @@ import {
   collection, 
   doc, 
   getDoc, 
+  getDocs,
+  limit,
   setDoc, 
   addDoc, 
   updateDoc, 
@@ -43,8 +45,13 @@ import {
   registerServiceWorker, 
   cacheSongInWorker, 
   cacheSetlistInWorker, 
-  cacheAllDataInWorker 
+  cacheAllDataInWorker,
+  getAllCachedSongs,
+  getAllCachedSetlists,
+  clearAllLocalCaches,
+  getOfflineStorageStats 
 } from '../utils/pwaCache';
+import { deleteSongFromIndexedDB, deleteSetlistFromIndexedDB } from '../utils/indexedDB';
 
 const DEFAULT_GROUP: Group = {
   id: 'default-group',
@@ -110,6 +117,19 @@ interface AppContextType {
   isInstallable: boolean;
   promptInstall: () => void;
   
+  // Offline & IndexedDB Storage
+  offlineStats: {
+    songCount: number;
+    setlistCount: number;
+    lastCachedAt: string | null;
+    usageBytes: number;
+    quotaBytes: number;
+    isSupported: boolean;
+  };
+  refreshOfflineStats: () => Promise<void>;
+  cacheAllSongsOffline: () => Promise<void>;
+  clearOfflineStorage: () => Promise<void>;
+  
   // Snackbar Notifications
   notifications: AppNotification[];
   showNotification: (
@@ -142,8 +162,21 @@ interface AppContextType {
   deleteSetlistHistory: (id: string) => Promise<void>;
   
   createGroup: (name: string, description?: string) => Promise<string>;
+  updateGroup: (groupId: string, data: Partial<Pick<Group, 'name' | 'description' | 'inviteCode'>>) => Promise<boolean>;
+  deleteGroup: (groupId: string) => Promise<boolean>;
   joinGroup: (inviteCode: string) => Promise<boolean>;
   switchGroup: (groupId: string) => void;
+  
+  // Permissions & Rôles
+  isAdmin: boolean;
+  isLeader: boolean;
+  canManageSongs: boolean;
+  canManageGroups: boolean;
+  canAccessSettings: boolean;
+  
+  allUsers: UserProfile[];
+  updateUserRole: (userId: string, newRole: UserRole) => Promise<void>;
+  setAdminByEmail: (targetEmail: string, role?: UserRole) => Promise<void>;
   
   loginDemoUser: (role?: UserRole) => void;
   loginLocalUser: (customEmail: string, customName?: string, role?: UserRole) => void;
@@ -160,22 +193,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [selectedSetlist, setSelectedSetlist] = useState<Setlist | null>(null);
   const [activeSetlistIndex, setActiveSetlistIndex] = useState<number>(0);
   
-  // Auth state
+  // Auth state - par défaut, aucun compte n'est connecté
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
     const saved = localStorage.getItem('songbook_user');
     if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
+      try {
+        const parsed = JSON.parse(saved);
+        // Ne pas restaurer l'ancien faux compte de démo
+        if (parsed?.uid && parsed.uid !== 'demo-admin-uid' && !parsed.uid.startsWith('demo-')) {
+          return parsed;
+        } else {
+          localStorage.removeItem('songbook_user');
+        }
+      } catch (e) {}
     }
-    // Default Demo Admin user so app is immediately usable without requiring mandatory sign in first
-    return {
-      uid: 'demo-admin-uid',
-      email: 'musicien@songbook.pro',
-      displayName: 'Alexandre',
-      currentGroupId: 'default-group',
-      role: 'admin'
-    };
+    return null;
   });
+  const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isPianoOpen, setIsPianoOpen] = useState(false);
   const [isMetronomeOpen, setIsMetronomeOpen] = useState(false);
@@ -424,6 +459,123 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [deferredInstallPrompt, setDeferredInstallPrompt] = useState<any>(null);
   const [isInstallable, setIsInstallable] = useState(false);
 
+  // Offline stats state (IndexedDB & Service Worker)
+  const [offlineStats, setOfflineStats] = useState<{
+    songCount: number;
+    setlistCount: number;
+    lastCachedAt: string | null;
+    usageBytes: number;
+    quotaBytes: number;
+    isSupported: boolean;
+  }>({
+    songCount: 0,
+    setlistCount: 0,
+    lastCachedAt: null,
+    usageBytes: 0,
+    quotaBytes: 0,
+    isSupported: typeof window !== 'undefined' && 'indexedDB' in window
+  });
+
+  const refreshOfflineStats = useCallback(async () => {
+    try {
+      const stats = await getOfflineStorageStats();
+      setOfflineStats(stats);
+    } catch (e) {
+      console.warn('Erreur lecture stats offline:', e);
+    }
+  }, []);
+
+  const cacheAllSongsOffline = useCallback(async () => {
+    try {
+      await cacheAllDataInWorker(songs, setlists);
+      await refreshOfflineStats();
+      showNotification({
+        title: 'Cache hors-ligne complet',
+        message: `${songs.length} chants et ${setlists.length} setlists stockés en local (IndexedDB & Service Worker).`,
+        type: 'success',
+        duration: 3200
+      });
+    } catch (e) {
+      showNotification({
+        title: 'Erreur stockage local',
+        message: 'Impossible de finaliser la mise en cache.',
+        type: 'error'
+      });
+    }
+  }, [songs, setlists, refreshOfflineStats, showNotification]);
+
+  const clearOfflineStorage = useCallback(async () => {
+    try {
+      await clearAllLocalCaches();
+      await refreshOfflineStats();
+      showNotification({
+        title: 'Stockage local réinitialisé',
+        message: 'Le cache hors-ligne IndexedDB a été vidé avec succès.',
+        type: 'info'
+      });
+    } catch (e) {
+      showNotification({
+        title: 'Erreur',
+        message: 'Impossible de vider le cache.',
+        type: 'error'
+      });
+    }
+  }, [refreshOfflineStats, showNotification]);
+
+  // Hydratation initiale depuis IndexedDB pour disponibilité instantanée hors-ligne
+  useEffect(() => {
+    let isMounted = true;
+    const hydrateFromIndexedDB = async () => {
+      try {
+        const targetGroup = currentGroup?.id || 'default-group';
+        const [cachedSongs, cachedSetlists] = await Promise.all([
+          getAllCachedSongs(targetGroup),
+          getAllCachedSetlists(targetGroup)
+        ]);
+
+        if (!isMounted) return;
+
+        const deletedSongIds = getDeletedSongIds();
+        const deletedSetlistIds = getDeletedSetlistIds();
+
+        if (cachedSongs && cachedSongs.length > 0) {
+          setSongs(prev => {
+            const songMap = new Map<string, Song>();
+            cachedSongs.forEach(s => {
+              if (!deletedSongIds.has(s.id)) songMap.set(s.id, s);
+            });
+            prev.forEach(s => {
+              if (!deletedSongIds.has(s.id)) songMap.set(s.id, s);
+            });
+            return Array.from(songMap.values());
+          });
+        }
+
+        if (cachedSetlists && cachedSetlists.length > 0) {
+          setSetlists(prev => {
+            const stMap = new Map<string, Setlist>();
+            cachedSetlists.forEach(st => {
+              if (!deletedSetlistIds.has(st.id)) stMap.set(st.id, st);
+            });
+            prev.forEach(st => {
+              if (!deletedSetlistIds.has(st.id)) stMap.set(st.id, st);
+            });
+            return Array.from(stMap.values());
+          });
+        }
+
+        await refreshOfflineStats();
+      } catch (err) {
+        console.warn('Hydratation IndexedDB:', err);
+      }
+    };
+
+    hydrateFromIndexedDB();
+    return () => {
+      isMounted = false;
+    };
+  }, [currentGroup?.id, refreshOfflineStats]);
+
   // Manual sync trigger
   const syncNow = useCallback(async () => {
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
@@ -434,12 +586,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSyncStatus('syncing');
     try {
       await new Promise(resolve => setTimeout(resolve, 750));
+      // Re-sauvegarder dans IndexedDB après sync
+      await cacheAllDataInWorker(songs, setlists);
+      await refreshOfflineStats();
       setSyncStatus('synced');
       setLastSyncedAt(new Date());
     } catch (e) {
       setSyncStatus('error');
     }
-  }, []);
+  }, [songs, setlists, refreshOfflineStats]);
 
   // PWA Install and Online Listener
   useEffect(() => {
@@ -467,20 +622,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Register Service Worker pour acces complet hors-ligne
     registerServiceWorker();
+    refreshOfflineStats();
 
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
     };
-  }, []);
+  }, [refreshOfflineStats]);
 
   // Mise en cache du chant consulte
   useEffect(() => {
     if (selectedSong) {
-      cacheSongInWorker(selectedSong);
+      cacheSongInWorker(selectedSong).then(() => {
+        refreshOfflineStats();
+      });
     }
-  }, [selectedSong]);
+  }, [selectedSong, refreshOfflineStats]);
 
   // Mise en cache de la setlist consultee et de ses partitions
   useEffect(() => {
@@ -488,16 +646,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const setlistSongs = selectedSetlist.songIds
         .map(id => songs.find(s => s.id === id))
         .filter((s): s is Song => Boolean(s));
-      cacheSetlistInWorker(selectedSetlist, setlistSongs);
+      cacheSetlistInWorker(selectedSetlist, setlistSongs).then(() => {
+        refreshOfflineStats();
+      });
     }
-  }, [selectedSetlist, songs]);
+  }, [selectedSetlist, songs, refreshOfflineStats]);
 
-  // Sauvegarde globale de l ensemble du repertoire dans le cache du service worker
+  // Sauvegarde globale de l ensemble du repertoire dans IndexedDB et le cache SW
   useEffect(() => {
     if (songs.length > 0 || setlists.length > 0) {
-      cacheAllDataInWorker(songs, setlists);
+      cacheAllDataInWorker(songs, setlists).then(() => {
+        refreshOfflineStats();
+      });
     }
-  }, [songs, setlists]);
+  }, [songs, setlists, refreshOfflineStats]);
 
   // Deep linking for song shared via QR Code or direct link
   useEffect(() => {
@@ -611,12 +773,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const data = snap.data() as UserProfile;
             setCurrentUser(data);
           } else {
+            const email = (user.email || '').toLowerCase().trim();
+            let role: UserRole = 'member';
+            
+            // Propriétaire ou administrateur préconfiguré
+            if (email === 'kriveravelasquez@rivera-marketing.com') {
+              role = 'admin';
+            } else {
+              try {
+                // Vérifier si l'adresse est pré-autorisée comme administrateur
+                const adminEmailDoc = await getDoc(doc(db, 'admin_emails', email));
+                if (adminEmailDoc.exists()) {
+                  role = 'admin';
+                } else {
+                  // Si aucun utilisateur n'existe encore dans la base, le 1er inscrit devient admin
+                  const usersSnap = await getDocs(query(collection(db, 'users'), limit(1)));
+                  if (usersSnap.empty) {
+                    role = 'admin';
+                  }
+                }
+              } catch (e) {
+                console.warn('Admin check note:', e);
+              }
+            }
+
             const newUser: UserProfile = {
               uid: user.uid,
               email: user.email || '',
               displayName: user.displayName || user.email?.split('@')[0] || 'Musicien',
               currentGroupId: 'default-group',
-              role: 'admin'
+              role
             };
             await setDoc(userRef, newUser);
             setCurrentUser(newUser);
@@ -624,10 +810,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } catch (e) {
           console.warn('Firestore user fetch note:', e);
         }
+      } else {
+        // Aucun compte connecté via Firebase
+        setCurrentUser(prev => {
+          if (prev?.uid && (prev.uid.startsWith('user-') || prev.uid.startsWith('demo-'))) {
+            return prev;
+          }
+          return null;
+        });
       }
     });
 
     return () => unsubscribe();
+  }, []);
+
+  // Synchronisation en temps réel de tous les utilisateurs pour l'administration des rôles
+  useEffect(() => {
+    try {
+      const qAllUsers = query(collection(db, 'users'));
+      const unsubUsers = onSnapshot(qAllUsers, (snap) => {
+        const uList: UserProfile[] = [];
+        const seenUids = new Set<string>();
+        snap.forEach(d => {
+          const data = d.data() as Partial<UserProfile>;
+          const resolvedUid = data.uid || d.id;
+          if (resolvedUid && !seenUids.has(resolvedUid)) {
+            seenUids.add(resolvedUid);
+            uList.push({ ...data, uid: resolvedUid } as UserProfile);
+          }
+        });
+        setAllUsers(uList);
+      }, (err) => {
+        console.warn('Users snapshot note:', err);
+      });
+      return () => unsubUsers();
+    } catch (e) {
+      console.warn('Users sync init error:', e);
+    }
   }, []);
 
   // Sync Data with Firestore based on currentGroup
@@ -654,21 +873,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setSongs(prev => {
         const songMap = new Map<string, Song>();
 
-        // 1. Preserve all existing songs already in state
+        // 1. Preserve only existing songs that belong to this targetGroupId
         prev.forEach(s => {
-          if (!deletedIds.has(s.id)) {
+          const sGroup = s.groupId || 'default-group';
+          if (sGroup === targetGroupId && !deletedIds.has(s.id)) {
             songMap.set(s.id, s);
           }
         });
 
-        // 2. Add or update songs loaded from Firestore
+        // 2. Add or update songs loaded from Firestore for this targetGroupId
         loadedSongs.forEach(s => {
           if (!deletedIds.has(s.id)) {
             songMap.set(s.id, s);
           }
         });
 
-        // 3. For default group, make sure sample songs remain present
+        // 3. For default group only, make sure sample songs remain present
         if (targetGroupId === 'default-group') {
           SAMPLE_SONGS.forEach(s => {
             if (!deletedIds.has(s.id) && !songMap.has(s.id)) {
@@ -700,9 +920,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setSetlists(prev => {
         const setlistMap = new Map<string, Setlist>();
 
-        // 1. Preserve existing setlists in state
+        // 1. Preserve only setlists belonging to this targetGroupId
         prev.forEach(st => {
-          if (!deletedSetlistIds.has(st.id)) {
+          const stGroup = st.groupId || 'default-group';
+          if (stGroup === targetGroupId && !deletedSetlistIds.has(st.id)) {
             setlistMap.set(st.id, st);
           }
         });
@@ -714,7 +935,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
         });
 
-        // 3. For default group, ensure sample setlists remain present
+        // 3. For default group only, ensure sample setlists remain present
         if (targetGroupId === 'default-group') {
           SAMPLE_SETLISTS.forEach(st => {
             if (!deletedSetlistIds.has(st.id) && !setlistMap.has(st.id)) {
@@ -746,7 +967,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const historyMap = new Map<string, SetlistHistoryRecord>();
 
         prev.forEach(h => {
-          if (!deletedHistoryIds.has(h.id)) {
+          const hGroup = h.groupId || 'default-group';
+          if (hGroup === targetGroupId && !deletedHistoryIds.has(h.id)) {
             historyMap.set(h.id, h);
           }
         });
@@ -777,13 +999,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (currentUser?.uid) {
       const qGroups = query(collection(db, 'groups'), where('members', 'array-contains', currentUser.uid));
       const unsubGroups = onSnapshot(qGroups, (snapshot) => {
+        const loadedGroups: Group[] = [];
         if (!snapshot.empty) {
-          const loadedGroups: Group[] = [];
           snapshot.forEach((d) => {
             loadedGroups.push({ id: d.id, ...d.data() } as Group);
           });
-          setGroups(loadedGroups);
         }
+        const seenGroupIds = new Set<string>();
+        const mergedGroups: Group[] = [];
+        for (const g of [DEFAULT_GROUP, ...loadedGroups]) {
+          const gid = g.id || 'default-group';
+          if (!seenGroupIds.has(gid)) {
+            seenGroupIds.add(gid);
+            mergedGroups.push(g);
+          }
+        }
+        setGroups(mergedGroups);
       }, (err) => {
         if (err?.code !== 'unavailable') {
           console.warn('Groups sync error:', err.message);
@@ -962,6 +1193,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     })));
 
     showNotification({ title: 'Supprimé', type: 'info' });
+
+    // Supprimer d'IndexedDB pour garder le cache hors-ligne synchronisé
+    deleteSongFromIndexedDB(id).catch(e => console.warn('Suppression chant IndexedDB note:', e));
 
     try {
       await deleteDoc(doc(db, 'songs', id));
@@ -1184,6 +1418,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     showNotification({ title: 'Supprimé', type: 'info' });
 
+    // Supprimer d'IndexedDB pour garder le cache hors-ligne cohérent
+    deleteSetlistFromIndexedDB(id).catch(e => console.warn('Suppression setlist IndexedDB note:', e));
+
     try {
       await deleteDoc(doc(db, 'setlists', id));
     } catch (e) {
@@ -1306,6 +1543,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Group Actions
   const createGroup = useCallback(async (name: string, description = '') => {
+    if (currentUser?.role !== 'admin') {
+      showNotification("Seul l'Administrateur peut créer de nouveaux groupes", 'error');
+      return '';
+    }
+
     const newId = 'group_' + Date.now();
     const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
     const uid = currentUser?.uid || 'user';
@@ -1329,7 +1571,52 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     return newId;
-  }, [currentUser?.uid]);
+  }, [currentUser?.uid, currentUser?.role, showNotification]);
+
+  const updateGroup = useCallback(async (groupId: string, data: Partial<Pick<Group, 'name' | 'description' | 'inviteCode'>>): Promise<boolean> => {
+    if (currentUser?.role !== 'admin') {
+      showNotification("Seul l'Administrateur peut modifier et gérer les groupes", 'error');
+      return false;
+    }
+
+    try {
+      const docRef = doc(db, 'groups', groupId);
+      await updateDoc(docRef, data);
+    } catch (e) {
+      console.warn('Updated group locally:', e);
+    }
+
+    setGroups(prev => prev.map(g => g.id === groupId ? { ...g, ...data } : g));
+    if (currentGroup?.id === groupId) {
+      setCurrentGroup(prev => prev ? { ...prev, ...data } : prev);
+    }
+    showNotification('Informations du groupe mises à jour avec succès');
+    return true;
+  }, [currentUser?.role, currentGroup?.id, showNotification]);
+
+  const deleteGroup = useCallback(async (groupId: string): Promise<boolean> => {
+    if (groupId === DEFAULT_GROUP.id) {
+      showNotification('Le répertoire principal ne peut pas être supprimé', 'warning');
+      return false;
+    }
+    if (currentUser?.role !== 'admin') {
+      showNotification("Seul l'Administrateur peut supprimer un groupe", 'error');
+      return false;
+    }
+
+    try {
+      await deleteDoc(doc(db, 'groups', groupId));
+    } catch (e) {
+      console.warn('Deleted group locally:', e);
+    }
+
+    setGroups(prev => prev.filter(g => g.id !== groupId));
+    if (currentGroup?.id === groupId) {
+      setCurrentGroup(DEFAULT_GROUP);
+    }
+    showNotification('Groupe supprimé');
+    return true;
+  }, [currentUser?.role, currentGroup?.id, showNotification]);
 
   const joinGroup = useCallback(async (inviteCode: string): Promise<boolean> => {
     const code = inviteCode.trim().toUpperCase();
@@ -1386,10 +1673,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [groups, currentUser]);
 
   const loginDemoUser = useCallback((role: UserRole = 'admin') => {
+    let name = 'Alexandre - Administrateur';
+    let email = 'admin@songbook.pro';
+    if (role === 'leader') {
+      name = 'Thomas - Responsable de Louange';
+      email = 'responsable@songbook.pro';
+    } else if (role === 'member') {
+      name = 'Camille - Musicien';
+      email = 'musicien@songbook.pro';
+    }
+
     const demoUser: UserProfile = {
       uid: 'demo-' + role + '-' + Date.now().toString(36),
-      email: role === 'admin' ? 'admin@songbook.pro' : 'musicien@songbook.pro',
-      displayName: role === 'admin' ? 'Alexandre - Chef de Groupe' : 'Camille - Guitariste',
+      email,
+      displayName: name,
       currentGroupId: 'default-group',
       role
     };
@@ -1410,18 +1707,100 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setIsAuthModalOpen(false);
   }, []);
 
+  const updateUserRole = useCallback(async (userId: string, newRole: UserRole) => {
+    if (currentUser?.role !== 'admin') {
+      showNotification("Seul l'Administrateur peut modifier les rôles d'accès", 'error');
+      return;
+    }
+
+    try {
+      const userRef = doc(db, 'users', userId);
+      await updateDoc(userRef, { role: newRole });
+      
+      setAllUsers(prev => prev.map(u => u.uid === userId ? { ...u, role: newRole } : u));
+      if (currentUser && currentUser.uid === userId) {
+        const updated = { ...currentUser, role: newRole };
+        setCurrentUser(updated);
+        localStorage.setItem('songbook_user', JSON.stringify(updated));
+      }
+      const roleLabel = newRole === 'admin' ? 'Administrateur' : newRole === 'leader' ? 'Responsable' : 'Membre';
+      showNotification(`Rôle mis à jour : ${roleLabel}`);
+    } catch (err) {
+      console.error('Error updating user role:', err);
+      showNotification('Erreur lors de la mise à jour du rôle', 'error');
+    }
+  }, [currentUser, showNotification]);
+
+  const setAdminByEmail = useCallback(async (targetEmail: string, role: UserRole = 'admin') => {
+    if (currentUser?.role !== 'admin') {
+      showNotification("Seul l'Administrateur peut attribuer des rôles", 'error');
+      return;
+    }
+
+    const cleanEmail = targetEmail.trim().toLowerCase();
+    if (!cleanEmail) return;
+
+    const roleLabel = role === 'admin' ? 'Administrateur' : role === 'leader' ? 'Responsable' : 'Membre';
+
+    try {
+      // 1. Enregistrer dans admin_emails pour les futures connexions
+      await setDoc(doc(db, 'admin_emails', cleanEmail), {
+        email: cleanEmail,
+        role,
+        createdAt: serverTimestamp()
+      });
+
+      // 2. Si un compte existe déjà avec cette adresse, le mettre immédiatement à jour
+      const q = query(collection(db, 'users'), where('email', '==', cleanEmail));
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        for (const docSnap of snap.docs) {
+          await updateDoc(docSnap.ref, { role });
+        }
+        setAllUsers(prev => prev.map(u => u.email?.toLowerCase() === cleanEmail ? { ...u, role } : u));
+        if (currentUser && currentUser.email?.toLowerCase() === cleanEmail) {
+          const updated = { ...currentUser, role };
+          setCurrentUser(updated);
+          localStorage.setItem('songbook_user', JSON.stringify(updated));
+        }
+        showNotification(`L'utilisateur ${cleanEmail} est désormais ${roleLabel}`);
+      } else {
+        showNotification(`${cleanEmail} sera automatiquement ${roleLabel} dès sa première connexion`);
+      }
+    } catch (err) {
+      console.error('Error setting role email:', err);
+      showNotification("Erreur lors de l'attribution du rôle", 'error');
+    }
+  }, [currentUser, showNotification]);
+
   const handleSignOut = useCallback(async () => {
     try {
       await signOut(auth);
     } catch (e) {}
     setCurrentUser(null);
     setFirebaseUser(null);
-  }, []);
+    localStorage.removeItem('songbook_user');
+    showNotification('Vous êtes déconnecté', 'info');
+  }, [showNotification]);
+
+  const isAdmin = currentUser?.role === 'admin';
+  const isLeader = currentUser?.role === 'leader';
+  const canManageSongs = isAdmin || isLeader;
+  const canManageGroups = isAdmin;
+  const canAccessSettings = isAdmin;
 
   return (
     <AppContext.Provider value={{
       currentUser,
       firebaseUser,
+      isAdmin,
+      isLeader,
+      canManageSongs,
+      canManageGroups,
+      canAccessSettings,
+      allUsers,
+      updateUserRole,
+      setAdminByEmail,
       groups,
       currentGroup,
       songs,
@@ -1454,6 +1833,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setIsMetronomeOpen,
       isInstallable,
       promptInstall,
+      offlineStats,
+      refreshOfflineStats,
+      cacheAllSongsOffline,
+      clearOfflineStorage,
       notifications,
       showNotification,
       dismissNotification,
@@ -1475,6 +1858,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updateSetlistHistory,
       deleteSetlistHistory,
       createGroup,
+      updateGroup,
+      deleteGroup,
       joinGroup,
       switchGroup,
       loginDemoUser,

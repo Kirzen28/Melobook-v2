@@ -14,6 +14,7 @@ import { AuthModal } from './components/AuthModal';
 import { SnackbarNotification } from './components/SnackbarNotification';
 import { MiniPianoPopup } from './components/MiniPianoPopup';
 import { MetronomePopup } from './components/MetronomePopup';
+import { OfflineIndicator } from './components/OfflineIndicator';
 
 const viewVariants = {
   initial: {
@@ -73,6 +74,7 @@ const AppContent: React.FC = () => {
       <MiniPianoPopup />
       <MetronomePopup />
       <SnackbarNotification />
+      <OfflineIndicator />
     </div>
   );
 };

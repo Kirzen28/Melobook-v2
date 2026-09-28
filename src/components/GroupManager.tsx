@@ -364,7 +364,6 @@ export const GroupManager: React.FC = () => {
   };
 
   const [createStatus, setCreateStatus] = useState<string | null>(null);
-  const [groupActionTab, setGroupActionTab] = useState<'join' | 'create' | 'both'>('join');
 
   const startEditGroup = () => {
     if (!currentGroup) return;
@@ -456,9 +455,6 @@ export const GroupManager: React.FC = () => {
           <Library className="w-6 h-6 text-blue-400" />
           <span>Gestion des Bibliothèques</span>
         </h1>
-        <p className="text-xs text-gray-400 mt-1">
-          Chaque bibliothèque possède son propre répertoire indépendant de chants et de setlists, accessible à tous ses membres et visiteurs
-        </p>
       </div>
 
       {/* Bandeau consultation visiteur */}
@@ -574,16 +570,21 @@ export const GroupManager: React.FC = () => {
         </div>
       </div>
 
-      {/* Current Active Group Card with Invite Code & Admin Edit */}
+      {/* Carte Unifiée : Bibliothèque Active & Rôles des Membres */}
       {currentGroup && (
-        <div className="bg-[#111112] border border-[#222224] rounded-xl p-5 sm:p-6 mb-8 shadow-sm">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
+        <div className="bg-[#111112] border border-[#222224] rounded-xl p-5 sm:p-6 mb-8 shadow-sm space-y-6">
+          
+          {/* 1. En-tête : Bibliothèque Active, Actions & Code d'invitation */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-blue-600/20 text-blue-400 border border-blue-500/30">
                   Bibliothèque Active
                 </span>
-                <span className="text-xs text-gray-400">ID: {currentGroup.id}</span>
+                <InfoTooltip 
+                  label="Identifiant technique" 
+                  content={`ID : ${currentGroup.id}`} 
+                />
                 {canManageGroups && !isEditingGroup && (
                   <button
                     type="button"
@@ -592,7 +593,7 @@ export const GroupManager: React.FC = () => {
                     title="Modifier le nom et la description"
                   >
                     <Pencil className="w-3 h-3 text-blue-400" />
-                    <span>Gérer la bibliothèque</span>
+                    <span>Gérer</span>
                   </button>
                 )}
                 {currentGroup.id !== 'default-group' && canDeleteLibrary(currentGroup) && !isEditingGroup && (
@@ -603,7 +604,7 @@ export const GroupManager: React.FC = () => {
                     title="Supprimer définitivement cette bibliothèque"
                   >
                     <Trash2 className="w-3.5 h-3.5 text-rose-400" />
-                    <span>Supprimer cette bibliothèque</span>
+                    <span>Supprimer</span>
                   </button>
                 )}
                 {!canManageGroups && (
@@ -666,525 +667,319 @@ export const GroupManager: React.FC = () => {
                   </div>
                 </form>
               ) : (
-                <>
-                  <h2 className="text-lg sm:text-xl font-bold text-white mt-1.5">
+                <div className="mt-1.5">
+                  <h2 className="text-lg sm:text-xl font-bold text-white">
                     {currentGroup.name}
                   </h2>
-                  {currentGroup.description ? (
+                  {currentGroup.description && (
                     <p className="text-xs text-gray-300 mt-1">
                       {currentGroup.description}
                     </p>
-                  ) : (
-                    <p className="text-xs text-gray-400 mt-1">
-                      Répertoire et setlists synchronisés pour cette bibliothèque.
-                    </p>
                   )}
-                  <div className="mt-3">
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab('repertoire')}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 text-xs font-semibold transition-colors cursor-pointer"
-                    >
-                      <BookOpen className="w-3.5 h-3.5" />
-                      <span>Consulter les chants ({currentGroup.name}) →</span>
-                    </button>
-                  </div>
-                </>
+                </div>
               )}
             </div>
 
-            {/* Invite Code Box */}
-            <div className="bg-[#0A0A0B] border border-[#222224] rounded-lg p-3.5 sm:p-4 flex flex-col sm:flex-row items-center gap-3 shrink-0">
-              <div className="text-center sm:text-left">
-                <span className="text-[10px] uppercase font-semibold text-gray-400">Code d'invitation de la bibliothèque :</span>
-                <div className="text-xl font-bold font-mono tracking-widest text-blue-400">
+            {/* Boîte du code d'invitation */}
+            <div className="bg-[#0A0A0B] border border-[#222224] rounded-lg p-3 sm:p-3.5 flex items-center justify-between sm:justify-start gap-3 shrink-0">
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] uppercase font-semibold text-gray-400">Code d'invitation</span>
+                  <InfoTooltip 
+                    label="Code d'accès" 
+                    content="Transmettez ce code aux musiciens pour qu'ils rejoignent directement cette bibliothèque partagée." 
+                  />
+                </div>
+                <div className="text-lg sm:text-xl font-bold font-mono tracking-widest text-blue-400">
                   {currentGroup.inviteCode || 'LOUAN7'}
                 </div>
-                <span className="text-[10px] text-gray-500 block">Les membres l'entrent pour rejoindre cette bibliothèque</span>
               </div>
 
               <button
                 onClick={handleCopyInviteCode}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-sm transition-all active:scale-95 whitespace-nowrap cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-xs transition-all active:scale-95 whitespace-nowrap cursor-pointer ml-auto"
+                title="Copier le code d'invitation"
               >
                 {isCopied ? (
                   <>
                     <Check className="w-3.5 h-3.5" />
-                    <span>Copié !</span>
+                    <span>Copié</span>
                   </>
                 ) : (
                   <>
                     <Copy className="w-3.5 h-3.5" />
-                    <span>Copier le code</span>
+                    <span>Copier</span>
                   </>
                 )}
               </button>
             </div>
           </div>
 
-          {/* Role status & User Info */}
-          <div className="mt-5 pt-4 border-t border-[#222224] flex flex-wrap items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-2">
-              <span className="text-gray-400 font-medium">Votre compte actuel :</span>
-              {currentUser ? (
-                currentUser.role === 'admin' ? (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-600/15 text-blue-400 font-semibold border border-blue-500/30">
-                    <ShieldCheck className="w-4 h-4" /> Administrateur 👑 (Accès total à tous les réglages & gestion des bibliothèques)
+          {/* 2. Séparateur et Section Membres & Rôles */}
+          <div className="pt-5 border-t border-[#222224]">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-[#222224]/60">
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-lg bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0">
+                  <Shield className="w-3.5 h-3.5" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xs sm:text-sm font-bold text-white">Rôles & Membres</h3>
+                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#1C1C1E] text-gray-400 font-medium border border-[#2A2A32]">
+                    {allUsers.length} compte{allUsers.length > 1 ? 's' : ''}
                   </span>
-                ) : currentUser.role === 'leader' ? (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-600/15 text-emerald-400 font-semibold border border-emerald-500/30">
-                    <Award className="w-4 h-4" /> Responsable ⚡ (Gestion complète des chants & setlists - Hors bibliothèques & réglages)
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#1C1C1E] text-gray-300 font-semibold border border-[#333]">
-                    <UserCheck className="w-4 h-4" /> Membre 🎵 (Lecture seule synchronisée & Mode Scène)
-                  </span>
-                )
-              ) : (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#1C1C1E] text-amber-400 font-semibold border border-amber-500/30">
-                  <UserIcon className="w-4 h-4" /> Non connecté (Mode invité lecture seule)
-                </span>
-              )}
+                  <InfoTooltip 
+                    label="Permissions des rôles" 
+                    content="Admin : gestion totale (bibliothèques, rôles, réglages). Responsable : gestion musicale (chants, setlists). Membre : consultation et mode scène." 
+                  />
+                </div>
+              </div>
+
+              {/* Formulaire d'attribution par e-mail (si Admin) ou statut invité */}
+              {canManageGroups ? (
+                <form onSubmit={handlePromoteAdminEmail} className="flex items-center gap-1.5 flex-wrap">
+                  <input
+                    type="email"
+                    placeholder="email@utilisateur.com"
+                    value={adminEmailInput}
+                    onChange={(e) => setAdminEmailInput(e.target.value)}
+                    className="bg-[#1C1C1E] border border-[#333] rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 w-40 sm:w-48"
+                    required
+                  />
+                  <RoleDropdown
+                    value={promoteRole}
+                    onChange={setPromoteRole}
+                    align="left"
+                  />
+                  <button
+                    type="submit"
+                    disabled={isPromoting || !adminEmailInput.trim()}
+                    className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition-colors disabled:opacity-50 whitespace-nowrap cursor-pointer"
+                  >
+                    {isPromoting ? '...' : 'Attribuer'}
+                  </button>
+                </form>
+              ) : !currentUser ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-400">Mode invité</span>
+                  <button
+                    type="button"
+                    onClick={() => setIsAuthModalOpen(true)}
+                    className="px-2.5 py-1 rounded-md bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-xs transition-colors cursor-pointer flex items-center gap-1"
+                  >
+                    <UserIcon className="w-3 h-3" />
+                    <span>Se connecter</span>
+                  </button>
+                </div>
+              ) : null}
             </div>
 
-            <div className="flex items-center gap-2">
-              {!currentUser && (
-                <button
-                  type="button"
-                  onClick={() => setIsAuthModalOpen(true)}
-                  className="px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
-                >
-                  <UserIcon className="w-3.5 h-3.5" />
-                  <span>Se connecter</span>
-                </button>
-              )}
-            </div>
+            {promoteStatusMsg && (
+              <div className={`mb-3 p-2.5 rounded-lg text-xs font-medium border flex items-center gap-2 ${
+                promoteStatusMsg.type === 'success' 
+                  ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30' 
+                  : 'bg-rose-500/10 text-rose-300 border-rose-500/30'
+              }`}>
+                <Info className="w-4 h-4 shrink-0" />
+                <span>{promoteStatusMsg.text}</span>
+              </div>
+            )}
+
+            {/* Liste des utilisateurs inscrits avec gestion de rôle */}
+            {allUsers.length > 0 ? (
+              <div className="divide-y divide-[#222228] border border-[#222228] rounded-lg bg-[#141416]">
+                {allUsers.map((u, index) => {
+                  const isAdmin = u.role === 'admin';
+                  const isLeader = u.role === 'leader';
+                  const isSelf = currentUser?.uid === u.uid;
+                  const userKey = u.uid ? `user-${u.uid}-${index}` : (u.email ? `user-${u.email}-${index}` : `user-${index}`);
+
+                  return (
+                    <div key={userKey} className="p-2.5 sm:p-3 flex items-center justify-between gap-3 text-xs">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-[11px] shrink-0 ${
+                          isAdmin 
+                            ? 'bg-blue-600/30 text-blue-300 border border-blue-500/40' 
+                            : isLeader
+                            ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/40'
+                            : 'bg-[#222228] text-gray-300 border border-[#333]'
+                        }`}>
+                          {u.displayName ? u.displayName.charAt(0).toUpperCase() : 'U'}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="font-semibold text-white truncate flex items-center gap-1.5">
+                            <span>{u.displayName || 'Utilisateur'}</span>
+                            {isSelf && (
+                              <span className="text-[9px] px-1.5 py-0.2 rounded bg-blue-600/20 text-blue-300 border border-blue-500/30 font-medium">
+                                Vous
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-gray-400 truncate font-mono">
+                            {u.email || 'Sans e-mail'}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        {canManageGroups ? (
+                          <RoleDropdown
+                            value={u.role || 'member'}
+                            onChange={(newRole) => updateUserRole(u.uid, newRole)}
+                            align="right"
+                          />
+                        ) : (
+                          <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold border ${
+                            isAdmin 
+                              ? 'bg-blue-600/20 text-blue-300 border-blue-500/40' 
+                              : isLeader
+                              ? 'bg-emerald-600/20 text-emerald-300 border-emerald-500/40'
+                              : 'bg-[#1C1C1E] text-gray-400 border-[#333]'
+                          }`}>
+                            {isAdmin ? 'Admin 👑' : isLeader ? 'Responsable ⚡' : 'Membre 🎵'}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="p-3 text-center text-xs text-gray-500 bg-[#141416] rounded-lg border border-[#222228]">
+                Aucun compte utilisateur enregistré dans la base pour le moment.
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {/* Section Gestion des Rôles & Membres */}
-      <div className="bg-[#111112] border border-[#222224] rounded-xl p-5 mb-8 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-[#222224]">
+      {/* Section : Rejoindre ou Créer une Bibliothèque (Deux colonnes sur laptop, deux lignes sur smartphone et tablette) */}
+      <div className="bg-[#111112] border border-[#222224] rounded-xl p-4 sm:p-5 mb-8 shadow-sm">
+        {/* Titre de section */}
+        <div className="flex items-center justify-between gap-3 pb-3 mb-4 border-b border-[#222224]">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
-              <Shield className="w-4 h-4" />
+            <div className="w-8 h-8 rounded-lg bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0">
+              <Library className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-white">Gestion des Rôles & Niveaux d'Accès</h3>
+              <h3 className="text-sm font-bold text-white">Rejoindre ou Créer une Bibliothèque</h3>
             </div>
           </div>
-
-          {/* Formulaire rapide pour attribuer un rôle par email (réservé Administrateur) */}
-          {canManageGroups ? (
-            <form onSubmit={handlePromoteAdminEmail} className="flex items-center gap-1.5 flex-wrap">
-              <input
-                type="email"
-                placeholder="email@utilisateur.com"
-                value={adminEmailInput}
-                onChange={(e) => setAdminEmailInput(e.target.value)}
-                className="bg-[#1C1C1E] border border-[#333] rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 w-44 sm:w-48"
-                required
-              />
-              <RoleDropdown
-                value={promoteRole}
-                onChange={setPromoteRole}
-                align="left"
-              />
-              <button
-                type="submit"
-                disabled={isPromoting || !adminEmailInput.trim()}
-                className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition-colors disabled:opacity-50 whitespace-nowrap cursor-pointer"
-              >
-                {isPromoting ? '...' : 'Attribuer'}
-              </button>
-            </form>
-          ) : (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#16161A] border border-[#25252D] text-xs text-gray-400">
-              <Lock className="w-3.5 h-3.5 text-amber-400" />
-              <span>Attribution des rôles réservée à l'Administrateur</span>
-            </div>
-          )}
+          <InfoTooltip 
+            label="Informations bibliothèques" 
+            content="Entrez un code à 6 caractères pour synchroniser une bibliothèque existante, ou créez un nouvel espace indépendant pour vos chants et setlists (réservé Administrateur)."
+          />
         </div>
 
-        {promoteStatusMsg && (
-          <div className={`mb-4 p-2.5 rounded-lg text-xs font-medium border flex items-center gap-2 ${
-            promoteStatusMsg.type === 'success' 
-              ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30' 
-              : 'bg-rose-500/10 text-rose-300 border-rose-500/30'
-          }`}>
-            <Info className="w-4 h-4 shrink-0" />
-            <span>{promoteStatusMsg.text}</span>
-          </div>
-        )}
-
-        {/* Liste des utilisateurs inscrits avec gestion de rôle */}
-        <div className="space-y-2">
-          <div className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center justify-between">
-            <span>Comptes enregistrés ({allUsers.length})</span>
-            {!canManageGroups && (
-              <span className="text-[11px] font-normal lowercase text-gray-500 italic">
-                (Seul l'administrateur peut modifier les rôles)
+        {/* Grille : 2 colonnes en laptop (lg:), 2 lignes en smartphone et tablette (grid-cols-1) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 divide-y lg:divide-y-0 lg:divide-x divide-[#222228]">
+          {/* Colonne / Ligne 1 : Rejoindre une bibliothèque existante */}
+          <div className="space-y-3 pr-0 lg:pr-4">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                <KeyRound className="w-3.5 h-3.5 text-blue-400" />
+                Rejoindre une bibliothèque existante
               </span>
-            )}
-          </div>
-
-          {allUsers.length > 0 ? (
-            <div className="divide-y divide-[#222228] border border-[#222228] rounded-lg bg-[#141416]">
-              {allUsers.map((u, index) => {
-                const isAdmin = u.role === 'admin';
-                const isLeader = u.role === 'leader';
-                const isSelf = currentUser?.uid === u.uid;
-                const userKey = u.uid ? `user-${u.uid}-${index}` : (u.email ? `user-${u.email}-${index}` : `user-${index}`);
-
-                return (
-                  <div key={userKey} className="p-3 flex items-center justify-between gap-3 text-xs">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-[11px] shrink-0 ${
-                        isAdmin 
-                          ? 'bg-blue-600/30 text-blue-300 border border-blue-500/40' 
-                          : isLeader
-                          ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/40'
-                          : 'bg-[#222228] text-gray-300 border border-[#333]'
-                      }`}>
-                        {u.displayName ? u.displayName.charAt(0).toUpperCase() : 'U'}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="font-semibold text-white truncate flex items-center gap-1.5">
-                          <span>{u.displayName || 'Utilisateur'}</span>
-                          {isSelf && (
-                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-[#2A2A32] text-gray-400 font-normal">
-                              Vous
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-[11px] text-gray-400 truncate font-mono">
-                          {u.email || 'Sans e-mail'}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      {/* Sélecteur de rôle personnalisé intégré à l'outil (ou badge si lecture seule) */}
-                      {canManageGroups ? (
-                        <RoleDropdown
-                          value={u.role || 'member'}
-                          onChange={(newRole) => updateUserRole(u.uid, newRole)}
-                          align="right"
-                        />
-                      ) : (
-                        <span className={`px-2.5 py-1 rounded-lg text-xs font-bold border ${
-                          isAdmin 
-                            ? 'bg-blue-600/20 text-blue-300 border-blue-500/40' 
-                            : isLeader
-                            ? 'bg-emerald-600/20 text-emerald-300 border-emerald-500/40'
-                            : 'bg-[#1C1C1E] text-gray-400 border-[#333]'
-                        }`}>
-                          {isAdmin ? 'Administrateur 👑' : isLeader ? 'Responsable ⚡' : 'Membre 🎵'}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+              <InfoTooltip 
+                label="Aide Rejoindre" 
+                content="Entrez le code à 6 caractères (ex: LOUAN7) pour accéder immédiatement à la bibliothèque partagée de chants et de setlists."
+              />
             </div>
-          ) : (
-            <div className="p-4 text-center text-xs text-gray-500 bg-[#141416] rounded-lg border border-[#222228]">
-              Aucun compte utilisateur enregistré dans la base pour le moment.
-            </div>
-          )}
-        </div>
-      </div>
 
-      {/* Section Regroupée et Compacte : Rejoindre ou Créer une Bibliothèque */}
-      <div className="bg-[#111112] border border-[#222224] rounded-xl p-4 sm:p-5 mb-8 shadow-sm">
-        {/* En-tête avec onglets compacts et info tooltips */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 mb-3.5 border-b border-[#222224]">
-          <div className="flex items-center gap-1.5 p-1 bg-[#16161A] rounded-lg border border-[#26262E]">
-            <button
-              type="button"
-              onClick={() => setGroupActionTab('join')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
-                groupActionTab === 'join'
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              <KeyRound className="w-3.5 h-3.5 text-blue-300" />
-              <span>Rejoindre une bibliothèque</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setGroupActionTab('create')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
-                groupActionTab === 'create'
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              <Plus className="w-3.5 h-3.5 text-blue-300" />
-              <span>Créer une bibliothèque</span>
-              {!canManageGroups && (
-                <span className="text-[9px] px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-0.5 ml-0.5">
-                  <Lock className="w-2.5 h-2.5" /> Admin
-                </span>
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setGroupActionTab('both')}
-              className={`hidden sm:flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all cursor-pointer ${
-                groupActionTab === 'both'
-                  ? 'bg-[#2A2A34] text-white shadow-xs border border-[#3E3E4C]'
-                  : 'text-gray-400 hover:text-white'
-              }`}
-              title="Afficher les deux actions côte à côte"
-            >
-              <span>Les deux</span>
-            </button>
-          </div>
-
-          {/* Description transformée en tooltip interactif pour un gain de place maximal */}
-          <div className="flex items-center gap-2 text-xs text-gray-400">
-            {groupActionTab === 'join' && (
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] hidden sm:inline text-gray-400">Code à 6 caractères</span>
-                <InfoTooltip 
-                  label="Instructions pour rejoindre" 
-                  content="Entrez le code à 6 caractères (ex: LOUAN7) pour accéder immédiatement à la bibliothèque partagée de chants et de setlists."
-                />
-              </div>
-            )}
-            {groupActionTab === 'create' && (
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] hidden sm:inline text-gray-400">
-                  {canManageGroups ? 'Nouvelle bibliothèque indépendante' : 'Accès réservé Administrateur'}
-                </span>
-                <InfoTooltip 
-                  label="Instructions pour créer" 
-                  content={
-                    canManageGroups 
-                      ? "Crée un nouvel espace avec sa propre bibliothèque dédiée de chants, dossiers et setlists, et son propre code d'invitation pour vos musiciens."
-                      : "Seul l'Administrateur a le privilège de créer, supprimer et administrer les bibliothèques. Les Responsables ont tous les droits musicaux (chants, setlists) sur la bibliothèque actuelle."
-                  }
-                />
-              </div>
-            )}
-            {groupActionTab === 'both' && (
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] hidden sm:inline text-gray-400">Rejoindre ou créer un espace</span>
-                <InfoTooltip 
-                  label="Informations bibliothèques" 
-                  content="Rejoignez une bibliothèque avec un code d'invitation ou créez une nouvelle bibliothèque dédiée pour vos musiciens."
-                />
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Vue 1: Formulaire ultra-compact "Rejoindre une Bibliothèque" */}
-        {groupActionTab === 'join' && (
-          <form onSubmit={handleJoinGroup} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-            <div className="sm:w-56">
+            <form onSubmit={handleJoinGroup} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
               <input
                 type="text"
                 placeholder="Code (ex: LOUAN7)"
                 value={joinCodeInput}
                 onChange={(e) => setJoinCodeInput(e.target.value.toUpperCase())}
-                className="w-full bg-[#16161A] border border-[#2A2A32] rounded-lg px-3.5 py-1.5 text-center font-mono font-bold text-xs tracking-widest text-blue-400 placeholder-gray-600 focus:outline-none focus:border-blue-500"
+                className="flex-1 bg-[#16161A] border border-[#2A2A32] rounded-lg px-3 py-1.5 text-center font-mono font-bold text-xs tracking-widest text-blue-400 placeholder-gray-600 focus:outline-none focus:border-blue-500"
                 maxLength={8}
                 required
               />
-            </div>
-            <button
-              type="submit"
-              disabled={!joinCodeInput.trim()}
-              className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-xs transition-all active:scale-98 disabled:opacity-50 cursor-pointer whitespace-nowrap"
-            >
-              Rejoindre la bibliothèque
-            </button>
+              <button
+                type="submit"
+                disabled={!joinCodeInput.trim()}
+                className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-xs transition-all active:scale-98 disabled:opacity-50 cursor-pointer whitespace-nowrap"
+              >
+                Rejoindre
+              </button>
+            </form>
 
             {joinStatus === 'success' && (
-              <div className="px-2.5 py-1 rounded-lg bg-emerald-500/15 text-emerald-300 text-xs font-semibold border border-emerald-500/30 flex items-center gap-1.5">
-                <Check className="w-3.5 h-3.5" /> Bibliothèque rejointe !
+              <div className="p-2 rounded-lg bg-emerald-500/15 text-emerald-300 text-xs font-semibold border border-emerald-500/30 text-center flex items-center justify-center gap-1.5">
+                <Check className="w-3.5 h-3.5" />
+                <span>Bibliothèque rejointe avec succès !</span>
               </div>
             )}
             {joinStatus === 'error' && (
-              <div className="px-2.5 py-1 rounded-lg bg-rose-500/15 text-rose-300 text-xs font-semibold border border-rose-500/30">
+              <div className="p-2 rounded-lg bg-rose-500/15 text-rose-300 text-xs font-semibold border border-rose-500/30 text-center">
                 Code d'invitation introuvable.
               </div>
             )}
-          </form>
-        )}
+          </div>
 
-        {/* Vue 2: Formulaire ultra-compact "Créer une Nouvelle Bibliothèque" */}
-        {groupActionTab === 'create' && (
-          canManageGroups ? (
-            <form onSubmit={handleCreateGroup} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-              <div className="flex-1 min-w-[180px]">
-                <input
-                  type="text"
-                  placeholder="Nom de la bibliothèque (ex: Chorale Saint-Jean)"
-                  value={newGroupName}
-                  onChange={(e) => setNewGroupName(e.target.value)}
-                  className="w-full bg-[#16161A] border border-[#2A2A32] rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
-                  required
-                />
-              </div>
-              <div className="flex-1 min-w-[180px]">
-                <input
-                  type="text"
-                  placeholder="Description (optionnel)"
-                  value={newGroupDesc}
-                  onChange={(e) => setNewGroupDesc(e.target.value)}
-                  className="w-full bg-[#16161A] border border-[#2A2A32] rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={!newGroupName.trim()}
-                className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-xs transition-all active:scale-98 disabled:opacity-50 cursor-pointer whitespace-nowrap"
-              >
-                Créer la bibliothèque
-              </button>
-
-              {createStatus && (
-                <div className="px-2.5 py-1 rounded-lg bg-emerald-500/15 text-emerald-300 text-xs font-semibold border border-emerald-500/30 flex items-center gap-1.5 whitespace-nowrap">
-                  <Check className="w-3.5 h-3.5" /> {createStatus}
-                </div>
-              )}
-            </form>
-          ) : (
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-2.5 rounded-lg bg-[#16161A] border border-[#25252D] text-xs">
-              <div className="flex items-center gap-2 text-amber-400 font-semibold">
-                <Lock className="w-4 h-4 shrink-0" />
-                <span>Création de bibliothèque réservée à l'Administrateur</span>
-              </div>
-              <div className="flex items-center gap-2 text-[11px] text-gray-400">
-                <span>Connectez-vous avec un compte Admin pour créer un nouvel espace</span>
-                <InfoTooltip
-                  label="Permissions créateur de bibliothèque"
-                  content={
-                    currentUser?.role === 'leader'
-                      ? "En tant que Responsable, vous avez tous les droits musicaux (chants, setlists). La création de nouvelles bibliothèques est réservée à l'Administrateur."
-                      : "Seul l'Administrateur peut créer, supprimer et administrer les bibliothèques."
-                  }
-                />
-              </div>
+          {/* Colonne / Ligne 2 : Créer une nouvelle bibliothèque (réservé Admin) */}
+          <div className="space-y-3 pt-4 lg:pt-0 lg:pl-5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                <Plus className="w-3.5 h-3.5 text-blue-400" />
+                Créer une nouvelle bibliothèque
+              </span>
+              <InfoTooltip 
+                label="Aide Création" 
+                content={
+                  canManageGroups 
+                    ? "Crée un nouvel espace avec sa propre bibliothèque dédiée de chants, dossiers et setlists, et son propre code d'invitation pour vos musiciens."
+                    : "Seul l'Administrateur a le privilège de créer, supprimer et administrer les bibliothèques. Les Responsables ont tous les droits musicaux (chants, setlists) sur la bibliothèque actuelle."
+                }
+              />
             </div>
-          )
-        )}
 
-        {/* Vue 3: Affichage côte à côte compact (sans les longs paragraphes, avec tooltips) */}
-        {groupActionTab === 'both' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 divide-y md:divide-y-0 md:divide-x divide-[#222228]">
-            {/* Rejoindre */}
-            <div className="space-y-2.5 pr-0 md:pr-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                  <KeyRound className="w-3.5 h-3.5 text-blue-400" />
-                  Rejoindre une bibliothèque existante
-                </span>
-                <InfoTooltip 
-                  label="Aide Rejoindre" 
-                  content="Entrez le code à 6 caractères pour synchroniser et consulter la bibliothèque."
-                />
-              </div>
-              <form onSubmit={handleJoinGroup} className="flex items-center gap-2">
-                <input
-                  type="text"
-                  placeholder="Code (ex: LOUAN7)"
-                  value={joinCodeInput}
-                  onChange={(e) => setJoinCodeInput(e.target.value.toUpperCase())}
-                  className="flex-1 bg-[#16161A] border border-[#2A2A32] rounded-lg px-3 py-1.5 text-center font-mono font-bold text-xs tracking-widest text-blue-400 placeholder-gray-600 focus:outline-none focus:border-blue-500"
-                  maxLength={8}
-                  required
-                />
+            {canManageGroups ? (
+              <form onSubmit={handleCreateGroup} className="space-y-2">
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="text"
+                    placeholder="Nom de la bibliothèque"
+                    value={newGroupName}
+                    onChange={(e) => setNewGroupName(e.target.value)}
+                    className="flex-1 bg-[#16161A] border border-[#2A2A32] rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                    required
+                  />
+                  <input
+                    type="text"
+                    placeholder="Description (optionnel)"
+                    value={newGroupDesc}
+                    onChange={(e) => setNewGroupDesc(e.target.value)}
+                    className="flex-1 bg-[#16161A] border border-[#2A2A32] rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                  />
+                </div>
                 <button
                   type="submit"
-                  disabled={!joinCodeInput.trim()}
-                  className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-xs transition-all active:scale-98 disabled:opacity-50 cursor-pointer whitespace-nowrap"
+                  disabled={!newGroupName.trim()}
+                  className="w-full py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-xs transition-all active:scale-98 disabled:opacity-50 cursor-pointer"
                 >
-                  Rejoindre
+                  Créer la bibliothèque
                 </button>
+                {createStatus && (
+                  <div className="p-2 rounded-lg bg-emerald-500/15 text-emerald-300 text-xs font-semibold border border-emerald-500/30 text-center flex items-center justify-center gap-1.5">
+                    <Check className="w-3.5 h-3.5" />
+                    <span>{createStatus}</span>
+                  </div>
+                )}
               </form>
-              {joinStatus === 'success' && (
-                <div className="p-1.5 rounded bg-emerald-500/15 text-emerald-300 text-xs font-semibold border border-emerald-500/30 text-center">
-                  Bibliothèque rejointe avec succès !
+            ) : (
+              <div className="p-3 rounded-lg bg-[#16161A] border border-[#25252D] text-xs text-gray-400 space-y-1.5">
+                <div className="flex items-center gap-1.5 text-amber-400 font-semibold">
+                  <Lock className="w-3.5 h-3.5 shrink-0" />
+                  <span>Création réservée à l'Administrateur</span>
                 </div>
-              )}
-              {joinStatus === 'error' && (
-                <div className="p-1.5 rounded bg-rose-500/15 text-rose-300 text-xs font-semibold border border-rose-500/30 text-center">
-                  Code d'invitation introuvable.
-                </div>
-              )}
-            </div>
-
-            {/* Créer */}
-            <div className="space-y-2.5 pt-3 md:pt-0 md:pl-4">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                  <Plus className="w-3.5 h-3.5 text-blue-400" />
-                  Créer une nouvelle bibliothèque
-                </span>
-                <InfoTooltip 
-                  label="Aide Création" 
-                  content={
-                    canManageGroups 
-                      ? "Crée un nouvel espace avec sa propre bibliothèque dédiée de chants et de setlists."
-                      : "Création réservée à l'Administrateur."
-                  }
-                />
+                <p className="text-[11px] text-gray-400 leading-relaxed">
+                  Seul le compte Administrateur peut créer, supprimer et administrer les bibliothèques. Les Responsables et Membres peuvent rejoindre une bibliothèque existante via son code d'invitation.
+                </p>
               </div>
-
-              {canManageGroups ? (
-                <form onSubmit={handleCreateGroup} className="space-y-2">
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="Nom de la bibliothèque"
-                      value={newGroupName}
-                      onChange={(e) => setNewGroupName(e.target.value)}
-                      className="flex-1 bg-[#16161A] border border-[#2A2A32] rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
-                      required
-                    />
-                    <input
-                      type="text"
-                      placeholder="Description (optionnel)"
-                      value={newGroupDesc}
-                      onChange={(e) => setNewGroupDesc(e.target.value)}
-                      className="flex-1 bg-[#16161A] border border-[#2A2A32] rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={!newGroupName.trim()}
-                    className="w-full py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-xs transition-all active:scale-98 disabled:opacity-50 cursor-pointer"
-                  >
-                    Créer la bibliothèque
-                  </button>
-                  {createStatus && (
-                    <div className="p-1.5 rounded bg-emerald-500/15 text-emerald-300 text-xs font-semibold border border-emerald-500/30 text-center">
-                      {createStatus}
-                    </div>
-                  )}
-                </form>
-              ) : (
-                <div className="p-2.5 rounded-lg bg-[#16161A] border border-[#25252D] text-[11px] text-gray-400 space-y-1">
-                  <div className="flex items-center gap-1.5 text-amber-400 font-semibold">
-                    <Lock className="w-3.5 h-3.5 shrink-0" />
-                    <span>Réservé à l'Administrateur</span>
-                  </div>
-                  <p className="text-gray-400 leading-tight">
-                    Connectez-vous en Admin pour créer une bibliothèque.
-                  </p>
-                </div>
-              )}
-            </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
 
       {/* Cloud Firestore Demo Seeder Tool */}

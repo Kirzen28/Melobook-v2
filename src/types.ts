@@ -25,6 +25,8 @@ export interface Group {
   createdAt?: any;
 }
 
+export type Library = Group;
+
 export interface Song {
   id: string;
   groupId: string;

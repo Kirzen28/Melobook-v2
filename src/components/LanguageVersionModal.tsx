@@ -35,7 +35,8 @@ export const LanguageVersionModal: React.FC<LanguageVersionModalProps> = ({
     unlinkSongs, 
     createLanguageVersion,
     setSelectedSong,
-    setActiveTab
+    setActiveTab,
+    canManageSongs
   } = useApp();
 
   // Always resolve the freshest version of current song from state
@@ -176,64 +177,84 @@ export const LanguageVersionModal: React.FC<LanguageVersionModalProps> = ({
             </span>
           </div>
 
-          <div className="flex items-center gap-1.5">
-            <select
-              value={currentSong.language || 'Français'}
-              onChange={(e) => handleUpdateCurrentLanguage(e.target.value)}
-              className="bg-[#202024] hover:bg-[#28282E] text-xs text-gray-200 border border-[#333] rounded-lg px-2.5 py-1 focus:outline-none focus:border-blue-500 cursor-pointer font-medium"
-            >
-              {PRESET_LANGUAGES.map(lang => (
-                <option key={lang.code} value={lang.name} className="bg-[#141416]">
-                  {lang.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          {canManageSongs ? (
+            <div className="flex items-center gap-1.5">
+              <select
+                value={currentSong.language || 'Français'}
+                onChange={(e) => handleUpdateCurrentLanguage(e.target.value)}
+                className="bg-[#202024] hover:bg-[#28282E] text-xs text-gray-200 border border-[#333] rounded-lg px-2.5 py-1 focus:outline-none focus:border-blue-500 cursor-pointer font-medium"
+              >
+                {PRESET_LANGUAGES.map(lang => (
+                  <option key={lang.code} value={lang.name} className="bg-[#141416]">
+                    {lang.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <span className="text-[10px] text-gray-500 font-medium">
+              Mode consultation
+            </span>
+          )}
         </div>
 
         {/* Nav Tabs */}
-        <div className="flex items-center border-b border-[#222224] bg-[#111113] px-3 pt-2 text-xs gap-2">
-          <button
-            type="button"
-            onClick={() => setActiveTabMode('versions')}
-            className={`pb-2 px-2.5 font-semibold transition-colors border-b-2 flex items-center gap-1.5 ${
-              activeTabMode === 'versions'
-                ? 'border-blue-500 text-blue-400'
-                : 'border-transparent text-gray-400 hover:text-gray-200'
-            }`}
-          >
-            <span>Versions liées</span>
-            <span className="px-1.5 py-0.2 rounded-full bg-[#202024] text-[10px] text-gray-300">
-              {linkedVersions.length}
+        {canManageSongs ? (
+          <div className="flex items-center border-b border-[#222224] bg-[#111113] px-3 pt-2 text-xs gap-2">
+            <button
+              type="button"
+              onClick={() => setActiveTabMode('versions')}
+              className={`pb-2 px-2.5 font-semibold transition-colors border-b-2 flex items-center gap-1.5 ${
+                activeTabMode === 'versions'
+                  ? 'border-blue-500 text-blue-400'
+                  : 'border-transparent text-gray-400 hover:text-gray-200'
+              }`}
+            >
+              <span>Versions liées</span>
+              <span className="px-1.5 py-0.2 rounded-full bg-[#202024] text-[10px] text-gray-300">
+                {linkedVersions.length}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTabMode('link_existing')}
+              className={`pb-2 px-2.5 font-semibold transition-colors border-b-2 flex items-center gap-1.5 ${
+                activeTabMode === 'link_existing'
+                  ? 'border-blue-500 text-blue-400'
+                  : 'border-transparent text-gray-400 hover:text-gray-200'
+              }`}
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Lier un chant existant</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTabMode('create_new')}
+              className={`pb-2 px-2.5 font-semibold transition-colors border-b-2 flex items-center gap-1.5 ${
+                activeTabMode === 'create_new'
+                  ? 'border-blue-500 text-blue-400'
+                  : 'border-transparent text-gray-400 hover:text-gray-200'
+              }`}
+            >
+              <Copy className="w-3.5 h-3.5" />
+              <span>Nouvelle version</span>
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between border-b border-[#222224] bg-[#111113] px-4 py-2 text-xs">
+            <span className="font-semibold text-gray-300 flex items-center gap-1.5">
+              <span>Versions disponibles</span>
+              <span className="px-1.5 py-0.2 rounded-full bg-[#202024] text-[10px] text-gray-300">
+                {linkedVersions.length}
+              </span>
             </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTabMode('link_existing')}
-            className={`pb-2 px-2.5 font-semibold transition-colors border-b-2 flex items-center gap-1.5 ${
-              activeTabMode === 'link_existing'
-                ? 'border-blue-500 text-blue-400'
-                : 'border-transparent text-gray-400 hover:text-gray-200'
-            }`}
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Lier un chant existant</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTabMode('create_new')}
-            className={`pb-2 px-2.5 font-semibold transition-colors border-b-2 flex items-center gap-1.5 ${
-              activeTabMode === 'create_new'
-                ? 'border-blue-500 text-blue-400'
-                : 'border-transparent text-gray-400 hover:text-gray-200'
-            }`}
-          >
-            <Copy className="w-3.5 h-3.5" />
-            <span>Nouvelle version</span>
-          </button>
-        </div>
+            <span className="text-[10px] text-gray-500">
+              Consultation seule
+            </span>
+          </div>
+        )}
 
         {/* Success Alert Banner */}
         {successMessage && (
@@ -256,24 +277,28 @@ export const LanguageVersionModal: React.FC<LanguageVersionModalProps> = ({
                     Aucune autre version liée pour l'instant
                   </p>
                   <p className="text-[11px] text-gray-500 mt-1 max-w-xs mx-auto">
-                    Vous pouvez relier une version existante ou créer une version dans une autre langue en 1 clic.
+                    {canManageSongs 
+                      ? "Vous pouvez relier une version existante ou créer une version dans une autre langue en 1 clic."
+                      : "Ce chant ne possède pas encore d'autre version linguistique."}
                   </p>
-                  <div className="flex items-center justify-center gap-2 mt-4">
-                    <button
-                      type="button"
-                      onClick={() => setActiveTabMode('link_existing')}
-                      className="px-3 py-1.5 rounded-lg bg-[#242428] hover:bg-[#303036] text-xs font-semibold text-gray-200 transition-colors"
-                    >
-                      Lier un chant
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setActiveTabMode('create_new')}
-                      className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-xs font-semibold text-white transition-colors"
-                    >
-                      Créer une version
-                    </button>
-                  </div>
+                  {canManageSongs && (
+                    <div className="flex items-center justify-center gap-2 mt-4">
+                      <button
+                        type="button"
+                        onClick={() => setActiveTabMode('link_existing')}
+                        className="px-3 py-1.5 rounded-lg bg-[#242428] hover:bg-[#303036] text-xs font-semibold text-gray-200 transition-colors cursor-pointer"
+                      >
+                        Lier un chant
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setActiveTabMode('create_new')}
+                        className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-xs font-semibold text-white transition-colors cursor-pointer"
+                      >
+                        Créer une version
+                      </button>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -290,7 +315,7 @@ export const LanguageVersionModal: React.FC<LanguageVersionModalProps> = ({
                       <div className="min-w-0">
                         <div className="text-xs font-bold text-white truncate flex items-center gap-1.5">
                           <span>{currentSong.title}</span>
-                          <span className="text-[10px] text-blue-400 font-normal">version affichée</span>
+                          <span className="text-[10px] text-blue-400 font-normal">version actuelle</span>
                         </div>
                         <div className="text-[10px] text-gray-400 truncate">
                           {currentSong.artist || 'Auteur inconnu'} • Tonalité {currentSong.key}
@@ -325,22 +350,24 @@ export const LanguageVersionModal: React.FC<LanguageVersionModalProps> = ({
                           <button
                             type="button"
                             onClick={() => handleOpenSong(linkedSong)}
-                            className="px-2.5 py-1 rounded bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 border border-blue-500/30 text-xs font-semibold flex items-center gap-1 transition-colors"
-                            title="Ouvrir cette version"
+                            className="px-2.5 py-1 rounded bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 border border-blue-500/30 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                            title="Consulter cette version"
                           >
-                            <span>Ouvrir</span>
+                            <span>Consulter</span>
                             <ArrowRight className="w-3 h-3" />
                           </button>
 
-                          <button
-                            type="button"
-                            disabled={isProcessing}
-                            onClick={() => handleUnlink(linkedSong.id)}
-                            className="p-1.5 rounded bg-[#242428] hover:bg-rose-950/40 text-gray-400 hover:text-rose-400 border border-[#333] hover:border-rose-500/30 transition-colors"
-                            title="Délier cette version"
-                          >
-                            <Unlink className="w-3.5 h-3.5" />
-                          </button>
+                          {canManageSongs && (
+                            <button
+                              type="button"
+                              disabled={isProcessing}
+                              onClick={() => handleUnlink(linkedSong.id)}
+                              className="p-1.5 rounded bg-[#242428] hover:bg-rose-950/40 text-gray-400 hover:text-rose-400 border border-[#333] hover:border-rose-500/30 transition-colors cursor-pointer"
+                              title="Délier cette version"
+                            >
+                              <Unlink className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </div>
                       </div>
                     );

@@ -47,7 +47,11 @@ import {
   FileText,
   Share2,
   Download,
-  Loader2
+  Loader2,
+  Users,
+  Library,
+  KeyRound,
+  Eye
 } from 'lucide-react';
 
 export const SongList: React.FC = () => {
@@ -65,8 +69,30 @@ export const SongList: React.FC = () => {
     importSong,
     songCardMetadata,
     autoDetectSongLanguages,
-    canManageSongs
+    canManageSongs,
+    currentGroup,
+    groups,
+    switchGroup,
+    joinGroup
   } = useApp();
+
+  const [isGroupDropdownOpen, setIsGroupDropdownOpen] = useState(false);
+  const [isJoinCodeModalOpen, setIsJoinCodeModalOpen] = useState(false);
+  const [inviteCodeInput, setInviteCodeInput] = useState('');
+  const [joinCodeStatus, setJoinCodeStatus] = useState<string | null>(null);
+  const groupDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (groupDropdownRef.current && !groupDropdownRef.current.contains(e.target as Node)) {
+        setIsGroupDropdownOpen(false);
+      }
+    };
+    if (isGroupDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isGroupDropdownOpen]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'title' | 'artist' | 'tempo' | 'duration' | 'recent'>('title');
@@ -1553,115 +1579,332 @@ export const SongList: React.FC = () => {
     <div className="max-w-7xl mx-auto px-3 sm:px-6 py-6 pb-12 text-[#E0E0E0]">
       
       {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-        <div>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+        <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
-            Bibliothèque de Chants
+            Répertoire de Chants
           </h1>
-        </div>
 
-        {/* Action Buttons: Importer Dropdown & Nouveau Chant */}
-        <div className="flex items-center gap-2">
-          
-          {/* Importer Button with Dropdown Options */}
-          <div className="relative" ref={importDropdownRef}>
-            <div className="flex items-center rounded-md bg-[#1C1C1E] border border-[#333] shadow-sm">
-              <button
-                onClick={() => handleOpenImport('search')}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-gray-200 hover:bg-[#2A2A2D] text-xs font-semibold rounded-l-md transition-colors"
-                title="Rechercher des chants sur les sites externes et importer"
-              >
-                <FileUp className="w-3.5 h-3.5 text-blue-400" />
-                <span>Importer</span>
-              </button>
-              <button
-                onClick={() => setIsImportDropdownOpen(!isImportDropdownOpen)}
-                className="px-1.5 py-1.5 text-gray-400 hover:text-white hover:bg-[#2A2A2D] rounded-r-md border-l border-[#333] transition-colors"
-                title="Options d'importation"
-              >
-                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isImportDropdownOpen ? 'rotate-180' : ''}`} />
-              </button>
-            </div>
+          {/* Library Switcher Dropdown */}
+          <div className="relative" ref={groupDropdownRef}>
+            <button
+              type="button"
+              onClick={() => setIsGroupDropdownOpen(!isGroupDropdownOpen)}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#18181D] hover:bg-[#222228] border border-[#2E2E36] hover:border-blue-500/50 text-xs font-semibold transition-all cursor-pointer shadow-xs"
+              title="Cliquer pour changer de bibliothèque"
+            >
+              <Library className="w-3.5 h-3.5 text-blue-400" />
+              <span className="text-gray-200 max-w-[160px] sm:max-w-[220px] truncate">
+                {currentGroup?.name || 'Bibliothèque Principale'}
+              </span>
+              <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform ${isGroupDropdownOpen ? 'rotate-180 text-blue-400' : ''}`} />
+            </button>
 
-            {/* Importer Dropdown Menu */}
-            {isImportDropdownOpen && (
-              <div 
-                className="absolute left-0 sm:left-auto sm:right-0 mt-1.5 w-80 max-w-[calc(100vw-2rem)] bg-[#111112] border border-[#333] rounded-lg shadow-2xl z-30 py-1.5 text-xs animate-in fade-in zoom-in-95 duration-100"
-              >
-                <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400 border-b border-[#222224]">
-                  Mode d'importation
+            {isGroupDropdownOpen && (
+              <div className="absolute left-0 mt-2 w-72 sm:w-80 bg-[#141418] border border-[#2E2E38] rounded-xl shadow-2xl p-2.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+                <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400 border-b border-[#24242C] flex items-center justify-between">
+                  <span>Bibliothèques disponibles</span>
+                  <span className="font-mono text-blue-400">{groups.length}</span>
                 </div>
 
-                {/* Option 1: Online Search */}
-                <button
-                  onClick={() => handleOpenImport('search')}
-                  className="w-full text-left px-3.5 py-2.5 hover:bg-[#1C1C1E] flex items-start gap-2.5 transition-colors group bg-blue-950/20 border-b border-[#222224]"
-                >
-                  <div className="p-1.5 rounded bg-blue-600/20 border border-blue-500/30 text-blue-400 mt-0.5 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                    <Search className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="font-semibold text-white group-hover:text-blue-400 flex items-center gap-1.5">
-                      <span>Recherche en ligne</span>
-                      <span className="px-1.5 py-0.2 text-[9px] font-bold uppercase rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">Nouveau</span>
-                    </div>
-                    <p className="text-[11px] text-gray-400 mt-0.5">
-                      Cherchez parmi des milliers de chants chrétiens comme Shir.fr ou WorshipTogether et importez en 1 clic
-                    </p>
-                  </div>
-                </button>
+                <div className="max-h-56 overflow-y-auto space-y-1 py-1.5 pr-0.5 custom-scrollbar">
+                  {groups.map((g) => {
+                    const isActive = currentGroup?.id === g.id;
+                    return (
+                      <button
+                        key={g.id}
+                        type="button"
+                        onClick={() => {
+                          switchGroup(g.id);
+                          setIsGroupDropdownOpen(false);
+                        }}
+                        className={`w-full text-left p-2 rounded-lg border text-xs transition-all flex items-center justify-between gap-2 cursor-pointer ${
+                          isActive
+                            ? 'bg-blue-600/20 border-blue-500/50 text-white'
+                            : 'bg-[#18181C] hover:bg-[#202026] border-transparent text-gray-300'
+                        }`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="font-semibold truncate flex items-center gap-1.5">
+                            <span className="truncate">{g.name}</span>
+                            {isActive && (
+                              <span className="shrink-0 px-1.5 py-0.2 rounded text-[9px] font-bold bg-blue-500 text-white">
+                                Actif
+                              </span>
+                            )}
+                          </div>
+                          {g.description && (
+                            <p className="text-[10px] text-gray-500 truncate mt-0.5">{g.description}</p>
+                          )}
+                        </div>
+                        <span className="text-[10px] font-mono text-gray-400 shrink-0">
+                          {g.inviteCode}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
 
-                {/* Option 2: File upload */}
-                <button
-                  onClick={() => handleOpenImport('file')}
-                  className="w-full text-left px-3.5 py-2.5 hover:bg-[#1C1C1E] flex items-start gap-2.5 transition-colors group border-b border-[#222224]"
-                >
-                  <div className="p-1.5 rounded bg-[#1C1C1E] border border-[#333] text-blue-400 mt-0.5 group-hover:border-blue-500">
-                    <Upload className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="font-semibold text-white group-hover:text-blue-400">
-                      Importer un fichier
-                    </div>
-                    <p className="text-[11px] text-gray-400 mt-0.5">
-                      Fichiers locaux (.cho, .pro, .txt, .crd) par glisser-déposer
-                    </p>
-                  </div>
-                </button>
+                <div className="pt-2 border-t border-[#24242C] flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsGroupDropdownOpen(false);
+                      setIsJoinCodeModalOpen(true);
+                    }}
+                    className="flex-1 py-1.5 px-2 rounded-lg bg-[#202026] hover:bg-[#2A2A34] text-blue-400 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <KeyRound className="w-3.5 h-3.5" />
+                    <span>Entrer un code</span>
+                  </button>
 
-                {/* Option 3: ChordPro Text */}
-                <button
-                  onClick={() => handleOpenImport('chordpro')}
-                  className="w-full text-left px-3.5 py-2.5 hover:bg-[#1C1C1E] flex items-start gap-2.5 transition-colors group"
-                >
-                  <div className="p-1.5 rounded bg-[#1C1C1E] border border-[#333] text-blue-400 mt-0.5 group-hover:border-blue-500">
-                    <FileCode className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="font-semibold text-white group-hover:text-blue-400">
-                      Écrire / Coller ChordPro
-                    </div>
-                    <p className="text-[11px] text-gray-400 mt-0.5">
-                      Saisie directe de paroles et accords ou texte brut
-                    </p>
-                  </div>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsGroupDropdownOpen(false);
+                      setActiveTab('groups');
+                    }}
+                    className="py-1.5 px-2.5 rounded-lg bg-[#202026] hover:bg-[#2A2A34] text-gray-200 text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5"
+                    title="Gérer et supprimer des bibliothèques"
+                  >
+                    <Library className="w-3.5 h-3.5 text-blue-400" />
+                    <span>Gérer</span>
+                  </button>
+                </div>
               </div>
             )}
           </div>
+        </div>
 
-          {/* Nouveau Chant */}
-          {canManageSongs && (
+        {/* Action Buttons: Importer Dropdown & Nouveau Chant - visibles uniquement si l'utilisateur a les droits */}
+        {canManageSongs && (
+          <div className="flex items-center gap-2">
+            
+            {/* Importer Button with Dropdown Options */}
+            <div className="relative" ref={importDropdownRef}>
+              <div className="flex items-center rounded-md bg-[#1C1C1E] border border-[#333] shadow-sm">
+                <button
+                  onClick={() => handleOpenImport('search')}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-gray-200 hover:bg-[#2A2A2D] text-xs font-semibold rounded-l-md transition-colors cursor-pointer"
+                  title="Rechercher des chants sur les sites externes et importer"
+                >
+                  <FileUp className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Importer</span>
+                </button>
+                <button
+                  onClick={() => setIsImportDropdownOpen(!isImportDropdownOpen)}
+                  className="px-1.5 py-1.5 text-gray-400 hover:text-white hover:bg-[#2A2A2D] rounded-r-md border-l border-[#333] transition-colors cursor-pointer"
+                  title="Options d'importation"
+                >
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isImportDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+              </div>
+
+              {/* Importer Dropdown Menu */}
+              {isImportDropdownOpen && (
+                <div 
+                  className="absolute left-0 sm:left-auto sm:right-0 mt-1.5 w-80 max-w-[calc(100vw-2rem)] bg-[#111112] border border-[#333] rounded-lg shadow-2xl z-30 py-1.5 text-xs animate-in fade-in zoom-in-95 duration-100"
+                >
+                  <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400 border-b border-[#222224]">
+                    Mode d'importation
+                  </div>
+
+                  {/* Option 1: Online Search */}
+                  <button
+                    onClick={() => handleOpenImport('search')}
+                    className="w-full text-left px-3.5 py-2.5 hover:bg-[#1C1C1E] flex items-start gap-2.5 transition-colors group bg-blue-950/20 border-b border-[#222224] cursor-pointer"
+                  >
+                    <div className="p-1.5 rounded bg-blue-600/20 border border-blue-500/30 text-blue-400 mt-0.5 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                      <Search className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="font-semibold text-white group-hover:text-blue-400 flex items-center gap-1.5">
+                        <span>Recherche en ligne</span>
+                        <span className="px-1.5 py-0.2 text-[9px] font-bold uppercase rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">Nouveau</span>
+                      </div>
+                      <p className="text-[11px] text-gray-400 mt-0.5">
+                        Cherchez parmi des milliers de chants chrétiens comme Shir.fr ou WorshipTogether et importez en 1 clic
+                      </p>
+                    </div>
+                  </button>
+
+                  {/* Option 2: File upload */}
+                  <button
+                    onClick={() => handleOpenImport('file')}
+                    className="w-full text-left px-3.5 py-2.5 hover:bg-[#1C1C1E] flex items-start gap-2.5 transition-colors group border-b border-[#222224] cursor-pointer"
+                  >
+                    <div className="p-1.5 rounded bg-[#1C1C1E] border border-[#333] text-blue-400 mt-0.5 group-hover:border-blue-500">
+                      <Upload className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="font-semibold text-white group-hover:text-blue-400">
+                        Importer un fichier
+                      </div>
+                      <p className="text-[11px] text-gray-400 mt-0.5">
+                        Fichiers locaux (.cho, .pro, .txt, .crd) par glisser-déposer
+                      </p>
+                    </div>
+                  </button>
+
+                  {/* Option 3: ChordPro Text */}
+                  <button
+                    onClick={() => handleOpenImport('chordpro')}
+                    className="w-full text-left px-3.5 py-2.5 hover:bg-[#1C1C1E] flex items-start gap-2.5 transition-colors group cursor-pointer"
+                  >
+                    <div className="p-1.5 rounded bg-[#1C1C1E] border border-[#333] text-blue-400 mt-0.5 group-hover:border-blue-500">
+                      <FileCode className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="font-semibold text-white group-hover:text-blue-400">
+                        Écrire / Coller ChordPro
+                      </div>
+                      <p className="text-[11px] text-gray-400 mt-0.5">
+                        Saisie directe de paroles et accords ou texte brut
+                      </p>
+                    </div>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Nouveau Chant */}
             <button
               onClick={handleCreateNewSong}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-md bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-sm transition-all active:scale-95"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-md bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-sm transition-all active:scale-95 cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Nouveau Chant</span>
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
+
+      {/* Visitor Consultation Notice */}
+      {!currentUser && (
+        <div className="mb-4 p-3 rounded-xl bg-gradient-to-r from-blue-950/40 via-[#141724] to-[#121217] border border-blue-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-xs">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400 shrink-0">
+              <Eye className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <div className="font-semibold text-white truncate flex items-center gap-2">
+                <span>Mode Invité • « {currentGroup?.name || 'Bibliothèque Principale'} »</span>
+                <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium">Consultation</span>
+              </div>
+              <p className="text-[11px] text-gray-400 mt-0.5">
+                Vous pouvez consulter les chants, transposer les accords, changer la tonalité et voir les différentes versions.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsGroupDropdownOpen(true)}
+              className="px-2.5 py-1.5 rounded-lg bg-[#1C1C22] hover:bg-[#282830] text-gray-200 border border-[#333] hover:border-blue-500/40 text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5"
+            >
+              <Library className="w-3.5 h-3.5 text-blue-400" />
+              <span>Changer de bibliothèque</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Entrer un code d'invitation pour consulter une bibliothèque */}
+      {isJoinCodeModalOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 animate-in fade-in duration-150"
+          onClick={() => {
+            setIsJoinCodeModalOpen(false);
+            setJoinCodeStatus(null);
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm bg-[#141416] border border-[#2A2A2D] rounded-xl shadow-2xl p-4 animate-in zoom-in-95 duration-100 text-xs"
+          >
+            <div className="flex items-center justify-between pb-2 mb-3 border-b border-[#222226]">
+              <div className="flex items-center gap-2 font-bold text-white text-sm">
+                <KeyRound className="w-4 h-4 text-blue-400" />
+                <span>Code d'invitation de la bibliothèque</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsJoinCodeModalOpen(false);
+                  setJoinCodeStatus(null);
+                }}
+                className="text-gray-400 hover:text-white p-1 rounded hover:bg-[#222228]"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-gray-400 mb-3">
+              Entrez le code d'invitation à 6 caractères pour charger et consulter cette bibliothèque de chants.
+            </p>
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!inviteCodeInput.trim()) return;
+                const ok = await joinGroup(inviteCodeInput.trim());
+                if (ok) {
+                  setJoinCodeStatus('success');
+                  setInviteCodeInput('');
+                  setTimeout(() => {
+                    setIsJoinCodeModalOpen(false);
+                    setJoinCodeStatus(null);
+                  }, 1200);
+                } else {
+                  setJoinCodeStatus('error');
+                }
+              }}
+              className="space-y-3"
+            >
+              <input
+                type="text"
+                placeholder="Ex: LOUAN7"
+                value={inviteCodeInput}
+                onChange={(e) => setInviteCodeInput(e.target.value.toUpperCase())}
+                className="w-full bg-[#1C1C1E] border border-[#333] focus:border-blue-500 rounded-lg px-3 py-2 text-center font-mono font-bold text-sm tracking-widest text-blue-400 placeholder-gray-600 focus:outline-none"
+                maxLength={8}
+                autoFocus
+                required
+              />
+
+              {joinCodeStatus === 'success' && (
+                <div className="p-2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-center font-semibold">
+                  Bibliothèque chargée !
+                </div>
+              )}
+
+              {joinCodeStatus === 'error' && (
+                <div className="p-2 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 text-center font-semibold">
+                  Code introuvable. Vérifiez le code fourni.
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="submit"
+                  disabled={!inviteCodeInput.trim()}
+                  className="flex-1 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold shadow-xs disabled:opacity-50 cursor-pointer"
+                >
+                  Charger la bibliothèque
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsJoinCodeModalOpen(false)}
+                  className="px-3 py-2 rounded-lg bg-[#1C1C1E] text-gray-300 hover:text-white"
+                >
+                  Annuler
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Search & Filter Controls Bar */}
       <div className="bg-[#111112] border border-[#222224] rounded-lg p-2.5 mb-3 flex flex-col md:flex-row items-center gap-2.5">

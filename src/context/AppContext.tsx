@@ -55,11 +55,11 @@ import { deleteSongFromIndexedDB, deleteSetlistFromIndexedDB } from '../utils/in
 
 const DEFAULT_GROUP: Group = {
   id: 'default-group',
-  name: 'Groupe Louange Principal',
+  name: 'Bibliothèque Principale',
   ownerId: 'demo-admin-uid',
   members: ['demo-admin-uid'],
   inviteCode: 'LOUAN7',
-  description: 'Équipe de louange du dimanche et événements spéciaux.'
+  description: 'Bibliothèque de louange et chants partagés.'
 };
 
 const DEFAULT_STAGE_SETTINGS: StageSettings = {
@@ -81,6 +81,9 @@ interface AppContextType {
   firebaseUser: FirebaseUser | null;
   groups: Group[];
   currentGroup: Group | null;
+  // Aliases Bibliothèque
+  libraries: Group[];
+  currentLibrary: Group | null;
   songs: Song[];
   setlists: Setlist[];
   activeTab: 'repertoire' | 'setlists' | 'stage' | 'groups' | 'editor' | 'settings' | 'tuner';
@@ -111,9 +114,11 @@ interface AppContextType {
   isAuthModalOpen: boolean;
   setIsAuthModalOpen: (open: boolean) => void;
   isPianoOpen: boolean;
-  setIsPianoOpen: (open: boolean) => void;
+  setIsPianoOpen: (open: boolean | ((prev: boolean) => boolean)) => void;
   isMetronomeOpen: boolean;
   setIsMetronomeOpen: (open: boolean | ((prev: boolean) => boolean)) => void;
+  isTunerOpen: boolean;
+  setIsTunerOpen: (open: boolean | ((prev: boolean) => boolean)) => void;
   isInstallable: boolean;
   promptInstall: () => void;
   
@@ -163,9 +168,15 @@ interface AppContextType {
   
   createGroup: (name: string, description?: string) => Promise<string>;
   updateGroup: (groupId: string, data: Partial<Pick<Group, 'name' | 'description' | 'inviteCode'>>) => Promise<boolean>;
-  deleteGroup: (groupId: string) => Promise<boolean>;
+  deleteGroup: (groupId: string, options?: { deleteAssociatedData?: boolean }) => Promise<boolean>;
   joinGroup: (inviteCode: string) => Promise<boolean>;
   switchGroup: (groupId: string) => void;
+  // Aliases Bibliothèque
+  createLibrary: (name: string, description?: string) => Promise<string>;
+  updateLibrary: (libraryId: string, data: Partial<Pick<Group, 'name' | 'description' | 'inviteCode'>>) => Promise<boolean>;
+  deleteLibrary: (libraryId: string, options?: { deleteAssociatedData?: boolean }) => Promise<boolean>;
+  joinLibrary: (inviteCode: string) => Promise<boolean>;
+  switchLibrary: (libraryId: string) => void;
   
   // Permissions & Rôles
   isAdmin: boolean;
@@ -214,6 +225,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isPianoOpen, setIsPianoOpen] = useState(false);
   const [isMetronomeOpen, setIsMetronomeOpen] = useState(false);
+  const [isTunerOpen, setIsTunerOpen] = useState(false);
 
   // Snackbar notifications state & handlers (bottom-right notifications)
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
@@ -287,7 +299,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Groups & Data
   const [groups, setGroups] = useState<Group[]>([DEFAULT_GROUP]);
-  const [currentGroup, setCurrentGroup] = useState<Group | null>(DEFAULT_GROUP);
+  const [currentGroup, setCurrentGroup] = useState<Group | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const savedId = localStorage.getItem('songbook_current_group_id');
+        if (savedId && savedId !== 'default-group') {
+          return { ...DEFAULT_GROUP, id: savedId, name: 'Chargement de la bibliothèque...' };
+        }
+      } catch (e) {}
+    }
+    return DEFAULT_GROUP;
+  });
   const [songs, setSongs] = useState<Song[]>(() => {
     const deletedIds = getDeletedSongIds();
     const saved = localStorage.getItem('songbook_cached_songs');
@@ -686,6 +708,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [songs]);
 
+  // Deep linking for group shared via URL or QR Code (?group=... or ?code=...)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    try {
+      const params = new URLSearchParams(window.location.search);
+      let targetGroupId = params.get('library') || params.get('libraryId') || params.get('group') || params.get('groupId');
+      let targetCode = params.get('code') || params.get('invite');
+
+      if ((!targetGroupId || !targetCode) && window.location.hash) {
+        const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+        if (!targetGroupId) targetGroupId = hashParams.get('library') || hashParams.get('libraryId') || hashParams.get('group') || hashParams.get('groupId');
+        if (!targetCode) targetCode = hashParams.get('code') || hashParams.get('invite');
+      }
+
+      if (targetGroupId) {
+        const found = groups.find(g => g.id === targetGroupId);
+        if (found && currentGroup?.id !== found.id) {
+          setCurrentGroup(found);
+          localStorage.setItem('songbook_current_group_id', found.id);
+        }
+      } else if (targetCode) {
+        const foundByCode = groups.find(g => g.inviteCode?.toUpperCase() === targetCode?.toUpperCase());
+        if (foundByCode && currentGroup?.id !== foundByCode.id) {
+          setCurrentGroup(foundByCode);
+          localStorage.setItem('songbook_current_group_id', foundByCode.id);
+        }
+      }
+    } catch (e) {
+      console.warn('Erreur lecture lien groupe :', e);
+    }
+  }, [groups, currentGroup?.id]);
+
   const promptInstall = useCallback(() => {
     if (deferredInstallPrompt) {
       deferredInstallPrompt.prompt();
@@ -995,46 +1050,50 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     });
 
-    // 4. Sync Groups if user is logged in
-    if (currentUser?.uid) {
-      const qGroups = query(collection(db, 'groups'), where('members', 'array-contains', currentUser.uid));
-      const unsubGroups = onSnapshot(qGroups, (snapshot) => {
-        const loadedGroups: Group[] = [];
-        if (!snapshot.empty) {
-          snapshot.forEach((d) => {
-            loadedGroups.push({ id: d.id, ...d.data() } as Group);
-          });
-        }
-        const seenGroupIds = new Set<string>();
-        const mergedGroups: Group[] = [];
-        for (const g of [DEFAULT_GROUP, ...loadedGroups]) {
-          const gid = g.id || 'default-group';
-          if (!seenGroupIds.has(gid)) {
-            seenGroupIds.add(gid);
-            mergedGroups.push(g);
-          }
-        }
-        setGroups(mergedGroups);
-      }, (err) => {
-        if (err?.code !== 'unavailable') {
-          console.warn('Groups sync error:', err.message);
-        }
-      });
+    // 4. Sync Groups:
+    // If admin or unauthenticated visitor: sync ALL groups from Firestore so any user can consult available groups
+    // If standard member logged in: sync groups where members array-contains currentUser.uid
+    const qGroups = (currentUser?.role === 'admin' || !currentUser?.uid)
+      ? query(collection(db, 'groups'))
+      : query(collection(db, 'groups'), where('members', 'array-contains', currentUser.uid));
 
-      return () => {
-        unsubSongs();
-        unsubSetlists();
-        unsubHistory();
-        unsubGroups();
-      };
-    }
+    const unsubGroups = onSnapshot(qGroups, (snapshot) => {
+      const loadedGroups: Group[] = [];
+      if (!snapshot.empty) {
+        snapshot.forEach((d) => {
+          loadedGroups.push({ id: d.id, ...d.data() } as Group);
+        });
+      }
+      const seenGroupIds = new Set<string>();
+      const mergedGroups: Group[] = [];
+      for (const g of [DEFAULT_GROUP, ...loadedGroups]) {
+        const gid = g.id || 'default-group';
+        if (!seenGroupIds.has(gid)) {
+          seenGroupIds.add(gid);
+          mergedGroups.push(g);
+        }
+      }
+      setGroups(mergedGroups);
+
+      // Reconnect currentGroup if it was loaded from localStorage or URL
+      setCurrentGroup(prev => {
+        const targetId = prev?.id || localStorage.getItem('songbook_current_group_id') || 'default-group';
+        const match = mergedGroups.find(g => g.id === targetId);
+        return match || prev || DEFAULT_GROUP;
+      });
+    }, (err) => {
+      if (err?.code !== 'unavailable') {
+        console.warn('Groups sync error:', err.message);
+      }
+    });
 
     return () => {
       unsubSongs();
       unsubSetlists();
       unsubHistory();
+      unsubGroups();
     };
-  }, [currentGroup?.id, currentUser?.uid]);
+  }, [currentGroup?.id, currentUser?.uid, currentUser?.role]);
 
   // Seed sample songs to Firestore for current group
   const seedDemoDataToFirestore = useCallback(async () => {
@@ -1541,10 +1600,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
-  // Group Actions
+  // Group / Library Actions
   const createGroup = useCallback(async (name: string, description = '') => {
-    if (currentUser?.role !== 'admin') {
-      showNotification("Seul l'Administrateur peut créer de nouveaux groupes", 'error');
+    const isAllowed = currentUser?.role === 'admin' || currentUser?.role === 'leader' || !currentUser;
+    if (!isAllowed) {
+      showNotification("Seul l'Administrateur ou le Responsable peut créer de nouvelles bibliothèques", 'error');
       return '';
     }
 
@@ -1574,8 +1634,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [currentUser?.uid, currentUser?.role, showNotification]);
 
   const updateGroup = useCallback(async (groupId: string, data: Partial<Pick<Group, 'name' | 'description' | 'inviteCode'>>): Promise<boolean> => {
-    if (currentUser?.role !== 'admin') {
-      showNotification("Seul l'Administrateur peut modifier et gérer les groupes", 'error');
+    const target = groups.find(g => g.id === groupId);
+    const isAllowed = currentUser?.role === 'admin' || currentUser?.role === 'leader' || !currentUser || (currentUser && target?.ownerId === currentUser.uid);
+    if (!isAllowed) {
+      showNotification("Seul l'Administrateur ou le créateur peut modifier cette bibliothèque", 'error');
       return false;
     }
 
@@ -1590,33 +1652,91 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (currentGroup?.id === groupId) {
       setCurrentGroup(prev => prev ? { ...prev, ...data } : prev);
     }
-    showNotification('Informations du groupe mises à jour avec succès');
+    showNotification('Informations de la bibliothèque mises à jour avec succès');
     return true;
-  }, [currentUser?.role, currentGroup?.id, showNotification]);
+  }, [currentUser?.role, currentUser?.uid, groups, currentGroup?.id, showNotification]);
 
-  const deleteGroup = useCallback(async (groupId: string): Promise<boolean> => {
+  const deleteGroup = useCallback(async (
+    groupId: string,
+    options?: { deleteAssociatedData?: boolean }
+  ): Promise<boolean> => {
     if (groupId === DEFAULT_GROUP.id) {
-      showNotification('Le répertoire principal ne peut pas être supprimé', 'warning');
+      showNotification('La bibliothèque principale ne peut pas être supprimée', 'warning');
       return false;
     }
-    if (currentUser?.role !== 'admin') {
-      showNotification("Seul l'Administrateur peut supprimer un groupe", 'error');
+
+    const targetGroup = groups.find(g => g.id === groupId);
+    const targetName = targetGroup?.name || 'cette bibliothèque';
+    const isAdmin = currentUser?.role === 'admin';
+    const isLeader = currentUser?.role === 'leader';
+    const isOwner = Boolean(currentUser && targetGroup?.ownerId === currentUser.uid);
+    const isLocalOrGuest = !currentUser || currentUser.uid.startsWith('demo-') || currentUser.uid.startsWith('user-');
+
+    if (!isAdmin && !isLeader && !isOwner && !isLocalOrGuest) {
+      showNotification("Seul l'Administrateur ou le créateur peut supprimer cette bibliothèque", 'error');
       return false;
     }
+
+    const shouldDeleteData = options?.deleteAssociatedData !== false;
 
     try {
+      // 1. Delete group document from Firestore
       await deleteDoc(doc(db, 'groups', groupId));
+
+      // 2. Delete associated documents if requested
+      if (shouldDeleteData) {
+        try {
+          const songsQ = query(collection(db, 'songs'), where('groupId', '==', groupId));
+          const songsSnap = await getDocs(songsQ);
+          const deletePromises: Promise<any>[] = [];
+          songsSnap.forEach(d => {
+            deletePromises.push(deleteDoc(d.ref));
+          });
+
+          const setlistsQ = query(collection(db, 'setlists'), where('groupId', '==', groupId));
+          const setlistsSnap = await getDocs(setlistsQ);
+          setlistsSnap.forEach(d => {
+            deletePromises.push(deleteDoc(d.ref));
+          });
+
+          const historyQ = query(collection(db, 'setlist_history'), where('groupId', '==', groupId));
+          const historySnap = await getDocs(historyQ);
+          historySnap.forEach(d => {
+            deletePromises.push(deleteDoc(d.ref));
+          });
+
+          await Promise.all(deletePromises);
+        } catch (cleanupErr) {
+          console.warn('Associated data cleanup note:', cleanupErr);
+        }
+      }
     } catch (e) {
       console.warn('Deleted group locally:', e);
     }
 
+    // 3. Update local states
     setGroups(prev => prev.filter(g => g.id !== groupId));
+
     if (currentGroup?.id === groupId) {
       setCurrentGroup(DEFAULT_GROUP);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('songbook_current_group_id', DEFAULT_GROUP.id);
+      }
     }
-    showNotification('Groupe supprimé');
+
+    if (shouldDeleteData) {
+      setSongs(prev => prev.filter(s => (s.groupId || 'default-group') !== groupId));
+      setSetlists(prev => prev.filter(st => (st.groupId || 'default-group') !== groupId));
+      setSetlistHistory(prev => prev.filter(h => (h.groupId || 'default-group') !== groupId));
+    }
+
+    showNotification({
+      title: 'Bibliothèque supprimée',
+      message: `La bibliothèque « ${targetName} » a été supprimée avec succès.`,
+      type: 'success'
+    });
     return true;
-  }, [currentUser?.role, currentGroup?.id, showNotification]);
+  }, [currentUser, groups, currentGroup?.id, showNotification]);
 
   const joinGroup = useCallback(async (inviteCode: string): Promise<boolean> => {
     const code = inviteCode.trim().toUpperCase();
@@ -1634,12 +1754,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (snap && !snap.empty) {
         const groupDoc = snap.docs[0];
         const groupData = { id: groupDoc.id, ...groupDoc.data() } as Group;
-        const uid = currentUser?.uid || 'user';
         
-        if (!groupData.members.includes(uid)) {
-          const updatedMembers = [...groupData.members, uid];
-          await updateDoc(doc(db, 'groups', groupData.id), { members: updatedMembers });
-          groupData.members = updatedMembers;
+        // If user is authenticated, add them to the group members in Firestore
+        if (currentUser?.uid) {
+          const uid = currentUser.uid;
+          if (!groupData.members.includes(uid)) {
+            const updatedMembers = [...groupData.members, uid];
+            try {
+              await updateDoc(doc(db, 'groups', groupData.id), { members: updatedMembers });
+              groupData.members = updatedMembers;
+            } catch (err) {
+              console.warn('Group member update note:', err);
+            }
+          }
         }
 
         setGroups(prev => {
@@ -1647,6 +1774,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           return [...prev, groupData];
         });
         setCurrentGroup(groupData);
+        localStorage.setItem('songbook_current_group_id', groupData.id);
+        showNotification({
+          title: `Bibliothèque « ${groupData.name} » active`,
+          message: currentUser ? 'Bibliothèque rejointe avec succès.' : 'Consultation en mode invité.',
+          type: 'success'
+        });
         return true;
       }
     } catch (e) {
@@ -1656,21 +1789,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Demo code fallback
     if (code === 'LOUAN7' || code === 'WORSHIP') {
       setCurrentGroup(DEFAULT_GROUP);
+      localStorage.setItem('songbook_current_group_id', DEFAULT_GROUP.id);
+      showNotification({
+        title: `Bibliothèque « ${DEFAULT_GROUP.name} » active`,
+        message: 'Consultation active.',
+        type: 'success'
+      });
       return true;
     }
 
     return false;
-  }, [currentUser?.uid]);
+  }, [currentUser?.uid, showNotification]);
 
   const switchGroup = useCallback((groupId: string) => {
     const g = groups.find(item => item.id === groupId);
     if (g) {
       setCurrentGroup(g);
+      localStorage.setItem('songbook_current_group_id', groupId);
       if (currentUser) {
         setCurrentUser(prev => prev ? { ...prev, currentGroupId: groupId } : null);
       }
+      showNotification({
+        title: `Bibliothèque : ${g.name}`,
+        message: currentUser ? 'Bibliothèque active changée.' : 'Consultation en mode invité.',
+        type: 'info'
+      });
     }
-  }, [groups, currentUser]);
+  }, [groups, currentUser, showNotification]);
 
   const loginDemoUser = useCallback((role: UserRole = 'admin') => {
     let name = 'Alexandre - Administrateur';
@@ -1786,7 +1931,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const isAdmin = currentUser?.role === 'admin';
   const isLeader = currentUser?.role === 'leader';
   const canManageSongs = isAdmin || isLeader;
-  const canManageGroups = isAdmin;
+  const canManageGroups = isAdmin || isLeader || !currentUser;
   const canAccessSettings = isAdmin;
 
   return (
@@ -1831,6 +1976,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setIsPianoOpen,
       isMetronomeOpen,
       setIsMetronomeOpen,
+      isTunerOpen,
+      setIsTunerOpen,
       isInstallable,
       promptInstall,
       offlineStats,
@@ -1862,6 +2009,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       deleteGroup,
       joinGroup,
       switchGroup,
+      // Aliases Bibliothèque
+      libraries: groups,
+      currentLibrary: currentGroup,
+      createLibrary: createGroup,
+      updateLibrary: updateGroup,
+      deleteLibrary: deleteGroup,
+      joinLibrary: joinGroup,
+      switchLibrary: switchGroup,
       loginDemoUser,
       loginLocalUser,
       handleSignOut,

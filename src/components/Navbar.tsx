@@ -5,6 +5,7 @@ import {
   Music2, 
   ListMusic, 
   Users, 
+  Library,
   Download, 
   WifiOff, 
   Wifi, 
@@ -46,7 +47,9 @@ export const Navbar: React.FC = () => {
     isPianoOpen,
     setIsPianoOpen,
     isMetronomeOpen,
-    setIsMetronomeOpen
+    setIsMetronomeOpen,
+    isTunerOpen,
+    setIsTunerOpen
   } = useApp();
 
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -172,7 +175,7 @@ export const Navbar: React.FC = () => {
                 }`}
               >
                 <Music2 className={`w-3 h-3 ${activeTab === 'repertoire' ? 'text-blue-400' : 'text-gray-400'}`} />
-                <span>Bibliothèque</span>
+                <span>Chants</span>
               </button>
 
               <button
@@ -207,7 +210,7 @@ export const Navbar: React.FC = () => {
                   />
                 )}
                 <Music2 className="w-3.5 h-3.5 text-blue-400" />
-                <span>Bibliothèque</span>
+                <span>Chants</span>
               </button>
 
               <button
@@ -230,24 +233,16 @@ export const Navbar: React.FC = () => {
               </button>
 
               <button
-                onClick={() => {
-                  setActiveTab('tuner');
-                  window.dispatchEvent(new CustomEvent('melobook:request-tuner-mic'));
-                }}
-                className={`relative z-10 flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
-                  activeTab === 'tuner'
-                    ? 'text-white'
-                    : 'text-gray-400 hover:text-white'
+                type="button"
+                onClick={() => setIsTunerOpen(prev => !prev)}
+                className={`relative z-10 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                  isTunerOpen
+                    ? 'bg-blue-600/20 text-blue-400 border border-blue-500/40 shadow-xs'
+                    : 'text-gray-400 hover:text-white hover:bg-[#1A1A1D]'
                 }`}
+                title="Accordeur acoustique et diapason en pop up"
               >
-                {activeTab === 'tuner' && (
-                  <motion.span
-                    layoutId="active-nav-indicator"
-                    className="absolute inset-0 bg-[#1C1C1E] rounded-md border border-[#333] -z-10 shadow-sm"
-                    transition={{ type: 'spring', stiffness: 450, damping: 35 }}
-                  />
-                )}
-                <Gauge className="w-3.5 h-3.5 text-blue-400" />
+                <Gauge className="w-3.5 h-3.5 text-blue-400 shrink-0" />
                 <span>Accordeur</span>
               </button>
 
@@ -417,8 +412,8 @@ export const Navbar: React.FC = () => {
                       }}
                       className="w-full text-left px-3.5 py-2 flex items-center gap-2.5 text-gray-300 hover:bg-[#1C1C1E] hover:text-white transition-colors cursor-pointer"
                     >
-                      <Users className="w-3.5 h-3.5 text-blue-400" />
-                      <span>Groupe</span>
+                      <Library className="w-3.5 h-3.5 text-blue-400" />
+                      <span>Bibliothèques</span>
                     </button>
 
                     {currentUser?.role === 'admin' && (
@@ -461,6 +456,18 @@ export const Navbar: React.FC = () => {
                     >
                       <MetronomeIcon className="w-3.5 h-3.5 text-blue-400 shrink-0" />
                       <span>Métronome</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsTunerOpen(true);
+                        setIsUserMenuOpen(false);
+                      }}
+                      className="w-full text-left px-3.5 py-2 flex items-center gap-2.5 text-gray-300 hover:bg-[#1C1C1E] hover:text-white transition-colors cursor-pointer"
+                    >
+                      <Gauge className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                      <span>Accordeur</span>
                     </button>
                   </div>
 
@@ -653,21 +660,22 @@ export const Navbar: React.FC = () => {
                     </button>
 
                     <button
+                      type="button"
                       onClick={() => {
-                        handleNavClick('tuner');
-                        window.dispatchEvent(new CustomEvent('melobook:request-tuner-mic'));
+                        setIsTunerOpen(true);
+                        setIsMobileMenuOpen(false);
                       }}
-                      className={`w-full text-left px-3.5 py-2 flex items-center justify-between transition-colors ${
-                        activeTab === 'tuner'
+                      className={`w-full text-left px-3.5 py-2 flex items-center justify-between transition-colors cursor-pointer ${
+                        isTunerOpen
                           ? 'bg-[#1C1C1E] text-blue-400 font-semibold'
                           : 'text-gray-300 hover:bg-[#1C1C1E] hover:text-white'
                       }`}
                     >
                       <div className="flex items-center gap-2.5">
-                        <Gauge className="w-3.5 h-3.5 text-blue-400" />
+                        <Gauge className="w-4 h-4 text-blue-400 shrink-0" />
                         <span>Accordeur</span>
                       </div>
-                      {activeTab === 'tuner' && (
+                      {isTunerOpen && (
                         <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
                       )}
                     </button>
@@ -681,8 +689,8 @@ export const Navbar: React.FC = () => {
                       }`}
                     >
                       <div className="flex items-center gap-2.5">
-                        <Users className="w-3.5 h-3.5 text-blue-400" />
-                        <span>Groupes</span>
+                        <Library className="w-3.5 h-3.5 text-blue-400" />
+                        <span>Bibliothèques</span>
                       </div>
                       {activeTab === 'groups' && (
                         <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>

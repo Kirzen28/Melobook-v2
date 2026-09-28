@@ -292,7 +292,7 @@ export const SettingsView: React.FC = () => {
         </p>
         {currentUser?.role === 'leader' && (
           <div className="mb-6 p-3 rounded-lg bg-emerald-950/30 border border-emerald-500/30 text-emerald-300 text-xs max-w-md mx-auto leading-relaxed">
-            ⚡ <strong>Rôle Responsable :</strong> Vous disposez des mêmes droits que l'Administrateur pour gérer toute la musique (chants, accords ChordPro, transpositions, dossiers, setlists et cultes), mais l'accès à tous les réglages généraux et la gestion des groupes sont réservés à l'Administrateur.
+            ⚡ <strong>Rôle Responsable :</strong> Vous disposez des mêmes droits que l'Administrateur pour gérer toute la musique (chants, accords ChordPro, transpositions, dossiers, setlists et cultes), mais l'accès à tous les réglages généraux et la gestion des bibliothèques sont réservés à l'Administrateur.
           </div>
         )}
         <button

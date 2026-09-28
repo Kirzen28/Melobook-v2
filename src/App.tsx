@@ -63,7 +63,6 @@ const AppContent: React.FC = () => {
             {activeTab === 'setlists' && <SetlistManager />}
             {activeTab === 'stage' && <SongReader />}
             {activeTab === 'editor' && <SongEditor />}
-            {activeTab === 'tuner' && <Tuner />}
             {activeTab === 'groups' && <GroupManager />}
             {activeTab === 'settings' && <SettingsView />}
           </motion.div>
@@ -73,6 +72,7 @@ const AppContent: React.FC = () => {
       <AuthModal />
       <MiniPianoPopup />
       <MetronomePopup />
+      <Tuner />
       <SnackbarNotification />
       <OfflineIndicator />
     </div>

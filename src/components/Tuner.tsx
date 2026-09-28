@@ -16,8 +16,10 @@ import {
   RefreshCw,
   Radio,
   Lock,
-  ArrowRight
+  ArrowRight,
+  X
 } from 'lucide-react';
+import { useApp } from '../context/AppContext';
 
 export interface TunerErrorInfo {
   type: 'not_allowed' | 'not_found' | 'not_readable' | 'security' | 'unsupported' | 'generic';
@@ -230,6 +232,7 @@ function autoCorrelate(buffer: Float32Array, sampleRate: number): number {
 }
 
 export const Tuner: React.FC = () => {
+  const { isTunerOpen, setIsTunerOpen } = useApp();
   const [selectedInstrumentId, setSelectedInstrumentId] = useState<string>('guitar');
   const [isListening, setIsListening] = useState<boolean>(false);
   const [detectedFrequency, setDetectedFrequency] = useState<number | null>(null);
@@ -596,90 +599,136 @@ export const Tuner: React.FC = () => {
     stopReferenceTone();
   }, [selectedInstrumentId]);
 
+  useEffect(() => {
+    if (!isTunerOpen) {
+      stopListening();
+      stopReferenceTone();
+    }
+  }, [isTunerOpen]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isTunerOpen) {
+        setIsTunerOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isTunerOpen, setIsTunerOpen]);
+
+  if (!isTunerOpen) return null;
+
   return (
-    <div className="max-w-xl mx-auto px-3 sm:px-4 py-3 sm:py-6">
-      {/* Compact Main Tuner Card */}
+    <div 
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs select-none animate-in fade-in duration-200"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          setIsTunerOpen(false);
+        }
+      }}
+    >
       <div 
         id="tuner-main-card"
-        className={`relative rounded-2xl p-4 sm:p-5 shadow-xl transition-all duration-200 overflow-hidden bg-[#111114] border ${
-          isListening 
-            ? 'border-blue-500/50 shadow-blue-950/20' 
-            : errorDetails 
-            ? 'border-rose-500/40 shadow-rose-950/20' 
-            : 'border-[#222228]'
-        }`}
+        className="w-full sm:max-w-lg bg-[#141416] border border-[#2B2B30] rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden text-[#E0E0E0] animate-in slide-in-from-bottom-6 sm:fade-in duration-200 max-h-[92vh] sm:max-h-[88vh]"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Accordeur"
       >
-        {/* Top Control Bar */}
-        <div className="flex items-center justify-between gap-2 pb-3 mb-3 border-b border-[#1E1E24]">
-          {/* Instrument Selector */}
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="w-7 h-7 rounded-lg bg-blue-600/15 border border-blue-500/20 flex items-center justify-center text-blue-400 shrink-0">
-              <Gauge className="w-3.5 h-3.5" />
+        {/* Header Bar */}
+        <div className="px-4 py-2.5 bg-[#18181B] border-b border-[#26262B] flex items-center justify-between gap-2 shrink-0">
+          <div className="flex items-center gap-2">
+            <div className={`p-1.5 rounded-md ${isListening ? 'bg-blue-600/20 text-blue-400' : 'bg-[#222] text-gray-400'}`}>
+              <Gauge className="w-4 h-4" />
             </div>
-            <div className="relative">
-              <select
-                value={selectedInstrumentId}
-                onChange={(e) => setSelectedInstrumentId(e.target.value)}
-                className="appearance-none bg-[#18181D] border border-[#2A2A32] hover:border-[#383844] text-white text-xs font-semibold rounded-lg pl-2.5 pr-7 py-1.5 focus:outline-none focus:border-blue-500 cursor-pointer transition-colors"
-              >
-                {TUNER_INSTRUMENTS.map((inst) => (
-                  <option key={inst.id} value={inst.id} className="bg-[#141417]">
-                    {inst.name}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold text-white tracking-wide">Accordeur</span>
+              <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-[#222226] text-blue-300 border border-[#333]">
+                {currentInstrument.name}
+              </span>
+              <span className="hidden sm:inline-block text-[10px] font-mono text-gray-400 bg-[#16161A] px-1.5 py-0.5 rounded border border-[#24242C]">
+                440 Hz
+              </span>
             </div>
-
-            {selectedStringId && (
-              <button
-                type="button"
-                onClick={() => setSelectedStringId(null)}
-                className="px-2 py-1 rounded-md bg-[#1C1C22] hover:bg-[#25252D] text-gray-300 hover:text-white border border-[#2E2E38] text-[11px] font-medium transition-colors cursor-pointer"
-                title="Détection automatique"
-              >
-                Auto
-              </button>
-            )}
           </div>
 
-          {/* Right actions: A4 tag and Mic toggle */}
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="hidden sm:inline-block text-[11px] font-mono text-gray-400 bg-[#16161A] px-2 py-1 rounded border border-[#24242C]">
-              440 Hz
-            </span>
-
+          <div className="flex items-center gap-1.5">
             <button
               type="button"
-              onClick={isListening ? stopListening : startListening}
-              disabled={isRequestingPermission}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer ${
-                isListening
-                  ? 'bg-rose-600 hover:bg-rose-500 text-white'
-                  : isRequestingPermission
-                  ? 'bg-blue-700 text-blue-200 opacity-90 cursor-wait'
-                  : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-900/30'
-              }`}
+              onClick={() => setIsTunerOpen(false)}
+              className="p-1.5 rounded-md bg-[#1F1F24] hover:bg-rose-900/30 text-gray-400 hover:text-rose-300 border border-[#333] hover:border-rose-500/40 transition-colors cursor-pointer"
+              title="Fermer l'accordeur"
             >
-              {isListening ? (
-                <>
-                  <MicOff className="w-3.5 h-3.5" />
-                  <span>Arrêter</span>
-                </>
-              ) : isRequestingPermission ? (
-                <>
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  <span>Connexion...</span>
-                </>
-              ) : (
-                <>
-                  <Mic className="w-3.5 h-3.5" />
-                  <span>Activer micro</span>
-                </>
-              )}
+              <X className="w-4 h-4" />
             </button>
           </div>
         </div>
+
+        {/* Scrollable Tuner Body */}
+        <div className="overflow-y-auto p-4 sm:p-5 space-y-3.5 custom-scrollbar">
+          {/* Top Control Bar */}
+          <div className="flex items-center justify-between gap-2 pb-3 border-b border-[#1E1E24]">
+            {/* Instrument Selector */}
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="relative">
+                <select
+                  value={selectedInstrumentId}
+                  onChange={(e) => setSelectedInstrumentId(e.target.value)}
+                  className="appearance-none bg-[#18181D] border border-[#2A2A32] hover:border-[#383844] text-white text-xs font-semibold rounded-lg pl-2.5 pr-7 py-1.5 focus:outline-none focus:border-blue-500 cursor-pointer transition-colors"
+                >
+                  {TUNER_INSTRUMENTS.map((inst) => (
+                    <option key={inst.id} value={inst.id} className="bg-[#141417]">
+                      {inst.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+
+              {selectedStringId && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedStringId(null)}
+                  className="px-2 py-1 rounded-md bg-[#1C1C22] hover:bg-[#25252D] text-gray-300 hover:text-white border border-[#2E2E38] text-[11px] font-medium transition-colors cursor-pointer"
+                  title="Détection automatique"
+                >
+                  Auto
+                </button>
+              )}
+            </div>
+
+            {/* Right actions: Mic toggle */}
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={isListening ? stopListening : startListening}
+                disabled={isRequestingPermission}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer ${
+                  isListening
+                    ? 'bg-rose-600 hover:bg-rose-500 text-white'
+                    : isRequestingPermission
+                    ? 'bg-blue-700 text-blue-200 opacity-90 cursor-wait'
+                    : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-900/30'
+                }`}
+              >
+                {isListening ? (
+                  <>
+                    <MicOff className="w-3.5 h-3.5" />
+                    <span>Arrêter</span>
+                  </>
+                ) : isRequestingPermission ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Connexion...</span>
+                  </>
+                ) : (
+                  <>
+                    <Mic className="w-3.5 h-3.5" />
+                    <span>Activer micro</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
 
         {/* Central Display: Compact and Minimalist */}
         {errorDetails ? (
@@ -967,5 +1016,8 @@ export const Tuner: React.FC = () => {
         </div>
       </div>
     </div>
+  </div>
   );
 };
+
+export const TunerPopup = Tuner;

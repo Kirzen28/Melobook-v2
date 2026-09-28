@@ -810,7 +810,7 @@ export const SetlistManager: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-medium text-gray-300 mb-1">
-                  Notes et indications pour le groupe
+                  Notes et indications pour l'équipe / musiciens
                 </label>
                 <textarea
                   rows={3}

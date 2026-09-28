@@ -131,7 +131,7 @@ export const AuthModal: React.FC = () => {
           </h2>
           <p className="text-xs text-gray-400 mt-1">
             {mode === 'signin' && 'Accédez à vos répertoires et setlists synchronisés'}
-            {mode === 'signup' && 'Rejoignez un groupe ou commencez à gérer vos chants'}
+            {mode === 'signup' && 'Rejoignez une bibliothèque ou commencez à gérer vos chants'}
             {mode === 'reset' && 'Entrez votre e-mail pour recevoir le lien de réinitialisation'}
           </p>
         </div>
@@ -318,7 +318,7 @@ export const AuthModal: React.FC = () => {
               className="py-1.5 px-3 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] text-blue-400 font-semibold text-xs border border-[#333] flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
             >
               <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Chef de Groupe (Admin)</span>
+              <span>Admin Bibliothèque</span>
             </button>
 
             <button

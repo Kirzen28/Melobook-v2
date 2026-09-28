@@ -545,7 +545,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
   // Key & Transposition Handlers
   const handleTransposeDelta = async (delta: number) => {
     const newOffset = (effectiveTransposeOffset + delta) % 12;
-    if (isSetlistMode && currentSetlist && song) {
+    if (isSetlistMode && currentSetlist && song && canManageSongs) {
       await updateSetlistSongOverride(currentSetlist.id, song.id, { transposeOffset: newOffset });
     } else {
       updateStageSettings({ transposeOffset: newOffset });
@@ -553,7 +553,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
   };
 
   const handleResetTranspose = async () => {
-    if (isSetlistMode && currentSetlist && song) {
+    if (isSetlistMode && currentSetlist && song && canManageSongs) {
       await updateSetlistSongOverride(currentSetlist.id, song.id, { transposeOffset: 0 });
     } else {
       updateStageSettings({ transposeOffset: 0 });
@@ -561,7 +561,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
   };
 
   const handleSetTransposeOffset = async (newOffset: number) => {
-    if (isSetlistMode && currentSetlist && song) {
+    if (isSetlistMode && currentSetlist && song && canManageSongs) {
       await updateSetlistSongOverride(currentSetlist.id, song.id, { transposeOffset: newOffset });
     } else {
       updateStageSettings({ transposeOffset: newOffset });
@@ -571,9 +571,9 @@ export const SongReader: React.FC<SongReaderProps> = ({
   const handleSetBaseKey = async (targetKey: string) => {
     if (!song) return;
 
-    if (isSetlistMode && currentSetlist) {
+    if (isSetlistMode && currentSetlist && canManageSongs) {
       await updateSetlistSongOverride(currentSetlist.id, song.id, { key: targetKey, transposeOffset: 0 });
-    } else {
+    } else if (canManageSongs) {
       const currentBaseKey = (parsedData?.hasExplicitKey && parsedData.key)
         ? parsedData.key
         : (song.key || parsedData?.key || 'C');
@@ -586,6 +586,21 @@ export const SongReader: React.FC<SongReaderProps> = ({
       if (selectedSong && selectedSong.id === song.id) {
         setSelectedSong({ ...selectedSong, key: targetKey, contentChordPro: updatedContent });
       }
+    } else {
+      // Pour une personne non connectée ou membre invité :
+      // On transpose la chanson en mémoire pour sa propre consultation et jeu, sans modifier le répertoire de la bibliothèque
+      const currentBaseKey = (parsedData?.hasExplicitKey && parsedData.key)
+        ? parsedData.key
+        : (song.key || parsedData?.key || 'C');
+
+      const semitones = getSemitoneDifference(currentBaseKey, targetKey);
+      const updatedContent = transposeChordProText(song.contentChordPro, semitones, 'standard', targetKey);
+
+      updateStageSettings({ transposeOffset: 0 });
+      if (selectedSong && selectedSong.id === song.id) {
+        setSelectedSong({ ...selectedSong, key: targetKey, contentChordPro: updatedContent });
+      }
+      showFeedbackToast(`Tonalité changée en ${targetKey} (lecture en cours)`);
     }
   };
 
@@ -1566,29 +1581,36 @@ export const SongReader: React.FC<SongReaderProps> = ({
                                   </span>
                                 </div>
 
-                                <div className="relative mt-1">
-                                  <select
-                                    id="select-quick-song-language"
-                                    value={song.language || 'Français'}
-                                    onChange={async (e) => {
-                                      const newLang = e.target.value;
-                                      await updateSong(song.id, { language: newLang });
-                                    }}
-                                    className="w-full h-8 bg-[#121215] border border-[#333] hover:border-blue-500/60 rounded-lg px-2.5 pr-8 text-xs text-white font-medium focus:outline-none focus:border-blue-500 cursor-pointer transition-colors appearance-none"
-                                  >
-                                    {PRESET_LANGUAGES.map((lang) => (
-                                      <option key={lang.code} value={lang.name} className="bg-[#1C1C1E] text-white">
-                                        {lang.name} ({lang.code})
-                                      </option>
-                                    ))}
-                                    {song.language && !PRESET_LANGUAGES.some(p => p.name.toLowerCase() === song.language?.toLowerCase() || p.code.toLowerCase() === song.language?.toLowerCase()) && (
-                                      <option value={song.language} className="bg-[#1C1C1E] text-white">
-                                        {song.language} ({lMeta.code})
-                                      </option>
-                                    )}
-                                  </select>
-                                  <ChevronDown className="w-3.5 h-3.5 text-gray-400 pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2" />
-                                </div>
+                                {canManageSongs ? (
+                                  <div className="relative mt-1">
+                                    <select
+                                      id="select-quick-song-language"
+                                      value={song.language || 'Français'}
+                                      onChange={async (e) => {
+                                        const newLang = e.target.value;
+                                        await updateSong(song.id, { language: newLang });
+                                      }}
+                                      className="w-full h-8 bg-[#121215] border border-[#333] hover:border-blue-500/60 rounded-lg px-2.5 pr-8 text-xs text-white font-medium focus:outline-none focus:border-blue-500 cursor-pointer transition-colors appearance-none"
+                                    >
+                                      {PRESET_LANGUAGES.map((lang) => (
+                                        <option key={lang.code} value={lang.name} className="bg-[#1C1C1E] text-white">
+                                          {lang.name} ({lang.code})
+                                        </option>
+                                      ))}
+                                      {song.language && !PRESET_LANGUAGES.some(p => p.name.toLowerCase() === song.language?.toLowerCase() || p.code.toLowerCase() === song.language?.toLowerCase()) && (
+                                        <option value={song.language} className="bg-[#1C1C1E] text-white">
+                                          {song.language} ({lMeta.code})
+                                        </option>
+                                      )}
+                                    </select>
+                                    <ChevronDown className="w-3.5 h-3.5 text-gray-400 pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2" />
+                                  </div>
+                                ) : (
+                                  <div className="mt-1 px-2.5 py-1.5 rounded-lg bg-[#141417] border border-[#25252D] text-[11px] text-gray-400 flex items-center justify-between">
+                                    <span>{lMeta.name}</span>
+                                    <span className="text-[10px] text-gray-500">Lecture seule</span>
+                                  </div>
+                                )}
                               </div>
 
                               {/* En-tête versions disponibles */}
@@ -1626,11 +1648,12 @@ export const SongReader: React.FC<SongReaderProps> = ({
                                           <button
                                             type="button"
                                             onClick={() => handleViewOnlyVersion(lv)}
-                                            className="px-2.5 py-1 rounded-lg bg-[#222228] hover:bg-[#2C2C34] text-gray-200 hover:text-white text-[11px] font-medium border border-[#33333E] transition-colors cursor-pointer"
+                                            className="px-2.5 py-1 rounded-lg bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white text-[11px] font-semibold border border-blue-500/40 transition-colors cursor-pointer"
+                                            title="Consulter cette version"
                                           >
-                                            Afficher
+                                            Consulter
                                           </button>
-                                          {inSetlist && (
+                                          {inSetlist && canManageSongs && (
                                             <button
                                               type="button"
                                               onClick={() => handleReplaceCurrentSongInSetlist(lv)}
@@ -1650,20 +1673,26 @@ export const SongReader: React.FC<SongReaderProps> = ({
                                 </div>
                               )}
 
-                              {/* Bouton pour ouvrir la fenêtre complète de gestion des versions */}
-                              <div className="pt-2 mt-2 border-t border-[#282830]">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setShowLanguageMenu(false);
-                                    setShowLanguageModal(true);
-                                  }}
-                                  className="w-full py-1.5 px-2 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                                >
-                                  <Plus className="w-3.5 h-3.5" />
-                                  <span>Gérer les versions</span>
-                                </button>
-                              </div>
+                              {/* Bouton pour ouvrir la gestion des versions : réservé aux personnes autorisées */}
+                              {canManageSongs ? (
+                                <div className="pt-2 mt-2 border-t border-[#282830]">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setShowLanguageMenu(false);
+                                      setShowLanguageModal(true);
+                                    }}
+                                    className="w-full py-1.5 px-2 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                                  >
+                                    <Plus className="w-3.5 h-3.5" />
+                                    <span>Gérer les versions</span>
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="pt-2 mt-2 border-t border-[#282830] text-center text-[10px] text-gray-500">
+                                  Mode consultation • Gestion des versions réservée aux responsables
+                                </div>
+                              )}
                             </div>
                           </>
                         )}

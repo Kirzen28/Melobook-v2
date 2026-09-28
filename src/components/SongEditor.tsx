@@ -119,7 +119,8 @@ export const SongEditor: React.FC = () => {
     createSong, 
     updateSong, 
     setActiveTab,
-    showNotification
+    showNotification,
+    canManageSongs
   } = useApp();
 
   // Basic Song Metadata
@@ -717,6 +718,28 @@ export const SongEditor: React.FC = () => {
   const livePreviewData = parseChordPro(
     visualSectionsToChordPro(visualSections, { title, artist, key, tempo, timeSignature, duration, capo })
   );
+
+  if (!canManageSongs) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-16 text-center text-[#E0E0E0]">
+        <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto mb-4 shadow-lg">
+          <FileEdit className="w-8 h-8" />
+        </div>
+        <h2 className="text-xl font-bold text-white mb-2">Gestion réservée</h2>
+        <p className="text-xs text-gray-400 max-w-md mx-auto mb-6 leading-relaxed">
+          La modification et la création de chants sont réservées aux responsables et administrateurs de la bibliothèque.
+          En tant que visiteur, vous pouvez consulter la bibliothèque, transposer les accords, changer la tonalité et consulter les différentes versions d'un chant.
+        </p>
+        <button
+          type="button"
+          onClick={() => setActiveTab('repertoire')}
+          className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition-colors cursor-pointer shadow-sm"
+        >
+          Retourner aux chants
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-6 py-6 pb-16 text-[#E0E0E0]">

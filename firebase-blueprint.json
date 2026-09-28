@@ -9,7 +9,7 @@
         "email": { "type": "string" },
         "displayName": { "type": "string" },
         "currentGroupId": { "type": "string" },
-        "role": { "type": "string", "enum": ["admin", "member"] }
+        "role": { "type": "string", "enum": ["admin", "leader", "member"] }
       },
       "required": ["uid", "email"]
     },

@@ -1602,9 +1602,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Group / Library Actions
   const createGroup = useCallback(async (name: string, description = '') => {
-    const isAllowed = currentUser?.role === 'admin' || currentUser?.role === 'leader' || !currentUser;
-    if (!isAllowed) {
-      showNotification("Seul l'Administrateur ou le Responsable peut créer de nouvelles bibliothèques", 'error');
+    if (currentUser?.role !== 'admin') {
+      showNotification("Seul l'Administrateur peut créer des bibliothèques", 'error');
       return '';
     }
 
@@ -1634,10 +1633,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [currentUser?.uid, currentUser?.role, showNotification]);
 
   const updateGroup = useCallback(async (groupId: string, data: Partial<Pick<Group, 'name' | 'description' | 'inviteCode'>>): Promise<boolean> => {
-    const target = groups.find(g => g.id === groupId);
-    const isAllowed = currentUser?.role === 'admin' || currentUser?.role === 'leader' || !currentUser || (currentUser && target?.ownerId === currentUser.uid);
-    if (!isAllowed) {
-      showNotification("Seul l'Administrateur ou le créateur peut modifier cette bibliothèque", 'error');
+    if (currentUser?.role !== 'admin') {
+      showNotification("Seul l'Administrateur peut modifier cette bibliothèque", 'error');
       return false;
     }
 
@@ -1654,7 +1651,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     showNotification('Informations de la bibliothèque mises à jour avec succès');
     return true;
-  }, [currentUser?.role, currentUser?.uid, groups, currentGroup?.id, showNotification]);
+  }, [currentUser?.role, groups, currentGroup?.id, showNotification]);
 
   const deleteGroup = useCallback(async (
     groupId: string,
@@ -1665,17 +1662,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return false;
     }
 
-    const targetGroup = groups.find(g => g.id === groupId);
-    const targetName = targetGroup?.name || 'cette bibliothèque';
-    const isAdmin = currentUser?.role === 'admin';
-    const isLeader = currentUser?.role === 'leader';
-    const isOwner = Boolean(currentUser && targetGroup?.ownerId === currentUser.uid);
-    const isLocalOrGuest = !currentUser || currentUser.uid.startsWith('demo-') || currentUser.uid.startsWith('user-');
-
-    if (!isAdmin && !isLeader && !isOwner && !isLocalOrGuest) {
-      showNotification("Seul l'Administrateur ou le créateur peut supprimer cette bibliothèque", 'error');
+    if (currentUser?.role !== 'admin') {
+      showNotification("Seul l'Administrateur peut supprimer cette bibliothèque", 'error');
       return false;
     }
+
+    const targetGroup = groups.find(g => g.id === groupId);
+    const targetName = targetGroup?.name || 'cette bibliothèque';
 
     const shouldDeleteData = options?.deleteAssociatedData !== false;
 
@@ -1817,36 +1810,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [groups, currentUser, showNotification]);
 
-  const loginDemoUser = useCallback((role: UserRole = 'admin') => {
-    let name = 'Alexandre - Administrateur';
-    let email = 'admin@songbook.pro';
-    if (role === 'leader') {
+  const loginDemoUser = useCallback((role: UserRole = 'member') => {
+    // Demo accounts can only be member or leader, never unauthenticated admin
+    const effectiveRole: UserRole = role === 'admin' ? 'member' : role;
+    let name = 'Camille - Musicien';
+    let email = 'musicien@songbook.pro';
+    if (effectiveRole === 'leader') {
       name = 'Thomas - Responsable de Louange';
       email = 'responsable@songbook.pro';
-    } else if (role === 'member') {
-      name = 'Camille - Musicien';
-      email = 'musicien@songbook.pro';
     }
 
     const demoUser: UserProfile = {
-      uid: 'demo-' + role + '-' + Date.now().toString(36),
+      uid: 'demo-' + effectiveRole + '-' + Date.now().toString(36),
       email,
       displayName: name,
       currentGroupId: 'default-group',
-      role
+      role: effectiveRole
     };
     setCurrentUser(demoUser);
     setIsAuthModalOpen(false);
   }, []);
 
-  const loginLocalUser = useCallback((customEmail: string, customName?: string, role: UserRole = 'admin') => {
+  const loginLocalUser = useCallback((customEmail: string, customName?: string, role: UserRole = 'member') => {
     const trimmedEmail = customEmail.trim() || 'musicien@songbook.pro';
+    const isMasterAdmin = trimmedEmail.toLowerCase() === 'kriveravelasquez@rivera-marketing.com';
+    const effectiveRole: UserRole = isMasterAdmin ? 'admin' : (role === 'admin' ? 'member' : role);
     const localUser: UserProfile = {
       uid: 'user-' + Date.now().toString(36),
       email: trimmedEmail,
       displayName: customName?.trim() || trimmedEmail.split('@')[0] || 'Musicien',
       currentGroupId: 'default-group',
-      role
+      role: effectiveRole
     };
     setCurrentUser(localUser);
     setIsAuthModalOpen(false);
@@ -1931,7 +1925,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const isAdmin = currentUser?.role === 'admin';
   const isLeader = currentUser?.role === 'leader';
   const canManageSongs = isAdmin || isLeader;
-  const canManageGroups = isAdmin || isLeader || !currentUser;
+  const canManageGroups = isAdmin;
   const canAccessSettings = isAdmin;
 
   return (

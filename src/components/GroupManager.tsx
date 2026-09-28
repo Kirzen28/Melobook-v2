@@ -299,7 +299,6 @@ export const GroupManager: React.FC = () => {
     deleteGroup,
     joinGroup, 
     seedDemoDataToFirestore,
-    loginDemoUser,
     allUsers,
     updateUserRole,
     setAdminByEmail,
@@ -331,11 +330,7 @@ export const GroupManager: React.FC = () => {
 
   const canDeleteLibrary = (g: Group) => {
     if (g.id === 'default-group') return false;
-    if (canManageGroups) return true;
-    if (!currentUser) return true;
-    if (currentUser.role === 'admin' || currentUser.role === 'leader') return true;
-    if (g.ownerId === currentUser.uid) return true;
-    return false;
+    return currentUser?.role === 'admin';
   };
 
   const handleConfirmDelete = async () => {
@@ -614,7 +609,7 @@ export const GroupManager: React.FC = () => {
                 {!canManageGroups && (
                   <span className="text-[10px] text-gray-500 flex items-center gap-1 font-medium">
                     <Lock className="w-3 h-3 text-gray-500" />
-                    <span>Gestion réservée</span>
+                    <span>Gestion réservée à l'Administrateur</span>
                   </span>
                 )}
               </div>
@@ -753,41 +748,6 @@ export const GroupManager: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-2">
-              {/* Test role toggle button */}
-              <div className="flex items-center gap-1 bg-[#0A0A0B] p-1 rounded-md border border-[#222224]">
-                <span className="text-[10px] text-gray-500 px-1 font-medium">Tester :</span>
-                <button
-                  type="button"
-                  onClick={() => loginDemoUser('admin')}
-                  className={`px-2 py-0.5 rounded font-medium text-[10px] transition-colors cursor-pointer ${
-                    currentUser?.role === 'admin' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
-                  }`}
-                  title="Tester l'application en mode Administrateur"
-                >
-                  Admin
-                </button>
-                <button
-                  type="button"
-                  onClick={() => loginDemoUser('leader')}
-                  className={`px-2 py-0.5 rounded font-medium text-[10px] transition-colors cursor-pointer ${
-                    currentUser?.role === 'leader' ? 'bg-emerald-600 text-white' : 'text-gray-400 hover:text-white'
-                  }`}
-                  title="Tester l'application en mode Responsable"
-                >
-                  Responsable
-                </button>
-                <button
-                  type="button"
-                  onClick={() => loginDemoUser('member')}
-                  className={`px-2 py-0.5 rounded font-medium text-[10px] transition-colors cursor-pointer ${
-                    currentUser?.role === 'member' ? 'bg-[#333] text-white' : 'text-gray-400 hover:text-white'
-                  }`}
-                  title="Tester l'application en mode Membre"
-                >
-                  Membre
-                </button>
-              </div>
-
               {!currentUser && (
                 <button
                   type="button"

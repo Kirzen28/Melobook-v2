@@ -208,7 +208,7 @@ export const AuthModal: React.FC = () => {
             {showLocalFallback && (
               <button
                 type="button"
-                onClick={() => loginLocalUser(email || 'musicien@songbook.pro', displayName || undefined, 'admin')}
+                onClick={() => loginLocalUser(email || 'musicien@songbook.pro', displayName || undefined, (email?.toLowerCase().trim() === 'kriveravelasquez@rivera-marketing.com') ? 'admin' : 'member')}
                 className="w-full mt-1.5 py-1.5 px-2.5 rounded-md bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 border border-rose-500/40 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
               >
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -303,22 +303,22 @@ export const AuthModal: React.FC = () => {
           </button>
         </form>
 
-        {/* Quick Demo Access Mode (Instant 1-Click for reviewers and musicians) */}
+        {/* Accès Découverte sans mot de passe (Invité ou Musicien Membre uniquement) */}
         <div className="mt-5 pt-4 border-t border-[#222224]">
           <div className="text-center mb-2.5">
             <span className="text-[10px] uppercase font-semibold text-gray-500 tracking-wider">
-              Accès Démonstration Rapide (Sans mot de passe)
+              Accès sans mot de passe
             </span>
           </div>
 
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
-              onClick={() => loginDemoUser('admin')}
-              className="py-1.5 px-3 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] text-blue-400 font-semibold text-xs border border-[#333] flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              onClick={() => setIsAuthModalOpen(false)}
+              className="py-1.5 px-3 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 font-semibold text-xs border border-[#333] flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
             >
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Admin Bibliothèque</span>
+              <UserIcon className="w-3.5 h-3.5 text-amber-400" />
+              <span>Mode Invité</span>
             </button>
 
             <button
@@ -326,8 +326,8 @@ export const AuthModal: React.FC = () => {
               onClick={() => loginDemoUser('member')}
               className="py-1.5 px-3 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 font-semibold text-xs border border-[#333] flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
             >
-              <UserIcon className="w-3.5 h-3.5" />
-              <span>Musicien (Membre)</span>
+              <UserIcon className="w-3.5 h-3.5 text-blue-400" />
+              <span>Compte Musicien</span>
             </button>
           </div>
         </div>

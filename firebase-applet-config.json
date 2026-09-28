@@ -1,12 +1,12 @@
 {
-  "projectId": "seoutils-504213",
-  "appId": "1:503988390105:web:d75e3cc67c96117d3756c8",
-  "apiKey": "AIzaSyB5K4cV8WFYg9sG85VADgNxAXj_4W2n45E",
-  "authDomain": "seoutils-504213.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-songbookpwa-20233640-a34d-49db-bd30-d7212413f6cd",
-  "storageBucket": "seoutils-504213.firebasestorage.app",
-  "messagingSenderId": "503988390105",
+  "projectId": "melobook-510020",
+  "appId": "1:83472946829:web:5fad8184e4c81ddb27b4c4",
+  "apiKey": "AIzaSyBCu4_wtZNCIfy_VSwGJYVfZwZ_w-JnO6g",
+  "authDomain": "melobook-510020.firebaseapp.com",
+  "firestoreDatabaseId": "ai-studio-melobookv2-547a8de9-59db-4d48-8463-85014c872bec",
+  "storageBucket": "melobook-510020.firebasestorage.app",
+  "messagingSenderId": "83472946829",
   "measurementId": "",
-  "oAuthClientId": "503988390105-dmt1in7mjqgcnvs3gtk0aoqlt0n0u31h.apps.googleusercontent.com",
+  "oAuthClientId": "83472946829-5o8km0j5ir4g71io8qeupsi45l0cc8db.apps.googleusercontent.com",
   "recaptchaSiteKey": ""
 }

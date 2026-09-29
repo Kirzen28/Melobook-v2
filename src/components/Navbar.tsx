@@ -302,7 +302,7 @@ export const Navbar: React.FC = () => {
                   if (isMobileMenuOpen) setIsMobileMenuOpen(false);
                 }}
                 className="relative w-8 h-8 rounded-full bg-[#1C1C1E] hover:bg-[#2A2A2D] border border-[#333] hover:border-blue-500/50 flex items-center justify-center text-white font-bold text-xs transition-all shadow-sm active:scale-95 cursor-pointer select-none"
-                title={currentUser?.displayName ? `${currentUser.displayName} (${currentUser.role === 'admin' ? 'Administrateur' : currentUser.role === 'leader' ? 'Responsable' : 'Membre'})` : "Non connecté (Mode invité)"}
+                title={currentUser?.displayName ? `${currentUser.displayName} — ${currentUser.role === 'admin' ? 'Administrateur' : currentUser.role === 'leader' ? 'Responsable' : 'Membre'}` : "Non connecté — Mode invité"}
                 aria-label="Profil et état de synchronisation"
               >
                 {currentUser?.displayName ? (
@@ -343,7 +343,7 @@ export const Navbar: React.FC = () => {
                     ) : (
                       <>
                         <p className="font-semibold text-white truncate">Non connecté</p>
-                        <p className="text-[11px] text-gray-400 truncate">Mode invité (lecture seule)</p>
+                        <p className="text-[11px] text-gray-400 truncate">Mode invité — lecture seule</p>
                         <button
                           type="button"
                           onClick={() => {
@@ -555,7 +555,7 @@ export const Navbar: React.FC = () => {
                           {currentUser ? currentUser.displayName : 'Non connecté'}
                         </p>
                         <p className="text-[10px] text-gray-400 truncate leading-tight">
-                          {currentUser ? (currentUser.email || (currentUser.role === 'admin' ? 'Administrateur' : currentUser.role === 'leader' ? 'Responsable' : 'Membre')) : 'Mode invité (lecture seule)'}
+                          {currentUser ? (currentUser.email || (currentUser.role === 'admin' ? 'Administrateur' : currentUser.role === 'leader' ? 'Responsable' : 'Membre')) : 'Mode invité — lecture seule'}
                         </p>
                       </div>
                     </div>
@@ -574,7 +574,7 @@ export const Navbar: React.FC = () => {
                             ? 'bg-blue-600/20 text-blue-400 border-blue-500/40' 
                             : 'bg-[#1C1C1E] hover:bg-[#252529] border-[#333]'
                         }`}
-                        title={isOffline ? "Hors-ligne" : syncStatus === 'syncing' ? "Synchronisation..." : `Synchroniser (${syncConfig.label})`}
+                        title={isOffline ? "Hors-ligne" : syncStatus === 'syncing' ? "Synchronisation..." : `Synchroniser — ${syncConfig.label}`}
                         aria-label="Synchroniser"
                       >
                         <SyncIconComponent className={`w-3.5 h-3.5 ${syncConfig.spin ? 'animate-spin text-blue-400' : ''}`} />

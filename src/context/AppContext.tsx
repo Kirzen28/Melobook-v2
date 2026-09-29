@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   UserProfile, 
   Group, 
@@ -53,11 +53,51 @@ import {
 } from '../utils/pwaCache';
 import { deleteSongFromIndexedDB, deleteSetlistFromIndexedDB } from '../utils/indexedDB';
 
+const DEFAULT_ADMIN_USER: UserProfile = {
+  uid: 'admin-kriveravelasquez',
+  email: 'kriveravelasquez@rivera-marketing.com',
+  displayName: 'Kevin Rivera',
+  currentGroupId: 'default-group',
+  role: 'admin'
+};
+
+const SAMPLE_USERS: UserProfile[] = [
+  DEFAULT_ADMIN_USER,
+  {
+    uid: 'user-sarah-m',
+    email: 'sarah.vocal@melobook.app',
+    displayName: 'Sarah Morel',
+    currentGroupId: 'default-group',
+    role: 'leader'
+  },
+  {
+    uid: 'user-lucas-g',
+    email: 'lucas.guitare@melobook.app',
+    displayName: 'Lucas Bernard',
+    currentGroupId: 'default-group',
+    role: 'member'
+  },
+  {
+    uid: 'user-emma-v',
+    email: 'emma.violon@melobook.app',
+    displayName: 'Emma Laurent',
+    currentGroupId: 'default-group',
+    role: 'member'
+  },
+  {
+    uid: 'user-thomas-b',
+    email: 'thomas.drums@melobook.app',
+    displayName: 'Thomas Dubois',
+    currentGroupId: 'default-group',
+    role: 'member'
+  }
+];
+
 const DEFAULT_GROUP: Group = {
   id: 'default-group',
   name: 'Bibliothèque Principale',
-  ownerId: 'demo-admin-uid',
-  members: ['demo-admin-uid'],
+  ownerId: 'admin-kriveravelasquez',
+  members: ['admin-kriveravelasquez', 'user-sarah-m', 'user-lucas-g', 'user-emma-v', 'user-thomas-b'],
   inviteCode: 'LOUAN7',
   description: 'Bibliothèque de louange et chants partagés.'
 };
@@ -171,12 +211,18 @@ interface AppContextType {
   deleteGroup: (groupId: string, options?: { deleteAssociatedData?: boolean }) => Promise<boolean>;
   joinGroup: (inviteCode: string) => Promise<boolean>;
   switchGroup: (groupId: string) => void;
+  assignMembersToGroup: (groupId: string, memberUids: string[]) => Promise<boolean>;
+  removeMemberFromGroup: (groupId: string, memberUid: string) => Promise<boolean>;
+  setGroupMembers: (groupId: string, memberUids: string[]) => Promise<boolean>;
   // Aliases Bibliothèque
   createLibrary: (name: string, description?: string) => Promise<string>;
   updateLibrary: (libraryId: string, data: Partial<Pick<Group, 'name' | 'description' | 'inviteCode'>>) => Promise<boolean>;
   deleteLibrary: (libraryId: string, options?: { deleteAssociatedData?: boolean }) => Promise<boolean>;
   joinLibrary: (inviteCode: string) => Promise<boolean>;
   switchLibrary: (libraryId: string) => void;
+  assignMembersToLibrary: (libraryId: string, memberUids: string[]) => Promise<boolean>;
+  removeMemberFromLibrary: (libraryId: string, memberUid: string) => Promise<boolean>;
+  setLibraryMembers: (libraryId: string, memberUids: string[]) => Promise<boolean>;
   
   // Permissions & Rôles
   isAdmin: boolean;
@@ -187,6 +233,9 @@ interface AppContextType {
   
   allUsers: UserProfile[];
   updateUserRole: (userId: string, newRole: UserRole) => Promise<void>;
+  bulkUpdateUserRole: (userIds: string[], newRole: UserRole) => Promise<boolean>;
+  bulkRemoveMembersFromGroup: (groupId: string, memberUids: string[]) => Promise<boolean>;
+  bulkDeleteUserAccounts: (userIds: string[]) => Promise<boolean>;
   setAdminByEmail: (targetEmail: string, role?: UserRole) => Promise<void>;
   
   loginDemoUser: (role?: UserRole) => void;
@@ -199,29 +248,56 @@ const AppContext = createContext<AppContextType | null>(null);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Navigation & Selection
-  const [activeTab, setActiveTab] = useState<'repertoire' | 'setlists' | 'stage' | 'groups' | 'editor' | 'settings' | 'tuner'>('repertoire');
+  const [activeTab, setActiveTabState] = useState<'repertoire' | 'setlists' | 'stage' | 'groups' | 'editor' | 'settings' | 'tuner'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('songbook_active_tab');
+      if (saved && ['repertoire', 'setlists', 'stage', 'groups', 'editor', 'settings', 'tuner'].includes(saved)) {
+        return saved as any;
+      }
+    }
+    return 'groups';
+  });
+
+  const setActiveTab = useCallback((tab: 'repertoire' | 'setlists' | 'stage' | 'groups' | 'editor' | 'settings' | 'tuner') => {
+    setActiveTabState(tab);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('songbook_active_tab', tab);
+    }
+  }, []);
+
   const [selectedSong, setSelectedSong] = useState<Song | null>(SAMPLE_SONGS[0]);
   const [selectedSetlist, setSelectedSetlist] = useState<Setlist | null>(null);
   const [activeSetlistIndex, setActiveSetlistIndex] = useState<number>(0);
   
-  // Auth state - par défaut, aucun compte n'est connecté
+  // Auth state - par défaut l'administrateur propriétaire est configuré
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
-    const saved = localStorage.getItem('songbook_user');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        // Ne pas restaurer l'ancien faux compte de démo
-        if (parsed?.uid && parsed.uid !== 'demo-admin-uid' && !parsed.uid.startsWith('demo-')) {
-          return parsed;
-        } else {
-          localStorage.removeItem('songbook_user');
-        }
-      } catch (e) {}
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('songbook_user');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (parsed?.uid) {
+            return parsed;
+          }
+        } catch (e) {}
+      }
     }
-    return null;
+    return DEFAULT_ADMIN_USER;
   });
-  const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
+
+  const [allUsers, setAllUsers] = useState<UserProfile[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('songbook_all_users');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        } catch (e) {}
+      }
+    }
+    return SAMPLE_USERS;
+  });
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isPianoOpen, setIsPianoOpen] = useState(false);
   const [isMetronomeOpen, setIsMetronomeOpen] = useState(false);
@@ -297,8 +373,50 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // Groups & Data
-  const [groups, setGroups] = useState<Group[]>([DEFAULT_GROUP]);
+  // Registre de toutes les bibliothèques du système
+  const [allGroups, setAllGroups] = useState<Group[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('songbook_all_groups');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        } catch (e) {}
+      }
+    }
+    return [DEFAULT_GROUP];
+  });
+
+  // Sauvegarde locale du registre des bibliothèques
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('songbook_all_groups', JSON.stringify(allGroups));
+    }
+  }, [allGroups]);
+
+  // Règle d'accès stricte : Les membres ET les administrateurs ne peuvent voir et choisir
+  // QUE les bibliothèques dont ils font explicitement partie (propriétaire ou dans members)
+  const isMemberOfLibrary = useCallback((group: Group, user: UserProfile | null): boolean => {
+    if (!user || !user.uid) {
+      return group.id === 'default-group';
+    }
+    const uid = user.uid;
+    // Le créateur ou propriétaire fait toujours partie de sa bibliothèque
+    if (group.ownerId === uid) {
+      return true;
+    }
+    // Présence confirmée dans le tableau des membres de la bibliothèque
+    if (Array.isArray(group.members) && group.members.includes(uid)) {
+      return true;
+    }
+    return false;
+  }, []);
+
+  // Liste des bibliothèques visibles par l'utilisateur connecté
+  const groups = useMemo(() => {
+    return allGroups.filter(g => isMemberOfLibrary(g, currentUser));
+  }, [allGroups, currentUser?.uid, isMemberOfLibrary]);
+
   const [currentGroup, setCurrentGroup] = useState<Group | null>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -310,6 +428,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     return DEFAULT_GROUP;
   });
+
+  // Si la bibliothèque active ne fait pas partie des bibliothèques autorisées, basculer automatiquement
+  useEffect(() => {
+    if (groups.length > 0) {
+      const isCurrentAuthorized = currentGroup && groups.some(g => g.id === currentGroup.id);
+      if (!isCurrentAuthorized) {
+        const fallbackGroup = groups[0];
+        setCurrentGroup(fallbackGroup);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('songbook_current_group_id', fallbackGroup.id);
+        }
+      }
+    }
+  }, [groups, currentGroup?.id]);
   const [songs, setSongs] = useState<Song[]>(() => {
     const deletedIds = getDeletedSongIds();
     const saved = localStorage.getItem('songbook_cached_songs');
@@ -868,10 +1000,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       } else {
         // Aucun compte connecté via Firebase
         setCurrentUser(prev => {
-          if (prev?.uid && (prev.uid.startsWith('user-') || prev.uid.startsWith('demo-'))) {
+          if (prev?.uid) {
             return prev;
           }
-          return null;
+          return DEFAULT_ADMIN_USER;
         });
       }
     });
@@ -894,7 +1026,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             uList.push({ ...data, uid: resolvedUid } as UserProfile);
           }
         });
-        setAllUsers(uList);
+        if (uList.length > 0) {
+          setAllUsers(uList);
+          localStorage.setItem('songbook_all_users', JSON.stringify(uList));
+        } else {
+          setAllUsers(SAMPLE_USERS);
+        }
       }, (err) => {
         console.warn('Users snapshot note:', err);
       });
@@ -1051,11 +1188,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     // 4. Sync Groups:
-    // If admin or unauthenticated visitor: sync ALL groups from Firestore so any user can consult available groups
-    // If standard member logged in: sync groups where members array-contains currentUser.uid
-    const qGroups = (currentUser?.role === 'admin' || !currentUser?.uid)
-      ? query(collection(db, 'groups'))
-      : query(collection(db, 'groups'), where('members', 'array-contains', currentUser.uid));
+    // Synchronisation en temps réel de toutes les bibliothèques
+    const qGroups = query(collection(db, 'groups'));
 
     const unsubGroups = onSnapshot(qGroups, (snapshot) => {
       const loadedGroups: Group[] = [];
@@ -1073,13 +1207,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           mergedGroups.push(g);
         }
       }
-      setGroups(mergedGroups);
+      setAllGroups(mergedGroups);
 
       // Reconnect currentGroup if it was loaded from localStorage or URL
       setCurrentGroup(prev => {
-        const targetId = prev?.id || localStorage.getItem('songbook_current_group_id') || 'default-group';
-        const match = mergedGroups.find(g => g.id === targetId);
-        return match || prev || DEFAULT_GROUP;
+        const targetId = prev?.id || (typeof window !== 'undefined' ? localStorage.getItem('songbook_current_group_id') : 'default-group') || 'default-group';
+        const match = mergedGroups.find(g => g.id === targetId && isMemberOfLibrary(g, currentUser));
+        if (match) return match;
+        const firstAuthorized = mergedGroups.find(g => isMemberOfLibrary(g, currentUser));
+        return firstAuthorized || prev || DEFAULT_GROUP;
       });
     }, (err) => {
       if (err?.code !== 'unavailable') {
@@ -1620,7 +1756,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: new Date().toISOString()
     };
 
-    setGroups(prev => [...prev, newGroup]);
+    setAllGroups(prev => [...prev, newGroup]);
     setCurrentGroup(newGroup);
 
     try {
@@ -1628,6 +1764,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (e) {
       console.warn('Saved group locally:', e);
     }
+
+    showNotification({
+      title: 'Bibliothèque créée',
+      message: `La bibliothèque « ${name} » a été créée avec succès.`,
+      type: 'success'
+    });
 
     return newId;
   }, [currentUser?.uid, currentUser?.role, showNotification]);
@@ -1645,13 +1787,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.warn('Updated group locally:', e);
     }
 
-    setGroups(prev => prev.map(g => g.id === groupId ? { ...g, ...data } : g));
+    setAllGroups(prev => prev.map(g => g.id === groupId ? { ...g, ...data } : g));
     if (currentGroup?.id === groupId) {
       setCurrentGroup(prev => prev ? { ...prev, ...data } : prev);
     }
     showNotification('Informations de la bibliothèque mises à jour avec succès');
     return true;
-  }, [currentUser?.role, groups, currentGroup?.id, showNotification]);
+  }, [currentUser?.role, currentGroup?.id, showNotification]);
 
   const deleteGroup = useCallback(async (
     groupId: string,
@@ -1667,7 +1809,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return false;
     }
 
-    const targetGroup = groups.find(g => g.id === groupId);
+    const targetGroup = allGroups.find(g => g.id === groupId);
     const targetName = targetGroup?.name || 'cette bibliothèque';
 
     const shouldDeleteData = options?.deleteAssociatedData !== false;
@@ -1708,7 +1850,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     // 3. Update local states
-    setGroups(prev => prev.filter(g => g.id !== groupId));
+    setAllGroups(prev => prev.filter(g => g.id !== groupId));
 
     if (currentGroup?.id === groupId) {
       setCurrentGroup(DEFAULT_GROUP);
@@ -1729,7 +1871,85 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       type: 'success'
     });
     return true;
-  }, [currentUser, groups, currentGroup?.id, showNotification]);
+  }, [currentUser, allGroups, currentGroup?.id, showNotification]);
+
+  const setGroupMembers = useCallback(async (groupId: string, memberUids: string[]): Promise<boolean> => {
+    if (currentUser?.role !== 'admin') {
+      showNotification("Seul l'Administrateur peut modifier les membres d'une bibliothèque", 'error');
+      return false;
+    }
+
+    const uniqueUids = Array.from(new Set(memberUids));
+    try {
+      const docRef = doc(db, 'groups', groupId);
+      await updateDoc(docRef, { members: uniqueUids });
+    } catch (e) {
+      console.warn('Set group members note:', e);
+    }
+
+    setAllGroups(prev => prev.map(g => g.id === groupId ? { ...g, members: uniqueUids } : g));
+    if (currentGroup?.id === groupId) {
+      setCurrentGroup(prev => prev ? { ...prev, members: uniqueUids } : prev);
+    }
+
+    showNotification('Membres de la bibliothèque synchronisés avec succès');
+    return true;
+  }, [currentUser?.role, currentGroup?.id, showNotification]);
+
+  const assignMembersToGroup = useCallback(async (groupId: string, memberUids: string[]): Promise<boolean> => {
+    if (currentUser?.role !== 'admin') {
+      showNotification("Seul l'Administrateur peut assigner des membres", 'error');
+      return false;
+    }
+
+    const targetGroup = allGroups.find(g => g.id === groupId);
+    if (!targetGroup) return false;
+
+    const existingMembers = targetGroup.members || [];
+    const mergedMembers = Array.from(new Set([...existingMembers, ...memberUids]));
+
+    try {
+      const docRef = doc(db, 'groups', groupId);
+      await updateDoc(docRef, { members: mergedMembers });
+    } catch (e) {
+      console.warn('Assign members note:', e);
+    }
+
+    setAllGroups(prev => prev.map(g => g.id === groupId ? { ...g, members: mergedMembers } : g));
+    if (currentGroup?.id === groupId) {
+      setCurrentGroup(prev => prev ? { ...prev, members: mergedMembers } : prev);
+    }
+
+    showNotification('Membres assignés avec succès à la bibliothèque');
+    return true;
+  }, [currentUser?.role, allGroups, currentGroup?.id, showNotification]);
+
+  const removeMemberFromGroup = useCallback(async (groupId: string, memberUid: string): Promise<boolean> => {
+    if (currentUser?.role !== 'admin') {
+      showNotification("Seul l'Administrateur peut retirer des membres", 'error');
+      return false;
+    }
+
+    const targetGroup = allGroups.find(g => g.id === groupId);
+    if (!targetGroup) return false;
+
+    const updatedMembers = (targetGroup.members || []).filter(id => id !== memberUid);
+
+    try {
+      const docRef = doc(db, 'groups', groupId);
+      await updateDoc(docRef, { members: updatedMembers });
+    } catch (e) {
+      console.warn('Remove member note:', e);
+    }
+
+    setAllGroups(prev => prev.map(g => g.id === groupId ? { ...g, members: updatedMembers } : g));
+    if (currentGroup?.id === groupId) {
+      setCurrentGroup(prev => prev ? { ...prev, members: updatedMembers } : prev);
+    }
+
+    showNotification('Membre retiré de la bibliothèque', 'info');
+    return true;
+  }, [currentUser?.role, allGroups, currentGroup?.id, showNotification]);
 
   const joinGroup = useCallback(async (inviteCode: string): Promise<boolean> => {
     const code = inviteCode.trim().toUpperCase();
@@ -1751,8 +1971,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // If user is authenticated, add them to the group members in Firestore
         if (currentUser?.uid) {
           const uid = currentUser.uid;
-          if (!groupData.members.includes(uid)) {
-            const updatedMembers = [...groupData.members, uid];
+          if (!groupData.members?.includes(uid)) {
+            const updatedMembers = [...(groupData.members || []), uid];
             try {
               await updateDoc(doc(db, 'groups', groupData.id), { members: updatedMembers });
               groupData.members = updatedMembers;
@@ -1762,12 +1982,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
         }
 
-        setGroups(prev => {
-          if (prev.find(g => g.id === groupData.id)) return prev;
+        setAllGroups(prev => {
+          if (prev.find(g => g.id === groupData.id)) {
+            return prev.map(g => g.id === groupData.id ? { ...g, members: groupData.members } : g);
+          }
           return [...prev, groupData];
         });
         setCurrentGroup(groupData);
-        localStorage.setItem('songbook_current_group_id', groupData.id);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('songbook_current_group_id', groupData.id);
+        }
         showNotification({
           title: `Bibliothèque « ${groupData.name} » active`,
           message: currentUser ? 'Bibliothèque rejointe avec succès.' : 'Consultation en mode invité.',
@@ -1782,7 +2006,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Demo code fallback
     if (code === 'LOUAN7' || code === 'WORSHIP') {
       setCurrentGroup(DEFAULT_GROUP);
-      localStorage.setItem('songbook_current_group_id', DEFAULT_GROUP.id);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('songbook_current_group_id', DEFAULT_GROUP.id);
+      }
       showNotification({
         title: `Bibliothèque « ${DEFAULT_GROUP.name} » active`,
         message: 'Consultation active.',
@@ -1796,18 +2022,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const switchGroup = useCallback((groupId: string) => {
     const g = groups.find(item => item.id === groupId);
-    if (g) {
-      setCurrentGroup(g);
-      localStorage.setItem('songbook_current_group_id', groupId);
-      if (currentUser) {
-        setCurrentUser(prev => prev ? { ...prev, currentGroupId: groupId } : null);
-      }
-      showNotification({
-        title: `Bibliothèque : ${g.name}`,
-        message: currentUser ? 'Bibliothèque active changée.' : 'Consultation en mode invité.',
-        type: 'info'
-      });
+    if (!g) {
+      showNotification("Vous ne faites pas partie de cette bibliothèque", 'error');
+      return;
     }
+    setCurrentGroup(g);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('songbook_current_group_id', groupId);
+    }
+    if (currentUser) {
+      setCurrentUser(prev => prev ? { ...prev, currentGroupId: groupId } : null);
+    }
+    showNotification({
+      title: `Bibliothèque : ${g.name}`,
+      message: currentUser ? 'Bibliothèque active sélectionnée.' : 'Consultation en mode invité.',
+      type: 'info'
+    });
   }, [groups, currentUser, showNotification]);
 
   const loginDemoUser = useCallback((role: UserRole = 'member') => {
@@ -1869,6 +2099,113 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       showNotification('Erreur lors de la mise à jour du rôle', 'error');
     }
   }, [currentUser, showNotification]);
+
+  const bulkUpdateUserRole = useCallback(async (userIds: string[], newRole: UserRole): Promise<boolean> => {
+    if (currentUser?.role !== 'admin') {
+      showNotification("Seul l'Administrateur peut modifier les rôles d'accès", 'error');
+      return false;
+    }
+    if (userIds.length === 0) return true;
+
+    try {
+      for (const uid of userIds) {
+        try {
+          const userRef = doc(db, 'users', uid);
+          await updateDoc(userRef, { role: newRole });
+        } catch (e) {
+          console.warn('Update user role error for', uid, e);
+        }
+      }
+      setAllUsers(prev => prev.map(u => userIds.includes(u.uid) ? { ...u, role: newRole } : u));
+      if (currentUser && userIds.includes(currentUser.uid)) {
+        const updated = { ...currentUser, role: newRole };
+        setCurrentUser(updated);
+        localStorage.setItem('songbook_user', JSON.stringify(updated));
+      }
+      const roleLabel = newRole === 'admin' ? 'Administrateur' : newRole === 'leader' ? 'Responsable' : 'Membre';
+      showNotification(`Rôle ${roleLabel} appliqué aux membres sélectionnés`);
+      return true;
+    } catch (err) {
+      console.error('Error bulk updating roles:', err);
+      showNotification('Erreur lors de la modification des rôles', 'error');
+      return false;
+    }
+  }, [currentUser, showNotification]);
+
+  const bulkRemoveMembersFromGroup = useCallback(async (groupId: string, memberUids: string[]): Promise<boolean> => {
+    if (currentUser?.role !== 'admin') {
+      showNotification("Seul l'Administrateur peut retirer des membres", 'error');
+      return false;
+    }
+    const targetGroup = allGroups.find(g => g.id === groupId);
+    if (!targetGroup) return false;
+
+    const updatedMembers = (targetGroup.members || []).filter(id => !memberUids.includes(id));
+    try {
+      const docRef = doc(db, 'groups', groupId);
+      await updateDoc(docRef, { members: updatedMembers });
+    } catch (e) {
+      console.warn('Bulk remove members note:', e);
+    }
+
+    setAllGroups(prev => prev.map(g => g.id === groupId ? { ...g, members: updatedMembers } : g));
+    if (currentGroup?.id === groupId) {
+      setCurrentGroup(prev => prev ? { ...prev, members: updatedMembers } : prev);
+    }
+    showNotification('Membres retirés de la bibliothèque', 'info');
+    return true;
+  }, [currentUser?.role, allGroups, currentGroup?.id, showNotification]);
+
+  const bulkDeleteUserAccounts = useCallback(async (userIds: string[]): Promise<boolean> => {
+    if (currentUser?.role !== 'admin') {
+      showNotification("Seul l'Administrateur peut supprimer des comptes", 'error');
+      return false;
+    }
+    const targetUids = userIds.filter(id => id !== currentUser?.uid);
+    if (targetUids.length === 0) {
+      showNotification('Impossible de supprimer votre propre compte actif', 'error');
+      return false;
+    }
+
+    try {
+      for (const uid of targetUids) {
+        try {
+          await deleteDoc(doc(db, 'users', uid));
+        } catch (e) {
+          console.warn('Error deleting user doc:', uid, e);
+        }
+      }
+
+      for (const g of groups) {
+        const hasAny = (g.members || []).some(m => targetUids.includes(m));
+        if (hasAny) {
+          const newMembers = (g.members || []).filter(m => !targetUids.includes(m));
+          try {
+            await updateDoc(doc(db, 'groups', g.id), { members: newMembers });
+          } catch (e) {}
+        }
+      }
+
+      setAllUsers(prev => prev.filter(u => !targetUids.includes(u.uid)));
+      setAllGroups(prev => prev.map(g => ({
+        ...g,
+        members: (g.members || []).filter(m => !targetUids.includes(m))
+      })));
+      if (currentGroup) {
+        setCurrentGroup(prev => prev ? {
+          ...prev,
+          members: (prev.members || []).filter(m => !targetUids.includes(m))
+        } : prev);
+      }
+
+      showNotification('Comptes utilisateurs supprimés avec succès');
+      return true;
+    } catch (err) {
+      console.error('Error bulk deleting users:', err);
+      showNotification('Erreur lors de la suppression des utilisateurs', 'error');
+      return false;
+    }
+  }, [currentUser, groups, currentGroup, showNotification]);
 
   const setAdminByEmail = useCallback(async (targetEmail: string, role: UserRole = 'admin') => {
     if (currentUser?.role !== 'admin') {
@@ -1939,6 +2276,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       canAccessSettings,
       allUsers,
       updateUserRole,
+      bulkUpdateUserRole,
+      bulkRemoveMembersFromGroup,
+      bulkDeleteUserAccounts,
       setAdminByEmail,
       groups,
       currentGroup,
@@ -2003,6 +2343,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       deleteGroup,
       joinGroup,
       switchGroup,
+      assignMembersToGroup,
+      removeMemberFromGroup,
+      setGroupMembers,
       // Aliases Bibliothèque
       libraries: groups,
       currentLibrary: currentGroup,
@@ -2011,6 +2354,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       deleteLibrary: deleteGroup,
       joinLibrary: joinGroup,
       switchLibrary: switchGroup,
+      assignMembersToLibrary: assignMembersToGroup,
+      removeMemberFromLibrary: removeMemberFromGroup,
+      setLibraryMembers: setGroupMembers,
       loginDemoUser,
       loginLocalUser,
       handleSignOut,

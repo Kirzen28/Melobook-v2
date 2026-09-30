@@ -7,7 +7,11 @@ import {
   Volume2,
   VolumeX,
   Layers,
-  Sparkles
+  Sparkles,
+  ChevronDown,
+  Check,
+  Sliders,
+  Settings
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { 
@@ -41,6 +45,38 @@ const BLACK_KEY_OFFSETS = [
   { pitch: 6, anglo: 'F#', latin: 'Fa#', whiteIndexBefore: 3 },
   { pitch: 8, anglo: 'G#', latin: 'Sol#', whiteIndexBefore: 4 },
   { pitch: 10, anglo: 'A#', latin: 'La#', whiteIndexBefore: 5 },
+];
+
+const MAJOR_KEY_CHOICES = [
+  { root: 0, label: 'Do • C' },
+  { root: 1, label: 'Do# • C#' },
+  { root: 1, label: 'Réb • Db' },
+  { root: 2, label: 'Ré • D' },
+  { root: 3, label: 'Mib • Eb' },
+  { root: 4, label: 'Mi • E' },
+  { root: 5, label: 'Fa • F' },
+  { root: 6, label: 'Fa# • F#' },
+  { root: 6, label: 'Solb • Gb' },
+  { root: 7, label: 'Sol • G' },
+  { root: 8, label: 'Lab • Ab' },
+  { root: 9, label: 'La • A' },
+  { root: 10, label: 'Sib • Bb' },
+  { root: 11, label: 'Si • B' },
+];
+
+const MINOR_KEY_CHOICES = [
+  { root: 0, label: 'Dom • Cm' },
+  { root: 1, label: 'Dom# • C#m' },
+  { root: 2, label: 'Rém • Dm' },
+  { root: 3, label: 'Mibm • Ebm' },
+  { root: 4, label: 'Mim • Em' },
+  { root: 5, label: 'Fam • Fm' },
+  { root: 6, label: 'Fam# • F#m' },
+  { root: 7, label: 'Solm • Gm' },
+  { root: 8, label: 'Labm • Abm' },
+  { root: 9, label: 'Lam • Am' },
+  { root: 10, label: 'Sibm • Bbm' },
+  { root: 11, label: 'Sim • Bm' },
 ];
 
 export const MiniPianoPopup: React.FC = () => {
@@ -79,6 +115,34 @@ export const MiniPianoPopup: React.FC = () => {
 
   // Reference for dragging note slides
   const isPointerDownRef = useRef(false);
+
+  // Popover states & refs
+  const [showKeyMenu, setShowKeyMenu] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const keyMenuRef = useRef<HTMLDivElement>(null);
+  const settingsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (keyMenuRef.current && !keyMenuRef.current.contains(e.target as Node)) {
+        setShowKeyMenu(false);
+      }
+      if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) {
+        setIsSettingsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const currentKeyDisplay = useMemo(() => {
+    if (selectedRoot === null) return 'Aucune';
+    const latin = NOTE_NAMES_LATIN[selectedRoot];
+    if (selectedScaleId === 'minor_nat') {
+      return `${latin}m`;
+    }
+    return latin;
+  }, [selectedRoot, selectedScaleId]);
 
   // Adapt on orientation / resize changes
   useEffect(() => {
@@ -289,8 +353,8 @@ export const MiniPianoPopup: React.FC = () => {
     if (selectedRoot !== null) {
       const rAnglo = NOTE_NAMES_ANGLO[selectedRoot];
       const rLatin = NOTE_NAMES_LATIN[selectedRoot];
-      const scaleObj = SCALES.find(s => s.id === selectedScaleId);
-      return `Tonalité sélectionnée : ${rLatin} — ${rAnglo} — ${scaleObj?.name}`;
+      const isMinor = selectedScaleId === 'minor_nat';
+      return `Tonalité active : ${rLatin}${isMinor ? 'm' : ''} — ${rAnglo}${isMinor ? 'm' : ''} • ${isMinor ? 'Mineur' : 'Majeur'}`;
     }
     return 'Touchez les touches pour entendre les notes et accords';
   }, [pressedMidis, lastPlayedNote, selectedRoot, selectedScaleId]);
@@ -299,12 +363,17 @@ export const MiniPianoPopup: React.FC = () => {
 
   return (
     <div 
-      className="fixed inset-0 z-50 w-screen h-[100dvh] bg-[#0E0E12] text-[#E0E0E0] flex flex-col select-none overflow-hidden touch-none animate-in fade-in duration-150"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/50 backdrop-blur-[2px] animate-in fade-in duration-150"
+      onClick={() => setIsPianoOpen(false)}
       role="dialog"
       aria-modal="true"
-      aria-label="Piano plein écran"
+      aria-label="Piano"
     >
-      {/* 1. Header Toolbar */}
+      <div 
+        onClick={(e) => e.stopPropagation()}
+        className="h-[360px] sm:h-[400px] max-h-[72vh] w-full max-w-xl md:max-w-2xl lg:max-w-3xl bg-[#0E0E12] text-[#E0E0E0] rounded-2xl border border-[#2D2D36] shadow-2xl flex flex-col select-none touch-none relative animate-in zoom-in-95 duration-150"
+      >
+        {/* 1. Header Toolbar */}
       <header className="shrink-0 px-3 py-2 sm:px-4 sm:py-2.5 bg-[#141418] border-b border-[#24242C] flex items-center justify-between gap-2 flex-wrap text-xs shadow-md z-30">
         {/* Left: Branding & Octave navigation */}
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
@@ -339,52 +408,124 @@ export const MiniPianoPopup: React.FC = () => {
               <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
-
-          {/* Octaves count selector: 1, 2, 3, 4 */}
-          <div className="flex items-center bg-[#1A1A20] rounded-lg border border-[#2D2D36] p-0.5">
-            {[1, 2, 3, 4].map((n) => (
-              <button
-                key={`oct-btn-${n}`}
-                onClick={() => {
-                  setNumOctaves(n);
-                  if (baseOctave + n > 7) {
-                    setBaseOctave(Math.max(1, 8 - n));
-                  }
-                }}
-                className={`px-2 py-0.5 rounded text-[10px] sm:text-[11px] font-semibold transition-colors cursor-pointer ${
-                  numOctaves === n ? 'bg-blue-600 text-white shadow-xs' : 'text-gray-400 hover:text-white'
-                }`}
-                title={`${n} octave${n > 1 ? 's' : ''}`}
-              >
-                {n} oct.
-              </button>
-            ))}
-          </div>
         </div>
 
-        {/* Right: Sound, Notes, Sustain, Theory, Close */}
+        {/* Right: Tonalité (même affichage que dans un chant), Sustain, Réglages, Close */}
         <div className="flex items-center gap-1.5 sm:gap-2 ml-auto flex-wrap">
-          {/* Timbre selector */}
-          <select
-            value={timbre}
-            onChange={(e) => setTimbre(e.target.value as TimbreType)}
-            className="bg-[#1C1C22] border border-[#2E2E38] text-gray-300 text-[11px] rounded-lg px-2 py-1 focus:outline-none focus:border-blue-500 cursor-pointer"
-            title="Son du clavier"
-          >
-            <option value="acoustic">Piano acoustique</option>
-            <option value="pure">Diapason pur</option>
-          </select>
+          {/* Tonalité : Identique à l'affichage dans un chant */}
+          <div className="relative" ref={keyMenuRef}>
+            <button
+              type="button"
+              onClick={() => {
+                setShowKeyMenu(prev => !prev);
+                setIsSettingsOpen(false);
+              }}
+              className={`h-7 sm:h-8 inline-flex items-center gap-1.5 px-2 sm:px-2.5 rounded-lg border font-mono shadow-xs transition-all cursor-pointer ${
+                showKeyMenu || selectedRoot !== null
+                  ? 'bg-[#1C1C22] border-blue-500 text-white ring-1 ring-blue-500/40'
+                  : 'bg-[#141416] hover:bg-[#1A1A1E] border-[#242428] hover:border-blue-500/40 text-gray-300'
+              }`}
+              title="Choisir la tonalité du piano"
+            >
+              <Music className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+              <span className="text-gray-400 font-sans text-xs hidden xs:inline">Tonalité :</span>
+              <span className="text-blue-400 font-bold font-mono text-xs">{currentKeyDisplay}</span>
+              <ChevronDown className={`w-3 h-3 text-blue-400/80 transition-transform ${showKeyMenu ? 'rotate-180' : ''}`} />
+            </button>
 
-          {/* Labels toggle */}
-          <button
-            onClick={() => {
-              setLabelMode(prev => prev === 'latin' ? 'anglo' : prev === 'anglo' ? 'none' : 'latin');
-            }}
-            className="px-2 py-1 rounded-lg bg-[#1C1C22] hover:bg-[#282832] text-gray-300 border border-[#2E2E38] text-[11px] font-medium transition-colors cursor-pointer"
-            title="Basculer l'affichage des notes : Do, C ou Masqué"
-          >
-            {labelMode === 'latin' ? 'Do, Ré' : labelMode === 'anglo' ? 'C, D' : 'Sans notes'}
-          </button>
+            {showKeyMenu && (
+              <div 
+                className="absolute right-0 top-full mt-1.5 z-50 w-72 max-w-[calc(100vw-24px)] bg-[#16161A] border border-[#2E2E36] rounded-xl shadow-2xl p-2.5 backdrop-blur-md animate-in fade-in zoom-in-95 duration-100"
+              >
+                <div className="text-[11px] font-semibold text-gray-400 pb-2 mb-2 border-b border-[#282830] flex items-center justify-between">
+                  <span>Choisir la tonalité</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-blue-400 font-mono">
+                      {selectedRoot === null ? 'Aucune' : currentKeyDisplay}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedRoot(null);
+                        setShowKeyMenu(false);
+                      }}
+                      className={`text-[10px] px-2 py-0.5 rounded font-semibold cursor-pointer transition-colors ${
+                        selectedRoot === null 
+                          ? 'bg-blue-600 text-white' 
+                          : 'bg-[#22222A] text-gray-300 hover:text-white hover:bg-[#2A2A34]'
+                      }`}
+                    >
+                      Aucune
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  {/* Colonne Gauche : Majeur */}
+                  <div>
+                    <div className="text-[10px] font-bold text-blue-400 uppercase tracking-wider px-1 pb-1 mb-1 border-b border-[#282830] text-center">
+                      Majeur
+                    </div>
+                    <div className="grid grid-cols-1 gap-1 max-h-56 overflow-y-auto pr-0.5 custom-scrollbar">
+                      {MAJOR_KEY_CHOICES.map((item, idx) => {
+                        const isSelected = selectedRoot === item.root && selectedScaleId === 'major';
+                        return (
+                          <button
+                            key={`maj-${idx}-${item.label}`}
+                            type="button"
+                            onClick={() => {
+                              setSelectedRoot(item.root);
+                              setSelectedScaleId('major');
+                              setShowKeyMenu(false);
+                            }}
+                            className={`w-full py-1 px-2 rounded-md font-mono font-bold text-xs transition-colors flex items-center justify-between cursor-pointer ${
+                              isSelected
+                                ? 'bg-blue-600 text-white shadow-xs'
+                                : 'text-gray-300 hover:bg-[#25252D] hover:text-white'
+                            }`}
+                          >
+                            <span>{item.label}</span>
+                            {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Colonne Droite : Mineur */}
+                  <div className="border-l border-[#282830] pl-2">
+                    <div className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider px-1 pb-1 mb-1 border-b border-[#282830] text-center">
+                      Mineur
+                    </div>
+                    <div className="grid grid-cols-1 gap-1 max-h-56 overflow-y-auto pr-0.5 custom-scrollbar">
+                      {MINOR_KEY_CHOICES.map((item, idx) => {
+                        const isSelected = selectedRoot === item.root && selectedScaleId === 'minor_nat';
+                        return (
+                          <button
+                            key={`min-${idx}-${item.label}`}
+                            type="button"
+                            onClick={() => {
+                              setSelectedRoot(item.root);
+                              setSelectedScaleId('minor_nat');
+                              setShowKeyMenu(false);
+                            }}
+                            className={`w-full py-1 px-2 rounded-md font-mono font-bold text-xs transition-colors flex items-center justify-between cursor-pointer ${
+                              isSelected
+                                ? 'bg-indigo-600 text-white shadow-xs'
+                                : 'text-gray-300 hover:bg-[#25252D] hover:text-white'
+                            }`}
+                          >
+                            <span>{item.label}</span>
+                            {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Sustain toggle */}
           <button
@@ -406,28 +547,182 @@ export const MiniPianoPopup: React.FC = () => {
             {isSustainOn && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />}
           </button>
 
-          {/* Tonality / Scale modal toggle */}
-          <button
-            onClick={() => setIsTheoryOpen(!isTheoryOpen)}
-            className={`px-2 py-1 rounded-lg text-[11px] font-medium flex items-center gap-1 transition-colors cursor-pointer border ${
-              isTheoryOpen || selectedRoot !== null
-                ? 'bg-blue-600/20 text-blue-300 border-blue-500/40'
-                : 'bg-[#1C1C22] text-gray-300 border-[#2E2E38] hover:bg-[#282832]'
-            }`}
-            title="Gammes et Tonalités"
-          >
-            <Sparkles className="w-3 h-3" />
-            <span className="hidden sm:inline">Tonalités</span>
-          </button>
+          {/* Réglages Button & Dropdown */}
+          <div className="relative" ref={settingsRef}>
+            <button
+              type="button"
+              onClick={() => {
+                setIsSettingsOpen(prev => !prev);
+                setShowKeyMenu(false);
+              }}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] sm:text-xs font-semibold transition-colors cursor-pointer ${
+                isSettingsOpen 
+                  ? 'bg-blue-600 text-white border-blue-500 shadow-xs' 
+                  : 'bg-[#1C1C22] hover:bg-[#282832] text-gray-300 border-[#2E2E38]'
+              }`}
+              title="Réglages du piano"
+              aria-expanded={isSettingsOpen}
+              aria-haspopup="true"
+            >
+              <Sliders className="w-3.5 h-3.5 text-blue-400" />
+              <span>Réglages</span>
+              <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-150 ${isSettingsOpen ? 'rotate-180 text-white' : ''}`} />
+            </button>
 
-          {/* Volume toggle */}
-          <button
-            onClick={() => setIsMuted(!isMuted)}
-            className="p-1.5 rounded-lg bg-[#1C1C22] hover:bg-[#282832] text-gray-300 border border-[#2E2E38] text-[11px] transition-colors cursor-pointer"
-            title={isMuted ? 'Rétablir le son' : 'Couper le son'}
-          >
-            {isMuted ? <VolumeX className="w-3.5 h-3.5 text-rose-400" /> : <Volume2 className="w-3.5 h-3.5 text-blue-400" />}
-          </button>
+            {isSettingsOpen && (
+              <div 
+                className="absolute right-0 top-full mt-1.5 w-72 sm:w-80 max-h-[min(340px,65vh)] overflow-y-auto bg-[#141418] border border-[#2D2D36] rounded-2xl shadow-2xl p-3.5 z-50 animate-in fade-in zoom-in-95 duration-100 flex flex-col gap-3.5 custom-scrollbar"
+              >
+                {/* 1. Octaves count */}
+                <div>
+                  <div className="text-[11px] font-semibold text-gray-400 mb-1.5 flex items-center justify-between">
+                    <span>Nombre d'octaves</span>
+                    <span className="text-blue-400 font-mono text-xs">{numOctaves} {numOctaves > 1 ? 'octaves' : 'octave'}</span>
+                  </div>
+                  <div className="grid grid-cols-4 gap-1 bg-[#1A1A20] p-1 rounded-xl border border-[#2A2A34]">
+                    {[1, 2, 3, 4].map(n => (
+                      <button
+                        key={`set-oct-${n}`}
+                        type="button"
+                        onClick={() => {
+                          setNumOctaves(n);
+                          if (baseOctave + n > 7) {
+                            setBaseOctave(Math.max(1, 8 - n));
+                          }
+                        }}
+                        className={`py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer text-center ${
+                          numOctaves === n
+                            ? 'bg-blue-600 text-white shadow-xs'
+                            : 'text-gray-400 hover:text-white hover:bg-[#252530]'
+                        }`}
+                      >
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 2. Son du clavier */}
+                <div>
+                  <label className="text-[11px] font-semibold text-gray-400 mb-1.5 block">
+                    Son du clavier
+                  </label>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setTimbre('acoustic')}
+                      className={`py-1.5 px-2 rounded-xl text-xs font-semibold border transition-colors cursor-pointer text-center ${
+                        timbre === 'acoustic'
+                          ? 'bg-blue-600/20 text-blue-300 border-blue-500/50'
+                          : 'bg-[#1A1A20] text-gray-400 border-[#2A2A34] hover:text-white'
+                      }`}
+                    >
+                      Piano acoustique
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTimbre('pure')}
+                      className={`py-1.5 px-2 rounded-xl text-xs font-semibold border transition-colors cursor-pointer text-center ${
+                        timbre === 'pure'
+                          ? 'bg-blue-600/20 text-blue-300 border-blue-500/50'
+                          : 'bg-[#1A1A20] text-gray-400 border-[#2A2A34] hover:text-white'
+                      }`}
+                    >
+                      Diapason pur
+                    </button>
+                  </div>
+                </div>
+
+                {/* 3. Notes sur les touches */}
+                <div>
+                  <div className="text-[11px] font-semibold text-gray-400 mb-1.5 flex items-center justify-between">
+                    <span>Notes sur les touches</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1 bg-[#1A1A20] p-1 rounded-xl border border-[#2A2A34]">
+                    <button
+                      type="button"
+                      onClick={() => setLabelMode('latin')}
+                      className={`py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer text-center ${
+                        labelMode === 'latin'
+                          ? 'bg-blue-600 text-white shadow-xs'
+                          : 'text-gray-400 hover:text-white hover:bg-[#252530]'
+                      }`}
+                    >
+                      Do, Ré
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLabelMode('anglo')}
+                      className={`py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer text-center ${
+                        labelMode === 'anglo'
+                          ? 'bg-blue-600 text-white shadow-xs'
+                          : 'text-gray-400 hover:text-white hover:bg-[#252530]'
+                      }`}
+                    >
+                      C, D
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLabelMode('none')}
+                      className={`py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer text-center ${
+                        labelMode === 'none'
+                          ? 'bg-blue-600 text-white shadow-xs'
+                          : 'text-gray-400 hover:text-white hover:bg-[#252530]'
+                      }`}
+                    >
+                      Masqué
+                    </button>
+                  </div>
+                </div>
+
+                {/* 4. Tonalité active */}
+                <div className="flex items-center justify-between pt-2 border-t border-[#262632]">
+                  <div className="flex items-center gap-1.5">
+                    <Music className="w-3.5 h-3.5 text-blue-400" />
+                    <span className="text-xs font-medium text-gray-300">Tonalité</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsSettingsOpen(false);
+                      setShowKeyMenu(true);
+                    }}
+                    className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-[#1A1A20] hover:bg-[#252530] text-blue-400 border border-[#2A2A34] cursor-pointer"
+                  >
+                    {currentKeyDisplay}
+                  </button>
+                </div>
+
+                {/* 5. Volume */}
+                <div className="flex items-center gap-2 pt-2 border-t border-[#262632]">
+                  <button
+                    type="button"
+                    onClick={() => setIsMuted(prev => !prev)}
+                    className="p-1.5 rounded-lg bg-[#1A1A20] hover:bg-[#252530] text-gray-300 border border-[#2A2A34] cursor-pointer"
+                    title={isMuted ? 'Rétablir le son' : 'Couper le son'}
+                  >
+                    {isMuted ? <VolumeX className="w-3.5 h-3.5 text-rose-400" /> : <Volume2 className="w-3.5 h-3.5 text-blue-400" />}
+                  </button>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={isMuted ? 0 : volume}
+                    onChange={(e) => {
+                      const v = parseFloat(e.target.value);
+                      setVolume(v);
+                      if (isMuted && v > 0) setIsMuted(false);
+                    }}
+                    className="flex-1 accent-blue-500 cursor-pointer h-1.5 bg-[#252530] rounded-lg"
+                  />
+                  <span className="text-[11px] font-mono text-gray-400 w-8 text-right">
+                    {isMuted ? '0%' : `${Math.round(volume * 100)}%`}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Close button */}
           <button
@@ -439,62 +734,6 @@ export const MiniPianoPopup: React.FC = () => {
           </button>
         </div>
       </header>
-
-      {/* 2. Drawer des tonalités et gammes si activé */}
-      {isTheoryOpen && (
-        <div className="shrink-0 p-3 sm:p-4 bg-[#14141A] border-b border-[#242430] flex flex-wrap items-center gap-3 animate-in slide-in-from-top-2 duration-150 z-20">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-400 font-semibold">Tonalité :</span>
-            <div className="flex items-center gap-1 flex-wrap max-w-md">
-              <button
-                onClick={() => setSelectedRoot(null)}
-                className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-colors cursor-pointer ${
-                  selectedRoot === null ? 'bg-blue-600 text-white' : 'bg-[#1E1E26] text-gray-300 hover:bg-[#2A2A36]'
-                }`}
-              >
-                Aucune
-              </button>
-              {TONALITIES.map(t => (
-                <button
-                  key={`tonal-${t.root}`}
-                  onClick={() => setSelectedRoot(t.root)}
-                  className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-colors cursor-pointer ${
-                    selectedRoot === t.root ? 'bg-amber-500 text-black font-bold' : 'bg-[#1E1E26] text-gray-300 hover:bg-[#2A2A36]'
-                  }`}
-                >
-                  {t.latin}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {selectedRoot !== null && (
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs text-gray-400 font-semibold">Gamme :</span>
-              <select
-                value={selectedScaleId}
-                onChange={(e) => setSelectedScaleId(e.target.value)}
-                className="bg-[#1C1C24] border border-[#333342] text-xs text-white rounded px-2 py-1 focus:outline-none focus:border-blue-500 cursor-pointer"
-              >
-                {SCALES.map(sc => (
-                  <option key={sc.id} value={sc.id}>
-                    {sc.name}
-                  </option>
-                ))}
-              </select>
-
-              <button
-                onClick={handlePlayScalePreview}
-                className="px-2.5 py-1 rounded bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/40 text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
-                title="Écouter l'arpege"
-              >
-                <Sparkles className="w-3 h-3" />
-                <span>Écouter</span>
-              </button>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* 3. Readout & Info strip */}
       <div className="shrink-0 px-4 py-1.5 bg-[#0F0F13] border-b border-[#1C1C24] flex items-center justify-between text-xs text-gray-300 font-mono">
@@ -518,7 +757,7 @@ export const MiniPianoPopup: React.FC = () => {
       </div>
 
       {/* 4. Fullscreen Piano Keyboard Viewport */}
-      <div className="flex-1 w-full h-full min-h-0 relative flex flex-col items-stretch justify-stretch p-1 sm:p-2 bg-[#09090B] overflow-hidden">
+      <div className="flex-1 w-full h-full min-h-0 relative flex flex-col items-stretch justify-stretch p-1 sm:p-2 bg-[#09090B] overflow-hidden rounded-b-2xl">
         <div className="relative w-full h-full select-none flex items-stretch">
           {/* White Keys Row (fills 100% of height) */}
           <div className="w-full h-full flex items-stretch">
@@ -660,5 +899,6 @@ export const MiniPianoPopup: React.FC = () => {
         </div>
       </div>
     </div>
-  );
+  </div>
+);
 };

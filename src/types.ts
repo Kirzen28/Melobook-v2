@@ -120,6 +120,7 @@ export interface SongTypographySettings {
   headerSize: number; // e.g. 12px (10-28px)
   chordSize: number; // e.g. 16px (11-32px)
   lineSpacing: number; // e.g. 1.4 (1.0-2.4)
+  sectionSpacing?: number; // e.g. 8px (0-48px)
 }
 
 export interface SectionColors {

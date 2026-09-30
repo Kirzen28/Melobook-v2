@@ -1404,34 +1404,34 @@ export const SongList: React.FC = () => {
         onMouseUp={cancelLongPress}
         onMouseLeave={cancelLongPress}
         onClick={(e) => handleCardClick(song, e)}
-        className={`group relative border rounded-lg p-3 transition-all flex flex-col justify-between cursor-pointer shadow-sm hover:shadow-md select-none ${
+        className={`group relative border rounded-lg p-2.5 sm:p-3 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 cursor-pointer shadow-xs hover:shadow-md select-none w-full ${
           isSelected
             ? 'bg-blue-950/30 border-blue-500 ring-2 ring-blue-500/40 shadow-blue-900/20'
             : 'bg-[#111112] hover:bg-[#151518] border-[#222224] hover:border-blue-500/40'
         }`}
       >
-        <div>
-          {/* Top: Checkbox and Title next to each other, with Artist below Title, and buttons in the right corner */}
-          <div className="flex items-start gap-2 mb-1">
-            {/* Checkbox permanently visible on laptop, tablet and mobile */}
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleSongSelection(song.id);
-              }}
-              className={`w-5 h-5 rounded flex items-center justify-center border transition-all cursor-pointer shrink-0 mt-0.5 ${
-                isSelected
-                  ? 'bg-blue-600 border-blue-500 text-white shadow-xs ring-2 ring-blue-500/30'
-                  : 'bg-[#1C1C1E] border-[#444] text-transparent hover:border-blue-400 hover:bg-[#252528]'
-              }`}
-              title={isSelected ? "Désélectionner ce chant" : "Sélectionner ce chant"}
-              aria-label={isSelected ? "Désélectionner ce chant" : "Sélectionner ce chant"}
-            >
-              <Check className={`w-3.5 h-3.5 stroke-[2.5] ${isSelected ? 'opacity-100' : 'opacity-0 hover:opacity-40 text-blue-400'}`} />
-            </button>
+        {/* Left section: Checkbox, Title, Artist, Categories */}
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          {/* Checkbox permanently visible on laptop, tablet and mobile */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleSongSelection(song.id);
+            }}
+            className={`w-5 h-5 rounded flex items-center justify-center border transition-all cursor-pointer shrink-0 ${
+              isSelected
+                ? 'bg-blue-600 border-blue-500 text-white shadow-xs ring-2 ring-blue-500/30'
+                : 'bg-[#1C1C1E] border-[#444] text-transparent hover:border-blue-400 hover:bg-[#252528]'
+            }`}
+            title={isSelected ? "Désélectionner ce chant" : "Sélectionner ce chant"}
+            aria-label={isSelected ? "Désélectionner ce chant" : "Sélectionner ce chant"}
+          >
+            <Check className={`w-3.5 h-3.5 stroke-[2.5] ${isSelected ? 'opacity-100' : 'opacity-0 hover:opacity-40 text-blue-400'}`} />
+          </button>
 
-            {/* Title and Artist next to checkbox */}
+          {/* Title and Artist */}
+          <div className="min-w-0 flex-1 flex flex-col md:flex-row md:items-center gap-0.5 md:gap-3">
             <div className="min-w-0 flex-1">
               <h3 
                 className="text-xs sm:text-sm font-bold text-white group-hover:text-blue-400 transition-colors truncate leading-snug"
@@ -1451,85 +1451,42 @@ export const SongList: React.FC = () => {
               </p>
             </div>
 
-            {/* Buttons in the right corner */}
-            {canManageSongs && (
-              <div className="flex items-center gap-0.5 shrink-0">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    if (isMultiSelectMode) return;
-                    e.stopPropagation();
-                    handleEditSong(song);
-                  }}
-                  className="p-1 sm:p-1.5 rounded bg-[#1C1C1E] hover:bg-amber-500/15 text-gray-300 hover:text-amber-300 border border-[#333] hover:border-amber-500/50 transition-colors flex items-center justify-center cursor-pointer group"
-                  title={isMultiSelectMode ? undefined : "Éditer le chant"}
-                  aria-label="Éditer le chant"
-                >
-                  <FileEdit className="w-3.5 h-3.5 text-amber-400 group-hover:scale-110 transition-transform" />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    if (isMultiSelectMode) return;
-                    e.stopPropagation();
-                    if (isConfirming) {
-                      deleteSong(song.id);
-                      setConfirmDeleteSongId(null);
-                    } else {
-                      setConfirmDeleteSongId(song.id);
-                    }
-                  }}
-                  className={`p-1 sm:p-1.5 rounded transition-all flex items-center justify-center cursor-pointer ${
-                    isConfirming
-                      ? 'bg-rose-600 hover:bg-rose-700 text-white border border-rose-500 shadow-sm animate-pulse'
-                      : 'bg-[#1C1C1E] hover:bg-rose-500/20 text-gray-400 hover:text-rose-400 border border-[#333] hover:border-rose-500/40'
-                  }`}
-                  title={isMultiSelectMode ? undefined : (isConfirming ? "Confirmer la suppression" : "Supprimer le chant")}
-                  aria-label={isConfirming ? "Confirmer la suppression" : "Supprimer"}
-                >
-                  {isConfirming ? (
-                    <Check className="w-3.5 h-3.5 text-white" />
-                  ) : (
-                    <Trash2 className="w-3.5 h-3.5 text-rose-400" />
-                  )}
-                </button>
+            {/* Categories */}
+            {songCardMetadata?.showCategories && song.tags && song.tags.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1 mt-1 md:mt-0">
+                {song.tags.map((cat, idx) => {
+                  const isFiltered = selectedCategories.includes(cat);
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={(e) => {
+                        if (isMultiSelectMode) return;
+                        e.stopPropagation();
+                        toggleCategoryFilter(cat);
+                      }}
+                      className={`text-[9px] px-1.5 py-0.5 rounded border transition-colors flex items-center gap-1 max-w-full truncate ${
+                        isFiltered
+                          ? 'bg-blue-600/20 text-blue-300 border-blue-500/40 font-semibold'
+                          : 'bg-[#1C1C1E] border-[#222224] text-gray-400 hover:text-gray-200 hover:border-[#333]'
+                      }`}
+                      title={isMultiSelectMode ? undefined : `Filtrer par la catégorie ${cat}`}
+                    >
+                      <Tag className="w-2 h-2 text-blue-400 shrink-0" />
+                      <span className="truncate">{cat}</span>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
+        </div>
 
-          {/* Categories */}
-          {songCardMetadata?.showCategories && song.tags && song.tags.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1 mt-1.5 pl-7 relative">
-              {song.tags.map((cat, idx) => {
-                const isFiltered = selectedCategories.includes(cat);
-                return (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={(e) => {
-                      if (isMultiSelectMode) return;
-                      e.stopPropagation();
-                      toggleCategoryFilter(cat);
-                    }}
-                    className={`text-[9px] px-1.5 py-0.5 rounded border transition-colors flex items-center gap-1 max-w-full truncate ${
-                      isFiltered
-                        ? 'bg-blue-600/20 text-blue-300 border-blue-500/40 font-semibold'
-                        : 'bg-[#1C1C1E] border-[#222224] text-gray-400 hover:text-gray-200 hover:border-[#333]'
-                    }`}
-                    title={isMultiSelectMode ? undefined : `Filtrer par la catégorie ${cat}`}
-                  >
-                    <Tag className="w-2 h-2 text-blue-400 shrink-0" />
-                    <span className="truncate">{cat}</span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
+        {/* Right section: Badges and Action buttons */}
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0 self-end sm:self-center">
           {/* Metadata badges if enabled */}
           {((songCardMetadata?.showKey) || (songCardMetadata?.showTempo && song.tempo) || (songCardMetadata?.showDuration && getSongDuration(song))) && (
-            <div className="flex items-center gap-1 flex-wrap mt-2 pt-1.5 border-t border-[#1C1C1F]">
+            <div className="flex items-center gap-1.5 flex-wrap">
               {songCardMetadata?.showKey && (
                 <span
                   onClick={(e) => {
@@ -1538,9 +1495,7 @@ export const SongList: React.FC = () => {
                     toggleKeyFilter((song.key || 'C').toUpperCase());
                   }}
                   title={isMultiSelectMode ? undefined : `Filtrer par la tonalité ${(song.key || 'C').toUpperCase()}`}
-                  className={`px-1.5 py-0.5 rounded border text-[10px] font-bold transition-colors ${
-                    isMultiSelectMode ? 'cursor-pointer' : 'cursor-pointer'
-                  } ${
+                  className={`px-1.5 py-0.5 rounded border text-[10px] font-bold transition-colors cursor-pointer ${
                     selectedKeys.includes((song.key || 'C').toUpperCase())
                       ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
                       : 'bg-[#1C1C1E] border-[#333] text-gray-200 hover:border-amber-500/40 hover:text-amber-300'
@@ -1561,6 +1516,52 @@ export const SongList: React.FC = () => {
                   {getSongDuration(song)}
                 </span>
               ) : null}
+            </div>
+          )}
+
+          {/* Buttons in the right corner */}
+          {canManageSongs && (
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                type="button"
+                onClick={(e) => {
+                  if (isMultiSelectMode) return;
+                  e.stopPropagation();
+                  handleEditSong(song);
+                }}
+                className="p-1 sm:p-1.5 rounded bg-[#1C1C1E] hover:bg-amber-500/15 text-gray-300 hover:text-amber-300 border border-[#333] hover:border-amber-500/50 transition-colors flex items-center justify-center cursor-pointer group"
+                title={isMultiSelectMode ? undefined : "Éditer le chant"}
+                aria-label="Éditer le chant"
+              >
+                <FileEdit className="w-3.5 h-3.5 text-amber-400 group-hover:scale-110 transition-transform" />
+              </button>
+
+              <button
+                type="button"
+                onClick={(e) => {
+                  if (isMultiSelectMode) return;
+                  e.stopPropagation();
+                  if (isConfirming) {
+                    deleteSong(song.id);
+                    setConfirmDeleteSongId(null);
+                  } else {
+                    setConfirmDeleteSongId(song.id);
+                  }
+                }}
+                className={`p-1 sm:p-1.5 rounded transition-all flex items-center justify-center cursor-pointer ${
+                  isConfirming
+                    ? 'bg-rose-600 hover:bg-rose-700 text-white border border-rose-500 shadow-sm animate-pulse'
+                    : 'bg-[#1C1C1E] hover:bg-rose-500/20 text-gray-400 hover:text-rose-400 border border-[#333] hover:border-rose-500/40'
+                }`}
+                title={isMultiSelectMode ? undefined : (isConfirming ? "Confirmer la suppression" : "Supprimer le chant")}
+                aria-label={isConfirming ? "Confirmer la suppression" : "Supprimer"}
+              >
+                {isConfirming ? (
+                  <Check className="w-3.5 h-3.5 text-white" />
+                ) : (
+                  <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                )}
+              </button>
             </div>
           )}
         </div>
@@ -2507,36 +2508,6 @@ export const SongList: React.FC = () => {
               </div>
             )}
           </div>
-
-          {/* Mode affichage: Grille ou Liste Alphabetique sur grand ecran */}
-          <div className="hidden md:flex items-center justify-center bg-[#1C1C1E] border border-[#333] rounded-md p-0.5 h-[34px] shrink-0">
-            <button
-              type="button"
-              onClick={() => handleSetViewMode('grid')}
-              className={`px-2.5 h-full flex items-center justify-center rounded text-xs font-semibold transition-all ${
-                effectiveViewMode === 'grid'
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'text-gray-400 hover:text-white'
-              }`}
-              title="Affichage en grille"
-              aria-label="Affichage en grille"
-            >
-              <LayoutGrid className="w-4 h-4 shrink-0" />
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSetViewMode('alphabetical')}
-              className={`px-2.5 h-full flex items-center justify-center rounded text-xs font-semibold transition-all ${
-                effectiveViewMode === 'alphabetical'
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'text-gray-400 hover:text-white'
-              }`}
-              title="Affichage en liste alphabétique"
-              aria-label="Affichage en liste alphabétique"
-            >
-              <List className="w-4 h-4 shrink-0" />
-            </button>
-          </div>
         </div>
       </div>
 
@@ -2660,101 +2631,108 @@ export const SongList: React.FC = () => {
               : "Commencez par ajouter votre premier chant ou charger les chants de démonstration."}
           </p>
         </div>
-      ) : effectiveViewMode === 'grid' ? (
-        <div className="grid grid-cols-1 min-[420px]:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2.5 sm:gap-3">
-          {filteredSongs.map((song) => renderSongCard(song))}
-        </div>
       ) : (
-        /* Alphabetical 1-Column List View */
+        /* Vue Liste - Une seule chanson par ligne maximum */
         <div className="relative">
           {/* Top Quick Letters Ribbon */}
-          <div className="flex items-center gap-1 overflow-x-auto pb-2 mb-4 scrollbar-none border-b border-[#222224]">
-            <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider shrink-0 mr-1.5 flex items-center gap-1">
-              <span>Lettres :</span>
-            </span>
-            {alphabeticalGroups.map((group) => {
-              const isActive = activeLetter === group.letter;
-              return (
-                <button
-                  key={group.letter}
-                  type="button"
-                  onClick={() => scrollToLetter(group.letter)}
-                  className={`shrink-0 px-2.5 py-1 rounded-md text-xs font-bold transition-all ${
-                    isActive
-                      ? 'bg-blue-600 text-white shadow-xs scale-105'
-                      : 'bg-[#18181A] text-gray-300 hover:text-white hover:bg-[#252528] border border-[#262629]'
-                  }`}
-                >
-                  {group.letter}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Vertical Alphabet Jump Bar */}
-          <div 
-            className="fixed right-1 sm:right-2 top-24 bottom-16 z-30 flex flex-col justify-center items-center select-none pointer-events-auto"
-            aria-label="Barre alphabétique"
-          >
-            <div 
-              className="bg-[#111112]/95 backdrop-blur-md border border-[#2B2B30] rounded-full py-1.5 px-0.5 sm:px-1 shadow-2xl flex flex-col items-center justify-between h-full max-h-[75vh] overflow-hidden"
-              onTouchMove={handleScrubberTouch}
-            >
-              {ALL_LETTERS.map((letter) => {
-                const hasSongs = availableLettersSet.has(letter);
-                const isActive = activeLetter === letter;
+          {(sortBy === 'title' || sortBy === 'artist') && (
+            <div className="flex items-center gap-1 overflow-x-auto pb-2 mb-4 scrollbar-none border-b border-[#222224]">
+              <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider shrink-0 mr-1.5 flex items-center gap-1">
+                <span>Lettres :</span>
+              </span>
+              {alphabeticalGroups.map((group) => {
+                const isActive = activeLetter === group.letter;
                 return (
                   <button
-                    key={letter}
+                    key={group.letter}
                     type="button"
-                    data-letter={letter}
-                    onClick={() => hasSongs && scrollToLetter(letter)}
-                    disabled={!hasSongs}
-                    className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full text-[9px] sm:text-[10px] font-mono font-bold flex items-center justify-center transition-all ${
+                    onClick={() => scrollToLetter(group.letter)}
+                    className={`shrink-0 px-2.5 py-1 rounded-md text-xs font-bold transition-all ${
                       isActive
-                        ? 'bg-blue-600 text-white scale-125 shadow-md z-10'
-                        : hasSongs
-                          ? 'text-gray-300 hover:text-white hover:bg-blue-600/30 cursor-pointer'
-                          : 'text-gray-600 opacity-40 cursor-default'
+                        ? 'bg-blue-600 text-white shadow-xs scale-105'
+                        : 'bg-[#18181A] text-gray-300 hover:text-white hover:bg-[#252528] border border-[#262629]'
                     }`}
-                    title={hasSongs ? `Aller à la lettre ${letter}` : `Aucun chant commençant par ${letter}`}
                   >
-                    {letter}
+                    {group.letter}
                   </button>
                 );
               })}
             </div>
-          </div>
+          )}
 
-          {/* Single-Column List of Chants */}
-          <div className="space-y-6 pr-6 sm:pr-8">
-            {alphabeticalGroups.map((group) => (
-              <div
-                key={group.letter}
-                id={`section-letter-${group.letter}`}
-                data-letter-section={group.letter}
-                className="scroll-mt-24"
+          {/* Vertical Alphabet Jump Bar */}
+          {(sortBy === 'title' || sortBy === 'artist') && (
+            <div 
+              className="fixed right-1 sm:right-2 top-24 bottom-16 z-30 flex flex-col justify-center items-center select-none pointer-events-auto"
+              aria-label="Barre alphabétique"
+            >
+              <div 
+                className="bg-[#111112]/95 backdrop-blur-md border border-[#2B2B30] rounded-full py-1.5 px-0.5 sm:px-1 shadow-2xl flex flex-col items-center justify-between h-full max-h-[75vh] overflow-hidden"
+                onTouchMove={handleScrubberTouch}
               >
-                {/* Sticky Letter Header */}
-                <div className="sticky top-16 z-20 py-1.5 px-3 bg-[#0A0A0B]/95 backdrop-blur-md border-b border-[#222224] flex items-center justify-between mb-2 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <span className="w-7 h-7 rounded-md bg-blue-600 text-white font-black text-sm flex items-center justify-center shadow-xs">
-                      {group.letter}
-                    </span>
-                    {sortBy === 'artist' && (
-                      <span className="text-xs text-gray-400 font-medium">
-                        Auteurs commençant par {group.letter}
+                {ALL_LETTERS.map((letter) => {
+                  const hasSongs = availableLettersSet.has(letter);
+                  const isActive = activeLetter === letter;
+                  return (
+                    <button
+                      key={letter}
+                      type="button"
+                      data-letter={letter}
+                      onClick={() => hasSongs && scrollToLetter(letter)}
+                      disabled={!hasSongs}
+                      className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full text-[9px] sm:text-[10px] font-mono font-bold flex items-center justify-center transition-all ${
+                        isActive
+                          ? 'bg-blue-600 text-white scale-125 shadow-md z-10'
+                          : hasSongs
+                            ? 'text-gray-300 hover:text-white hover:bg-blue-600/30 cursor-pointer'
+                            : 'text-gray-600 opacity-40 cursor-default'
+                      }`}
+                      title={hasSongs ? `Aller à la lettre ${letter}` : `Aucun chant commençant par ${letter}`}
+                    >
+                      {letter}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Single-Column List of Chants - Une chanson par ligne maximum */}
+          <div className="space-y-4 pr-6 sm:pr-8 w-full">
+            {(sortBy === 'title' || sortBy === 'artist') ? (
+              alphabeticalGroups.map((group) => (
+                <div
+                  key={group.letter}
+                  id={`section-letter-${group.letter}`}
+                  data-letter-section={group.letter}
+                  className="scroll-mt-24"
+                >
+                  {/* Sticky Letter Header */}
+                  <div className="sticky top-16 z-20 py-1.5 px-3 bg-[#0A0A0B]/95 backdrop-blur-md border-b border-[#222224] flex items-center justify-between mb-2 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <span className="w-7 h-7 rounded-md bg-blue-600 text-white font-black text-sm flex items-center justify-center shadow-xs">
+                        {group.letter}
                       </span>
-                    )}
+                      {sortBy === 'artist' && (
+                        <span className="text-xs text-gray-400 font-medium">
+                          Auteurs commençant par {group.letter}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* List of songs - 1 chanson par ligne */}
+                  <div className="grid grid-cols-1 gap-2 w-full">
+                    {group.songs.map((song) => renderSongCard(song))}
                   </div>
                 </div>
-
-                {/* List of songs */}
-                <div className="grid grid-cols-1 min-[420px]:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2.5 sm:gap-3">
-                  {group.songs.map((song) => renderSongCard(song))}
-                </div>
+              ))
+            ) : (
+              /* Non-alphabetical sort - 1 chanson par ligne */
+              <div className="grid grid-cols-1 gap-2 w-full">
+                {filteredSongs.map((song) => renderSongCard(song))}
               </div>
-            ))}
+            )}
           </div>
         </div>
       )}

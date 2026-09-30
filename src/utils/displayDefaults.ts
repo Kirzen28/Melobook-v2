@@ -18,6 +18,7 @@ export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
     lyricsSize: 18,
     chordSize: 16,
     lineSpacing: 1.4,
+    sectionSpacing: 4,
   },
   sectionColors: {
     verse: '#94a3b8',        // Couplet

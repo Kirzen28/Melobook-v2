@@ -34,6 +34,7 @@ import {
   Bookmark,
   AlignLeft,
   MoveVertical,
+  Layers,
   Shield,
   Database,
   HardDrive,
@@ -508,93 +509,120 @@ export const SettingsView: React.FC = () => {
       </div>
 
       {/* Sections Container (1 to 5 columns preview) */}
-      <div className={
-        stageSettings.columns === 2
-          ? 'grid grid-cols-1 sm:grid-cols-2 gap-3 items-start'
-          : stageSettings.columns === 3
-          ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 items-start'
-          : stageSettings.columns === 4
-          ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 items-start'
-          : stageSettings.columns === 5
-          ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2 items-start'
-          : 'space-y-4'
-      }>
-        {/* Section 1: Couplet */}
-      <div 
-        className="rounded-lg p-3 transition-all"
-        style={getSectionBorderStyles(sectionColors.verse, sectionBorders)}
-      >
-        <div className="mb-2 flex items-center justify-between gap-2 flex-wrap">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span 
-              className="inline-block font-bold uppercase tracking-wider px-2 py-0.5 rounded border shadow-sm"
-              style={{
-                fontSize: `${typography.headerSize}px`,
-                color: sectionColors.verse,
-                borderColor: `${sectionColors.verse}50`,
-                backgroundColor: `${sectionColors.verse}1C`
-              }}
+      {(() => {
+        const currentSpacing = typography.sectionSpacing !== undefined ? typography.sectionSpacing : 4;
+        const isPreviewCompact = currentSpacing <= 6;
+        const isPreviewUltraCompact = currentSpacing <= 2;
+        const previewPadding = isPreviewUltraCompact 
+          ? 'py-1.5 px-2.5 sm:py-2 sm:px-3'
+          : isPreviewCompact
+          ? 'py-2 px-3 sm:py-2.5 sm:px-3.5'
+          : 'p-3';
+        const previewHeaderMb = isPreviewUltraCompact ? 'mb-1' : isPreviewCompact ? 'mb-1.5' : 'mb-2';
+
+        return (
+          <div 
+            className={
+              stageSettings.columns === 2
+                ? 'grid grid-cols-1 sm:grid-cols-2 items-start'
+                : stageSettings.columns === 3
+                ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 items-start'
+                : stageSettings.columns === 4
+                ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 items-start'
+                : stageSettings.columns === 5
+                ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 items-start'
+                : 'flex flex-col'
+            }
+            style={{
+              gap: `${currentSpacing}px`,
+              rowGap: `${currentSpacing}px`,
+            }}
+          >
+            {/* Section 1: Couplet */}
+            <div 
+              className={`rounded-lg ${previewPadding} transition-all`}
+              style={getSectionBorderStyles(sectionColors.verse, sectionBorders)}
             >
-              Couplet 1
-            </span>
+              <div className={`${previewHeaderMb} flex items-center justify-between gap-2 flex-wrap`}>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span 
+                    className="inline-block font-bold uppercase tracking-wider px-2 py-0.5 rounded border shadow-sm"
+                    style={{
+                      fontSize: `${typography.headerSize}px`,
+                      color: sectionColors.verse,
+                      borderColor: `${sectionColors.verse}50`,
+                      backgroundColor: `${sectionColors.verse}1C`
+                    }}
+                  >
+                    Couplet 1
+                  </span>
 
-            <QuickStepper
-              label="Badge"
-              value={typography.headerSize}
-              min={10}
-              max={24}
-              onChange={(val) => updateTypography('headerSize', val)}
-            />
-          </div>
+                  <QuickStepper
+                    label="Badge"
+                    value={typography.headerSize}
+                    min={10}
+                    max={24}
+                    onChange={(val) => updateTypography('headerSize', val)}
+                  />
+                </div>
 
-          <QuickSectionColorPicker
-            currentColor={sectionColors.verse}
-            onChange={(color) => updateSectionColor('verse', color)}
-          />
-        </div>
+                <QuickSectionColorPicker
+                  currentColor={sectionColors.verse}
+                  onChange={(color) => updateSectionColor('verse', color)}
+                />
+              </div>
 
-        {/* Quick controls for Chords, Lyrics & Line Spacing */}
-        <div className="flex items-center justify-between gap-2 flex-wrap py-1.5 px-2 mb-1.5 rounded-lg bg-black/20 border border-white/5 text-xs">
-          <div className="flex items-center gap-2">
-            <QuickStepper
-              label="Accords"
-              value={typography.chordSize}
-              min={11}
-              max={32}
-              onChange={(val) => updateTypography('chordSize', val)}
-            />
-            <label
-              className="w-5 h-5 rounded-md border border-white/20 shadow-xs cursor-pointer flex items-center justify-center transition-transform hover:scale-110 shrink-0"
-              style={{ backgroundColor: chordColor }}
-              title="Couleur des accords"
-            >
-              <input
-                type="color"
-                value={chordColor}
-                onChange={(e) => updateChordColor(e.target.value)}
-                className="sr-only"
-              />
-            </label>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <QuickStepper
-              label="Paroles"
-              value={typography.lyricsSize}
-              min={12}
-              max={36}
-              onChange={(val) => updateTypography('lyricsSize', val)}
-            />
-            <QuickStepper
-              label="Interligne"
-              value={typography.lineSpacing}
-              min={1.1}
-              max={2.2}
-              step={0.1}
-              unit="x"
-              onChange={(val) => updateTypography('lineSpacing', val)}
-            />
-          </div>
-        </div>
+              {/* Quick controls for Chords, Lyrics, Line Spacing & Section Spacing */}
+              <div className="flex items-center justify-between gap-2 flex-wrap py-1.5 px-2 mb-1.5 rounded-lg bg-black/20 border border-white/5 text-xs">
+                <div className="flex items-center gap-2">
+                  <QuickStepper
+                    label="Accords"
+                    value={typography.chordSize}
+                    min={11}
+                    max={32}
+                    onChange={(val) => updateTypography('chordSize', val)}
+                  />
+                  <label
+                    className="w-5 h-5 rounded-md border border-white/20 shadow-xs cursor-pointer flex items-center justify-center transition-transform hover:scale-110 shrink-0"
+                    style={{ backgroundColor: chordColor }}
+                    title="Couleur des accords"
+                  >
+                    <input
+                      type="color"
+                      value={chordColor}
+                      onChange={(e) => updateChordColor(e.target.value)}
+                      className="sr-only"
+                    />
+                  </label>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <QuickStepper
+                    label="Paroles"
+                    value={typography.lyricsSize}
+                    min={12}
+                    max={36}
+                    onChange={(val) => updateTypography('lyricsSize', val)}
+                  />
+                  <QuickStepper
+                    label="Interligne"
+                    value={typography.lineSpacing}
+                    min={1.1}
+                    max={2.2}
+                    step={0.1}
+                    unit="x"
+                    onChange={(val) => updateTypography('lineSpacing', val)}
+                  />
+                  <QuickStepper
+                    label="Écart"
+                    value={currentSpacing}
+                    min={0}
+                    max={32}
+                    step={2}
+                    unit="px"
+                    onChange={(val) => updateTypography('sectionSpacing', val)}
+                  />
+                </div>
+              </div>
 
         {/* Quick presets pills in preview */}
         <div className="flex items-center gap-1.5 flex-wrap pb-1.5 text-xs">
@@ -676,10 +704,10 @@ export const SettingsView: React.FC = () => {
 
       {/* Section 2: Refrain */}
       <div 
-        className="rounded-lg p-3 transition-all"
+        className={`rounded-lg ${previewPadding} transition-all`}
         style={getSectionBorderStyles(sectionColors.chorus, sectionBorders)}
       >
-        <div className="mb-2 flex items-center justify-between gap-2 flex-wrap">
+        <div className={`${previewHeaderMb} flex items-center justify-between gap-2 flex-wrap`}>
           <span 
             className="inline-block font-bold uppercase tracking-wider px-2 py-0.5 rounded border shadow-sm"
             style={{
@@ -737,10 +765,10 @@ export const SettingsView: React.FC = () => {
 
       {/* Section 3: Pont */}
       <div 
-        className="rounded-lg p-3 transition-all"
+        className={`rounded-lg ${previewPadding} transition-all`}
         style={getSectionBorderStyles(sectionColors.bridge, sectionBorders)}
       >
-        <div className="mb-2 flex items-center justify-between gap-2 flex-wrap">
+        <div className={`${previewHeaderMb} flex items-center justify-between gap-2 flex-wrap`}>
           <span 
             className="inline-block font-bold uppercase tracking-wider px-2 py-0.5 rounded border shadow-sm"
             style={{
@@ -781,10 +809,10 @@ export const SettingsView: React.FC = () => {
 
       {/* Section 4: Outro */}
       <div 
-        className="rounded-lg p-3 transition-all"
+        className={`rounded-lg ${previewPadding} transition-all`}
         style={getSectionBorderStyles(sectionColors.outro, sectionBorders)}
       >
-        <div className="mb-2 flex items-center justify-between gap-2 flex-wrap">
+        <div className={`${previewHeaderMb} flex items-center justify-between gap-2 flex-wrap`}>
           <span 
             className="inline-block font-bold uppercase tracking-wider px-2 py-0.5 rounded border shadow-sm"
             style={{
@@ -823,6 +851,8 @@ export const SettingsView: React.FC = () => {
         </div>
       </div>
       </div>
+        );
+      })()}
     </div>
   );
 
@@ -1357,7 +1387,7 @@ export const SettingsView: React.FC = () => {
                   <Type className="w-4 h-4" />
                 </div>
                 <h2 className="text-sm font-bold text-white truncate">
-                  Tailles de Police
+                  Tailles de Police & Espacements
                 </h2>
               </div>
 
@@ -1580,6 +1610,59 @@ export const SettingsView: React.FC = () => {
                     step={0.1}
                     onChange={(val) => updateTypography('lineSpacing', val)}
                   />
+                </div>
+
+                {/* Section Spacing (Écart entre les sections) */}
+                <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 sm:col-span-2 xl:col-span-3">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="w-5 h-5 rounded bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 text-[10px] font-bold flex items-center justify-center shrink-0">
+                      <Layers className="w-3 h-3 text-cyan-400" />
+                    </span>
+                    <div className="min-w-0">
+                      <span className="text-xs font-bold text-gray-200 block truncate" title="Écart entre les Sections">
+                        Écart entre les Sections
+                      </span>
+                      <span className="text-[10px] text-gray-400 block">
+                        Rapproche ou éloigne les couplets, refrains et ponts
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end shrink-0">
+                    {/* Préréglages rapides */}
+                    <div className="inline-flex items-center bg-[#141416] p-0.5 rounded-md border border-[#2A2A30]">
+                      {[
+                        { label: 'Collé', val: 0 },
+                        { label: 'Serré', val: 4 },
+                        { label: 'Normal', val: 8 },
+                        { label: 'Aéré', val: 16 }
+                      ].map((item) => (
+                        <button
+                          key={item.label}
+                          type="button"
+                          onClick={() => {
+                            updateTypography('sectionSpacing', item.val);
+                            notify(`Écart des sections : ${item.label} (${item.val}px)`);
+                          }}
+                          className={`px-2 py-0.5 rounded text-[10px] font-medium transition-all cursor-pointer ${
+                            (typography.sectionSpacing !== undefined ? typography.sectionSpacing : 4) === item.val
+                              ? 'bg-cyan-600 text-white font-semibold shadow-xs'
+                              : 'text-gray-400 hover:text-white'
+                          }`}
+                        >
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    <NumberSelector
+                      value={typography.sectionSpacing !== undefined ? typography.sectionSpacing : 4}
+                      min={0}
+                      max={32}
+                      step={1}
+                      onChange={(val) => updateTypography('sectionSpacing', val)}
+                    />
+                  </div>
                 </div>
 
               </div>

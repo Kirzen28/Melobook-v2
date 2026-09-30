@@ -934,20 +934,33 @@ export const SongReader: React.FC<SongReaderProps> = ({
 
   const isWideLayout = isFullscreen || numColumns > 1;
 
+  const currentSectionSpacing = displaySettings.typography?.sectionSpacing !== undefined
+    ? displaySettings.typography.sectionSpacing
+    : 4;
+
+  const handleUpdateSectionSpacing = (newSpacing: number) => {
+    updateDisplaySettings({
+      typography: {
+        ...displaySettings.typography,
+        sectionSpacing: Math.max(0, Math.min(48, newSpacing))
+      }
+    });
+  };
+
   const getColumnsGridClass = (cols: number) => {
     switch (cols) {
       case 1:
-        return 'space-y-6';
+        return 'w-full flex flex-col';
       case 2:
-        return 'grid grid-cols-1 md:grid-cols-2 gap-x-6 lg:gap-x-8 gap-y-6 items-start';
+        return 'grid grid-cols-1 md:grid-cols-2 gap-x-6 lg:gap-x-8 items-start';
       case 3:
-        return 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-5 lg:gap-x-6 gap-y-6 items-start';
+        return 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-5 lg:gap-x-6 items-start';
       case 4:
-        return 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 lg:gap-x-5 gap-y-5 items-start';
+        return 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 lg:gap-x-5 items-start';
       case 5:
-        return 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-x-3 lg:gap-x-4 gap-y-4 items-start';
+        return 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-x-3 lg:gap-x-4 items-start';
       default:
-        return 'space-y-6';
+        return 'w-full flex flex-col';
     }
   };
 
@@ -1275,6 +1288,72 @@ export const SongReader: React.FC<SongReaderProps> = ({
                     </button>
                   );
                 })}
+              </div>
+            </div>
+
+            {/* Réglage de l'espacement entre sections */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-gray-400 text-[11px] font-medium shrink-0 flex items-center gap-1">
+                <Layers className="w-3 h-3 text-cyan-400" />
+                <span>Écart sections :</span>
+              </span>
+
+              {/* Jauge / Slider rapide */}
+              <div className="inline-flex items-center gap-1 bg-[#1C1C1E] px-1.5 py-0.5 rounded-md border border-[#333]">
+                <button
+                  type="button"
+                  onClick={() => handleUpdateSectionSpacing(Math.max(0, currentSectionSpacing - 1))}
+                  disabled={currentSectionSpacing <= 0}
+                  className="p-0.5 text-gray-400 hover:text-white disabled:opacity-30 cursor-pointer"
+                  title="Rapprocher les sections"
+                >
+                  <Minus className="w-3 h-3" />
+                </button>
+                <input
+                  type="range"
+                  min="0"
+                  max="32"
+                  step="1"
+                  value={currentSectionSpacing}
+                  onChange={(e) => handleUpdateSectionSpacing(Number(e.target.value))}
+                  className="w-14 sm:w-20 h-1.5 bg-[#26262E] rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                  title={`Écart entre les sections : ${currentSectionSpacing}px`}
+                />
+                <button
+                  type="button"
+                  onClick={() => handleUpdateSectionSpacing(Math.min(32, currentSectionSpacing + 1))}
+                  disabled={currentSectionSpacing >= 32}
+                  className="p-0.5 text-gray-400 hover:text-white disabled:opacity-30 cursor-pointer"
+                  title="Éloigner les sections"
+                >
+                  <Plus className="w-3 h-3" />
+                </button>
+                <span className="text-[10px] font-mono font-bold text-cyan-400 w-7 text-right">
+                  {currentSectionSpacing}px
+                </span>
+              </div>
+
+              {/* Préréglages rapides : Collé, Serré, Normal, Aéré */}
+              <div className="inline-flex items-center bg-[#1C1C1E] p-0.5 rounded-md border border-[#333]">
+                {[
+                  { label: 'Collé', val: 0 },
+                  { label: 'Serré', val: 4 },
+                  { label: 'Normal', val: 8 },
+                  { label: 'Aéré', val: 16 }
+                ].map((item) => (
+                  <button
+                    key={item.label}
+                    type="button"
+                    onClick={() => handleUpdateSectionSpacing(item.val)}
+                    className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-all cursor-pointer ${
+                      currentSectionSpacing === item.val
+                        ? 'bg-cyan-600 text-white font-semibold shadow-xs'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -2239,21 +2318,45 @@ export const SongReader: React.FC<SongReaderProps> = ({
         )}
 
         {/* Structured ChordPro Sections */}
-          <div className={getColumnsGridClass(numColumns)}>
+          <div 
+            className={getColumnsGridClass(numColumns)}
+            style={{ 
+              gap: `${currentSectionSpacing}px`, 
+              rowGap: `${currentSectionSpacing}px` 
+            }}
+          >
             {parsedData.sections.map((section, sIdx) => {
               const secColor = getSectionColor(section.type, displaySettings.sectionColors);
               const sectionRepeat = (setlistOverride?.sectionRepeats && setlistOverride.sectionRepeats[sIdx] !== undefined)
                 ? setlistOverride.sectionRepeats[sIdx]
                 : (section.repeat || 1);
 
+              const isCompact = currentSectionSpacing <= 6;
+              const isUltraCompact = currentSectionSpacing <= 2;
+              const cardPaddingClass = isUltraCompact 
+                ? 'py-2 px-3 sm:py-2.5 sm:px-3.5'
+                : isCompact 
+                ? 'py-2.5 px-3.5 sm:py-3 sm:px-4' 
+                : 'p-4';
+              const headerMarginClass = isUltraCompact 
+                ? 'mb-1.5' 
+                : isCompact 
+                ? 'mb-2' 
+                : 'mb-3';
+              const linesSpacingClass = isUltraCompact 
+                ? 'space-y-1.5' 
+                : isCompact 
+                ? 'space-y-2' 
+                : 'space-y-3';
+
               return (
                 <div 
                   key={sIdx}
-                  className="rounded-lg p-4 transition-all"
+                  className={`rounded-lg ${cardPaddingClass} transition-all`}
                   style={getSectionBorderStyles(secColor, displaySettings.sectionBorders)}
                 >
                   {/* Section Title Header & Vocal Arrangement Pastille & Repeat Badge (Lecture seule) */}
-                  <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+                  <div className={`flex items-center justify-between gap-2 ${headerMarginClass} flex-wrap`}>
                     <div className="flex items-center gap-1.5 flex-wrap">
                       {section.title ? (
                         <span
@@ -2314,7 +2417,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                   </div>
 
                   {/* Section Lines */}
-                  <div className="space-y-3 font-chord leading-relaxed">
+                  <div className={`${linesSpacingClass} font-chord leading-relaxed`}>
                     {section.lines.map((line, lIdx) => {
                       if (line.type === 'empty') {
                         return <div key={lIdx} className="h-3" />;

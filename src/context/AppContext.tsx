@@ -394,11 +394,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [allGroups]);
 
+  // Registre des identifiants de bibliothèques déverrouillées en mode invité (par code d'invitation)
+  const [guestJoinedGroupIds, setGuestJoinedGroupIds] = useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('songbook_guest_joined_group_ids');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) return parsed;
+        }
+      } catch (e) {}
+    }
+    return [];
+  });
+
+  const recordGuestJoinedGroup = useCallback((groupId: string) => {
+    setGuestJoinedGroupIds(prev => {
+      if (prev.includes(groupId)) return prev;
+      const next = [...prev, groupId];
+      try {
+        localStorage.setItem('songbook_guest_joined_group_ids', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+  }, []);
+
   // Règle d'accès stricte : Les membres ET les administrateurs ne peuvent voir et choisir
-  // QUE les bibliothèques dont ils font explicitement partie (propriétaire ou dans members)
+  // QUE les bibliothèques dont ils font explicitement partie (propriétaire ou dans members).
   // La bibliothèque générale par défaut (default-group) reste toujours accessible à tous.
+  // Les bibliothèques déverrouillées via code d'invitation sont également accessibles aux invités.
   const isMemberOfLibrary = useCallback((group: Group, user: UserProfile | null): boolean => {
     if (group.id === 'default-group') {
+      return true;
+    }
+    // Accès déverrouillé par code d'invitation (mode invité sans compte ou utilisateur connecté)
+    if (guestJoinedGroupIds.includes(group.id)) {
       return true;
     }
     if (!user || !user.uid) {
@@ -414,7 +444,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return true;
     }
     return false;
-  }, []);
+  }, [guestJoinedGroupIds]);
 
   // Liste des bibliothèques visibles par l'utilisateur connecté
   const groups = useMemo(() => {
@@ -860,14 +890,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       if (targetGroupId) {
-        const found = groups.find(g => g.id === targetGroupId);
+        const found = allGroups.find(g => g.id === targetGroupId);
         if (found && currentGroup?.id !== found.id) {
+          recordGuestJoinedGroup(found.id);
           setCurrentGroup(found);
           localStorage.setItem('songbook_current_group_id', found.id);
         }
       } else if (targetCode) {
-        const foundByCode = groups.find(g => g.inviteCode?.toUpperCase() === targetCode?.toUpperCase());
+        const foundByCode = allGroups.find(g => g.inviteCode?.toUpperCase() === targetCode?.toUpperCase());
         if (foundByCode && currentGroup?.id !== foundByCode.id) {
+          recordGuestJoinedGroup(foundByCode.id);
           setCurrentGroup(foundByCode);
           localStorage.setItem('songbook_current_group_id', foundByCode.id);
         }
@@ -875,7 +907,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (e) {
       console.warn('Erreur lecture lien groupe :', e);
     }
-  }, [groups, currentGroup?.id]);
+  }, [allGroups, currentGroup?.id, recordGuestJoinedGroup]);
 
   const promptInstall = useCallback(() => {
     if (deferredInstallPrompt) {
@@ -1965,76 +1997,98 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const joinGroup = useCallback(async (inviteCode: string): Promise<boolean> => {
     const code = inviteCode.trim().toUpperCase();
-    try {
-      // Find group with this code
-      const q = query(collection(db, 'groups'), where('inviteCode', '==', code));
-      const snap = await (async () => {
-        try {
-          return await (await import('firebase/firestore')).getDocs(q);
-        } catch (err) {
-          return null;
-        }
-      })();
+    if (!code) return false;
 
-      if (snap && !snap.empty) {
-        const groupDoc = snap.docs[0];
-        const groupData = { id: groupDoc.id, ...groupDoc.data() } as Group;
-        
-        // If user is authenticated, add them to the group members in Firestore
+    let matchedGroup: Group | null = null;
+
+    try {
+      // 1. Chercher d'abord dans allGroups (déjà synchronisé en mémoire)
+      const localFound = allGroups.find(g => (g.inviteCode || '').trim().toUpperCase() === code);
+      if (localFound) {
+        matchedGroup = { ...localFound };
+      }
+
+      // 2. Si non trouvé en mémoire locale, interroger Firestore
+      if (!matchedGroup) {
+        try {
+          const { getDocs, query, collection, where } = await import('firebase/firestore');
+          // Recherche directe
+          const q = query(collection(db, 'groups'), where('inviteCode', '==', code));
+          const snap = await getDocs(q);
+          if (!snap.empty) {
+            const groupDoc = snap.docs[0];
+            matchedGroup = { id: groupDoc.id, ...groupDoc.data() } as Group;
+          } else {
+            // Recherche insensible à la casse sur tous les groupes Firestore
+            const allGroupsSnap = await getDocs(collection(db, 'groups'));
+            allGroupsSnap.forEach(d => {
+              const data = d.data() as Partial<Group>;
+              if ((data.inviteCode || '').trim().toUpperCase() === code) {
+                matchedGroup = { id: d.id, ...data } as Group;
+              }
+            });
+          }
+        } catch (err) {
+          console.warn('Firestore group search note:', err);
+        }
+      }
+
+      // 3. Fallback pour codes de démonstration intégrés
+      if (!matchedGroup && (code === 'LOUAN7' || code === 'WORSHIP')) {
+        matchedGroup = { ...DEFAULT_GROUP };
+      }
+
+      if (matchedGroup) {
+        // Enregistrer la bibliothèque dans le registre invité (stockage local garanti)
+        recordGuestJoinedGroup(matchedGroup.id);
+
+        // Si l'utilisateur est connecté avec un compte, l'ajouter aux membres officiels
         if (currentUser?.uid) {
           const uid = currentUser.uid;
-          if (!groupData.members?.includes(uid)) {
-            const updatedMembers = [...(groupData.members || []), uid];
+          if (!matchedGroup.members?.includes(uid)) {
+            const updatedMembers = [...(matchedGroup.members || []), uid];
             try {
-              await updateDoc(doc(db, 'groups', groupData.id), { members: updatedMembers });
-              groupData.members = updatedMembers;
+              const { updateDoc, doc } = await import('firebase/firestore');
+              await updateDoc(doc(db, 'groups', matchedGroup.id), { members: updatedMembers });
+              matchedGroup.members = updatedMembers;
             } catch (err) {
               console.warn('Group member update note:', err);
             }
           }
         }
 
+        // Mettre à jour allGroups pour inclusion immédiate dans les sélecteurs
+        const finalGroup = matchedGroup;
         setAllGroups(prev => {
-          if (prev.find(g => g.id === groupData.id)) {
-            return prev.map(g => g.id === groupData.id ? { ...g, members: groupData.members } : g);
+          if (prev.find(g => g.id === finalGroup.id)) {
+            return prev.map(g => g.id === finalGroup.id ? { ...g, ...finalGroup } : g);
           }
-          return [...prev, groupData];
+          return [...prev, finalGroup];
         });
-        setCurrentGroup(groupData);
+
+        // Activer la bibliothèque
+        setCurrentGroup(finalGroup);
         if (typeof window !== 'undefined') {
-          localStorage.setItem('songbook_current_group_id', groupData.id);
+          localStorage.setItem('songbook_current_group_id', finalGroup.id);
         }
+
         showNotification({
-          title: `Bibliothèque « ${groupData.name} » active`,
-          message: currentUser ? 'Bibliothèque rejointe avec succès.' : 'Consultation en mode invité.',
+          title: `Bibliothèque « ${finalGroup.name} » active`,
+          message: currentUser ? 'Bibliothèque rejointe avec succès.' : 'Accès déverrouillé en mode invité.',
           type: 'success'
         });
         return true;
       }
     } catch (e) {
-      console.warn('Online group join failed, checking local demo codes:', e);
-    }
-
-    // Demo code fallback
-    if (code === 'LOUAN7' || code === 'WORSHIP') {
-      setCurrentGroup(DEFAULT_GROUP);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('songbook_current_group_id', DEFAULT_GROUP.id);
-      }
-      showNotification({
-        title: `Bibliothèque « ${DEFAULT_GROUP.name} » active`,
-        message: 'Consultation active.',
-        type: 'success'
-      });
-      return true;
+      console.warn('Group join failed:', e);
     }
 
     return false;
-  }, [currentUser?.uid, showNotification]);
+  }, [allGroups, currentUser?.uid, recordGuestJoinedGroup, showNotification]);
 
   const switchGroup = useCallback((groupId: string) => {
-    const g = groups.find(item => item.id === groupId);
-    if (!g) {
+    const g = allGroups.find(item => item.id === groupId);
+    if (!g || !isMemberOfLibrary(g, currentUser)) {
       showNotification("Vous ne faites pas partie de cette bibliothèque", 'error');
       return;
     }
@@ -2046,11 +2100,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setCurrentUser(prev => prev ? { ...prev, currentGroupId: groupId } : null);
     }
     showNotification({
-      title: `Bibliothèque : ${g.name}`,
+      title: `Bibliothèque « ${g.name} » active`,
       message: currentUser ? 'Bibliothèque active sélectionnée.' : 'Consultation en mode invité.',
       type: 'info'
     });
-  }, [groups, currentUser, showNotification]);
+  }, [allGroups, currentUser, isMemberOfLibrary, showNotification]);
 
   const loginDemoUser = useCallback((role: UserRole = 'member') => {
     // Demo accounts can only be member or leader, never unauthenticated admin

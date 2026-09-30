@@ -396,9 +396,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Règle d'accès stricte : Les membres ET les administrateurs ne peuvent voir et choisir
   // QUE les bibliothèques dont ils font explicitement partie (propriétaire ou dans members)
+  // La bibliothèque générale par défaut (default-group) reste toujours accessible à tous.
   const isMemberOfLibrary = useCallback((group: Group, user: UserProfile | null): boolean => {
+    if (group.id === 'default-group') {
+      return true;
+    }
     if (!user || !user.uid) {
-      return group.id === 'default-group';
+      return false;
     }
     const uid = user.uid;
     // Le créateur ou propriétaire fait toujours partie de sa bibliothèque
@@ -1187,8 +1191,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     });
 
-    // 4. Sync Groups:
-    // Synchronisation en temps réel de toutes les bibliothèques
+    return () => {
+      unsubSongs();
+      unsubSetlists();
+      unsubHistory();
+    };
+  }, [currentGroup?.id]);
+
+  // 4. Sync Groups:
+  // Synchronisation en temps réel de toutes les bibliothèques (indépendant du currentGroup)
+  useEffect(() => {
     const qGroups = query(collection(db, 'groups'));
 
     const unsubGroups = onSnapshot(qGroups, (snapshot) => {
@@ -1209,11 +1221,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       setAllGroups(mergedGroups);
 
-      // Reconnect currentGroup if it was loaded from localStorage or URL
+      // Reconnect currentGroup if needed without triggering reference loops
       setCurrentGroup(prev => {
         const targetId = prev?.id || (typeof window !== 'undefined' ? localStorage.getItem('songbook_current_group_id') : 'default-group') || 'default-group';
         const match = mergedGroups.find(g => g.id === targetId && isMemberOfLibrary(g, currentUser));
-        if (match) return match;
+        if (match) {
+          if (prev && prev.id === match.id && prev.name === match.name && prev.ownerId === match.ownerId) {
+            return prev;
+          }
+          return match;
+        }
         const firstAuthorized = mergedGroups.find(g => isMemberOfLibrary(g, currentUser));
         return firstAuthorized || prev || DEFAULT_GROUP;
       });
@@ -1223,13 +1240,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     });
 
-    return () => {
-      unsubSongs();
-      unsubSetlists();
-      unsubHistory();
-      unsubGroups();
-    };
-  }, [currentGroup?.id, currentUser?.uid, currentUser?.role]);
+    return () => unsubGroups();
+  }, [currentUser?.uid, isMemberOfLibrary]);
 
   // Seed sample songs to Firestore for current group
   const seedDemoDataToFirestore = useCallback(async () => {

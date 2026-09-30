@@ -29,6 +29,8 @@ import {
   generateId, 
   cleanUpLineItems 
 } from '../../utils/visualEditorUtils';
+import { useApp } from '../../context/AppContext';
+import { VocalArrangementSelector } from './VocalArrangementSelector';
 
 interface VisualSectionCardProps {
   section: VisualSection;
@@ -77,6 +79,7 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
   onAddSection,
   onOpenCustomSectionModal
 }) => {
+  const { canManageSongs } = useApp();
   const [localCollapsed, setLocalCollapsed] = useState(false);
   const isSectionCollapsed = controlledIsCollapsed !== undefined ? controlledIsCollapsed : localCollapsed;
 
@@ -884,29 +887,43 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
             )}
           </div>
 
-          {/* Fold and Unfold Toggle Button */}
-          <button
-            type="button"
-            onClick={handleToggleCollapse}
-            className={`flex items-center gap-1 px-2 py-1 rounded border text-xs font-semibold transition-colors ${
-              isSectionCollapsed
-                ? 'bg-blue-600/15 border-blue-500/40 text-blue-300 hover:bg-blue-600/25'
-                : 'bg-[#1C1C1E] border-[#333] text-gray-300 hover:text-white hover:bg-[#252528]'
-            }`}
-            title={isSectionCollapsed ? 'Déplier les paroles et accords' : 'Replier les paroles et accords'}
-          >
-            {isSectionCollapsed ? (
-              <>
-                <ChevronDown className="w-3.5 h-3.5 text-blue-400" />
-                <span className="hidden sm:inline text-[11px]">Déplier</span>
-              </>
-            ) : (
-              <>
-                <ChevronUp className="w-3.5 h-3.5 text-gray-400" />
-                <span className="hidden sm:inline text-[11px]">Replier</span>
-              </>
-            )}
-          </button>
+          {/* Section Header Right Controls: Vocal Arrangement & Fold/Unfold */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <VocalArrangementSelector
+              vocals={section.vocals || []}
+              onChange={(newVocals) => {
+                onUpdateSection({
+                  ...section,
+                  vocals: newVocals
+                });
+              }}
+              canEdit={canManageSongs}
+            />
+
+            {/* Fold and Unfold Toggle Button */}
+            <button
+              type="button"
+              onClick={handleToggleCollapse}
+              className={`flex items-center gap-1 px-2 py-1 rounded border text-xs font-semibold transition-colors ${
+                isSectionCollapsed
+                  ? 'bg-blue-600/15 border-blue-500/40 text-blue-300 hover:bg-blue-600/25'
+                  : 'bg-[#1C1C1E] border-[#333] text-gray-300 hover:text-white hover:bg-[#252528]'
+              }`}
+              title={isSectionCollapsed ? 'Déplier les paroles et accords' : 'Replier les paroles et accords'}
+            >
+              {isSectionCollapsed ? (
+                <>
+                  <ChevronDown className="w-3.5 h-3.5 text-blue-400" />
+                  <span className="hidden sm:inline text-[11px]">Déplier</span>
+                </>
+              ) : (
+                <>
+                  <ChevronUp className="w-3.5 h-3.5 text-gray-400" />
+                  <span className="hidden sm:inline text-[11px]">Replier</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 

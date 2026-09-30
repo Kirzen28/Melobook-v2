@@ -6,6 +6,7 @@ import {
   transposeChord, 
   metronome,
   updateSectionRepeatInChordPro,
+  updateSectionMetaInChordPro,
   getVocalBadgeStyle,
   getSongDuration,
   parseDurationToSeconds,
@@ -26,6 +27,7 @@ import {
 import { MetronomeStageControl } from './MetronomeStageControl';
 import { MidiStatusIndicator } from './MidiStatusIndicator';
 import { useMidi } from '../context/MidiContext';
+import { VocalArrangementSelector } from './editor/VocalArrangementSelector';
 import { 
   Play, 
   Pause, 
@@ -619,6 +621,16 @@ export const SongReader: React.FC<SongReaderProps> = ({
       if (selectedSong && selectedSong.id === song.id) {
         setSelectedSong({ ...selectedSong, contentChordPro: updatedContent });
       }
+    }
+  };
+
+  // Section Vocals Handler
+  const handleUpdateSectionVocals = async (sectionIdx: number, newVocals: string[]) => {
+    if (!song || !canManageSongs) return;
+    const updatedContent = updateSectionMetaInChordPro(song.contentChordPro, sectionIdx, { newVocals });
+    await updateSong(song.id, { contentChordPro: updatedContent });
+    if (selectedSong && selectedSong.id === song.id) {
+      setSelectedSong({ ...selectedSong, contentChordPro: updatedContent });
     }
   };
 
@@ -2391,29 +2403,15 @@ export const SongReader: React.FC<SongReaderProps> = ({
                       )}
                     </div>
 
-                    {/* Pastilles Arrangement Vocal en lecture seule */}
-                    {((section.vocals && section.vocals.length > 0) || section.vocal) && (
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {(section.vocals && section.vocals.length > 0 ? section.vocals : [section.vocal!]).map((voc, vIdx) => {
-                          const vStyle = getVocalBadgeStyle(voc);
-                          const vocalFontSize = Math.max(10, Math.round((displaySettings.typography?.headerSize || 12) * 0.95));
-                          const vocalIconSize = Math.max(11, Math.round(vocalFontSize * 1.05));
-                          return (
-                            <span
-                              key={vIdx}
-                              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full ${vStyle.bg} border ${vStyle.border} ${vStyle.text} font-semibold shadow-xs select-none`}
-                              style={{ fontSize: `${vocalFontSize}px` }}
-                            >
-                              <Mic 
-                                style={{ width: `${vocalIconSize}px`, height: `${vocalIconSize}px` }}
-                                className={`${vStyle.icon} shrink-0`} 
-                              />
-                              <span>{voc}</span>
-                            </span>
-                          );
-                        })}
-                      </div>
-                    )}
+                    {/* Pastilles Arrangement Vocal dans le coin supérieur droit */}
+                    <div className="flex items-center gap-1.5 flex-wrap ml-auto">
+                      <VocalArrangementSelector
+                        vocals={section.vocals || (section.vocal ? [section.vocal] : [])}
+                        onChange={(newVocals) => handleUpdateSectionVocals(sIdx, newVocals)}
+                        canEdit={canManageSongs}
+                        discreet={true}
+                      />
+                    </div>
                   </div>
 
                   {/* Section Lines */}

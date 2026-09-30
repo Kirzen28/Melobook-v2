@@ -683,15 +683,14 @@ export const SongList: React.FC = () => {
       });
 
       if (current) {
-        setActiveLetter(current);
+        setActiveLetter(prev => prev !== current ? current : prev);
       } else if (sections.length > 0) {
         const first = sections[0].getAttribute('data-letter-section');
-        if (first) setActiveLetter(first);
+        if (first) setActiveLetter(prev => prev !== first ? first : prev);
       }
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
-    handleScroll();
     return () => window.removeEventListener('scroll', handleScroll);
   }, [effectiveViewMode, alphabeticalGroups]);
 

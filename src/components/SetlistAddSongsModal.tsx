@@ -341,15 +341,14 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
       });
 
       if (current) {
-        setActiveLetter(current);
+        setActiveLetter(prev => prev !== current ? current : prev);
       } else if (sections.length > 0) {
         const first = sections[0].getAttribute('data-modal-letter-section');
-        if (first) setActiveLetter(first);
+        if (first) setActiveLetter(prev => prev !== first ? first : prev);
       }
     };
 
     container.addEventListener('scroll', handleScroll, { passive: true });
-    handleScroll();
     return () => container.removeEventListener('scroll', handleScroll);
   }, [viewMode, alphabeticalGroups]);
 

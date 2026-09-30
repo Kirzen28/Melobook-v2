@@ -52,10 +52,8 @@ export const Navbar: React.FC = () => {
     setIsTunerOpen
   } = useApp();
 
-  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMetronomeActive, setIsMetronomeActive] = useState(false);
-  const userMenuRef = useRef<HTMLDivElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -66,20 +64,17 @@ export const Navbar: React.FC = () => {
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
-        setIsUserMenuOpen(false);
-      }
       if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target as Node)) {
         setIsMobileMenuOpen(false);
       }
     };
-    if (isUserMenuOpen || isMobileMenuOpen) {
+    if (isMobileMenuOpen) {
       document.addEventListener('mousedown', handleClickOutside);
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isUserMenuOpen, isMobileMenuOpen]);
+  }, [isMobileMenuOpen]);
 
   const handleNavClick = (tab: any) => {
     setActiveTab(tab);
@@ -315,221 +310,11 @@ export const Navbar: React.FC = () => {
               </button>
             )}
 
-            {/* Bouton profil avec indicateur de synchronisation intégré - masqué sur mobile, visible dès md */}
-            <div className="hidden md:block relative" ref={userMenuRef}>
-              <button
-                onClick={() => {
-                  setIsUserMenuOpen(!isUserMenuOpen);
-                  if (isMobileMenuOpen) setIsMobileMenuOpen(false);
-                }}
-                className="relative w-8 h-8 rounded-full bg-[#1C1C1E] hover:bg-[#2A2A2D] border border-[#333] hover:border-blue-500/50 flex items-center justify-center text-white font-bold text-xs transition-all shadow-sm active:scale-95 cursor-pointer select-none"
-                title={currentUser?.displayName ? `${currentUser.displayName} — ${currentUser.role === 'admin' ? 'Administrateur' : currentUser.role === 'leader' ? 'Responsable' : 'Membre'}` : "Non connecté — Mode invité"}
-                aria-label="Profil et état de synchronisation"
-              >
-                {currentUser?.displayName ? (
-                  <span>{currentUser.displayName.charAt(0).toUpperCase()}</span>
-                ) : (
-                  <UserIcon className="w-4 h-4 text-gray-400" />
-                )}
-
-                {/* Pastille indiquant la synchronisation directement sur le bouton profil */}
-                <span className="absolute -bottom-0.5 -right-0.5 flex h-3 w-3 pointer-events-none">
-                  {syncStatus === 'syncing' && (
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                  )}
-                  <span className={`relative inline-flex rounded-full h-3 w-3 border-2 border-[#111112] ${syncConfig.dotColor}`}></span>
-                </span>
-              </button>
-
-              {isUserMenuOpen && (
-                <div 
-                  className="absolute right-0 mt-2 w-64 bg-[#111112] border border-[#222224] rounded-xl shadow-2xl py-1.5 z-50 text-xs animate-in fade-in zoom-in-95 duration-100 divide-y divide-[#222224]"
-                >
-                  {/* Informations profil */}
-                  <div className="px-3.5 py-2.5">
-                    {currentUser ? (
-                      <>
-                        <p className="font-semibold text-white truncate">{currentUser.displayName}</p>
-                        <p className="text-[11px] text-gray-400 truncate">{currentUser.email}</p>
-                        <span className={`inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] font-bold border ${
-                          currentUser.role === 'admin'
-                            ? 'bg-blue-600/20 text-blue-400 border-blue-500/30'
-                            : currentUser.role === 'leader'
-                            ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/30'
-                            : 'bg-[#1C1C1E] text-gray-400 border-[#333]'
-                        }`}>
-                          Rôle : {currentUser.role === 'admin' ? 'Administrateur 👑' : currentUser.role === 'leader' ? 'Responsable ⚡' : 'Membre 🎵'}
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <p className="font-semibold text-white truncate">Non connecté</p>
-                        <p className="text-[11px] text-gray-400 truncate">Mode invité — lecture seule</p>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsAuthModalOpen(true);
-                            setIsUserMenuOpen(false);
-                          }}
-                          className="mt-2 w-full py-1.5 px-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-colors cursor-pointer"
-                        >
-                          <UserIcon className="w-3.5 h-3.5" />
-                          <span>Se connecter</span>
-                        </button>
-                      </>
-                    )}
-                  </div>
-
-                  {/* Bouton et état de synchronisation dans le menu profil */}
-                  <div className="p-2.5 bg-[#141417]">
-                    <div className="flex items-center justify-between gap-2 mb-2">
-                      <div className="flex items-center gap-1.5 text-gray-300 font-medium text-[11px]">
-                        <Cloud className="w-3.5 h-3.5 text-blue-400" />
-                        <span>Synchronisation</span>
-                      </div>
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold border ${syncConfig.colorBadge}`}>
-                        <SyncIconComponent className={`w-3 h-3 ${syncConfig.spin ? 'animate-spin' : ''}`} />
-                        <span>{syncConfig.label}</span>
-                      </span>
-                    </div>
-
-                    <div className="text-[10px] text-gray-400 flex items-center justify-between mb-2.5 px-0.5">
-                      <span>Dernière mise à jour :</span>
-                      <span className="text-gray-200 font-medium">{formatLastSync(lastSyncedAt)}</span>
-                    </div>
-
-                    <button
-                      type="button"
-                      disabled={syncStatus === 'syncing' || isOffline}
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        await syncNow();
-                      }}
-                      className={`w-full py-1.5 px-2.5 rounded-lg flex items-center justify-center gap-1.5 text-xs font-semibold transition-all select-none ${
-                        isOffline
-                          ? 'bg-[#1C1C1E] border border-[#2D2D30] text-gray-500 cursor-not-allowed'
-                          : syncStatus === 'syncing'
-                            ? 'bg-blue-600/30 text-blue-300 border border-blue-500/30 cursor-wait'
-                            : 'bg-blue-600 hover:bg-blue-500 text-white shadow-sm active:scale-98 cursor-pointer'
-                      }`}
-                    >
-                      <RefreshCw className={`w-3.5 h-3.5 ${syncStatus === 'syncing' ? 'animate-spin' : ''}`} />
-                      <span>
-                        {isOffline
-                          ? 'Indisponible hors-ligne'
-                          : syncStatus === 'syncing'
-                            ? 'Synchronisation...'
-                            : 'Synchroniser maintenant'}
-                      </span>
-                    </button>
-                  </div>
-
-                  {/* Liens de navigation */}
-                  <div className="py-1">
-                    <button
-                      onClick={() => {
-                        handleNavClick('groups');
-                        setIsUserMenuOpen(false);
-                      }}
-                      className="w-full text-left px-3.5 py-2 flex items-center gap-2.5 text-gray-300 hover:bg-[#1C1C1E] hover:text-white transition-colors cursor-pointer"
-                    >
-                      <Library className="w-3.5 h-3.5 text-blue-400" />
-                      <span>Bibliothèques</span>
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        handleNavClick('settings');
-                        setIsUserMenuOpen(false);
-                      }}
-                      className={`w-full text-left px-3.5 py-2 flex items-center justify-between transition-colors cursor-pointer ${
-                        activeTab === 'settings'
-                          ? 'bg-[#1C1C1E] text-purple-400 font-semibold'
-                          : 'text-gray-300 hover:bg-[#1C1C1E] hover:text-white'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <Sliders className="w-3.5 h-3.5 text-purple-400" />
-                        <span>Réglages</span>
-                      </div>
-                      {activeTab === 'settings' && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-purple-400" />
-                      )}
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsPianoOpen(true);
-                        setIsUserMenuOpen(false);
-                      }}
-                      className="w-full text-left px-3.5 py-2 flex items-center gap-2.5 text-gray-300 hover:bg-[#1C1C1E] hover:text-white transition-colors cursor-pointer"
-                    >
-                      <span className="text-sm">🎹</span>
-                      <span>Mini Piano</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsMetronomeOpen(true);
-                        setIsUserMenuOpen(false);
-                      }}
-                      className="w-full text-left px-3.5 py-2 flex items-center gap-2.5 text-gray-300 hover:bg-[#1C1C1E] hover:text-white transition-colors cursor-pointer"
-                    >
-                      <MetronomeIcon className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                      <span>Métronome</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsTunerOpen(true);
-                        setIsUserMenuOpen(false);
-                      }}
-                      className="w-full text-left px-3.5 py-2 flex items-center gap-2.5 text-gray-300 hover:bg-[#1C1C1E] hover:text-white transition-colors cursor-pointer"
-                    >
-                      <Gauge className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                      <span>Accordeur</span>
-                    </button>
-                  </div>
-
-                  {/* Actions de compte */}
-                  <div className="py-1">
-                    <button
-                      onClick={() => {
-                        setIsAuthModalOpen(true);
-                        setIsUserMenuOpen(false);
-                      }}
-                      className="w-full text-left px-3.5 py-2 flex items-center gap-2.5 text-gray-300 hover:bg-[#1C1C1E] hover:text-white transition-colors cursor-pointer"
-                    >
-                      <UserIcon className="w-3.5 h-3.5 text-blue-400" />
-                      <span>{currentUser ? 'Changer de compte' : 'Se connecter'}</span>
-                    </button>
-
-                    {currentUser && (
-                      <button
-                        onClick={() => {
-                          handleSignOut();
-                          setIsUserMenuOpen(false);
-                        }}
-                        className="w-full text-left px-3.5 py-2 flex items-center gap-2.5 text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
-                      >
-                        <LogOut className="w-3.5 h-3.5" />
-                        <span>Déconnexion</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-
             {/* Hamburger Dropdown Menu (accessible mobile et desktop) */}
             <div className="relative" ref={mobileMenuRef}>
               <button
                 onClick={() => {
                   setIsMobileMenuOpen(!isMobileMenuOpen);
-                  if (isUserMenuOpen) setIsUserMenuOpen(false);
                 }}
                 className="relative p-2 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-200 border border-[#333] transition-colors flex items-center justify-center cursor-pointer"
                 aria-label={isMobileMenuOpen ? "Fermer le menu" : "Menu"}

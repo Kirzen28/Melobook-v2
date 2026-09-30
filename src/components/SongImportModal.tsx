@@ -83,6 +83,12 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
   const [manualTempo, setManualTempo] = useState(100);
   const [manualText, setManualText] = useState('');
   const [importedFileCount, setImportedFileCount] = useState(0);
+  const [importProgress, setImportProgress] = useState<{
+    total: number;
+    current: number;
+    currentFileName: string;
+    isProcessing: boolean;
+  } | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Reset tab on open and reset search state
@@ -92,6 +98,7 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
       setOnlineResults([]);
       setSearchError(null);
       setImportedFileCount(0);
+      setImportProgress(null);
       setIsDragging(false);
       if (initialSource === 'chordpro' || initialSource === 'shir' || initialSource === 'webchords') {
         setActiveTab('chordpro');
@@ -339,55 +346,85 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
     }
   };
 
-  // Process uploaded or dropped files
+  // Process uploaded or dropped files with real-time progress tracking
   const processFiles = async (files: File[]) => {
     if (!files || files.length === 0) return;
+
+    setImportProgress({
+      total: files.length,
+      current: 0,
+      currentFileName: files[0]?.name || '',
+      isProcessing: true,
+    });
 
     let count = 0;
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      const text = await file.text();
-      
-      let title = file.name.replace(/\.(cho|pro|chopro|txt|crd)$/i, '');
-      let artist = '';
-      let key = 'C';
-      let tempo = 100;
-      let duration: string | undefined = undefined;
-      let finalChordPro = text;
 
-      if (!text.includes('[') && !text.includes('{')) {
-        finalChordPro = convertPlainTextToChordPro(text);
+      setImportProgress({
+        total: files.length,
+        current: i,
+        currentFileName: file.name,
+        isProcessing: true,
+      });
+
+      try {
+        const text = await file.text();
+        
+        let title = file.name.replace(/\.(cho|pro|chopro|txt|crd)$/i, '');
+        let artist = '';
+        let key = 'C';
+        let tempo = 100;
+        let duration: string | undefined = undefined;
+        let finalChordPro = text;
+
+        if (!text.includes('[') && !text.includes('{')) {
+          finalChordPro = convertPlainTextToChordPro(text);
+        }
+
+        const lines = finalChordPro.split('\n');
+        lines.forEach(l => {
+          const match = l.match(/\{([a-zA-Z_]+)\s*:\s*(.+)\}/);
+          if (match) {
+            const tag = match[1].toLowerCase();
+            const val = match[2].trim();
+            if (tag === 'title' || tag === 't') title = val;
+            if (tag === 'artist' || tag === 'a' || tag === 'subtitle' || tag === 'st') artist = val;
+            if (tag === 'key' || tag === 'k') key = val;
+            if (tag === 'tempo' || tag === 'bpm') tempo = parseInt(val, 10) || 100;
+            if (tag === 'duration' || tag === 'd' || tag === 'dur') duration = val;
+          }
+        });
+
+        await onImportSong({
+          title,
+          artist,
+          key,
+          tempo,
+          duration,
+          contentChordPro: finalChordPro
+        });
+        count++;
+      } catch (err) {
+        console.error('Erreur import fichier:', file.name, err);
       }
 
-      const lines = finalChordPro.split('\n');
-      lines.forEach(l => {
-        const match = l.match(/\{([a-zA-Z_]+)\s*:\s*(.+)\}/);
-        if (match) {
-          const tag = match[1].toLowerCase();
-          const val = match[2].trim();
-          if (tag === 'title' || tag === 't') title = val;
-          if (tag === 'artist' || tag === 'a' || tag === 'subtitle' || tag === 'st') artist = val;
-          if (tag === 'key' || tag === 'k') key = val;
-          if (tag === 'tempo' || tag === 'bpm') tempo = parseInt(val, 10) || 100;
-          if (tag === 'duration' || tag === 'd' || tag === 'dur') duration = val;
-        }
-      });
+      // Small pause to allow smooth progress bar update and browser painting
+      await new Promise(resolve => setTimeout(resolve, 80));
 
-      await onImportSong({
-        title,
-        artist,
-        key,
-        tempo,
-        duration,
-        contentChordPro: finalChordPro
+      setImportProgress({
+        total: files.length,
+        current: i + 1,
+        currentFileName: file.name,
+        isProcessing: i + 1 < files.length,
       });
-      count++;
     }
 
     setImportedFileCount(count);
     setTimeout(() => {
       onClose();
-    }, 1500);
+      setImportProgress(null);
+    }, 2000);
   };
 
   // Manual File Upload handler
@@ -784,10 +821,80 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
           {/* TAB 2: FILE IMPORT / DRAG & DROP */}
           {activeTab === 'file' && (
             <div className="space-y-4">
+              {/* Barre de progression d'importation en temps réel */}
+              {importProgress && (
+                <div className="p-4 sm:p-5 rounded-2xl bg-[#141418] border border-[#2B2B32] shadow-xl space-y-3.5 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                        importProgress.current === importProgress.total 
+                          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+                          : 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
+                      }`}>
+                        {importProgress.current === importProgress.total ? (
+                          <Check className="w-4 h-4 text-emerald-400" />
+                        ) : (
+                          <Upload className="w-4 h-4 text-blue-400 animate-pulse" />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-white flex items-center gap-1.5">
+                          <span>
+                            {importProgress.current === importProgress.total 
+                              ? 'Importation terminée avec succès !' 
+                              : 'Importation des chants en cours...'}
+                          </span>
+                        </p>
+                        <p className="text-[11px] text-gray-400 truncate">
+                          {importProgress.current === importProgress.total
+                            ? `${importProgress.total} chant${importProgress.total > 1 ? 's ont été ajoutés' : ' a été ajouté'} au répertoire`
+                            : `Traitement de : ${importProgress.currentFileName}`}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold font-mono border ${
+                        importProgress.current === importProgress.total
+                          ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
+                          : 'bg-blue-600/15 border-blue-500/40 text-blue-300'
+                      }`}>
+                        {importProgress.current} / {importProgress.total}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Jauge / Barre de progression visuelle */}
+                  <div className="space-y-1.5">
+                    <div className="w-full h-3 rounded-full bg-[#1C1C22] border border-[#2E2E38] overflow-hidden p-0.5 relative">
+                      <div
+                        className={`h-full rounded-full transition-all duration-300 ease-out shadow-sm ${
+                          importProgress.current === importProgress.total
+                            ? 'bg-gradient-to-r from-emerald-500 to-teal-400 shadow-emerald-500/30'
+                            : 'bg-gradient-to-r from-blue-600 via-indigo-500 to-cyan-400 shadow-blue-500/30'
+                        }`}
+                        style={{ width: `${Math.max(4, Math.round((importProgress.current / importProgress.total) * 100))}%` }}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between text-[11px] text-gray-400 px-0.5">
+                      <span className="font-medium">
+                        {importProgress.current === importProgress.total
+                          ? `Tous les ${importProgress.total} chants sont prêts !`
+                          : `${importProgress.current} sur ${importProgress.total} chant${importProgress.total > 1 ? 's' : ''} importé${importProgress.current > 1 ? 's' : ''}`}
+                      </span>
+                      <span className="font-mono font-bold text-gray-300">
+                        {Math.round((importProgress.current / importProgress.total) * 100)}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div
                 onDragOver={(e) => {
                   e.preventDefault();
-                  setIsDragging(true);
+                  if (!importProgress?.isProcessing) setIsDragging(true);
                 }}
                 onDragLeave={(e) => {
                   e.preventDefault();
@@ -796,15 +903,20 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
                 onDrop={(e) => {
                   e.preventDefault();
                   setIsDragging(false);
+                  if (importProgress?.isProcessing) return;
                   if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
                     processFiles(Array.from(e.dataTransfer.files));
                   }
                 }}
-                onClick={() => fileInputRef.current?.click()}
-                className={`p-8 sm:p-12 border-2 border-dashed rounded-2xl text-center cursor-pointer transition-all ${
-                  isDragging
-                    ? 'border-blue-500 bg-blue-600/10 ring-2 ring-blue-500/30'
-                    : 'border-[#333] hover:border-blue-500/60 bg-[#0A0A0B] hover:bg-[#101013]'
+                onClick={() => {
+                  if (!importProgress?.isProcessing) fileInputRef.current?.click();
+                }}
+                className={`p-8 sm:p-12 border-2 border-dashed rounded-2xl text-center transition-all ${
+                  importProgress?.isProcessing
+                    ? 'border-[#2A2A2E] bg-[#0A0A0B]/50 opacity-60 cursor-not-allowed'
+                    : isDragging
+                    ? 'border-blue-500 bg-blue-600/10 ring-2 ring-blue-500/30 cursor-pointer'
+                    : 'border-[#333] hover:border-blue-500/60 bg-[#0A0A0B] hover:bg-[#101013] cursor-pointer'
                 }`}
               >
                 <input
@@ -814,6 +926,7 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
                   multiple
                   accept=".cho,.pro,.chopro,.txt,.crd"
                   className="hidden"
+                  disabled={importProgress?.isProcessing}
                 />
                 <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-[#1C1C20] border border-[#2E2E33] flex items-center justify-center text-blue-400">
                   <Upload className="w-8 h-8" />
@@ -843,7 +956,7 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
                 </div>
               </div>
 
-              {importedFileCount > 0 && (
+              {!importProgress && importedFileCount > 0 && (
                 <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-medium flex items-center gap-2.5 animate-in fade-in">
                   <Check className="w-5 h-5 shrink-0 text-emerald-400" />
                   <span>{importedFileCount} fichier(s) importé(s) avec succès dans votre répertoire !</span>

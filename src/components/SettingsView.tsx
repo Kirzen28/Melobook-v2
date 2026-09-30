@@ -281,32 +281,6 @@ export const SettingsView: React.FC = () => {
     promptInstall
   } = useApp();
 
-  if (currentUser?.role !== 'admin') {
-    return (
-      <div className="max-w-2xl mx-auto px-4 py-16 text-center text-white">
-        <div className="w-14 h-14 rounded-2xl bg-blue-600/10 border border-blue-500/20 text-blue-400 flex items-center justify-center mx-auto mb-4 shadow-sm">
-          <Shield className="w-7 h-7" />
-        </div>
-        <h2 className="text-xl font-bold text-white mb-2">Accès Réservé à l'Administrateur</h2>
-        <p className="text-sm text-gray-400 mb-4 max-w-md mx-auto leading-relaxed">
-          Seul l'Administrateur a accès à l'ensemble des réglages généraux de l'application, du nettoyage de doublons et des préférences système globales.
-        </p>
-        {currentUser?.role === 'leader' && (
-          <div className="mb-6 p-3 rounded-lg bg-emerald-950/30 border border-emerald-500/30 text-emerald-300 text-xs max-w-md mx-auto leading-relaxed">
-            ⚡ <strong>Rôle Responsable :</strong> Vous disposez des mêmes droits que l'Administrateur pour gérer toute la musique (chants, accords ChordPro, transpositions, dossiers, setlists et cultes), mais l'accès à tous les réglages généraux et la gestion des bibliothèques sont réservés à l'Administrateur.
-          </div>
-        )}
-        <button
-          onClick={() => setActiveTab('repertoire')}
-          className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition-colors shadow-sm inline-flex items-center gap-2 cursor-pointer"
-        >
-          <Music className="w-4 h-4" />
-          <span>Retourner à la Bibliothèque</span>
-        </button>
-      </div>
-    );
-  }
-
   const { 
     typography, 
     sectionColors, 

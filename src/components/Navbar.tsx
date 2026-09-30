@@ -276,6 +276,27 @@ export const Navbar: React.FC = () => {
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                 )}
               </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('settings')}
+                className={`relative z-10 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                  activeTab === 'settings'
+                    ? 'text-white'
+                    : 'text-gray-400 hover:text-white hover:bg-[#1A1A1D]'
+                }`}
+                title="Réglages de l'application"
+              >
+                {activeTab === 'settings' && (
+                  <motion.span
+                    layoutId="active-nav-indicator"
+                    className="absolute inset-0 bg-[#1C1C1E] rounded-md border border-[#333] -z-10 shadow-sm"
+                    transition={{ type: 'spring', stiffness: 450, damping: 35 }}
+                  />
+                )}
+                <Sliders className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                <span>Réglages</span>
+              </button>
             </nav>
           </div>
 
@@ -416,23 +437,25 @@ export const Navbar: React.FC = () => {
                       <span>Bibliothèques</span>
                     </button>
 
-                    {currentUser?.role === 'admin' && (
-                      <button
-                        onClick={() => {
-                          handleNavClick('settings');
-                          setIsUserMenuOpen(false);
-                        }}
-                        className="w-full text-left px-3.5 py-2 flex items-center justify-between text-gray-300 hover:bg-[#1C1C1E] hover:text-white transition-colors cursor-pointer"
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <Sliders className="w-3.5 h-3.5 text-purple-400" />
-                          <span>Réglages</span>
-                        </div>
-                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-600/20 text-blue-400 border border-blue-500/30">
-                          Admin
-                        </span>
-                      </button>
-                    )}
+                    <button
+                      onClick={() => {
+                        handleNavClick('settings');
+                        setIsUserMenuOpen(false);
+                      }}
+                      className={`w-full text-left px-3.5 py-2 flex items-center justify-between transition-colors cursor-pointer ${
+                        activeTab === 'settings'
+                          ? 'bg-[#1C1C1E] text-purple-400 font-semibold'
+                          : 'text-gray-300 hover:bg-[#1C1C1E] hover:text-white'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Sliders className="w-3.5 h-3.5 text-purple-400" />
+                        <span>Réglages</span>
+                      </div>
+                      {activeTab === 'settings' && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-purple-400" />
+                      )}
+                    </button>
 
                     <button
                       type="button"
@@ -697,24 +720,22 @@ export const Navbar: React.FC = () => {
                       )}
                     </button>
 
-                    {currentUser?.role === 'admin' && (
-                      <button
-                        onClick={() => handleNavClick('settings')}
-                        className={`w-full text-left px-3.5 py-2 flex items-center justify-between transition-colors ${
-                          activeTab === 'settings'
-                            ? 'bg-[#1C1C1E] text-purple-400 font-semibold'
-                            : 'text-gray-300 hover:bg-[#1C1C1E] hover:text-white'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <Sliders className="w-3.5 h-3.5 text-purple-400" />
-                          <span>Réglages</span>
-                        </div>
-                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-600/20 text-blue-400 border border-blue-500/30">
-                          Admin
-                        </span>
-                      </button>
-                    )}
+                    <button
+                      onClick={() => handleNavClick('settings')}
+                      className={`w-full text-left px-3.5 py-2 flex items-center justify-between transition-colors cursor-pointer ${
+                        activeTab === 'settings'
+                          ? 'bg-[#1C1C1E] text-purple-400 font-semibold'
+                          : 'text-gray-300 hover:bg-[#1C1C1E] hover:text-white'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Sliders className="w-3.5 h-3.5 text-purple-400" />
+                        <span>Réglages</span>
+                      </div>
+                      {activeTab === 'settings' && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
+                      )}
+                    </button>
                   </div>
 
                   {isInstallable && (

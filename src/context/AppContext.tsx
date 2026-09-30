@@ -2263,7 +2263,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const isLeader = currentUser?.role === 'leader';
   const canManageSongs = isAdmin || isLeader;
   const canManageGroups = isAdmin;
-  const canAccessSettings = isAdmin;
+  const canAccessSettings = true;
 
   return (
     <AppContext.Provider value={{

@@ -123,12 +123,12 @@ const ROLE_CONFIGS: Record<UserRole, {
     badgeStyle: 'bg-emerald-600/20 text-emerald-300 border-emerald-500/40',
     tagStyle: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
     dotColor: 'bg-emerald-400',
-    description: "Mêmes droits que l'Admin sur la musique : chants, setlists et cultes. Sans gestion de bibliothèques ni réglages.",
+    description: "Mêmes droits que l'Admin sur la musique : chants, setlists, cultes et accès complet aux réglages.",
     permissions: [
       "Gestion complète des chants, dossiers et versions",
       "Création, organisation et conduite des setlists & cultes",
       "Mode Scène, métronome et transposition en direct",
-      "Pas de suppression de bibliothèques ni de réglages système"
+      "Accès à l'ensemble des réglages de l'application"
     ]
   },
   member: {
@@ -145,7 +145,7 @@ const ROLE_CONFIGS: Record<UserRole, {
     permissions: [
       "Lecture seule synchronisée du répertoire de la bibliothèque",
       "Accès aux setlists et répétitions en direct",
-      "Transposition et affichage personnalisé",
+      "Accès aux réglages de l'application et affichage personnalisé",
       "Pas de modification de chants ni de setlists"
     ]
   }

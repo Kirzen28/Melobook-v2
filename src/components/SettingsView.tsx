@@ -21,31 +21,25 @@ import {
   Minimize2,
   X,
   Radio,
-  Footprints,
   Zap,
   RefreshCw,
   LayoutGrid,
   Gauge,
   Clock,
   Tag,
-  Square,
   Heading1,
-  FileText,
   Bookmark,
-  AlignLeft,
   MoveVertical,
   Layers,
-  Shield,
   Database,
   HardDrive,
   FolderDown,
   Download,
-  WifiOff,
-  Trash2
+  Trash2,
+  MousePointerClick
 } from 'lucide-react';
 import { useMidi } from '../context/MidiContext';
 import { MidiSettingsModal } from './MidiSettingsModal';
-import { NumberSelector } from './NumberSelector';
 import { 
   COLOR_PRESETS, 
   SECTION_TYPES_LIST, 
@@ -59,202 +53,472 @@ import { SectionColors, SongTypographySettings, SectionBorders } from '../types'
 import { transposeChord } from '../utils/chordUtils';
 import { DuplicateCleanerSection } from './DuplicateCleanerSection';
 
-interface QuickStepperProps {
-  label?: string;
-  value: number;
-  min: number;
-  max: number;
-  step?: number;
-  unit?: string;
-  onChange: (val: number) => void;
+export type PointNClickTargetType = 
+  | 'title' 
+  | 'metadata' 
+  | 'chord' 
+  | 'lyrics' 
+  | 'sectionHeader' 
+  | 'sectionCard';
+
+export interface PointNClickSelection {
+  type: PointNClickTargetType;
+  label: string;
+  sectionType?: keyof SectionColors;
 }
 
-const QuickStepper: React.FC<QuickStepperProps> = ({
-  label,
-  value,
-  min,
-  max,
-  step = 1,
-  unit = 'px',
-  onChange
-}) => {
-  return (
-    <div className="inline-flex items-center gap-1 bg-[#1A1A1E]/95 border border-[#383840] px-1.5 py-0.5 rounded-lg shadow-sm font-mono text-xs select-none shrink-0">
-      {label && <span className="text-[10px] text-gray-400 font-sans font-medium mr-0.5">{label}</span>}
-      <button
-        type="button"
-        onClick={() => onChange(Math.max(min, Number((value - step).toFixed(1))))}
-        disabled={value <= min}
-        className="w-5 h-5 flex items-center justify-center rounded bg-[#2A2A30] hover:bg-blue-600 disabled:opacity-30 text-gray-200 hover:text-white transition-colors active:scale-90 text-xs font-bold"
-        title="Diminuer"
-      >
-        -
-      </button>
-      <span className="min-w-[32px] text-center text-[11px] font-bold text-white">
-        {step < 1 ? value.toFixed(1) : value}{unit}
-      </span>
-      <button
-        type="button"
-        onClick={() => onChange(Math.min(max, Number((value + step).toFixed(1))))}
-        disabled={value >= max}
-        className="w-5 h-5 flex items-center justify-center rounded bg-[#2A2A30] hover:bg-blue-600 disabled:opacity-30 text-gray-200 hover:text-white transition-colors active:scale-90 text-xs font-bold"
-        title="Augmenter"
-      >
-        +
-      </button>
-    </div>
-  );
-};
-
-interface QuickSectionColorPickerProps {
-  currentColor: string;
-  onChange: (color: string) => void;
-}
-
-const QuickSectionColorPicker: React.FC<QuickSectionColorPickerProps> = ({
-  currentColor,
-  onChange
-}) => {
-  const quickColors = ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EF4444', '#EC4899', '#06B6D4'];
-  return (
-    <div className="inline-flex items-center gap-1.5 bg-[#1A1A1E]/95 border border-[#383840] px-2 py-0.5 rounded-lg shadow-sm shrink-0">
-      <div className="flex items-center gap-1">
-        {quickColors.map((hex) => {
-          const isSelected = currentColor.toLowerCase() === hex.toLowerCase();
-          return (
-            <button
-              key={hex}
-              type="button"
-              onClick={() => onChange(hex)}
-              className={`w-4 h-4 rounded-full transition-transform active:scale-90 ${
-                isSelected ? 'ring-2 ring-white scale-110 shadow-sm' : 'hover:scale-110 opacity-80 hover:opacity-100'
-              }`}
-              style={{ backgroundColor: hex }}
-              title={hex}
-            />
-          );
-        })}
-      </div>
-      <label 
-        className="relative cursor-pointer ml-0.5 w-4 h-4 rounded-full border border-gray-400/50 flex items-center justify-center bg-gradient-to-tr from-pink-500 via-amber-400 to-blue-500 overflow-hidden shadow-xs hover:scale-110 transition-transform" 
-        title="Couleur personnalisée"
-      >
-        <input
-          type="color"
-          value={currentColor}
-          onChange={(e) => onChange(e.target.value)}
-          className="sr-only"
-        />
-      </label>
-    </div>
-  );
-};
-
-interface ColorPickerPopoverProps {
-  title: string;
-  currentColor: string;
-  defaultColor: string;
-  onChange: (color: string) => void;
+interface PointNClickInspectorProps {
+  selection: PointNClickSelection;
+  typography: SongTypographySettings;
+  chordColor: string;
+  sectionColors: SectionColors;
+  sectionBorders: SectionBorders;
+  updateTypography: (key: keyof SongTypographySettings, value: number) => void;
+  updateChordColor: (color: string) => void;
+  updateSectionColor: (key: keyof SectionColors, color: string) => void;
+  applyBorderPreset: (borders: SectionBorders) => void;
   onClose: () => void;
 }
 
-const ColorPickerPopover: React.FC<ColorPickerPopoverProps> = ({
-  title,
-  currentColor,
-  defaultColor,
-  onChange,
+const PointNClickInspector: React.FC<PointNClickInspectorProps> = ({
+  selection,
+  typography,
+  chordColor,
+  sectionColors,
+  sectionBorders,
+  updateTypography,
+  updateChordColor,
+  updateSectionColor,
+  applyBorderPreset,
   onClose
 }) => {
+  const currentSectionColor = selection.sectionType ? sectionColors[selection.sectionType] : '#3B82F6';
+
   return (
-    <>
-      {/* Invisible backdrop for dismiss on outside click */}
-      <div 
-        className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[1px]" 
-        onClick={(e) => {
-          e.stopPropagation();
-          onClose();
-        }} 
-      />
-
-      {/* Popover Card */}
-      <div 
-        onClick={(e) => e.stopPropagation()}
-        className="color-picker-popover absolute right-0 top-full mt-2 z-50 p-3 rounded-xl bg-[#1C1C20] border border-[#333338] shadow-2xl w-64 max-w-[calc(100vw-2rem)] select-none animate-in fade-in zoom-in-95 duration-100"
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#2A2A30]">
-          <div className="flex items-center gap-2 min-w-0">
-            <span 
-              className="w-3.5 h-3.5 rounded-full border border-white/30 shadow-xs shrink-0" 
-              style={{ backgroundColor: currentColor }} 
-            />
-            <span className="text-xs font-bold text-white truncate">{title}</span>
+    <div className="sticky top-0 z-30 mb-3 p-3 sm:p-4 rounded-xl bg-[#16161B]/95 backdrop-blur-md border border-blue-500/50 shadow-2xl space-y-3 animate-in fade-in zoom-in-95 duration-150">
+      {/* Top title bar */}
+      <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-[#2A2A34]">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-lg bg-blue-500/20 text-blue-400 border border-blue-500/30 flex items-center justify-center shrink-0">
+            {selection.type === 'title' && <Heading1 className="w-3.5 h-3.5" />}
+            {selection.type === 'metadata' && <Tag className="w-3.5 h-3.5" />}
+            {selection.type === 'chord' && <Music className="w-3.5 h-3.5 text-amber-400" />}
+            {selection.type === 'lyrics' && <Type className="w-3.5 h-3.5 text-cyan-400" />}
+            {selection.type === 'sectionHeader' && <Bookmark className="w-3.5 h-3.5 text-emerald-400" />}
+            {selection.type === 'sectionCard' && <Layers className="w-3.5 h-3.5 text-purple-400" />}
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-5 h-5 rounded flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-            title="Fermer"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-white tracking-wide">
+                {selection.label}
+              </span>
+              <span className="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                Point-n-Click
+              </span>
+            </div>
+            <p className="text-[10px] text-gray-400">
+              Modifiez la taille ou la couleur directement
+            </p>
+          </div>
         </div>
 
-        {/* 16 Presets grid */}
-        <div className="text-[10px] text-gray-400 font-semibold mb-1.5 flex items-center justify-between">
-          <span>Nuancier rapide</span>
-          <span className="text-[9px] text-gray-500 font-mono">16 teintes</span>
-        </div>
-        <div className="grid grid-cols-8 gap-1.5 mb-2.5">
-          {COLOR_PRESETS.map((preset) => {
-            const isSelected = currentColor.toLowerCase() === preset.value.toLowerCase();
-            return (
-              <button
-                key={preset.value}
-                type="button"
-                onClick={() => onChange(preset.value)}
-                className={`w-5 h-5 rounded-full transition-transform hover:scale-125 border cursor-pointer ${
-                  isSelected ? 'border-white ring-2 ring-blue-500 scale-110 shadow-xs' : 'border-transparent'
-                }`}
-                style={{ backgroundColor: preset.value }}
-                title={preset.name}
-              />
-            );
-          })}
-        </div>
-
-        {/* Custom hex picker & default reset button */}
-        <div className="pt-2 border-t border-[#2A2A30] flex items-center justify-between gap-2">
-          <label 
-            className="cursor-pointer flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#24242A] hover:bg-[#2C2C32] text-xs font-mono text-gray-200 border border-[#3A3A40] transition-colors"
-            title="Choisir une couleur personnalisée"
-          >
-            <span 
-              className="w-3.5 h-3.5 rounded-full border border-white/20 shrink-0"
-              style={{ backgroundColor: currentColor }}
-            />
-            <input
-              type="color"
-              value={currentColor}
-              onChange={(e) => onChange(e.target.value)}
-              className="sr-only"
-            />
-            <span className="uppercase text-[11px] font-semibold tracking-wider">{currentColor}</span>
-          </label>
-
-          {currentColor.toLowerCase() !== defaultColor.toLowerCase() && (
-            <button
-              type="button"
-              onClick={() => onChange(defaultColor)}
-              className="px-2 py-1 rounded-lg bg-[#24242A] hover:bg-[#2C2C32] text-gray-300 hover:text-white text-xs font-medium transition-colors cursor-pointer border border-[#3A3A40]"
-              title={`Rétablir la couleur par défaut (${defaultColor})`}
-            >
-              Défaut
-            </button>
-          )}
-        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="p-1.5 rounded-lg bg-[#222228] hover:bg-[#2E2E38] text-gray-400 hover:text-white transition-colors cursor-pointer"
+          title="Fermer l'inspecteur"
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
       </div>
-    </>
+
+      {/* Control fields depending on target */}
+      {/* 1. TITLE */}
+      {selection.type === 'title' && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-gray-300 font-medium">Taille du titre :</span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => updateTypography('titleSize', Math.max(16, typography.titleSize - 1))}
+                className="w-7 h-7 rounded-lg bg-[#222228] hover:bg-blue-600 text-white font-bold flex items-center justify-center transition-colors active:scale-95 cursor-pointer text-sm"
+                title="Diminuer"
+              >
+                -
+              </button>
+              <span className="font-mono font-bold text-white text-xs px-2 py-0.5 rounded bg-[#101014] border border-[#2B2B32] min-w-[54px] text-center">
+                {typography.titleSize} px
+              </span>
+              <button
+                type="button"
+                onClick={() => updateTypography('titleSize', Math.min(48, typography.titleSize + 1))}
+                className="w-7 h-7 rounded-lg bg-[#222228] hover:bg-blue-600 text-white font-bold flex items-center justify-center transition-colors active:scale-95 cursor-pointer text-sm"
+                title="Augmenter"
+              >
+                +
+              </button>
+            </div>
+          </div>
+          <input
+            type="range"
+            min={16}
+            max={48}
+            step={1}
+            value={typography.titleSize}
+            onChange={(e) => updateTypography('titleSize', Number(e.target.value))}
+            className="w-full h-1.5 bg-[#25252C] rounded-lg appearance-none cursor-pointer accent-blue-500"
+          />
+        </div>
+      )}
+
+      {/* 2. METADATA */}
+      {selection.type === 'metadata' && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-gray-300 font-medium">Taille des métadonnées (artiste, tempo, tonalité) :</span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => updateTypography('metadataSize', Math.max(10, typography.metadataSize - 1))}
+                className="w-7 h-7 rounded-lg bg-[#222228] hover:bg-blue-600 text-white font-bold flex items-center justify-center transition-colors active:scale-95 cursor-pointer text-sm"
+                title="Diminuer"
+              >
+                -
+              </button>
+              <span className="font-mono font-bold text-white text-xs px-2 py-0.5 rounded bg-[#101014] border border-[#2B2B32] min-w-[54px] text-center">
+                {typography.metadataSize} px
+              </span>
+              <button
+                type="button"
+                onClick={() => updateTypography('metadataSize', Math.min(22, typography.metadataSize + 1))}
+                className="w-7 h-7 rounded-lg bg-[#222228] hover:bg-blue-600 text-white font-bold flex items-center justify-center transition-colors active:scale-95 cursor-pointer text-sm"
+                title="Augmenter"
+              >
+                +
+              </button>
+            </div>
+          </div>
+          <input
+            type="range"
+            min={10}
+            max={22}
+            step={1}
+            value={typography.metadataSize}
+            onChange={(e) => updateTypography('metadataSize', Number(e.target.value))}
+            className="w-full h-1.5 bg-[#25252C] rounded-lg appearance-none cursor-pointer accent-blue-500"
+          />
+        </div>
+      )}
+
+      {/* 3. CHORDS */}
+      {selection.type === 'chord' && (
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-gray-300 font-medium">Taille des accords :</span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => updateTypography('chordSize', Math.max(11, typography.chordSize - 1))}
+                  className="w-7 h-7 rounded-lg bg-[#222228] hover:bg-blue-600 text-white font-bold flex items-center justify-center transition-colors active:scale-95 cursor-pointer text-sm"
+                  title="Diminuer"
+                >
+                  -
+                </button>
+                <span className="font-mono font-bold text-amber-300 text-xs px-2 py-0.5 rounded bg-[#101014] border border-[#2B2B32] min-w-[54px] text-center">
+                  {typography.chordSize} px
+                </span>
+                <button
+                  type="button"
+                  onClick={() => updateTypography('chordSize', Math.min(36, typography.chordSize + 1))}
+                  className="w-7 h-7 rounded-lg bg-[#222228] hover:bg-blue-600 text-white font-bold flex items-center justify-center transition-colors active:scale-95 cursor-pointer text-sm"
+                  title="Augmenter"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+            <input
+              type="range"
+              min={11}
+              max={36}
+              step={1}
+              value={typography.chordSize}
+              onChange={(e) => updateTypography('chordSize', Number(e.target.value))}
+              className="w-full h-1.5 bg-[#25252C] rounded-lg appearance-none cursor-pointer accent-amber-500"
+            />
+          </div>
+
+          <div className="space-y-2 pt-2 border-t border-[#25252E]">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-gray-300 font-medium flex items-center gap-1.5">
+                <Palette className="w-3.5 h-3.5 text-amber-400" />
+                Couleur des accords
+              </span>
+              <span className="text-[11px] font-mono font-bold" style={{ color: chordColor }}>
+                {chordColor.toUpperCase()}
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {COLOR_PRESETS.map((p) => {
+                const isAct = chordColor.toLowerCase() === p.value.toLowerCase();
+                return (
+                  <button
+                    key={p.value}
+                    type="button"
+                    onClick={() => updateChordColor(p.value)}
+                    className={`w-6 h-6 rounded-full transition-transform active:scale-90 flex items-center justify-center cursor-pointer ${
+                      isAct ? 'ring-2 ring-white scale-110 shadow-sm' : 'hover:scale-110 opacity-80 hover:opacity-100'
+                    }`}
+                    style={{ backgroundColor: p.value }}
+                    title={p.name}
+                  >
+                    {isAct && <Check className="w-3.5 h-3.5 text-black stroke-[3]" />}
+                  </button>
+                );
+              })}
+              <label 
+                className="relative cursor-pointer w-6 h-6 rounded-full border border-gray-400/50 flex items-center justify-center bg-gradient-to-tr from-pink-500 via-amber-400 to-blue-500 overflow-hidden shadow-xs hover:scale-110 transition-transform" 
+                title="Couleur personnalisée"
+              >
+                <input
+                  type="color"
+                  value={chordColor}
+                  onChange={(e) => updateChordColor(e.target.value)}
+                  className="sr-only"
+                />
+              </label>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 4. LYRICS */}
+      {selection.type === 'lyrics' && (
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-gray-300 font-medium">Taille des paroles :</span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => updateTypography('lyricsSize', Math.max(12, typography.lyricsSize - 1))}
+                  className="w-7 h-7 rounded-lg bg-[#222228] hover:bg-blue-600 text-white font-bold flex items-center justify-center transition-colors active:scale-95 cursor-pointer text-sm"
+                  title="Diminuer"
+                >
+                  -
+                </button>
+                <span className="font-mono font-bold text-cyan-300 text-xs px-2 py-0.5 rounded bg-[#101014] border border-[#2B2B32] min-w-[54px] text-center">
+                  {typography.lyricsSize} px
+                </span>
+                <button
+                  type="button"
+                  onClick={() => updateTypography('lyricsSize', Math.min(38, typography.lyricsSize + 1))}
+                  className="w-7 h-7 rounded-lg bg-[#222228] hover:bg-blue-600 text-white font-bold flex items-center justify-center transition-colors active:scale-95 cursor-pointer text-sm"
+                  title="Augmenter"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+            <input
+              type="range"
+              min={12}
+              max={38}
+              step={1}
+              value={typography.lyricsSize}
+              onChange={(e) => updateTypography('lyricsSize', Number(e.target.value))}
+              className="w-full h-1.5 bg-[#25252C] rounded-lg appearance-none cursor-pointer accent-cyan-500"
+            />
+          </div>
+
+          <div className="space-y-1.5 pt-2 border-t border-[#25252E]">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-gray-300 font-medium flex items-center gap-1.5">
+                <MoveVertical className="w-3.5 h-3.5 text-blue-400" />
+                Interligne (hauteur de ligne) :
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => updateTypography('lineSpacing', Math.max(1.1, Number((typography.lineSpacing - 0.1).toFixed(1))))}
+                  className="w-7 h-7 rounded-lg bg-[#222228] hover:bg-blue-600 text-white font-bold flex items-center justify-center transition-colors active:scale-95 cursor-pointer text-sm"
+                  title="Diminuer"
+                >
+                  -
+                </button>
+                <span className="font-mono font-bold text-white text-xs px-2 py-0.5 rounded bg-[#101014] border border-[#2B2B32] min-w-[54px] text-center">
+                  {typography.lineSpacing.toFixed(1)}x
+                </span>
+                <button
+                  type="button"
+                  onClick={() => updateTypography('lineSpacing', Math.min(2.2, Number((typography.lineSpacing + 0.1).toFixed(1))))}
+                  className="w-7 h-7 rounded-lg bg-[#222228] hover:bg-blue-600 text-white font-bold flex items-center justify-center transition-colors active:scale-95 cursor-pointer text-sm"
+                  title="Augmenter"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+            <input
+              type="range"
+              min={1.1}
+              max={2.2}
+              step={0.1}
+              value={typography.lineSpacing}
+              onChange={(e) => updateTypography('lineSpacing', Number(e.target.value))}
+              className="w-full h-1.5 bg-[#25252C] rounded-lg appearance-none cursor-pointer accent-blue-500"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* 5. SECTION HEADER BADGE */}
+      {selection.type === 'sectionHeader' && selection.sectionType && (
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-gray-300 font-medium">Taille du badge :</span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => updateTypography('headerSize', Math.max(10, typography.headerSize - 1))}
+                  className="w-7 h-7 rounded-lg bg-[#222228] hover:bg-blue-600 text-white font-bold flex items-center justify-center transition-colors active:scale-95 cursor-pointer text-sm"
+                  title="Diminuer"
+                >
+                  -
+                </button>
+                <span className="font-mono font-bold text-emerald-300 text-xs px-2 py-0.5 rounded bg-[#101014] border border-[#2B2B32] min-w-[54px] text-center">
+                  {typography.headerSize} px
+                </span>
+                <button
+                  type="button"
+                  onClick={() => updateTypography('headerSize', Math.min(24, typography.headerSize + 1))}
+                  className="w-7 h-7 rounded-lg bg-[#222228] hover:bg-blue-600 text-white font-bold flex items-center justify-center transition-colors active:scale-95 cursor-pointer text-sm"
+                  title="Augmenter"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+            <input
+              type="range"
+              min={10}
+              max={24}
+              step={1}
+              value={typography.headerSize}
+              onChange={(e) => updateTypography('headerSize', Number(e.target.value))}
+              className="w-full h-1.5 bg-[#25252C] rounded-lg appearance-none cursor-pointer accent-emerald-500"
+            />
+          </div>
+
+          <div className="space-y-2 pt-2 border-t border-[#25252E]">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-gray-300 font-medium flex items-center gap-1.5">
+                <Palette className="w-3.5 h-3.5" style={{ color: currentSectionColor }} />
+                Couleur de la section ({selection.label})
+              </span>
+              <span className="text-[11px] font-mono font-bold" style={{ color: currentSectionColor }}>
+                {currentSectionColor.toUpperCase()}
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {COLOR_PRESETS.map((p) => {
+                const isAct = currentSectionColor.toLowerCase() === p.value.toLowerCase();
+                return (
+                  <button
+                    key={p.value}
+                    type="button"
+                    onClick={() => updateSectionColor(selection.sectionType!, p.value)}
+                    className={`w-6 h-6 rounded-full transition-transform active:scale-90 flex items-center justify-center cursor-pointer ${
+                      isAct ? 'ring-2 ring-white scale-110 shadow-sm' : 'hover:scale-110 opacity-80 hover:opacity-100'
+                    }`}
+                    style={{ backgroundColor: p.value }}
+                    title={p.name}
+                  >
+                    {isAct && <Check className="w-3.5 h-3.5 text-black stroke-[3]" />}
+                  </button>
+                );
+              })}
+              <label 
+                className="relative cursor-pointer w-6 h-6 rounded-full border border-gray-400/50 flex items-center justify-center bg-gradient-to-tr from-pink-500 via-amber-400 to-blue-500 overflow-hidden shadow-xs hover:scale-110 transition-transform" 
+                title="Couleur personnalisée"
+              >
+                <input
+                  type="color"
+                  value={currentSectionColor}
+                  onChange={(e) => updateSectionColor(selection.sectionType!, e.target.value)}
+                  className="sr-only"
+                />
+              </label>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 6. SECTION CARD / SPACING */}
+      {selection.type === 'sectionCard' && (
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-gray-300 font-medium">Espacement entre sections :</span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => updateTypography('sectionSpacing', Math.max(0, (typography.sectionSpacing ?? 4) - 2))}
+                  className="w-7 h-7 rounded-lg bg-[#222228] hover:bg-blue-600 text-white font-bold flex items-center justify-center transition-colors active:scale-95 cursor-pointer text-sm"
+                  title="Diminuer"
+                >
+                  -
+                </button>
+                <span className="font-mono font-bold text-purple-300 text-xs px-2 py-0.5 rounded bg-[#101014] border border-[#2B2B32] min-w-[54px] text-center">
+                  {(typography.sectionSpacing ?? 4)} px
+                </span>
+                <button
+                  type="button"
+                  onClick={() => updateTypography('sectionSpacing', Math.min(32, (typography.sectionSpacing ?? 4) + 2))}
+                  className="w-7 h-7 rounded-lg bg-[#222228] hover:bg-blue-600 text-white font-bold flex items-center justify-center transition-colors active:scale-95 cursor-pointer text-sm"
+                  title="Augmenter"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={32}
+              step={2}
+              value={typography.sectionSpacing ?? 4}
+              onChange={(e) => updateTypography('sectionSpacing', Number(e.target.value))}
+              className="w-full h-1.5 bg-[#25252C] rounded-lg appearance-none cursor-pointer accent-purple-500"
+            />
+          </div>
+
+          <div className="space-y-1.5 pt-2 border-t border-[#25252E]">
+            <span className="text-xs text-gray-300 font-medium">Style de bordure des sections :</span>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+              {[
+                { label: 'Bordure Gauche', borders: { left: true, right: false, top: false, bottom: false } },
+                { label: 'Encadré', borders: { left: true, right: true, top: true, bottom: true } },
+                { label: 'Gauche + Droite', borders: { left: true, right: true, top: false, bottom: false } },
+                { label: 'Aucune', borders: { left: false, right: false, top: false, bottom: false } },
+              ].map((b) => (
+                <button
+                  key={b.label}
+                  type="button"
+                  onClick={() => applyBorderPreset(b.borders)}
+                  className="py-1 px-2 rounded-lg bg-[#202026] hover:bg-[#2A2A34] text-[11px] font-medium text-gray-300 hover:text-white transition-colors cursor-pointer border border-[#333]"
+                >
+                  {b.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 
@@ -290,15 +554,12 @@ export const SettingsView: React.FC = () => {
   const [showNotification, setShowNotification] = useState<string | null>(null);
   const [isMobilePreviewCollapsed, setIsMobilePreviewCollapsed] = useState(false);
   const [isMobilePreviewFullscreen, setIsMobilePreviewFullscreen] = useState(false);
-  const [activeColorTarget, setActiveColorTarget] = useState<string | null>(null);
+  const [selectedPreviewElement, setSelectedPreviewElement] = useState<PointNClickSelection | null>(null);
 
   // État des catégories pliables / dépliables sur tous les appareils (plié par défaut)
   type SettingsCategory = 
     | 'display'
     | 'song_cards'
-    | 'typography'
-    | 'borders'
-    | 'colors'
     | 'midi'
     | 'duplicates'
     | 'offline';
@@ -306,9 +567,6 @@ export const SettingsView: React.FC = () => {
   const [openCategories, setOpenCategories] = useState<Record<SettingsCategory, boolean>>({
     display: false,      // Plié par défaut sur tous les appareils
     song_cards: false,
-    typography: false,
-    borders: false,
-    colors: false,
     midi: false,
     duplicates: false,
     offline: false,
@@ -327,9 +585,6 @@ export const SettingsView: React.FC = () => {
     setOpenCategories({
       display: nextState,
       song_cards: nextState,
-      typography: nextState,
-      borders: nextState,
-      colors: nextState,
       midi: nextState,
       duplicates: nextState,
       offline: nextState,
@@ -403,14 +658,6 @@ export const SettingsView: React.FC = () => {
     });
   };
 
-  const toggleSectionBorder = (side: keyof SectionBorders) => {
-    updateDisplaySettings({
-      sectionBorders: {
-        [side]: !sectionBorders[side]
-      }
-    });
-  };
-
   const applyBorderPreset = (borders: SectionBorders) => {
     updateDisplaySettings({
       sectionBorders: borders
@@ -422,413 +669,539 @@ export const SettingsView: React.FC = () => {
     ? (isSystemLight ? 'light' : 'dark')
     : (stageSettings.theme || 'dark');
 
-  const renderSongPreviewBody = (isFullscreen = false) => (
-    <div className={`space-y-4 ${isFullscreen ? 'max-w-3xl mx-auto' : ''}`}>
-      {/* Song Header Preview */}
-      <div className="border-b border-[#222224] pb-2.5 flex flex-col gap-2">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div className="flex-1 min-w-0 flex items-center gap-2.5 flex-wrap">
-            <h3 
-              className={`font-bold tracking-tight leading-tight break-words ${
-                effectivePreviewTheme === 'light' ? 'text-[#18181B]' : 'text-white'
-              }`}
-              style={{ fontSize: `${typography.titleSize}px` }}
-            >
-              {selectedSong ? selectedSong.title : 'Grâce Infinie'}
-            </h3>
-            <QuickStepper
-              label="Titre"
-              value={typography.titleSize}
-              min={16}
-              max={48}
-              onChange={(val) => updateTypography('titleSize', val)}
-            />
-          </div>
+  const renderSongPreviewBody = (isFullscreen = false) => {
+    const currentSpacing = typography.sectionSpacing !== undefined ? typography.sectionSpacing : 4;
+    const isPreviewCompact = currentSpacing <= 6;
+    const isPreviewUltraCompact = currentSpacing <= 2;
+    const previewPadding = isPreviewUltraCompact 
+      ? 'py-1.5 px-2.5 sm:py-2 sm:px-3'
+      : isPreviewCompact
+      ? 'py-2 px-3 sm:py-2.5 sm:px-3.5'
+      : 'p-3';
+    const previewHeaderMb = isPreviewUltraCompact ? 'mb-1' : isPreviewCompact ? 'mb-1.5' : 'mb-2';
 
-          <div 
-            className={`flex flex-wrap items-center gap-2 shrink-0 self-start sm:self-auto px-2.5 py-1 rounded-lg font-mono shadow-sm ${
-              effectivePreviewTheme === 'light'
-                ? 'bg-gray-100 border border-gray-300 text-gray-700'
-                : 'bg-[#141416] border border-[#242428] text-gray-300'
-            }`}
-            style={{ fontSize: `${typography.metadataSize}px` }}
-          >
-            <div className="flex items-center gap-1">
-              <span className="text-gray-400">Tonalité :</span>
-              <strong className="text-blue-500">G</strong>
+    return (
+      <div className={`space-y-4 ${isFullscreen ? 'max-w-3xl mx-auto' : ''}`}>
+        {/* Sticky Point-n-Click Inspector if an item is selected */}
+        {selectedPreviewElement ? (
+          <PointNClickInspector
+            selection={selectedPreviewElement}
+            typography={typography}
+            chordColor={chordColor}
+            sectionColors={sectionColors}
+            sectionBorders={sectionBorders}
+            updateTypography={updateTypography}
+            updateChordColor={updateChordColor}
+            updateSectionColor={updateSectionColor}
+            applyBorderPreset={applyBorderPreset}
+            onClose={() => setSelectedPreviewElement(null)}
+          />
+        ) : (
+          <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-blue-950/30 border border-blue-500/30 text-xs text-blue-200 select-none shadow-sm">
+            <div className="flex items-center gap-2">
+              <MousePointerClick className="w-4 h-4 text-blue-400 animate-pulse shrink-0" />
+              <span className="text-[11px] font-medium leading-tight">
+                <strong>Mode Point-n-Click :</strong> Cliquez directement sur le titre, les accords, les paroles ou les badges pour ajuster leur taille ou couleur.
+              </span>
             </div>
-            <span className="text-gray-400">•</span>
-            <strong>72 BPM</strong>
           </div>
-        </div>
+        )}
 
-        <div className="flex items-center justify-between gap-2 flex-wrap">
+        {/* Song Header Preview (Pure Live Display) */}
+        <div className="border-b border-[#222224] pb-2.5 flex flex-col gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex-1 min-w-0">
+              <h3 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedPreviewElement({ type: 'title', label: 'Titre du chant' });
+                }}
+                className={`font-bold tracking-tight leading-tight break-words cursor-pointer transition-all rounded px-1.5 py-0.5 -mx-1.5 ${
+                  selectedPreviewElement?.type === 'title'
+                    ? 'ring-2 ring-blue-500 bg-blue-500/20 text-white'
+                    : 'hover:ring-1 hover:ring-blue-400/50 hover:bg-blue-500/5'
+                } ${
+                  effectivePreviewTheme === 'light' ? 'text-[#18181B]' : 'text-white'
+                }`}
+                style={{ fontSize: `${typography.titleSize}px` }}
+                title="Cliquer pour modifier la taille du titre"
+              >
+                {selectedSong ? selectedSong.title : 'Grâce Infinie'}
+              </h3>
+            </div>
+
+            <div 
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedPreviewElement({ type: 'metadata', label: 'Artiste & Métadonnées' });
+              }}
+              className={`flex flex-wrap items-center gap-2 shrink-0 self-start sm:self-auto px-2.5 py-1 rounded-lg font-mono shadow-sm cursor-pointer transition-all ${
+                selectedPreviewElement?.type === 'metadata'
+                  ? 'ring-2 ring-blue-500 bg-blue-500/20'
+                  : 'hover:ring-1 hover:ring-blue-400/50 hover:bg-blue-500/5'
+              } ${
+                effectivePreviewTheme === 'light'
+                  ? 'bg-gray-100 border border-gray-300 text-gray-700'
+                  : 'bg-[#141416] border border-[#242428] text-gray-300'
+              }`}
+              style={{ fontSize: `${typography.metadataSize}px` }}
+              title="Cliquer pour modifier la taille des métadonnées"
+            >
+              <div className="flex items-center gap-1">
+                <span className="text-gray-400">Tonalité :</span>
+                <strong className="text-blue-500">G</strong>
+              </div>
+              <span className="text-gray-400">•</span>
+              <strong>72 BPM</strong>
+            </div>
+          </div>
+
           <div 
-            className={`font-medium break-words ${
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedPreviewElement({ type: 'metadata', label: 'Artiste & Métadonnées' });
+            }}
+            className={`font-medium break-words cursor-pointer transition-all rounded px-1.5 py-0.5 -mx-1.5 ${
+              selectedPreviewElement?.type === 'metadata'
+                ? 'ring-2 ring-blue-500 bg-blue-500/20 text-blue-200'
+                : 'hover:ring-1 hover:ring-blue-400/50 hover:bg-blue-500/5'
+            } ${
               effectivePreviewTheme === 'light' ? 'text-gray-600' : 'text-gray-300'
             }`}
             style={{ fontSize: `${typography.metadataSize}px` }}
+            title="Cliquer pour modifier la taille des métadonnées"
           >
             {selectedSong?.artist || 'John Newton'}
           </div>
-
-          <QuickStepper
-            label="Méta"
-            value={typography.metadataSize}
-            min={10}
-            max={20}
-            onChange={(val) => updateTypography('metadataSize', val)}
-          />
         </div>
-      </div>
 
-      {/* Sections Container (1 to 5 columns preview) */}
-      {(() => {
-        const currentSpacing = typography.sectionSpacing !== undefined ? typography.sectionSpacing : 4;
-        const isPreviewCompact = currentSpacing <= 6;
-        const isPreviewUltraCompact = currentSpacing <= 2;
-        const previewPadding = isPreviewUltraCompact 
-          ? 'py-1.5 px-2.5 sm:py-2 sm:px-3'
-          : isPreviewCompact
-          ? 'py-2 px-3 sm:py-2.5 sm:px-3.5'
-          : 'p-3';
-        const previewHeaderMb = isPreviewUltraCompact ? 'mb-1' : isPreviewCompact ? 'mb-1.5' : 'mb-2';
-
-        return (
+        {/* Sections Container (1 to 5 columns preview) */}
+        <div 
+          className={
+            stageSettings.columns === 2
+              ? 'grid grid-cols-1 sm:grid-cols-2 items-start'
+              : stageSettings.columns === 3
+              ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 items-start'
+              : stageSettings.columns === 4
+              ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 items-start'
+              : stageSettings.columns === 5
+              ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 items-start'
+              : 'flex flex-col'
+          }
+          style={{
+            gap: `${currentSpacing}px`,
+            rowGap: `${currentSpacing}px`,
+          }}
+        >
+          {/* Section 1: Couplet */}
           <div 
-            className={
-              stageSettings.columns === 2
-                ? 'grid grid-cols-1 sm:grid-cols-2 items-start'
-                : stageSettings.columns === 3
-                ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 items-start'
-                : stageSettings.columns === 4
-                ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 items-start'
-                : stageSettings.columns === 5
-                ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 items-start'
-                : 'flex flex-col'
-            }
-            style={{
-              gap: `${currentSpacing}px`,
-              rowGap: `${currentSpacing}px`,
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setSelectedPreviewElement({
+                  type: 'sectionCard',
+                  sectionType: 'verse',
+                  label: 'Cadre & Espacement : Couplet'
+                });
+              }
             }}
+            className={`rounded-lg ${previewPadding} transition-all cursor-pointer ${
+              selectedPreviewElement?.type === 'sectionCard' && selectedPreviewElement.sectionType === 'verse'
+                ? 'ring-2 ring-blue-500 bg-blue-500/5'
+                : ''
+            }`}
+            style={getSectionBorderStyles(sectionColors.verse, sectionBorders)}
+            title="Cliquer pour modifier l'espacement et les bordures de cette section"
           >
-            {/* Section 1: Couplet */}
-            <div 
-              className={`rounded-lg ${previewPadding} transition-all`}
-              style={getSectionBorderStyles(sectionColors.verse, sectionBorders)}
-            >
-              <div className={`${previewHeaderMb} flex items-center justify-between gap-2 flex-wrap`}>
-                <div className="flex items-center gap-2 flex-wrap">
+            <div className={`${previewHeaderMb} flex items-center justify-between gap-2 flex-wrap`}>
+              <span 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedPreviewElement({
+                    type: 'sectionHeader',
+                    sectionType: 'verse',
+                    label: 'Badge : Couplet'
+                  });
+                }}
+                className={`inline-block font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border shadow-xs select-none cursor-pointer transition-all ${
+                  selectedPreviewElement?.type === 'sectionHeader' && selectedPreviewElement.sectionType === 'verse'
+                    ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-[#0E0E10]'
+                    : 'hover:scale-105 hover:ring-1 hover:ring-blue-400/60'
+                }`}
+                style={{
+                  fontSize: `${typography.headerSize}px`,
+                  color: sectionColors.verse,
+                  borderColor: `${sectionColors.verse}50`,
+                  backgroundColor: `${sectionColors.verse}1C`
+                }}
+                title="Cliquer pour modifier la taille et la couleur du badge Couplet"
+              >
+                Couplet 1
+              </span>
+            </div>
+
+            <div className="space-y-1 font-mono">
+              <div className="inline-flex flex-col mr-2">
+                {stageSettings.showChords && (
                   <span 
-                    className="inline-block font-bold uppercase tracking-wider px-2 py-0.5 rounded border shadow-sm"
-                    style={{
-                      fontSize: `${typography.headerSize}px`,
-                      color: sectionColors.verse,
-                      borderColor: `${sectionColors.verse}50`,
-                      backgroundColor: `${sectionColors.verse}1C`
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedPreviewElement({ type: 'chord', label: 'Accords' });
                     }}
+                    className={`font-mono font-bold leading-none mb-1 cursor-pointer transition-all rounded px-1 -mx-1 select-none ${
+                      selectedPreviewElement?.type === 'chord'
+                        ? 'ring-2 ring-blue-500 bg-blue-500/20'
+                        : 'hover:ring-1 hover:ring-blue-400/60 hover:bg-blue-500/10'
+                    }`}
+                    style={{ fontSize: `${typography.chordSize}px`, color: chordColor }}
+                    title="Cliquer pour modifier la taille et la couleur des accords"
                   >
-                    Couplet 1
+                    {transposeChord('G', 0, stageSettings.notation)}
                   </span>
-
-                  <QuickStepper
-                    label="Badge"
-                    value={typography.headerSize}
-                    min={10}
-                    max={24}
-                    onChange={(val) => updateTypography('headerSize', val)}
-                  />
-                </div>
-
-                <QuickSectionColorPicker
-                  currentColor={sectionColors.verse}
-                  onChange={(color) => updateSectionColor('verse', color)}
-                />
-              </div>
-
-              {/* Quick controls for Chords, Lyrics, Line Spacing & Section Spacing */}
-              <div className="flex items-center justify-between gap-2 flex-wrap py-1.5 px-2 mb-1.5 rounded-lg bg-black/20 border border-white/5 text-xs">
-                <div className="flex items-center gap-2">
-                  <QuickStepper
-                    label="Accords"
-                    value={typography.chordSize}
-                    min={11}
-                    max={32}
-                    onChange={(val) => updateTypography('chordSize', val)}
-                  />
-                  <label
-                    className="w-5 h-5 rounded-md border border-white/20 shadow-xs cursor-pointer flex items-center justify-center transition-transform hover:scale-110 shrink-0"
-                    style={{ backgroundColor: chordColor }}
-                    title="Couleur des accords"
-                  >
-                    <input
-                      type="color"
-                      value={chordColor}
-                      onChange={(e) => updateChordColor(e.target.value)}
-                      className="sr-only"
-                    />
-                  </label>
-                </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <QuickStepper
-                    label="Paroles"
-                    value={typography.lyricsSize}
-                    min={12}
-                    max={36}
-                    onChange={(val) => updateTypography('lyricsSize', val)}
-                  />
-                  <QuickStepper
-                    label="Interligne"
-                    value={typography.lineSpacing}
-                    min={1.1}
-                    max={2.2}
-                    step={0.1}
-                    unit="x"
-                    onChange={(val) => updateTypography('lineSpacing', val)}
-                  />
-                  <QuickStepper
-                    label="Écart"
-                    value={currentSpacing}
-                    min={0}
-                    max={32}
-                    step={2}
-                    unit="px"
-                    onChange={(val) => updateTypography('sectionSpacing', val)}
-                  />
-                </div>
-              </div>
-
-        {/* Quick presets pills in preview */}
-        <div className="flex items-center gap-1.5 flex-wrap pb-1.5 text-xs">
-          <span className="text-[11px] text-gray-400 font-medium shrink-0">Préréglages :</span>
-          <div className="inline-flex items-center bg-black/30 p-0.5 rounded-md border border-white/10">
-            {[
-              { label: 'Petit', lyrics: 15, chords: 14, header: 10, title: 22, meta: 11 },
-              { label: 'Standard', lyrics: 18, chords: 16, header: 12, title: 26, meta: 12 },
-              { label: 'Grand', lyrics: 22, chords: 19, header: 14, title: 31, meta: 13 },
-              { label: 'Très grand', lyrics: 25, chords: 22, header: 17, title: 36, meta: 14 },
-            ].map((p) => {
-              const isAct = typography.lyricsSize === p.lyrics;
-              return (
-                <button
-                  key={p.label}
-                  type="button"
-                  onClick={() => {
-                    updateDisplaySettings({
-                      typography: {
-                        lyricsSize: p.lyrics,
-                        chordSize: p.chords,
-                        headerSize: p.header,
-                        titleSize: p.title,
-                        metadataSize: p.meta,
-                      }
-                    });
-                    notify(`Préréglage ${p.label} appliqué`);
+                )}
+                <span 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedPreviewElement({ type: 'lyrics', label: 'Paroles' });
                   }}
-                  className={`px-2 py-0.5 rounded text-[11px] font-medium transition-all cursor-pointer ${
-                    isAct
-                      ? 'bg-blue-600 text-white font-semibold shadow-xs'
-                      : 'text-gray-400 hover:text-white'
-                  }`}
-                  title={`Appliquer le préréglage ${p.label}`}
+                  className={`font-sans cursor-pointer transition-all rounded px-1 -mx-1 ${
+                    selectedPreviewElement?.type === 'lyrics'
+                      ? 'ring-2 ring-blue-500 bg-blue-500/15'
+                      : 'hover:ring-1 hover:ring-blue-400/50 hover:bg-blue-500/5'
+                  } ${effectivePreviewTheme === 'light' ? 'text-[#18181B]' : 'text-[#E0E0E0]'}`}
+                  style={{ fontSize: `${typography.lyricsSize}px` }}
+                  title="Cliquer pour modifier la taille et l'interligne des paroles"
                 >
-                  {p.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+                  Grâce infinie, au son si doux
+                </span>
+              </div>
 
-        <div className="space-y-1 font-mono">
-          <div className="inline-flex flex-col mr-2">
-            {stageSettings.showChords && (
-              <span 
-                className="font-mono font-bold leading-none mb-1"
-                style={{ fontSize: `${typography.chordSize}px`, color: chordColor }}
-              >
-                {transposeChord('G', 0, stageSettings.notation)}
-              </span>
-            )}
-            <span 
-              className={`font-sans ${effectivePreviewTheme === 'light' ? 'text-[#18181B]' : 'text-[#E0E0E0]'}`}
-              style={{ fontSize: `${typography.lyricsSize}px` }}
-            >
-              Grâce infinie, au son si doux
-            </span>
+              <div className="inline-flex flex-col">
+                {stageSettings.showChords && (
+                  <span 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedPreviewElement({ type: 'chord', label: 'Accords' });
+                    }}
+                    className={`font-mono font-bold leading-none mb-1 cursor-pointer transition-all rounded px-1 -mx-1 select-none ${
+                      selectedPreviewElement?.type === 'chord'
+                        ? 'ring-2 ring-blue-500 bg-blue-500/20'
+                        : 'hover:ring-1 hover:ring-blue-400/60 hover:bg-blue-500/10'
+                    }`}
+                    style={{ fontSize: `${typography.chordSize}px`, color: chordColor }}
+                    title="Cliquer pour modifier la taille et la couleur des accords"
+                  >
+                    {transposeChord('C', 0, stageSettings.notation)}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{transposeChord('G', 0, stageSettings.notation)}
+                  </span>
+                )}
+                <span 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedPreviewElement({ type: 'lyrics', label: 'Paroles' });
+                  }}
+                  className={`font-sans cursor-pointer transition-all rounded px-1 -mx-1 ${
+                    selectedPreviewElement?.type === 'lyrics'
+                      ? 'ring-2 ring-blue-500 bg-blue-500/15'
+                      : 'hover:ring-1 hover:ring-blue-400/50 hover:bg-blue-500/5'
+                  } ${effectivePreviewTheme === 'light' ? 'text-[#18181B]' : 'text-[#E0E0E0]'}`}
+                  style={{ fontSize: `${typography.lyricsSize}px` }}
+                  title="Cliquer pour modifier la taille et l'interligne des paroles"
+                >
+                  qui sauva un rebelle comme moi !
+                </span>
+              </div>
+            </div>
           </div>
 
-          <div className="inline-flex flex-col">
-            {stageSettings.showChords && (
-              <span 
-                className="font-mono font-bold leading-none mb-1"
-                style={{ fontSize: `${typography.chordSize}px`, color: chordColor }}
-              >
-                {transposeChord('C', 0, stageSettings.notation)}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{transposeChord('G', 0, stageSettings.notation)}
-              </span>
-            )}
-            <span 
-              className={`font-sans ${effectivePreviewTheme === 'light' ? 'text-[#18181B]' : 'text-[#E0E0E0]'}`}
-              style={{ fontSize: `${typography.lyricsSize}px` }}
-            >
-              qui sauva un rebelle comme moi !
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Section 2: Refrain */}
-      <div 
-        className={`rounded-lg ${previewPadding} transition-all`}
-        style={getSectionBorderStyles(sectionColors.chorus, sectionBorders)}
-      >
-        <div className={`${previewHeaderMb} flex items-center justify-between gap-2 flex-wrap`}>
-          <span 
-            className="inline-block font-bold uppercase tracking-wider px-2 py-0.5 rounded border shadow-sm"
-            style={{
-              fontSize: `${typography.headerSize}px`,
-              color: sectionColors.chorus,
-              borderColor: `${sectionColors.chorus}50`,
-              backgroundColor: `${sectionColors.chorus}1C`
+          {/* Section 2: Refrain */}
+          <div 
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setSelectedPreviewElement({
+                  type: 'sectionCard',
+                  sectionType: 'chorus',
+                  label: 'Cadre & Espacement : Refrain'
+                });
+              }
             }}
+            className={`rounded-lg ${previewPadding} transition-all cursor-pointer ${
+              selectedPreviewElement?.type === 'sectionCard' && selectedPreviewElement.sectionType === 'chorus'
+                ? 'ring-2 ring-blue-500 bg-blue-500/5'
+                : ''
+            }`}
+            style={getSectionBorderStyles(sectionColors.chorus, sectionBorders)}
+            title="Cliquer pour modifier l'espacement et les bordures de cette section"
           >
-            Refrain
-          </span>
-
-          <QuickSectionColorPicker
-            currentColor={sectionColors.chorus}
-            onChange={(color) => updateSectionColor('chorus', color)}
-          />
-        </div>
-
-        <div className="space-y-1 font-mono">
-          <div className="inline-flex flex-col mr-2">
-            {stageSettings.showChords && (
+            <div className={`${previewHeaderMb} flex items-center justify-between gap-2 flex-wrap`}>
               <span 
-                className="font-mono font-bold leading-none mb-1"
-                style={{ fontSize: `${typography.chordSize}px`, color: chordColor }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedPreviewElement({
+                    type: 'sectionHeader',
+                    sectionType: 'chorus',
+                    label: 'Badge : Refrain'
+                  });
+                }}
+                className={`inline-block font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border shadow-xs select-none cursor-pointer transition-all ${
+                  selectedPreviewElement?.type === 'sectionHeader' && selectedPreviewElement.sectionType === 'chorus'
+                    ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-[#0E0E10]'
+                    : 'hover:scale-105 hover:ring-1 hover:ring-blue-400/60'
+                }`}
+                style={{
+                  fontSize: `${typography.headerSize}px`,
+                  color: sectionColors.chorus,
+                  borderColor: `${sectionColors.chorus}50`,
+                  backgroundColor: `${sectionColors.chorus}1C`
+                }}
+                title="Cliquer pour modifier la taille et la couleur du badge Refrain"
               >
-                {transposeChord('Em', 0, stageSettings.notation)}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{transposeChord('D', 0, stageSettings.notation)}
+                Refrain
               </span>
-            )}
-            <span 
-              className={`font-sans ${effectivePreviewTheme === 'light' ? 'text-[#18181B]' : 'text-[#E0E0E0]'}`}
-              style={{ fontSize: `${typography.lyricsSize}px` }}
-            >
-              J'étais perdu mais je suis retrouvé,
-            </span>
+            </div>
+
+            <div className="space-y-1 font-mono">
+              <div className="inline-flex flex-col mr-2">
+                {stageSettings.showChords && (
+                  <span 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedPreviewElement({ type: 'chord', label: 'Accords' });
+                    }}
+                    className={`font-mono font-bold leading-none mb-1 cursor-pointer transition-all rounded px-1 -mx-1 select-none ${
+                      selectedPreviewElement?.type === 'chord'
+                        ? 'ring-2 ring-blue-500 bg-blue-500/20'
+                        : 'hover:ring-1 hover:ring-blue-400/60 hover:bg-blue-500/10'
+                    }`}
+                    style={{ fontSize: `${typography.chordSize}px`, color: chordColor }}
+                    title="Cliquer pour modifier la taille et la couleur des accords"
+                  >
+                    {transposeChord('Em', 0, stageSettings.notation)}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{transposeChord('D', 0, stageSettings.notation)}
+                  </span>
+                )}
+                <span 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedPreviewElement({ type: 'lyrics', label: 'Paroles' });
+                  }}
+                  className={`font-sans cursor-pointer transition-all rounded px-1 -mx-1 ${
+                    selectedPreviewElement?.type === 'lyrics'
+                      ? 'ring-2 ring-blue-500 bg-blue-500/15'
+                      : 'hover:ring-1 hover:ring-blue-400/50 hover:bg-blue-500/5'
+                  } ${effectivePreviewTheme === 'light' ? 'text-[#18181B]' : 'text-[#E0E0E0]'}`}
+                  style={{ fontSize: `${typography.lyricsSize}px` }}
+                  title="Cliquer pour modifier la taille et l'interligne des paroles"
+                >
+                  J'étais perdu mais je suis retrouvé,
+                </span>
+              </div>
+
+              <div className="inline-flex flex-col">
+                {stageSettings.showChords && (
+                  <span 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedPreviewElement({ type: 'chord', label: 'Accords' });
+                    }}
+                    className={`font-mono font-bold leading-none mb-1 cursor-pointer transition-all rounded px-1 -mx-1 select-none ${
+                      selectedPreviewElement?.type === 'chord'
+                        ? 'ring-2 ring-blue-500 bg-blue-500/20'
+                        : 'hover:ring-1 hover:ring-blue-400/60 hover:bg-blue-500/10'
+                    }`}
+                    style={{ fontSize: `${typography.chordSize}px`, color: chordColor }}
+                    title="Cliquer pour modifier la taille et la couleur des accords"
+                  >
+                    {transposeChord('G', 0, stageSettings.notation)}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{transposeChord('D7', 0, stageSettings.notation)}&nbsp;&nbsp;&nbsp;{transposeChord('G', 0, stageSettings.notation)}
+                  </span>
+                )}
+                <span 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedPreviewElement({ type: 'lyrics', label: 'Paroles' });
+                  }}
+                  className={`font-sans cursor-pointer transition-all rounded px-1 -mx-1 ${
+                    selectedPreviewElement?.type === 'lyrics'
+                      ? 'ring-2 ring-blue-500 bg-blue-500/15'
+                      : 'hover:ring-1 hover:ring-blue-400/50 hover:bg-blue-500/5'
+                  } ${effectivePreviewTheme === 'light' ? 'text-[#18181B]' : 'text-[#E0E0E0]'}`}
+                  style={{ fontSize: `${typography.lyricsSize}px` }}
+                  title="Cliquer pour modifier la taille et l'interligne des paroles"
+                >
+                  Aveugle et maintenant je vois.
+                </span>
+              </div>
+            </div>
           </div>
 
-          <div className="inline-flex flex-col">
-            {stageSettings.showChords && (
-              <span 
-                className="font-mono font-bold leading-none mb-1"
-                style={{ fontSize: `${typography.chordSize}px`, color: chordColor }}
-              >
-                {transposeChord('G', 0, stageSettings.notation)}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{transposeChord('D7', 0, stageSettings.notation)}&nbsp;&nbsp;&nbsp;{transposeChord('G', 0, stageSettings.notation)}
-              </span>
-            )}
-            <span 
-              className={`font-sans ${effectivePreviewTheme === 'light' ? 'text-[#18181B]' : 'text-[#E0E0E0]'}`}
-              style={{ fontSize: `${typography.lyricsSize}px` }}
-            >
-              Aveugle et maintenant je vois.
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Section 3: Pont */}
-      <div 
-        className={`rounded-lg ${previewPadding} transition-all`}
-        style={getSectionBorderStyles(sectionColors.bridge, sectionBorders)}
-      >
-        <div className={`${previewHeaderMb} flex items-center justify-between gap-2 flex-wrap`}>
-          <span 
-            className="inline-block font-bold uppercase tracking-wider px-2 py-0.5 rounded border shadow-sm"
-            style={{
-              fontSize: `${typography.headerSize}px`,
-              color: sectionColors.bridge,
-              borderColor: `${sectionColors.bridge}50`,
-              backgroundColor: `${sectionColors.bridge}1C`
+          {/* Section 3: Pont */}
+          <div 
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setSelectedPreviewElement({
+                  type: 'sectionCard',
+                  sectionType: 'bridge',
+                  label: 'Cadre & Espacement : Pont'
+                });
+              }
             }}
+            className={`rounded-lg ${previewPadding} transition-all cursor-pointer ${
+              selectedPreviewElement?.type === 'sectionCard' && selectedPreviewElement.sectionType === 'bridge'
+                ? 'ring-2 ring-blue-500 bg-blue-500/5'
+                : ''
+            }`}
+            style={getSectionBorderStyles(sectionColors.bridge, sectionBorders)}
+            title="Cliquer pour modifier l'espacement et les bordures de cette section"
           >
-            Pont
-          </span>
-
-          <QuickSectionColorPicker
-            currentColor={sectionColors.bridge}
-            onChange={(color) => updateSectionColor('bridge', color)}
-          />
-        </div>
-
-        <div className="space-y-1 font-mono">
-          <div className="inline-flex flex-col">
-            {stageSettings.showChords && (
+            <div className={`${previewHeaderMb} flex items-center justify-between gap-2 flex-wrap`}>
               <span 
-                className="font-mono font-bold leading-none mb-1"
-                style={{ fontSize: `${typography.chordSize}px`, color: chordColor }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedPreviewElement({
+                    type: 'sectionHeader',
+                    sectionType: 'bridge',
+                    label: 'Badge : Pont'
+                  });
+                }}
+                className={`inline-block font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border shadow-xs select-none cursor-pointer transition-all ${
+                  selectedPreviewElement?.type === 'sectionHeader' && selectedPreviewElement.sectionType === 'bridge'
+                    ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-[#0E0E10]'
+                    : 'hover:scale-105 hover:ring-1 hover:ring-blue-400/60'
+                }`}
+                style={{
+                  fontSize: `${typography.headerSize}px`,
+                  color: sectionColors.bridge,
+                  borderColor: `${sectionColors.bridge}50`,
+                  backgroundColor: `${sectionColors.bridge}1C`
+                }}
+                title="Cliquer pour modifier la taille et la couleur du badge Pont"
               >
-                {transposeChord('C', 0, stageSettings.notation)}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{transposeChord('G/B', 0, stageSettings.notation)}
+                Pont
               </span>
-            )}
-            <span 
-              className={`font-sans ${effectivePreviewTheme === 'light' ? 'text-[#18181B]' : 'text-[#E0E0E0]'}`}
-              style={{ fontSize: `${typography.lyricsSize}px` }}
-            >
-              Quand nous serons là-haut depuis dix mille ans,
-            </span>
-          </div>
-        </div>
-      </div>
+            </div>
 
-      {/* Section 4: Outro */}
-      <div 
-        className={`rounded-lg ${previewPadding} transition-all`}
-        style={getSectionBorderStyles(sectionColors.outro, sectionBorders)}
-      >
-        <div className={`${previewHeaderMb} flex items-center justify-between gap-2 flex-wrap`}>
-          <span 
-            className="inline-block font-bold uppercase tracking-wider px-2 py-0.5 rounded border shadow-sm"
-            style={{
-              fontSize: `${typography.headerSize}px`,
-              color: sectionColors.outro,
-              borderColor: `${sectionColors.outro}50`,
-              backgroundColor: `${sectionColors.outro}1C`
+            <div className="space-y-1 font-mono">
+              <div className="inline-flex flex-col">
+                {stageSettings.showChords && (
+                  <span 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedPreviewElement({ type: 'chord', label: 'Accords' });
+                    }}
+                    className={`font-mono font-bold leading-none mb-1 cursor-pointer transition-all rounded px-1 -mx-1 select-none ${
+                      selectedPreviewElement?.type === 'chord'
+                        ? 'ring-2 ring-blue-500 bg-blue-500/20'
+                        : 'hover:ring-1 hover:ring-blue-400/60 hover:bg-blue-500/10'
+                    }`}
+                    style={{ fontSize: `${typography.chordSize}px`, color: chordColor }}
+                    title="Cliquer pour modifier la taille et la couleur des accords"
+                  >
+                    {transposeChord('C', 0, stageSettings.notation)}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{transposeChord('G/B', 0, stageSettings.notation)}
+                  </span>
+                )}
+                <span 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedPreviewElement({ type: 'lyrics', label: 'Paroles' });
+                  }}
+                  className={`font-sans cursor-pointer transition-all rounded px-1 -mx-1 ${
+                    selectedPreviewElement?.type === 'lyrics'
+                      ? 'ring-2 ring-blue-500 bg-blue-500/15'
+                      : 'hover:ring-1 hover:ring-blue-400/50 hover:bg-blue-500/5'
+                  } ${effectivePreviewTheme === 'light' ? 'text-[#18181B]' : 'text-[#E0E0E0]'}`}
+                  style={{ fontSize: `${typography.lyricsSize}px` }}
+                  title="Cliquer pour modifier la taille et l'interligne des paroles"
+                >
+                  Quand nous serons là-haut depuis dix mille ans,
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Section 4: Outro */}
+          <div 
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setSelectedPreviewElement({
+                  type: 'sectionCard',
+                  sectionType: 'outro',
+                  label: 'Cadre & Espacement : Outro'
+                });
+              }
             }}
+            className={`rounded-lg ${previewPadding} transition-all cursor-pointer ${
+              selectedPreviewElement?.type === 'sectionCard' && selectedPreviewElement.sectionType === 'outro'
+                ? 'ring-2 ring-blue-500 bg-blue-500/5'
+                : ''
+            }`}
+            style={getSectionBorderStyles(sectionColors.outro, sectionBorders)}
+            title="Cliquer pour modifier l'espacement et les bordures de cette section"
           >
-            Outro
-          </span>
-
-          <QuickSectionColorPicker
-            currentColor={sectionColors.outro}
-            onChange={(color) => updateSectionColor('outro', color)}
-          />
-        </div>
-
-        <div className="space-y-1 font-mono">
-          <div className="inline-flex flex-col">
-            {stageSettings.showChords && (
+            <div className={`${previewHeaderMb} flex items-center justify-between gap-2 flex-wrap`}>
               <span 
-                className="font-mono font-bold leading-none mb-1"
-                style={{ fontSize: `${typography.chordSize}px`, color: chordColor }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedPreviewElement({
+                    type: 'sectionHeader',
+                    sectionType: 'outro',
+                    label: 'Badge : Outro'
+                  });
+                }}
+                className={`inline-block font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border shadow-xs select-none cursor-pointer transition-all ${
+                  selectedPreviewElement?.type === 'sectionHeader' && selectedPreviewElement.sectionType === 'outro'
+                    ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-[#0E0E10]'
+                    : 'hover:scale-105 hover:ring-1 hover:ring-blue-400/60'
+                }`}
+                style={{
+                  fontSize: `${typography.headerSize}px`,
+                  color: sectionColors.outro,
+                  borderColor: `${sectionColors.outro}50`,
+                  backgroundColor: `${sectionColors.outro}1C`
+                }}
+                title="Cliquer pour modifier la taille et la couleur du badge Outro"
               >
-                {transposeChord('C', 0, stageSettings.notation)}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{transposeChord('G', 0, stageSettings.notation)}
+                Outro
               </span>
-            )}
-            <span 
-              className={`font-sans ${effectivePreviewTheme === 'light' ? 'text-[#18181B]' : 'text-[#E0E0E0]'}`}
-              style={{ fontSize: `${typography.lyricsSize}px` }}
-            >
-              À Dieu soit toute la gloire.
-            </span>
+            </div>
+
+            <div className="space-y-1 font-mono">
+              <div className="inline-flex flex-col">
+                {stageSettings.showChords && (
+                  <span 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedPreviewElement({ type: 'chord', label: 'Accords' });
+                    }}
+                    className={`font-mono font-bold leading-none mb-1 cursor-pointer transition-all rounded px-1 -mx-1 select-none ${
+                      selectedPreviewElement?.type === 'chord'
+                        ? 'ring-2 ring-blue-500 bg-blue-500/20'
+                        : 'hover:ring-1 hover:ring-blue-400/60 hover:bg-blue-500/10'
+                    }`}
+                    style={{ fontSize: `${typography.chordSize}px`, color: chordColor }}
+                    title="Cliquer pour modifier la taille et la couleur des accords"
+                  >
+                    {transposeChord('C', 0, stageSettings.notation)}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{transposeChord('G', 0, stageSettings.notation)}
+                  </span>
+                )}
+                <span 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedPreviewElement({ type: 'lyrics', label: 'Paroles' });
+                  }}
+                  className={`font-sans cursor-pointer transition-all rounded px-1 -mx-1 ${
+                    selectedPreviewElement?.type === 'lyrics'
+                      ? 'ring-2 ring-blue-500 bg-blue-500/15'
+                      : 'hover:ring-1 hover:ring-blue-400/50 hover:bg-blue-500/5'
+                  } ${effectivePreviewTheme === 'light' ? 'text-[#18181B]' : 'text-[#E0E0E0]'}`}
+                  style={{ fontSize: `${typography.lyricsSize}px` }}
+                  title="Cliquer pour modifier la taille et l'interligne des paroles"
+                >
+                  À Dieu soit toute la gloire.
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
-      </div>
-        );
-      })()}
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="h-[calc(100vh-64px)] flex flex-col bg-[#0A0A0B] text-white overflow-hidden">
@@ -903,8 +1276,12 @@ export const SettingsView: React.FC = () => {
               <span className="text-xs font-bold text-white uppercase tracking-wider">
                 Aperçu en Direct
               </span>
+              <span className="hidden sm:inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-500/15 text-blue-300 border border-blue-500/30">
+                <MousePointerClick className="w-3 h-3 text-blue-400" />
+                Point-n-Click
+              </span>
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
               {/* Fullscreen Preview button */}
               <button
                 id="btn-preview-fullscreen"
@@ -913,29 +1290,31 @@ export const SettingsView: React.FC = () => {
                   setIsMobilePreviewFullscreen(true);
                   setIsMobilePreviewCollapsed(false);
                 }}
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-bold border transition-all bg-[#1E1E22] hover:bg-blue-600/20 text-blue-400 border-blue-500/30 active:scale-95 shadow-xs"
-                title="Afficher l'aperçu en plein écran"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border-blue-500/40 active:scale-95 shadow-sm cursor-pointer"
+                title="Afficher l'aperçu interactif en plein écran"
               >
                 <Maximize2 className="w-3.5 h-3.5" />
                 <span>Plein écran</span>
               </button>
 
               <button
+                type="button"
                 onClick={() => updateStageSettings({ showChords: !stageSettings.showChords })}
-                className={`px-2.5 py-1 rounded text-[11px] font-bold border transition-colors ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
                   stageSettings.showChords
-                    ? 'bg-blue-600/20 text-blue-400 border-blue-500/30'
-                    : 'bg-[#222] text-gray-400 border-[#333]'
+                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30'
+                    : 'bg-[#222228] text-gray-400 border-[#383842] hover:text-white'
                 }`}
                 title="Afficher ou masquer les accords dans l'aperçu"
               >
-                {stageSettings.showChords ? 'Accords On' : 'Accords Off'}
+                {stageSettings.showChords ? 'Accords : Oui' : 'Accords : Non'}
               </button>
 
               {/* Collapse / expand toggle */}
               <button
+                type="button"
                 onClick={() => setIsMobilePreviewCollapsed(!isMobilePreviewCollapsed)}
-                className="p-1 rounded bg-[#222226] text-gray-300 hover:text-white border border-[#333]"
+                className="p-1.5 rounded-lg bg-[#222226] hover:bg-[#2E2E34] text-gray-300 hover:text-white border border-[#383842] transition-colors cursor-pointer"
                 title={isMobilePreviewCollapsed ? "Déplier l'aperçu" : "Replier l'aperçu"}
               >
                 {isMobilePreviewCollapsed ? (
@@ -950,7 +1329,12 @@ export const SettingsView: React.FC = () => {
           {/* Song Preview Content Box */}
           {!isMobilePreviewCollapsed && (
             <div 
-              className={`p-4 overflow-y-auto max-h-[34vh] sm:max-h-[38vh] lg:max-h-[calc(100vh-190px)] lg:flex-1 space-y-4 transition-colors ${
+              onClick={(e) => {
+                if (e.target === e.currentTarget) {
+                  setSelectedPreviewElement(null);
+                }
+              }}
+              className={`p-4 overflow-y-auto max-h-[34vh] sm:max-h-[38vh] lg:max-h-[calc(100vh-190px)] lg:flex-1 space-y-4 transition-colors relative ${
                 effectivePreviewTheme === 'light' ? 'bg-[#FFFFFF] text-[#18181B]' : 'bg-[#0E0E10] text-gray-100'
               }`}
               style={{ lineHeight: typography.lineSpacing }}
@@ -1349,696 +1733,194 @@ export const SettingsView: React.FC = () => {
             </div>
           </div>
 
-          {/* 3. TYPOGRAPHY / FONT SIZES SECTION */}
-          <div className="bg-[#111112] border border-[#222224] rounded-xl overflow-hidden shadow-sm transition-colors hover:border-[#303036]">
-            {/* Header / Trigger */}
-            <div 
-              onClick={() => toggleCategory('typography')}
-              className="w-full text-left p-3.5 sm:p-4.5 flex items-center justify-between gap-3 cursor-pointer transition-colors hover:bg-[#151518]/50 select-none"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 shrink-0">
-                  <Type className="w-4 h-4" />
-                </div>
-                <h2 className="text-sm font-bold text-white truncate">
-                  Tailles de Police & Espacements
-                </h2>
-              </div>
-
-              <div className="flex items-center gap-2 shrink-0">
-                <div className={`p-1.5 rounded-lg bg-[#18181C] border border-[#2B2B30] text-gray-400 transition-transform duration-200 ${openCategories.typography ? 'rotate-180 text-purple-400 border-purple-500/30' : ''}`}>
-                  <ChevronDown className="w-4 h-4" />
-                </div>
-              </div>
-            </div>
-
-            {/* Content (Collapsible on all devices) */}
-            <div className={`p-4 sm:p-5 pt-0 sm:pt-0 ${openCategories.typography ? 'block' : 'hidden'}`}>
-              <div className="border-t border-[#222224] mb-4" />
-
-              {/* Préréglages rapides de taille de police (Presets) */}
-              <div className="mb-4 p-3.5 rounded-xl bg-[#16161A] border border-[#2A2A30]">
-                <div className="flex items-center justify-between mb-2.5">
-                  <div className="flex items-center gap-2">
-                    <span className="w-5 h-5 rounded bg-purple-500/20 border border-purple-500/40 text-purple-300 text-[10px] font-bold flex items-center justify-center shrink-0">
-                      <Type className="w-3 h-3 text-purple-400" />
-                    </span>
-                    <span className="text-xs font-bold text-gray-200">Préréglages rapides de taille</span>
-                  </div>
-                  <span className="text-[11px] text-gray-400 hidden sm:inline">Basculement global en 1 clic</span>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {[
-                    {
-                      id: 'small',
-                      name: 'Petit',
-                      badge: '85%',
-                      desc: 'Compact (paroles 15px)',
-                      lyricsSize: 15,
-                      chordSize: 14,
-                      headerSize: 10,
-                      titleSize: 22,
-                      metadataSize: 11,
-                    },
-                    {
-                      id: 'standard',
-                      name: 'Standard',
-                      badge: '100%',
-                      desc: 'Équilibré (paroles 18px)',
-                      lyricsSize: 18,
-                      chordSize: 16,
-                      headerSize: 12,
-                      titleSize: 26,
-                      metadataSize: 12,
-                    },
-                    {
-                      id: 'large',
-                      name: 'Grand',
-                      badge: '120%',
-                      desc: 'Lisible (paroles 22px)',
-                      lyricsSize: 22,
-                      chordSize: 19,
-                      headerSize: 14,
-                      titleSize: 31,
-                      metadataSize: 13,
-                    },
-                    {
-                      id: 'xlarge',
-                      name: 'Très grand',
-                      badge: '140%',
-                      desc: 'Scène (paroles 25px)',
-                      lyricsSize: 25,
-                      chordSize: 22,
-                      headerSize: 17,
-                      titleSize: 36,
-                      metadataSize: 14,
-                    },
-                  ].map((preset) => {
-                    const isSelected = typography.lyricsSize === preset.lyricsSize && typography.chordSize === preset.chordSize;
-                    return (
-                      <button
-                        key={preset.id}
-                        type="button"
-                        onClick={() => {
-                          updateDisplaySettings({
-                            typography: {
-                              lyricsSize: preset.lyricsSize,
-                              chordSize: preset.chordSize,
-                              headerSize: preset.headerSize,
-                              titleSize: preset.titleSize,
-                              metadataSize: preset.metadataSize,
-                            }
-                          });
-                          notify(`Taille ${preset.name} appliquée`);
-                        }}
-                        className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer flex flex-col justify-between ${
-                          isSelected
-                            ? 'bg-purple-600/20 border-purple-500 text-white ring-1 ring-purple-500/30 shadow-xs'
-                            : 'bg-[#1C1C20] hover:bg-[#232328] border-[#2A2A32] text-gray-300 hover:text-white'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-1 mb-1">
-                          <span className="text-xs font-bold">{preset.name}</span>
-                          <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${isSelected ? 'bg-purple-500/30 text-purple-200' : 'bg-[#282830] text-gray-400'}`}>
-                            {preset.badge}
-                          </span>
-                        </div>
-                        <span className="text-[10px] text-gray-400 line-clamp-1">{preset.desc}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-              
-                {/* Title Size */}
-                <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex items-center justify-between gap-2.5">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="w-5 h-5 rounded bg-purple-500/20 border border-purple-500/40 text-purple-300 text-[10px] font-bold flex items-center justify-center shrink-0">
-                      <Heading1 className="w-3 h-3 text-purple-400" />
-                    </span>
-                    <span className="text-xs font-bold text-gray-200 truncate" title="Titre de la Chanson">Titre de la Chanson</span>
-                  </div>
-                  <NumberSelector
-                    value={typography.titleSize}
-                    min={16}
-                    max={48}
-                    step={1}
-                    onChange={(val) => updateTypography('titleSize', val)}
-                  />
-                </div>
-
-                {/* Metadata Size */}
-                <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex items-center justify-between gap-2.5">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="w-5 h-5 rounded bg-blue-500/20 border border-blue-500/40 text-blue-300 text-[10px] font-bold flex items-center justify-center shrink-0">
-                      <FileText className="w-3 h-3 text-blue-400" />
-                    </span>
-                    <span className="text-xs font-bold text-gray-200 truncate" title="Méta-données">Méta-données</span>
-                  </div>
-                  <NumberSelector
-                    value={typography.metadataSize}
-                    min={10}
-                    max={20}
-                    step={1}
-                    onChange={(val) => updateTypography('metadataSize', val)}
-                  />
-                </div>
-
-                {/* Section Headers Size */}
-                <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex items-center justify-between gap-2.5">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="w-5 h-5 rounded bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[10px] font-bold flex items-center justify-center shrink-0">
-                      <Bookmark className="w-3 h-3 text-emerald-400" />
-                    </span>
-                    <span className="text-xs font-bold text-gray-200 truncate" title="En-têtes de Sections">En-têtes de Sections</span>
-                  </div>
-                  <NumberSelector
-                    value={typography.headerSize}
-                    min={10}
-                    max={24}
-                    step={1}
-                    onChange={(val) => updateTypography('headerSize', val)}
-                  />
-                </div>
-
-                {/* Lyrics Size */}
-                <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex items-center justify-between gap-2.5">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="w-5 h-5 rounded bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[10px] font-bold flex items-center justify-center shrink-0">
-                      <AlignLeft className="w-3 h-3 text-amber-400" />
-                    </span>
-                    <span className="text-xs font-bold text-gray-200 truncate" title="Paroles">Paroles</span>
-                  </div>
-                  <NumberSelector
-                    value={typography.lyricsSize}
-                    min={12}
-                    max={36}
-                    step={1}
-                    onChange={(val) => updateTypography('lyricsSize', val)}
-                  />
-                </div>
-
-                {/* Chord Size & Color */}
-                <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex items-center justify-between gap-2.5">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="w-5 h-5 rounded bg-pink-500/20 border border-pink-500/40 text-pink-300 text-[10px] font-bold flex items-center justify-center shrink-0">
-                      <Music className="w-3 h-3 text-pink-400" />
-                    </span>
-                    <span className="text-xs font-bold text-gray-200 truncate">Accords</span>
-                    <label 
-                      className="w-3.5 h-3.5 rounded-full border border-white/30 cursor-pointer transition-transform hover:scale-110 shrink-0 shadow-xs block"
-                      style={{ backgroundColor: chordColor }}
-                      title="Couleur des accords (cliquer pour changer)"
-                    >
-                      <input
-                        type="color"
-                        value={chordColor}
-                        onChange={(e) => updateChordColor(e.target.value)}
-                        className="sr-only"
-                      />
-                    </label>
-                  </div>
-                  <NumberSelector
-                    value={typography.chordSize}
-                    min={11}
-                    max={32}
-                    step={1}
-                    onChange={(val) => updateTypography('chordSize', val)}
-                  />
-                </div>
-
-                {/* Line Height / Spacing */}
-                <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex items-center justify-between gap-2.5">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="w-5 h-5 rounded bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 text-[10px] font-bold flex items-center justify-center shrink-0">
-                      <MoveVertical className="w-3 h-3 text-cyan-400" />
-                    </span>
-                    <span className="text-xs font-bold text-gray-200 truncate" title="Interligne des Paroles">Interligne Paroles</span>
-                  </div>
-                  <NumberSelector
-                    value={typography.lineSpacing}
-                    min={1.1}
-                    max={2.2}
-                    step={0.1}
-                    onChange={(val) => updateTypography('lineSpacing', val)}
-                  />
-                </div>
-
-                {/* Section Spacing (Écart entre les sections) */}
-                <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 sm:col-span-2 xl:col-span-3">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="w-5 h-5 rounded bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 text-[10px] font-bold flex items-center justify-center shrink-0">
-                      <Layers className="w-3 h-3 text-cyan-400" />
-                    </span>
-                    <div className="min-w-0">
-                      <span className="text-xs font-bold text-gray-200 block truncate" title="Écart entre les Sections">
-                        Écart entre les Sections
-                      </span>
-                      <span className="text-[10px] text-gray-400 block">
-                        Rapproche ou éloigne les couplets, refrains et ponts
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end shrink-0">
-                    {/* Préréglages rapides */}
-                    <div className="inline-flex items-center bg-[#141416] p-0.5 rounded-md border border-[#2A2A30]">
-                      {[
-                        { label: 'Collé', val: 0 },
-                        { label: 'Serré', val: 4 },
-                        { label: 'Normal', val: 8 },
-                        { label: 'Aéré', val: 16 }
-                      ].map((item) => (
-                        <button
-                          key={item.label}
-                          type="button"
-                          onClick={() => {
-                            updateTypography('sectionSpacing', item.val);
-                            notify(`Écart des sections : ${item.label} (${item.val}px)`);
-                          }}
-                          className={`px-2 py-0.5 rounded text-[10px] font-medium transition-all cursor-pointer ${
-                            (typography.sectionSpacing !== undefined ? typography.sectionSpacing : 4) === item.val
-                              ? 'bg-cyan-600 text-white font-semibold shadow-xs'
-                              : 'text-gray-400 hover:text-white'
-                          }`}
-                        >
-                          {item.label}
-                        </button>
-                      ))}
-                    </div>
-
-                    <NumberSelector
-                      value={typography.sectionSpacing !== undefined ? typography.sectionSpacing : 4}
-                      min={0}
-                      max={32}
-                      step={1}
-                      onChange={(val) => updateTypography('sectionSpacing', val)}
-                    />
-                  </div>
-                </div>
-
-              </div>
-            </div>
-          </div>
-
-          {/* 4. SECTION BORDERS SECTION */}
-          <div className="bg-[#111112] border border-[#222224] rounded-xl overflow-hidden shadow-sm transition-colors hover:border-[#303036]">
-            {/* Header / Trigger */}
-            <div 
-              onClick={() => toggleCategory('borders')}
-              className="w-full text-left p-3.5 sm:p-4.5 flex items-center justify-between gap-3 cursor-pointer transition-colors hover:bg-[#151518]/50 select-none"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 shrink-0">
-                  <Square className="w-4 h-4" />
-                </div>
-                <h2 className="text-sm font-bold text-white truncate">
-                  Bordures des Sections
-                </h2>
-              </div>
-
-              <div className="flex items-center gap-2 shrink-0">
-                <div className={`p-1.5 rounded-lg bg-[#18181C] border border-[#2B2B30] text-gray-400 transition-transform duration-200 ${openCategories.borders ? 'rotate-180 text-blue-400 border-blue-500/30' : ''}`}>
-                  <ChevronDown className="w-4 h-4" />
-                </div>
-              </div>
-            </div>
-
-            {/* Content (Collapsible on all devices) */}
-            <div className={`p-4 sm:p-5 pt-0 sm:pt-0 ${openCategories.borders ? 'block' : 'hidden'}`}>
-              <div className="border-t border-[#222224] mb-4" />
-
-            <div className="space-y-4">
-              {/* Multi-selection toggle buttons */}
-              <div>
-                <div className="text-xs font-semibold text-gray-300 mb-2">
-                  Côtés actifs :
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                  {/* Gauche */}
-                  <button
-                    type="button"
-                    onClick={() => toggleSectionBorder('left')}
-                    className={`flex items-center justify-between px-3.5 py-2.5 rounded-lg border text-xs font-medium transition-all cursor-pointer ${
-                      sectionBorders.left
-                        ? 'bg-blue-500/15 border-blue-500/60 text-blue-300 shadow-xs font-semibold'
-                        : 'bg-[#18181A] border-[#262629] text-gray-400 hover:text-gray-200 hover:border-[#3A3A3E]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="w-3.5 h-3.5 rounded-xs border border-gray-500 relative flex items-center">
-                        <span className={`absolute left-0 top-0 bottom-0 w-1 rounded-l-xs ${sectionBorders.left ? 'bg-blue-400' : 'bg-transparent'}`} />
-                      </span>
-                      <span>Gauche</span>
-                    </div>
-                    {sectionBorders.left && <Check className="w-3.5 h-3.5 text-blue-400" />}
-                  </button>
-
-                  {/* Droite */}
-                  <button
-                    type="button"
-                    onClick={() => toggleSectionBorder('right')}
-                    className={`flex items-center justify-between px-3.5 py-2.5 rounded-lg border text-xs font-medium transition-all cursor-pointer ${
-                      sectionBorders.right
-                        ? 'bg-blue-500/15 border-blue-500/60 text-blue-300 shadow-xs font-semibold'
-                        : 'bg-[#18181A] border-[#262629] text-gray-400 hover:text-gray-200 hover:border-[#3A3A3E]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="w-3.5 h-3.5 rounded-xs border border-gray-500 relative flex items-center">
-                        <span className={`absolute right-0 top-0 bottom-0 w-1 rounded-r-xs ${sectionBorders.right ? 'bg-blue-400' : 'bg-transparent'}`} />
-                      </span>
-                      <span>Droite</span>
-                    </div>
-                    {sectionBorders.right && <Check className="w-3.5 h-3.5 text-blue-400" />}
-                  </button>
-
-                  {/* Haut */}
-                  <button
-                    type="button"
-                    onClick={() => toggleSectionBorder('top')}
-                    className={`flex items-center justify-between px-3.5 py-2.5 rounded-lg border text-xs font-medium transition-all cursor-pointer ${
-                      sectionBorders.top
-                        ? 'bg-blue-500/15 border-blue-500/60 text-blue-300 shadow-xs font-semibold'
-                        : 'bg-[#18181A] border-[#262629] text-gray-400 hover:text-gray-200 hover:border-[#3A3A3E]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="w-3.5 h-3.5 rounded-xs border border-gray-500 relative flex items-center">
-                        <span className={`absolute top-0 left-0 right-0 h-1 rounded-t-xs ${sectionBorders.top ? 'bg-blue-400' : 'bg-transparent'}`} />
-                      </span>
-                      <span>Haut</span>
-                    </div>
-                    {sectionBorders.top && <Check className="w-3.5 h-3.5 text-blue-400" />}
-                  </button>
-
-                  {/* Bas */}
-                  <button
-                    type="button"
-                    onClick={() => toggleSectionBorder('bottom')}
-                    className={`flex items-center justify-between px-3.5 py-2.5 rounded-lg border text-xs font-medium transition-all cursor-pointer ${
-                      sectionBorders.bottom
-                        ? 'bg-blue-500/15 border-blue-500/60 text-blue-300 shadow-xs font-semibold'
-                        : 'bg-[#18181A] border-[#262629] text-gray-400 hover:text-gray-200 hover:border-[#3A3A3E]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="w-3.5 h-3.5 rounded-xs border border-gray-500 relative flex items-center">
-                        <span className={`absolute bottom-0 left-0 right-0 h-1 rounded-b-xs ${sectionBorders.bottom ? 'bg-blue-400' : 'bg-transparent'}`} />
-                      </span>
-                      <span>Bas</span>
-                    </div>
-                    {sectionBorders.bottom && <Check className="w-3.5 h-3.5 text-blue-400" />}
-                  </button>
-                </div>
-              </div>
-
-              {/* Interactive Visual Box & Presets */}
-              <div className="flex flex-col sm:flex-row items-center gap-4 pt-3 border-t border-[#222224]">
-                {/* Visual interactive diagram where clicking edges toggles them */}
-                <div className="relative w-40 h-28 rounded-lg bg-[#18181A] border border-[#2B2B30] flex items-center justify-center p-3 select-none shrink-0">
-                  {/* Top edge button */}
-                  <button
-                    type="button"
-                    onClick={() => toggleSectionBorder('top')}
-                    title="Bordure du haut"
-                    className={`absolute top-1.5 left-5 right-5 h-2 rounded-full transition-all cursor-pointer ${
-                      sectionBorders.top ? 'bg-blue-500 ring-2 ring-blue-400/50 shadow-sm' : 'bg-gray-700/60 hover:bg-gray-600'
-                    }`}
-                  />
-                  {/* Bottom edge button */}
-                  <button
-                    type="button"
-                    onClick={() => toggleSectionBorder('bottom')}
-                    title="Bordure du bas"
-                    className={`absolute bottom-1.5 left-5 right-5 h-2 rounded-full transition-all cursor-pointer ${
-                      sectionBorders.bottom ? 'bg-blue-500 ring-2 ring-blue-400/50 shadow-sm' : 'bg-gray-700/60 hover:bg-gray-600'
-                    }`}
-                  />
-                  {/* Left edge button */}
-                  <button
-                    type="button"
-                    onClick={() => toggleSectionBorder('left')}
-                    title="Bordure gauche"
-                    className={`absolute left-1.5 top-5 bottom-5 w-2 rounded-full transition-all cursor-pointer ${
-                      sectionBorders.left ? 'bg-blue-500 ring-2 ring-blue-400/50 shadow-sm' : 'bg-gray-700/60 hover:bg-gray-600'
-                    }`}
-                  />
-                  {/* Right edge button */}
-                  <button
-                    type="button"
-                    onClick={() => toggleSectionBorder('right')}
-                    title="Bordure droite"
-                    className={`absolute right-1.5 top-5 bottom-5 w-2 rounded-full transition-all cursor-pointer ${
-                      sectionBorders.right ? 'bg-blue-500 ring-2 ring-blue-400/50 shadow-sm' : 'bg-gray-700/60 hover:bg-gray-600'
-                    }`}
-                  />
-                  <div className="text-center pointer-events-none">
-                    <span className="text-[10px] font-bold text-blue-400 block uppercase tracking-wider">Aperçu</span>
-                    <span className="text-[9px] text-gray-400">Cliquez un bord</span>
-                  </div>
-                </div>
-
-                {/* Presets */}
-                <div className="flex-1 w-full flex flex-col gap-2">
-                  <span className="text-[11px] font-semibold text-gray-400">Préréglages rapides :</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => applyBorderPreset({ left: true, right: false, top: false, bottom: false })}
-                      className={`px-2.5 py-1.5 rounded-md text-[11px] font-medium border transition-colors cursor-pointer ${
-                        sectionBorders.left && !sectionBorders.right && !sectionBorders.top && !sectionBorders.bottom
-                          ? 'bg-blue-500/20 text-blue-300 border-blue-500/50'
-                          : 'bg-[#18181A] hover:bg-[#222226] text-gray-300 border-[#2E2E32]'
-                      }`}
-                    >
-                      Gauche seule
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => applyBorderPreset({ left: true, right: true, top: true, bottom: true })}
-                      className={`px-2.5 py-1.5 rounded-md text-[11px] font-medium border transition-colors cursor-pointer ${
-                        sectionBorders.left && sectionBorders.right && sectionBorders.top && sectionBorders.bottom
-                          ? 'bg-blue-500/20 text-blue-300 border-blue-500/50'
-                          : 'bg-[#18181A] hover:bg-[#222226] text-gray-300 border-[#2E2E32]'
-                      }`}
-                    >
-                      Encadré complet
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => applyBorderPreset({ left: false, right: false, top: true, bottom: true })}
-                      className={`px-2.5 py-1.5 rounded-md text-[11px] font-medium border transition-colors cursor-pointer ${
-                        !sectionBorders.left && !sectionBorders.right && sectionBorders.top && sectionBorders.bottom
-                          ? 'bg-blue-500/20 text-blue-300 border-blue-500/50'
-                          : 'bg-[#18181A] hover:bg-[#222226] text-gray-300 border-[#2E2E32]'
-                      }`}
-                    >
-                      Haut et bas
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => applyBorderPreset({ left: false, right: false, top: false, bottom: false })}
-                      className={`px-2.5 py-1.5 rounded-md text-[11px] font-medium border transition-colors cursor-pointer ${
-                        !sectionBorders.left && !sectionBorders.right && !sectionBorders.top && !sectionBorders.bottom
-                          ? 'bg-blue-500/20 text-blue-300 border-blue-500/50'
-                          : 'bg-[#18181A] hover:bg-[#222226] text-gray-300 border-[#2E2E32]'
-                      }`}
-                    >
-                      Aucune bordure
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-            </div>
-          </div>
-
-          {/* 5. SECTION & CHORD COLORS SECTION */}
-          <div className={`bg-[#111112] border border-[#222224] rounded-xl shadow-sm transition-colors hover:border-[#303036] ${openCategories.colors ? 'overflow-visible' : 'overflow-hidden'}`}>
-            {/* Header / Trigger */}
-            <div 
-              onClick={() => toggleCategory('colors')}
-              className="w-full text-left p-3.5 sm:p-4.5 flex items-center justify-between gap-3 cursor-pointer transition-colors hover:bg-[#151518]/50 select-none"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
-                  <Palette className="w-4 h-4" />
+          {/* 3. PERSONNALISATION VISUELLE INTERACTIVE (POINT-N-CLICK) */}
+          <div className="rounded-2xl bg-gradient-to-b from-[#181820] to-[#121215] border border-blue-500/30 p-4 sm:p-6 shadow-xl shadow-black/40 space-y-4 sm:space-y-5 transition-all">
+            {/* Header with Title, Badge, Description & Primary Action Button */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-start sm:items-center gap-3.5 min-w-0 flex-1">
+                <div className="w-11 h-11 rounded-xl bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400 shrink-0 shadow-inner">
+                  <MousePointerClick className="w-5 h-5" />
                 </div>
                 <div>
-                  <h2 className="text-sm font-bold text-white truncate">
-                    Couleurs des Sections et Accords
-                  </h2>
-                  <p className="text-[11px] text-gray-400 hidden sm:block">
-                    Personnalisez les teintes des accords et des 9 sections musicales
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">
+                      Personnalisation Visuelle Interactive
+                    </h2>
+                    <span className="px-2 py-0.5 rounded-md text-[10px] sm:text-xs font-bold uppercase bg-blue-500/20 text-blue-300 border border-blue-500/40 shadow-xs">
+                      Point-n-Click
+                    </span>
+                  </div>
+                  <p className="text-xs sm:text-sm text-gray-300 mt-1 leading-relaxed">
+                    Cliquez sur un élément ci-dessous ou directement sur la partition dans l'aperçu pour ajuster ses polices, couleurs ou bordures en direct.
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 shrink-0">
-                <div className={`p-1.5 rounded-lg bg-[#18181C] border border-[#2B2B30] text-gray-400 transition-transform duration-200 ${openCategories.colors ? 'rotate-180 text-emerald-400 border-emerald-500/30' : ''}`}>
-                  <ChevronDown className="w-4 h-4" />
-                </div>
-              </div>
+              {/* Big, highly legible CTA button */}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMobilePreviewFullscreen(true);
+                  setIsMobilePreviewCollapsed(false);
+                }}
+                className="w-full md:w-auto px-5 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:from-blue-700 active:to-indigo-700 text-white font-bold text-sm sm:text-base flex items-center justify-center gap-2.5 transition-all active:scale-95 shadow-lg shadow-blue-950/60 hover:shadow-blue-600/40 border border-blue-400/40 cursor-pointer shrink-0"
+                title="Ouvrir l'aperçu interactif en plein écran"
+              >
+                <Maximize2 className="w-4 h-4 sm:w-5 sm:h-5 text-blue-200" />
+                <span>Ouvrir l'Aperçu Plein Écran</span>
+              </button>
             </div>
 
-            {/* Content (Collapsible on all devices) */}
-            <div className={`p-4 sm:p-5 pt-0 sm:pt-0 ${openCategories.colors ? 'block' : 'hidden'}`}>
-              <div className="border-t border-[#222224] mb-3.5" />
-
-              {/* Option Couleur des accords - Compact Bar */}
-              <div className="relative p-3 rounded-xl bg-[#16161A] border border-blue-500/30 mb-3.5 shadow-sm flex items-center justify-between gap-3 flex-wrap">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <span 
-                    className="w-4 h-4 rounded-full border border-white/20 shadow-xs shrink-0"
-                    style={{ backgroundColor: chordColor }}
-                  />
-                  <div>
-                    <h3 className="text-xs sm:text-sm font-bold text-white flex items-center gap-1.5">
-                      <span>Couleur des Accords</span>
-                    </h3>
-                    <p className="text-[11px] text-gray-400">
-                      Appliquée à l'ensemble des grilles d'accords dans le lecteur
-                    </p>
-                  </div>
-                </div>
-
-                {/* Chords direct preview and color button */}
-                <div className="flex items-center gap-2 shrink-0">
-                  <div className="hidden xs:flex items-center gap-1.5">
-                    <span 
-                      className="px-2 py-0.5 rounded-md font-mono font-bold text-xs border bg-black/40 border-white/10 shadow-xs"
-                      style={{ color: chordColor }}
-                    >
-                      Do#m7
-                    </span>
-                    <span 
-                      className="px-2 py-0.5 rounded-md font-mono font-bold text-xs border bg-black/40 border-white/10 shadow-xs"
-                      style={{ color: chordColor }}
-                    >
-                      Sol/Si
-                    </span>
-                  </div>
-
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setActiveColorTarget(activeColorTarget === 'chord' ? null : 'chord')}
-                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-mono border transition-all cursor-pointer ${
-                        activeColorTarget === 'chord'
-                          ? 'bg-blue-600/25 border-blue-500 text-blue-300 ring-1 ring-blue-500/40 font-semibold'
-                          : 'color-hex-badge bg-[#202025] hover:bg-[#2A2A30] text-gray-200 border-[#3A3A40]'
-                      }`}
-                      title="Modifier la couleur des accords"
-                    >
-                      <span 
-                        className="w-3.5 h-3.5 rounded-full border border-white/30 shrink-0"
-                        style={{ backgroundColor: chordColor }}
-                      />
-                      <span className="uppercase font-semibold tracking-wider">{chordColor}</span>
-                      <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-200 ${activeColorTarget === 'chord' ? 'rotate-180 text-blue-400' : ''}`} />
-                    </button>
-
-                    {activeColorTarget === 'chord' && (
-                      <ColorPickerPopover
-                        title="Couleur des Accords"
-                        currentColor={chordColor}
-                        defaultColor={DEFAULT_CHORD_COLOR}
-                        onChange={(col) => updateChordColor(col)}
-                        onClose={() => setActiveColorTarget(null)}
-                      />
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Titre de section pour les sections */}
-              <div className="flex items-center justify-between mb-2">
-                <div className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                  Couleurs des Sections
-                </div>
-                <span className="text-[11px] text-gray-500 font-medium">
-                  {SECTION_TYPES_LIST.length} sections configurables
+            {/* Quick-access interactive action chips */}
+            <div>
+              <div className="flex items-center justify-between text-xs text-gray-400 font-semibold mb-2.5 uppercase tracking-wider">
+                <span>Raccourcis de réglages rapides :</span>
+                <span className="text-[11px] text-blue-400 font-normal normal-case hidden sm:inline">
+                  Cliquez pour ouvrir l'inspecteur
                 </span>
               </div>
 
-              {/* Responsive Compact Grid for Section Colors */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                {SECTION_TYPES_LIST.map((sec) => {
-                  const currentColor = sectionColors[sec.key] || '#64748b';
-                  const isEditing = activeColorTarget === sec.key;
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                {/* 1. Titre & Infos */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedPreviewElement({ type: 'title', label: 'Titre du Chant' });
+                    setIsMobilePreviewCollapsed(false);
+                    if (window.innerWidth < 1024) setIsMobilePreviewFullscreen(true);
+                  }}
+                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-1.5 ${
+                    selectedPreviewElement?.type === 'title' || selectedPreviewElement?.type === 'metadata'
+                      ? 'bg-blue-600/25 border-blue-500 ring-2 ring-blue-500/40 shadow-sm'
+                      : 'bg-[#1A1A22] hover:bg-[#22222D] border-[#2E2E38] hover:border-blue-500/40'
+                  }`}
+                  title="Cliquer pour ajuster la taille du titre et des métadonnées"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="w-6 h-6 rounded-lg bg-purple-500/20 text-purple-300 border border-purple-500/40 flex items-center justify-center">
+                      <Heading1 className="w-3.5 h-3.5" />
+                    </span>
+                    <span className="text-[11px] font-mono font-bold text-gray-300 px-1.5 py-0.5 rounded bg-black/40 border border-white/10">
+                      {typography.titleSize}px
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-white block">Titre & Artiste</span>
+                    <span className="text-[10px] text-gray-400 block">Taille et visibilité</span>
+                  </div>
+                </button>
 
-                  return (
-                    <div 
-                      key={sec.key}
-                      className={`relative p-2.5 rounded-lg bg-[#18181A] border transition-all flex items-center justify-between gap-2 ${
-                        isEditing 
-                          ? 'border-emerald-500/60 bg-[#1C1C20] ring-1 ring-emerald-500/30' 
-                          : 'border-[#262629] hover:border-[#38383D]'
-                      }`}
-                    >
-                      {/* Left: Section Indicator & Label */}
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span 
-                          className="w-3.5 h-3.5 rounded-full border border-white/20 shadow-xs shrink-0"
-                          style={{ backgroundColor: currentColor }}
-                        />
-                        <span className="text-xs font-bold text-gray-200 truncate" title={sec.label}>
-                          {sec.label}
-                        </span>
-                      </div>
-
-                      {/* Right: Badge Preview & Popover Trigger */}
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <span 
-                          className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded border hidden xs:inline-block"
-                          style={{ 
-                            color: currentColor, 
-                            borderColor: `${currentColor}40`,
-                            backgroundColor: `${currentColor}15`
-                          }}
-                        >
-                          {sec.defaultBadge}
-                        </span>
-
-                        <div className="relative">
-                          <button
-                            type="button"
-                            onClick={() => setActiveColorTarget(isEditing ? null : sec.key)}
-                            className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-mono border transition-all cursor-pointer ${
-                              isEditing
-                                ? 'bg-emerald-600/25 border-emerald-500 text-emerald-300 ring-1 ring-emerald-500/40 font-semibold'
-                                : 'color-hex-badge bg-[#222225] hover:bg-[#2C2C30] text-gray-300 border-[#3A3A3E]'
-                            }`}
-                            title={`Modifier la couleur (${sec.label})`}
-                          >
-                            <span 
-                              className="w-2.5 h-2.5 rounded-full border border-white/30 shrink-0"
-                              style={{ backgroundColor: currentColor }}
-                            />
-                            <span className="uppercase font-medium">{currentColor}</span>
-                            <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform duration-200 ${isEditing ? 'rotate-180 text-emerald-400' : ''}`} />
-                          </button>
-
-                          {isEditing && (
-                            <ColorPickerPopover
-                              title={`Couleur : ${sec.label}`}
-                              currentColor={currentColor}
-                              defaultColor={DEFAULT_DISPLAY_SETTINGS.sectionColors[sec.key]}
-                              onChange={(col) => updateSectionColor(sec.key, col)}
-                              onClose={() => setActiveColorTarget(null)}
-                            />
-                          )}
-                        </div>
-                      </div>
+                {/* 2. Accords */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedPreviewElement({ type: 'chord', label: 'Accords' });
+                    setIsMobilePreviewCollapsed(false);
+                    if (window.innerWidth < 1024) setIsMobilePreviewFullscreen(true);
+                  }}
+                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-1.5 ${
+                    selectedPreviewElement?.type === 'chord'
+                      ? 'bg-blue-600/25 border-blue-500 ring-2 ring-blue-500/40 shadow-sm'
+                      : 'bg-[#1A1A22] hover:bg-[#22222D] border-[#2E2E38] hover:border-blue-500/40'
+                  }`}
+                  title="Cliquer pour ajuster la taille et la couleur des accords"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center justify-center">
+                      <Music className="w-3.5 h-3.5" />
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span 
+                        className="w-3 h-3 rounded-full border border-white/40 shadow-xs" 
+                        style={{ backgroundColor: chordColor }} 
+                        title={`Couleur : ${chordColor}`}
+                      />
+                      <span className="text-[11px] font-mono font-bold text-amber-300 px-1.5 py-0.5 rounded bg-black/40 border border-white/10">
+                        {typography.chordSize}px
+                      </span>
                     </div>
-                  );
-                })}
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-white block">Accords</span>
+                    <span className="text-[10px] text-gray-400 block">Taille et teinte</span>
+                  </div>
+                </button>
+
+                {/* 3. Paroles */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedPreviewElement({ type: 'lyrics', label: 'Paroles' });
+                    setIsMobilePreviewCollapsed(false);
+                    if (window.innerWidth < 1024) setIsMobilePreviewFullscreen(true);
+                  }}
+                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-1.5 ${
+                    selectedPreviewElement?.type === 'lyrics'
+                      ? 'bg-blue-600/25 border-blue-500 ring-2 ring-blue-500/40 shadow-sm'
+                      : 'bg-[#1A1A22] hover:bg-[#22222D] border-[#2E2E38] hover:border-blue-500/40'
+                  }`}
+                  title="Cliquer pour ajuster la taille et l'interligne des paroles"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="w-6 h-6 rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 flex items-center justify-center">
+                      <Type className="w-3.5 h-3.5" />
+                    </span>
+                    <span className="text-[11px] font-mono font-bold text-cyan-300 px-1.5 py-0.5 rounded bg-black/40 border border-white/10">
+                      {typography.lyricsSize}px
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-white block">Paroles</span>
+                    <span className="text-[10px] text-gray-400 block">Taille et interligne</span>
+                  </div>
+                </button>
+
+                {/* 4. Sections & Bordures */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedPreviewElement({ type: 'sectionHeader', sectionType: 'chorus', label: 'Badge : Refrain' });
+                    setIsMobilePreviewCollapsed(false);
+                    if (window.innerWidth < 1024) setIsMobilePreviewFullscreen(true);
+                  }}
+                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-1.5 ${
+                    selectedPreviewElement?.type === 'sectionHeader' || selectedPreviewElement?.type === 'sectionCard'
+                      ? 'bg-blue-600/25 border-blue-500 ring-2 ring-blue-500/40 shadow-sm'
+                      : 'bg-[#1A1A22] hover:bg-[#22222D] border-[#2E2E38] hover:border-blue-500/40'
+                  }`}
+                  title="Cliquer pour ajuster les badges de sections et les styles d'encadrés"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="w-6 h-6 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center justify-center">
+                      <Bookmark className="w-3.5 h-3.5" />
+                    </span>
+                    <span className="text-[11px] font-mono font-bold text-emerald-300 px-1.5 py-0.5 rounded bg-black/40 border border-white/10">
+                      {typography.headerSize}px
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-white block">Sections & Badges</span>
+                    <span className="text-[10px] text-gray-400 block">Bordures et couleurs</span>
+                  </div>
+                </button>
               </div>
             </div>
+
+            {/* Desktop right panel hint */}
+            <div className="hidden lg:flex items-center justify-between pt-3 border-t border-[#252530] text-xs text-gray-400">
+              <span className="flex items-center gap-1.5 text-gray-300">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                L'aperçu en direct est toujours actif à droite de votre écran.
+              </span>
+              <span className="text-blue-400 font-medium">
+                Pointez et cliquez sur n'importe quel élément pour le modifier ↗
+              </span>
+            </div>
           </div>
+
+
+
+
 
           {/* 6. MIDI DEVICES & FOOT PEDAL CONTROLS */}
           <div className="bg-[#111112] border border-[#222224] rounded-xl overflow-hidden shadow-sm transition-colors hover:border-[#303036]">
@@ -2386,8 +2268,8 @@ export const SettingsView: React.FC = () => {
           </>
         ) : (
           <>
-            <Eye className="w-4 h-4" />
-            <span>Aperçu</span>
+            <MousePointerClick className="w-4 h-4 text-blue-200" />
+            <span>Aperçu Interactif</span>
           </>
         )}
       </button>
@@ -2478,7 +2360,12 @@ export const SettingsView: React.FC = () => {
 
           {/* Fullscreen Scrollable Body */}
           <div 
-            className={`flex-1 overflow-y-auto p-4 sm:p-8 transition-colors ${
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setSelectedPreviewElement(null);
+              }
+            }}
+            className={`flex-1 overflow-y-auto p-4 sm:p-8 transition-colors relative ${
               effectivePreviewTheme === 'light' ? 'bg-[#FFFFFF] text-[#18181B]' : 'bg-[#0E0E10] text-gray-100'
             }`}
             style={{ lineHeight: typography.lineSpacing }}

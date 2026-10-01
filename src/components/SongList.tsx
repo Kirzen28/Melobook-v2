@@ -1403,32 +1403,32 @@ export const SongList: React.FC = () => {
         onMouseUp={cancelLongPress}
         onMouseLeave={cancelLongPress}
         onClick={(e) => handleCardClick(song, e)}
-        className={`group relative border rounded-lg p-2.5 sm:p-3 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 cursor-pointer shadow-xs hover:shadow-md select-none w-full ${
+        className={`group relative border rounded-lg p-2.5 sm:p-3 transition-all flex items-center gap-2.5 sm:gap-3 cursor-pointer shadow-xs hover:shadow-md select-none w-full ${
           isSelected
             ? 'bg-blue-950/30 border-blue-500 ring-2 ring-blue-500/40 shadow-blue-900/20'
             : 'bg-[#111112] hover:bg-[#151518] border-[#222224] hover:border-blue-500/40'
         }`}
       >
-        {/* Left section: Checkbox, Title, Artist, Categories */}
-        <div className="flex items-center gap-2.5 min-w-0 flex-1">
-          {/* Checkbox permanently visible on laptop, tablet and mobile */}
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleSongSelection(song.id);
-            }}
-            className={`w-5 h-5 rounded flex items-center justify-center border transition-all cursor-pointer shrink-0 ${
-              isSelected
-                ? 'bg-blue-600 border-blue-500 text-white shadow-xs ring-2 ring-blue-500/30'
-                : 'bg-[#1C1C1E] border-[#444] text-transparent hover:border-blue-400 hover:bg-[#252528]'
-            }`}
-            title={isSelected ? "Désélectionner ce chant" : "Sélectionner ce chant"}
-            aria-label={isSelected ? "Désélectionner ce chant" : "Sélectionner ce chant"}
-          >
-            <Check className={`w-3.5 h-3.5 stroke-[2.5] ${isSelected ? 'opacity-100' : 'opacity-0 hover:opacity-40 text-blue-400'}`} />
-          </button>
+        {/* Checkbox permanently visible on laptop, tablet and mobile */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleSongSelection(song.id);
+          }}
+          className={`w-5 h-5 rounded flex items-center justify-center border transition-all cursor-pointer shrink-0 ${
+            isSelected
+              ? 'bg-blue-600 border-blue-500 text-white shadow-xs ring-2 ring-blue-500/30'
+              : 'bg-[#1C1C1E] border-[#444] text-transparent hover:border-blue-400 hover:bg-[#252528]'
+          }`}
+          title={isSelected ? "Désélectionner ce chant" : "Sélectionner ce chant"}
+          aria-label={isSelected ? "Désélectionner ce chant" : "Sélectionner ce chant"}
+        >
+          <Check className={`w-3.5 h-3.5 stroke-[2.5] ${isSelected ? 'opacity-100' : 'opacity-0 hover:opacity-40 text-blue-400'}`} />
+        </button>
 
+        {/* Div unique alignant le titre, l'artiste, les badges et les boutons */}
+        <div className="flex items-center justify-between gap-2.5 sm:gap-3 min-w-0 flex-1">
           {/* Title and Artist */}
           <div className="min-w-0 flex-1 flex flex-col md:flex-row md:items-center gap-0.5 md:gap-3">
             <div className="min-w-0 flex-1">
@@ -1479,90 +1479,90 @@ export const SongList: React.FC = () => {
               </div>
             )}
           </div>
-        </div>
 
-        {/* Right section: Badges and Action buttons */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0 self-end sm:self-center">
-          {/* Metadata badges if enabled */}
-          {((songCardMetadata?.showKey) || (songCardMetadata?.showTempo && song.tempo) || (songCardMetadata?.showDuration && getSongDuration(song))) && (
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {songCardMetadata?.showKey && (
-                <span
+          {/* Badges et boutons d'action directement alignés sur la même ligne */}
+          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+            {/* Metadata badges if enabled */}
+            {((songCardMetadata?.showKey) || (songCardMetadata?.showTempo && song.tempo) || (songCardMetadata?.showDuration && getSongDuration(song))) && (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {songCardMetadata?.showKey && (
+                  <span
+                    onClick={(e) => {
+                      if (isMultiSelectMode) return;
+                      e.stopPropagation();
+                      toggleKeyFilter((song.key || 'C').toUpperCase());
+                    }}
+                    title={isMultiSelectMode ? undefined : `Filtrer par la tonalité ${(song.key || 'C').toUpperCase()}`}
+                    className={`px-1.5 py-0.5 rounded border text-[10px] font-bold transition-colors cursor-pointer ${
+                      selectedKeys.includes((song.key || 'C').toUpperCase())
+                        ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
+                        : 'bg-[#1C1C1E] border-[#333] text-gray-200 hover:border-amber-500/40 hover:text-amber-300'
+                    }`}
+                  >
+                    {song.key || 'C'}
+                  </span>
+                )}
+                {songCardMetadata?.showTempo && song.tempo && (
+                  <span className="px-1.5 py-0.5 rounded bg-[#1C1C1E] border border-[#222224] text-gray-400 text-[9px] font-medium flex items-center gap-1">
+                    <Gauge className="w-2.5 h-2.5 text-blue-400" />
+                    {song.tempo}
+                  </span>
+                )}
+                {songCardMetadata?.showDuration && getSongDuration(song) ? (
+                  <span className="px-1.5 py-0.5 rounded bg-cyan-950/50 border border-cyan-500/30 text-cyan-300 text-[9px] font-medium flex items-center gap-1 font-mono shadow-sm">
+                    <Clock className="w-2.5 h-2.5 text-cyan-400" />
+                    {getSongDuration(song)}
+                  </span>
+                ) : null}
+              </div>
+            )}
+
+            {/* Buttons in the right corner */}
+            {canManageSongs && (
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  type="button"
                   onClick={(e) => {
                     if (isMultiSelectMode) return;
                     e.stopPropagation();
-                    toggleKeyFilter((song.key || 'C').toUpperCase());
+                    handleEditSong(song);
                   }}
-                  title={isMultiSelectMode ? undefined : `Filtrer par la tonalité ${(song.key || 'C').toUpperCase()}`}
-                  className={`px-1.5 py-0.5 rounded border text-[10px] font-bold transition-colors cursor-pointer ${
-                    selectedKeys.includes((song.key || 'C').toUpperCase())
-                      ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
-                      : 'bg-[#1C1C1E] border-[#333] text-gray-200 hover:border-amber-500/40 hover:text-amber-300'
-                  }`}
+                  className="p-1 sm:p-1.5 rounded bg-[#1C1C1E] hover:bg-amber-500/15 text-gray-300 hover:text-amber-300 border border-[#333] hover:border-amber-500/50 transition-colors flex items-center justify-center cursor-pointer group"
+                  title={isMultiSelectMode ? undefined : "Éditer le chant"}
+                  aria-label="Éditer le chant"
                 >
-                  {song.key || 'C'}
-                </span>
-              )}
-              {songCardMetadata?.showTempo && song.tempo && (
-                <span className="px-1.5 py-0.5 rounded bg-[#1C1C1E] border border-[#222224] text-gray-400 text-[9px] font-medium flex items-center gap-1">
-                  <Gauge className="w-2.5 h-2.5 text-blue-400" />
-                  {song.tempo}
-                </span>
-              )}
-              {songCardMetadata?.showDuration && getSongDuration(song) ? (
-                <span className="px-1.5 py-0.5 rounded bg-cyan-950/50 border border-cyan-500/30 text-cyan-300 text-[9px] font-medium flex items-center gap-1 font-mono shadow-sm">
-                  <Clock className="w-2.5 h-2.5 text-cyan-400" />
-                  {getSongDuration(song)}
-                </span>
-              ) : null}
-            </div>
-          )}
+                  <FileEdit className="w-3.5 h-3.5 text-amber-400 group-hover:scale-110 transition-transform" />
+                </button>
 
-          {/* Buttons in the right corner */}
-          {canManageSongs && (
-            <div className="flex items-center gap-1 shrink-0">
-              <button
-                type="button"
-                onClick={(e) => {
-                  if (isMultiSelectMode) return;
-                  e.stopPropagation();
-                  handleEditSong(song);
-                }}
-                className="p-1 sm:p-1.5 rounded bg-[#1C1C1E] hover:bg-amber-500/15 text-gray-300 hover:text-amber-300 border border-[#333] hover:border-amber-500/50 transition-colors flex items-center justify-center cursor-pointer group"
-                title={isMultiSelectMode ? undefined : "Éditer le chant"}
-                aria-label="Éditer le chant"
-              >
-                <FileEdit className="w-3.5 h-3.5 text-amber-400 group-hover:scale-110 transition-transform" />
-              </button>
-
-              <button
-                type="button"
-                onClick={(e) => {
-                  if (isMultiSelectMode) return;
-                  e.stopPropagation();
-                  if (isConfirming) {
-                    deleteSong(song.id);
-                    setConfirmDeleteSongId(null);
-                  } else {
-                    setConfirmDeleteSongId(song.id);
-                  }
-                }}
-                className={`p-1 sm:p-1.5 rounded transition-all flex items-center justify-center cursor-pointer ${
-                  isConfirming
-                    ? 'bg-rose-600 hover:bg-rose-700 text-white border border-rose-500 shadow-sm animate-pulse'
-                    : 'bg-[#1C1C1E] hover:bg-rose-500/20 text-gray-400 hover:text-rose-400 border border-[#333] hover:border-rose-500/40'
-                }`}
-                title={isMultiSelectMode ? undefined : (isConfirming ? "Confirmer la suppression" : "Supprimer le chant")}
-                aria-label={isConfirming ? "Confirmer la suppression" : "Supprimer"}
-              >
-                {isConfirming ? (
-                  <Check className="w-3.5 h-3.5 text-white" />
-                ) : (
-                  <Trash2 className="w-3.5 h-3.5 text-rose-400" />
-                )}
-              </button>
-            </div>
-          )}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    if (isMultiSelectMode) return;
+                    e.stopPropagation();
+                    if (isConfirming) {
+                      deleteSong(song.id);
+                      setConfirmDeleteSongId(null);
+                    } else {
+                      setConfirmDeleteSongId(song.id);
+                    }
+                  }}
+                  className={`p-1 sm:p-1.5 rounded transition-all flex items-center justify-center cursor-pointer ${
+                    isConfirming
+                      ? 'bg-rose-600 hover:bg-rose-700 text-white border border-rose-500 shadow-sm animate-pulse'
+                      : 'bg-[#1C1C1E] hover:bg-rose-500/20 text-gray-400 hover:text-rose-400 border border-[#333] hover:border-rose-500/40'
+                  }`}
+                  title={isMultiSelectMode ? undefined : (isConfirming ? "Confirmer la suppression" : "Supprimer le chant")}
+                  aria-label={isConfirming ? "Confirmer la suppression" : "Supprimer"}
+                >
+                  {isConfirming ? (
+                    <Check className="w-3.5 h-3.5 text-white" />
+                  ) : (
+                    <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     );

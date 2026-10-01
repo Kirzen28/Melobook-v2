@@ -1025,234 +1025,235 @@ export const SongReader: React.FC<SongReaderProps> = ({
 
       {/* Settings Drawer (Overlay) */}
       {showSettingsDrawer && (
-        <div className="no-print bg-[#111112] border-b border-[#242428] px-3 sm:px-4 py-2 sm:py-2.5 text-xs shadow-2xl z-30 animate-in fade-in slide-in-from-top-1 duration-150">
+        <div className="no-print bg-[#111114]/95 backdrop-blur-md border-b border-[#25252C] px-3 sm:px-5 py-2.5 sm:py-3.5 text-xs shadow-2xl z-30 animate-in fade-in slide-in-from-top-1 duration-150">
           
-          {/* Header with Title and Close Button - ultra-compact single line */}
-          <div className="flex items-center justify-between gap-2 pb-1.5 mb-2 border-b border-[#222226]">
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="w-5 h-5 rounded-md bg-blue-600/20 border border-blue-500/30 flex items-center justify-center shrink-0">
-                <Settings2 className="w-3 h-3 text-blue-400" />
+          {/* Header with Title, Song name, Fullscreen quick toggle and Close Button */}
+          <div className="flex items-center justify-between gap-3 pb-2.5 mb-3 border-b border-[#202026]">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-7 h-7 rounded-lg bg-blue-600/20 border border-blue-500/30 flex items-center justify-center shrink-0 shadow-xs">
+                <Settings2 className="w-4 h-4 text-blue-400" />
               </div>
-              <span className="font-bold text-gray-100 text-xs sm:text-sm truncate">
-                Réglages du chant
-              </span>
-              {song.title && (
-                <span className="text-gray-400 text-[11px] hidden md:inline truncate max-w-xs">
-                  • {stripParentheses(song.title)}
+              <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                <span className="font-bold text-gray-100 text-sm tracking-tight truncate">
+                  Réglages du chant
                 </span>
-              )}
-            </div>
-
-            {/* Close Button */}
-            <button
-              type="button"
-              onClick={() => setShowSettingsDrawer(false)}
-              className="p-1 rounded-md text-gray-400 hover:text-white hover:bg-[#222226] border border-transparent hover:border-[#333] transition-colors cursor-pointer shrink-0"
-              title="Fermer les réglages"
-              aria-label="Fermer les réglages"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* Outils & Affichage de scène - compact layout */}
-          <div className="flex flex-wrap items-center gap-x-3 sm:gap-x-4 gap-y-1.5 text-xs">
-            {/* Disposition : Choix de 1 à 5 colonnes */}
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-gray-400 text-[11px] font-medium shrink-0">Disposition :</span>
-              <div className="inline-flex items-center bg-[#1C1C1E] p-0.5 rounded-md border border-[#333]">
-                {([1, 2, 3, 4, 5] as const).map((cols) => (
-                  <button
-                    key={cols}
-                    type="button"
-                    id={`drawer-stage-${cols}col`}
-                    onClick={() => handleSetColumns(cols)}
-                    className={`px-2 py-0.5 rounded text-[11px] font-medium transition-all cursor-pointer ${
-                      numColumns === cols
-                        ? 'bg-blue-600 text-white font-semibold shadow-xs'
-                        : 'text-gray-400 hover:text-white'
-                    }`}
-                    title={`Affichage sur ${cols} colonne${cols > 1 ? 's' : ''}`}
-                  >
-                    <span>{cols} {cols === 1 ? 'col' : 'cols'}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Réglage de la taille de police : Bouton avec jauge déroulante, jauge rapide et presets */}
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-gray-400 text-[11px] font-medium shrink-0 flex items-center gap-1">
-                <SlidersHorizontal className="w-3 h-3 text-blue-400" />
-                <span>Taille :</span>
-              </span>
-
-              {/* Bouton unique avec jauge / slider déroulant */}
-              <div className="relative inline-block">
-                <button
-                  ref={zoomButtonRef}
-                  type="button"
-                  id="drawer-stage-zoom-btn"
-                  onClick={() => {
-                    const next = !showZoomMenu;
-                    setShowZoomMenu(next);
-                    if (next) {
-                      setZoomPopoverStyle(calculatePopoverPos(zoomButtonRef.current));
-                    }
-                  }}
-                  className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium transition-all cursor-pointer border ${
-                    showZoomMenu
-                      ? 'bg-blue-600 text-white font-semibold border-blue-500 shadow-xs ring-1 ring-blue-400/40'
-                      : 'bg-[#1C1C1E] border-[#333] hover:border-blue-500/50 text-gray-200 hover:text-white'
-                  }`}
-                  title="Cliquer pour afficher la jauge de zoom complète"
-                >
-                  <span className="font-mono font-bold text-blue-400">{zoomPercentage}%</span>
-                  <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform ${showZoomMenu ? 'rotate-180 text-blue-300' : ''}`} />
-                </button>
-
-                {showZoomMenu && (
-                  <>
-                    <div 
-                      className="fixed inset-0 z-40" 
-                      onClick={() => setShowZoomMenu(false)} 
-                    />
-                    <div 
-                      style={zoomPopoverStyle}
-                      className="absolute top-full mt-1.5 z-50 w-72 max-w-[calc(100vw-24px)] bg-[#16161A] border border-[#2E2E36] rounded-xl shadow-2xl p-3 backdrop-blur-md animate-in fade-in zoom-in-95 duration-100 box-border text-left"
-                    >
-                      {/* En-tête Popover */}
-                      <div className="text-[11px] font-semibold text-gray-400 pb-2 mb-2.5 border-b border-[#282830] flex items-center justify-between">
-                        <div className="flex items-center gap-1.5">
-                          <SlidersHorizontal className="w-3.5 h-3.5 text-blue-400" />
-                          <span className="text-gray-200">Taille de tous les textes</span>
-                        </div>
-                        <span className="text-[11px] text-blue-400 font-mono font-bold bg-blue-950/50 border border-blue-500/40 px-1.5 py-0.5 rounded">
-                          {zoomPercentage}%
-                        </span>
-                      </div>
-
-                      {/* Jauge / Slider avec boutons - / + */}
-                      <div className="mb-3">
-                        <div className="flex items-center justify-between text-[11px] text-gray-400 mb-1.5">
-                          <span className="flex items-center gap-1 font-medium text-gray-300">
-                            <Type className="w-3 h-3 text-gray-500" />
-                            <span>Jauge de zoom</span>
-                          </span>
-                          <button
-                            type="button"
-                            onClick={handleResetZoom}
-                            className="text-[10px] text-blue-400 hover:text-blue-300 cursor-pointer transition-colors"
-                            title="Rétablir à 100% (par défaut)"
-                          >
-                            100% (Défaut)
-                          </button>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleSetZoomPercentage(zoomPercentage - 5)}
-                            disabled={zoomPercentage <= 65}
-                            className="p-1.5 rounded-lg bg-[#202026] hover:bg-[#282832] text-gray-300 disabled:opacity-30 border border-[#30303A] cursor-pointer shrink-0 transition-colors"
-                            title="Réduire (-5%)"
-                          >
-                            <Minus className="w-3.5 h-3.5" />
-                          </button>
-
-                          {/* Slider Track / Range Input */}
-                          <div className="relative flex-1 flex items-center py-1">
-                            <input
-                              type="range"
-                              min="65"
-                              max="175"
-                              step="5"
-                              value={zoomPercentage}
-                              onChange={(e) => handleSetZoomPercentage(Number(e.target.value))}
-                              className="w-full h-2 bg-[#26262E] rounded-lg appearance-none cursor-pointer accent-blue-500 hover:accent-blue-400 transition-all"
-                            />
-                          </div>
-
-                          <button
-                            type="button"
-                            onClick={() => handleSetZoomPercentage(zoomPercentage + 5)}
-                            disabled={zoomPercentage >= 175}
-                            className="p-1.5 rounded-lg bg-[#202026] hover:bg-[#282832] text-gray-300 disabled:opacity-30 border border-[#30303A] cursor-pointer shrink-0 transition-colors"
-                            title="Agrandir (+5%)"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Préréglages rapides (Presets) */}
-                      <div className="text-[10px] text-gray-400 font-semibold mb-1.5 uppercase tracking-wider flex items-center justify-between">
-                        <span>Préréglages rapides</span>
-                        <span className="text-[9px] text-gray-500 font-normal">1 clic</span>
-                      </div>
-                      <div className="grid grid-cols-4 gap-1.5 text-xs mb-3">
-                        {[
-                          { label: 'Petit', pct: 85 },
-                          { label: 'Standard', pct: 100 },
-                          { label: 'Grand', pct: 120 },
-                          { label: 'Très grand', pct: 140 },
-                        ].map((preset) => {
-                          const isActive = Math.abs(zoomPercentage - preset.pct) <= 4;
-                          return (
-                            <button
-                              key={preset.label}
-                              type="button"
-                              onClick={() => handleSetZoomPercentage(preset.pct)}
-                              className={`py-1.5 px-1 rounded-lg transition-all cursor-pointer flex flex-col items-center justify-center ${
-                                isActive
-                                  ? 'bg-blue-600 text-white font-bold shadow-xs border border-blue-400/50 ring-1 ring-blue-400/30'
-                                  : 'bg-[#202026] text-gray-300 hover:bg-[#282832] hover:text-white border border-[#2E2E38]'
-                              }`}
-                              title={`Préréglage ${preset.label} (${preset.pct}%)`}
-                            >
-                              <span className="text-[11px] font-medium leading-tight">{preset.label}</span>
-                              <span className={`text-[9px] font-mono leading-tight ${isActive ? 'text-blue-100' : 'text-gray-500'}`}>
-                                {preset.pct}%
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      {/* Détail en temps réel de tous les textes ajustés */}
-                      <div className="pt-2 border-t border-[#24242C] grid grid-cols-4 gap-1 text-center font-mono text-[10px]">
-                        <div className="p-1 rounded bg-[#18181E] border border-[#282832]">
-                          <span className="text-gray-400 block text-[9px] font-sans">Paroles</span>
-                          <span className="text-white font-semibold">{displaySettings.typography?.lyricsSize || 18}px</span>
-                        </div>
-                        <div className="p-1 rounded bg-[#18181E] border border-[#282832]">
-                          <span className="text-blue-400/90 block text-[9px] font-sans">Accords</span>
-                          <span className="text-blue-300 font-semibold">{displaySettings.typography?.chordSize || 16}px</span>
-                        </div>
-                        <div className="p-1 rounded bg-[#18181E] border border-[#282832]">
-                          <span className="text-amber-400/90 block text-[9px] font-sans">Sections</span>
-                          <span className="text-amber-300 font-semibold">{displaySettings.typography?.headerSize || 12}px</span>
-                        </div>
-                        <div className="p-1 rounded bg-[#18181E] border border-[#282832]">
-                          <span className="text-emerald-400/90 block text-[9px] font-sans">Voix</span>
-                          <span className="text-emerald-300 font-semibold">{Math.max(10, Math.round((displaySettings.typography?.headerSize || 12) * 0.95))}px</span>
-                        </div>
-                      </div>
-                    </div>
-                  </>
+                {song.title && (
+                  <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#1C1C22] border border-[#2E2E36] text-gray-300 truncate max-w-xs sm:max-w-md">
+                    {stripParentheses(song.title)}
+                  </span>
                 )}
               </div>
+            </div>
 
-              {/* Jauge rapide directe dans les réglages */}
-              <div className="inline-flex items-center gap-1 bg-[#1C1C1E] px-1.5 py-0.5 rounded-md border border-[#333]">
+            <div className="flex items-center gap-2 shrink-0">
+              {/* Fullscreen Button in Header for high visibility and quick access */}
+              <button
+                type="button"
+                id="drawer-stage-fullscreen"
+                onClick={() => toggleFullscreen()}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer border shadow-xs ${
+                  isFullscreen
+                    ? 'bg-blue-600 text-white border-blue-400 ring-2 ring-blue-500/30 shadow-blue-900/30'
+                    : 'bg-[#1C1C22] hover:bg-[#282830] text-gray-200 hover:text-white border-[#32323D]'
+                }`}
+                title={isFullscreen ? "Quitter le mode plein écran" : "Basculer en mode plein écran"}
+              >
+                {isFullscreen ? <Minimize2 className="w-3.5 h-3.5 text-blue-200" /> : <Maximize2 className="w-3.5 h-3.5 text-blue-400" />}
+                <span className="hidden sm:inline">{isFullscreen ? 'Quitter plein écran' : 'Plein écran'}</span>
+                <span className="sm:hidden">{isFullscreen ? 'Réduire' : 'Plein écran'}</span>
+              </button>
+
+              {/* Close Button */}
+              <button
+                type="button"
+                onClick={() => setShowSettingsDrawer(false)}
+                className="p-1.5 rounded-lg text-gray-400 hover:text-white bg-[#18181C] hover:bg-[#25252D] border border-[#2B2B34] transition-all cursor-pointer"
+                title="Fermer les réglages"
+                aria-label="Fermer les réglages"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Structured Controls: Grid of clean semantic cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5 sm:gap-3 text-xs">
+            
+            {/* CARD 1: Typographie & Taille de Police */}
+            <div className="p-2.5 sm:p-3 rounded-xl bg-[#151518] border border-[#232329] flex flex-col justify-between gap-2.5 shadow-xs">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-gray-300 font-semibold text-xs flex items-center gap-1.5">
+                  <SlidersHorizontal className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Taille du texte</span>
+                </span>
+                
+                {/* Popover trigger button - clearly readable and styled */}
+                <div className="relative inline-block">
+                  <button
+                    ref={zoomButtonRef}
+                    type="button"
+                    id="drawer-stage-zoom-btn"
+                    onClick={() => {
+                      const next = !showZoomMenu;
+                      setShowZoomMenu(next);
+                      if (next) {
+                        setZoomPopoverStyle(calculatePopoverPos(zoomButtonRef.current));
+                      }
+                    }}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer border ${
+                      showZoomMenu
+                        ? 'bg-blue-600 text-white border-blue-400 ring-2 ring-blue-500/30'
+                        : 'bg-[#1E1E24] border-[#32323D] hover:border-blue-500/50 text-blue-400 hover:text-white'
+                    }`}
+                    title="Ouvrir les détails de la taille"
+                  >
+                    <span className="font-mono">{zoomPercentage}%</span>
+                    <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showZoomMenu ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {/* Popover */}
+                  {showZoomMenu && (
+                    <>
+                      <div 
+                        className="fixed inset-0 z-40" 
+                        onClick={() => setShowZoomMenu(false)} 
+                      />
+                      <div 
+                        style={zoomPopoverStyle}
+                        className="absolute top-full mt-1.5 z-50 w-72 max-w-[calc(100vw-24px)] bg-[#16161A] border border-[#2E2E36] rounded-xl shadow-2xl p-3 backdrop-blur-md animate-in fade-in zoom-in-95 duration-100 box-border text-left"
+                      >
+                        {/* En-tête Popover */}
+                        <div className="text-[11px] font-semibold text-gray-400 pb-2 mb-2.5 border-b border-[#282830] flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <SlidersHorizontal className="w-3.5 h-3.5 text-blue-400" />
+                            <span className="text-gray-200">Taille de tous les textes</span>
+                          </div>
+                          <span className="text-[11px] text-blue-400 font-mono font-bold bg-blue-950/50 border border-blue-500/40 px-1.5 py-0.5 rounded">
+                            {zoomPercentage}%
+                          </span>
+                        </div>
+
+                        {/* Jauge / Slider avec boutons - / + */}
+                        <div className="mb-3">
+                          <div className="flex items-center justify-between text-[11px] text-gray-400 mb-1.5">
+                            <span className="flex items-center gap-1 font-medium text-gray-300">
+                              <Type className="w-3 h-3 text-gray-500" />
+                              <span>Jauge de zoom</span>
+                            </span>
+                            <button
+                              type="button"
+                              onClick={handleResetZoom}
+                              className="text-[10px] text-blue-400 hover:text-blue-300 cursor-pointer transition-colors"
+                              title="Rétablir à 100% (par défaut)"
+                            >
+                              100% (Défaut)
+                            </button>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleSetZoomPercentage(zoomPercentage - 5)}
+                              disabled={zoomPercentage <= 65}
+                              className="p-1.5 rounded-lg bg-[#202026] hover:bg-[#282832] text-gray-300 disabled:opacity-30 border border-[#30303A] cursor-pointer shrink-0 transition-colors"
+                              title="Réduire (-5%)"
+                            >
+                              <Minus className="w-3.5 h-3.5" />
+                            </button>
+
+                            <div className="relative flex-1 flex items-center py-1">
+                              <input
+                                type="range"
+                                min="65"
+                                max="175"
+                                step="5"
+                                value={zoomPercentage}
+                                onChange={(e) => handleSetZoomPercentage(Number(e.target.value))}
+                                className="w-full h-2 bg-[#26262E] rounded-lg appearance-none cursor-pointer accent-blue-500 hover:accent-blue-400 transition-all"
+                              />
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => handleSetZoomPercentage(zoomPercentage + 5)}
+                              disabled={zoomPercentage >= 175}
+                              className="p-1.5 rounded-lg bg-[#202026] hover:bg-[#282832] text-gray-300 disabled:opacity-30 border border-[#30303A] cursor-pointer shrink-0 transition-colors"
+                              title="Agrandir (+5%)"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Préréglages rapides (Presets) */}
+                        <div className="text-[10px] text-gray-400 font-semibold mb-1.5 uppercase tracking-wider flex items-center justify-between">
+                          <span>Préréglages rapides</span>
+                          <span className="text-[9px] text-gray-500 font-normal">1 clic</span>
+                        </div>
+                        <div className="grid grid-cols-4 gap-1.5 text-xs mb-3">
+                          {[
+                            { label: 'Petit', pct: 85 },
+                            { label: 'Standard', pct: 100 },
+                            { label: 'Grand', pct: 120 },
+                            { label: 'Très grand', pct: 140 },
+                          ].map((preset) => {
+                            const isActive = Math.abs(zoomPercentage - preset.pct) <= 4;
+                            return (
+                              <button
+                                key={preset.label}
+                                type="button"
+                                onClick={() => handleSetZoomPercentage(preset.pct)}
+                                className={`py-1.5 px-1 rounded-lg transition-all cursor-pointer flex flex-col items-center justify-center ${
+                                  isActive
+                                    ? 'bg-blue-600 text-white font-bold shadow-xs border border-blue-400/50 ring-1 ring-blue-400/30'
+                                    : 'bg-[#202026] text-gray-300 hover:bg-[#282832] hover:text-white border border-[#2E2E38]'
+                                }`}
+                                title={`Préréglage ${preset.label} (${preset.pct}%)`}
+                              >
+                                <span className="text-[11px] font-medium leading-tight">{preset.label}</span>
+                                <span className={`text-[9px] font-mono leading-tight ${isActive ? 'text-blue-100' : 'text-gray-500'}`}>
+                                  {preset.pct}%
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* Détail en temps réel de tous les textes ajustés */}
+                        <div className="pt-2 border-t border-[#24242C] grid grid-cols-4 gap-1 text-center font-mono text-[10px]">
+                          <div className="p-1 rounded bg-[#18181E] border border-[#282832]">
+                            <span className="text-gray-400 block text-[9px] font-sans">Paroles</span>
+                            <span className="text-white font-semibold">{displaySettings.typography?.lyricsSize || 18}px</span>
+                          </div>
+                          <div className="p-1 rounded bg-[#18181E] border border-[#282832]">
+                            <span className="text-blue-400/90 block text-[9px] font-sans">Accords</span>
+                            <span className="text-blue-300 font-semibold">{displaySettings.typography?.chordSize || 16}px</span>
+                          </div>
+                          <div className="p-1 rounded bg-[#18181E] border border-[#282832]">
+                            <span className="text-amber-400/90 block text-[9px] font-sans">Sections</span>
+                            <span className="text-amber-300 font-semibold">{displaySettings.typography?.headerSize || 12}px</span>
+                          </div>
+                          <div className="p-1 rounded bg-[#18181E] border border-[#282832]">
+                            <span className="text-emerald-400/90 block text-[9px] font-sans">Voix</span>
+                            <span className="text-emerald-300 font-semibold">{Math.max(10, Math.round((displaySettings.typography?.headerSize || 12) * 0.95))}px</span>
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Slider + Stepper row */}
+              <div className="flex items-center gap-2 bg-[#1A1A20] px-2.5 py-1.5 rounded-lg border border-[#2B2B34]">
                 <button
                   type="button"
                   onClick={() => handleSetZoomPercentage(zoomPercentage - 5)}
                   disabled={zoomPercentage <= 65}
-                  className="p-0.5 text-gray-400 hover:text-white disabled:opacity-30 cursor-pointer"
+                  className="w-7 h-7 flex items-center justify-center rounded-md bg-[#24242C] hover:bg-blue-600/30 text-gray-200 hover:text-white disabled:opacity-30 border border-[#343440] transition-colors cursor-pointer shrink-0"
                   title="Diminuer la taille (-5%)"
                 >
-                  <Minus className="w-3 h-3" />
+                  <Minus className="w-3.5 h-3.5" />
                 </button>
                 <input
                   type="range"
@@ -1261,27 +1262,27 @@ export const SongReader: React.FC<SongReaderProps> = ({
                   step="5"
                   value={zoomPercentage}
                   onChange={(e) => handleSetZoomPercentage(Number(e.target.value))}
-                  className="w-14 sm:w-20 h-1.5 bg-[#26262E] rounded-lg appearance-none cursor-pointer accent-blue-500"
+                  className="flex-1 h-2 bg-[#25252E] rounded-lg appearance-none cursor-pointer accent-blue-500 hover:accent-blue-400"
                   title={`Jauge de zoom : ${zoomPercentage}%`}
                 />
                 <button
                   type="button"
                   onClick={() => handleSetZoomPercentage(zoomPercentage + 5)}
                   disabled={zoomPercentage >= 175}
-                  className="p-0.5 text-gray-400 hover:text-white disabled:opacity-30 cursor-pointer"
+                  className="w-7 h-7 flex items-center justify-center rounded-md bg-[#24242C] hover:bg-blue-600/30 text-gray-200 hover:text-white disabled:opacity-30 border border-[#343440] transition-colors cursor-pointer shrink-0"
                   title="Augmenter la taille (+5%)"
                 >
-                  <Plus className="w-3 h-3" />
+                  <Plus className="w-3.5 h-3.5" />
                 </button>
               </div>
 
-              {/* Préréglages de taille de police (Presets rapides) */}
-              <div className="inline-flex items-center bg-[#1C1C1E] p-0.5 rounded-md border border-[#333]">
+              {/* Presets chips */}
+              <div className="grid grid-cols-4 gap-1.5">
                 {[
                   { label: 'Petit', pct: 85 },
                   { label: 'Standard', pct: 100 },
                   { label: 'Grand', pct: 120 },
-                  { label: 'Très grand', pct: 140 },
+                  { label: 'Max', pct: 140 },
                 ].map((preset) => {
                   const isActive = Math.abs(zoomPercentage - preset.pct) <= 4;
                   return (
@@ -1289,10 +1290,10 @@ export const SongReader: React.FC<SongReaderProps> = ({
                       key={preset.label}
                       type="button"
                       onClick={() => handleSetZoomPercentage(preset.pct)}
-                      className={`px-2 py-0.5 rounded text-[11px] font-medium transition-all cursor-pointer ${
+                      className={`py-1 px-1.5 rounded-lg text-[11px] font-semibold transition-all cursor-pointer border text-center ${
                         isActive
-                          ? 'bg-blue-600 text-white font-semibold shadow-xs'
-                          : 'text-gray-400 hover:text-white'
+                          ? 'bg-blue-600 text-white border-blue-400 shadow-xs ring-1 ring-blue-400/40'
+                          : 'bg-[#1C1C22] text-gray-300 hover:text-white border-[#2E2E38] hover:bg-[#25252E]'
                       }`}
                       title={`Préréglage ${preset.label} (${preset.pct}%)`}
                     >
@@ -1303,176 +1304,122 @@ export const SongReader: React.FC<SongReaderProps> = ({
               </div>
             </div>
 
-            {/* Réglage de l'espacement entre sections */}
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-gray-400 text-[11px] font-medium shrink-0 flex items-center gap-1">
-                <Layers className="w-3 h-3 text-cyan-400" />
-                <span>Écart sections :</span>
-              </span>
-
-              {/* Jauge / Slider rapide */}
-              <div className="inline-flex items-center gap-1 bg-[#1C1C1E] px-1.5 py-0.5 rounded-md border border-[#333]">
-                <button
-                  type="button"
-                  onClick={() => handleUpdateSectionSpacing(Math.max(0, currentSectionSpacing - 1))}
-                  disabled={currentSectionSpacing <= 0}
-                  className="p-0.5 text-gray-400 hover:text-white disabled:opacity-30 cursor-pointer"
-                  title="Rapprocher les sections"
-                >
-                  <Minus className="w-3 h-3" />
-                </button>
-                <input
-                  type="range"
-                  min="0"
-                  max="32"
-                  step="1"
-                  value={currentSectionSpacing}
-                  onChange={(e) => handleUpdateSectionSpacing(Number(e.target.value))}
-                  className="w-14 sm:w-20 h-1.5 bg-[#26262E] rounded-lg appearance-none cursor-pointer accent-cyan-500"
-                  title={`Écart entre les sections : ${currentSectionSpacing}px`}
-                />
-                <button
-                  type="button"
-                  onClick={() => handleUpdateSectionSpacing(Math.min(32, currentSectionSpacing + 1))}
-                  disabled={currentSectionSpacing >= 32}
-                  className="p-0.5 text-gray-400 hover:text-white disabled:opacity-30 cursor-pointer"
-                  title="Éloigner les sections"
-                >
-                  <Plus className="w-3 h-3" />
-                </button>
-                <span className="text-[10px] font-mono font-bold text-cyan-400 w-7 text-right">
-                  {currentSectionSpacing}px
+            {/* CARD 2: Affichage des Accords */}
+            <div className="p-2.5 sm:p-3 rounded-xl bg-[#151518] border border-[#232329] flex flex-col justify-center gap-2.5 shadow-xs">
+              {/* Accords Switch */}
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-gray-300 font-semibold text-xs flex items-center gap-1.5">
+                  <Eye className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Accords</span>
                 </span>
-              </div>
-
-              {/* Préréglages rapides : Collé, Serré, Normal, Aéré */}
-              <div className="inline-flex items-center bg-[#1C1C1E] p-0.5 rounded-md border border-[#333]">
-                {[
-                  { label: 'Collé', val: 0 },
-                  { label: 'Serré', val: 4 },
-                  { label: 'Normal', val: 8 },
-                  { label: 'Aéré', val: 16 }
-                ].map((item) => (
+                
+                <div className="inline-flex items-center p-0.5 rounded-lg bg-[#1A1A20] border border-[#2B2B34]">
                   <button
-                    key={item.label}
                     type="button"
-                    onClick={() => handleUpdateSectionSpacing(item.val)}
-                    className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-all cursor-pointer ${
-                      currentSectionSpacing === item.val
-                        ? 'bg-cyan-600 text-white font-semibold shadow-xs'
+                    onClick={() => updateStageSettings({ showChords: true })}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                      stageSettings.showChords
+                        ? 'bg-blue-600 text-white shadow-xs'
                         : 'text-gray-400 hover:text-white'
                     }`}
                   >
-                    {item.label}
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>Affichés</span>
                   </button>
-                ))}
+                  <button
+                    type="button"
+                    onClick={() => updateStageSettings({ showChords: false })}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                      !stageSettings.showChords
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    <EyeOff className="w-3.5 h-3.5" />
+                    <span>Masqués</span>
+                  </button>
+                </div>
               </div>
             </div>
 
-            {/* Plein écran */}
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                id="drawer-stage-fullscreen"
-                onClick={() => toggleFullscreen()}
-                className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-all cursor-pointer border ${
-                  isFullscreen
-                    ? 'bg-blue-600 text-white font-semibold border-blue-500 shadow-xs'
-                    : 'bg-[#1C1C1E] border-[#333] text-gray-400 hover:text-white'
-                }`}
-                title="Basculer en mode plein écran"
-              >
-                {isFullscreen ? <Minimize2 className="w-3 h-3 text-blue-200" /> : <Maximize2 className="w-3 h-3" />}
-                <span>Plein écran</span>
-              </button>
-            </div>
+            {/* CARD 3: Outils Live, Défilement & Actions */}
+            <div className="p-2.5 sm:p-3 rounded-xl bg-[#151518] border border-[#232329] flex flex-col justify-between gap-2.5 shadow-xs md:col-span-2 xl:col-span-1">
+              
+              {/* Défilement Automatique */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-300 font-semibold text-xs flex items-center gap-1.5">
+                    {stageSettings.isAutoScrolling ? (
+                      <Pause className="w-3.5 h-3.5 text-emerald-400" />
+                    ) : (
+                      <Play className="w-3.5 h-3.5 text-blue-400" />
+                    )}
+                    <span>Défilement auto</span>
+                  </span>
+                  <span className="text-xs font-mono font-bold text-gray-300 bg-[#1C1C22] border border-[#2E2E36] px-2 py-0.5 rounded-md">
+                    {stageSettings.autoScrollSpeed}x
+                  </span>
+                </div>
 
-            {/* Chords Visibility */}
-            <div className="flex items-center gap-1.5">
-              <span className="text-gray-400 text-[11px] font-medium shrink-0">Accords :</span>
-              <div className="inline-flex items-center bg-[#1C1C1E] p-0.5 rounded-md border border-[#333]">
+                <div className="flex items-center gap-2 bg-[#1A1A20] p-1.5 rounded-lg border border-[#2B2B34]">
+                  <button
+                    type="button"
+                    onClick={() => updateStageSettings({ isAutoScrolling: !stageSettings.isAutoScrolling })}
+                    className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer shrink-0 shadow-xs ${
+                      stageSettings.isAutoScrolling
+                        ? 'bg-emerald-600 hover:bg-emerald-500 text-white ring-1 ring-emerald-400/40'
+                        : 'bg-blue-600 hover:bg-blue-500 text-white ring-1 ring-blue-400/40'
+                    }`}
+                  >
+                    {stageSettings.isAutoScrolling ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                    <span>{stageSettings.isAutoScrolling ? 'Pause' : 'Lancer'}</span>
+                  </button>
+                  <input
+                    type="range"
+                    min={1}
+                    max={10}
+                    value={stageSettings.autoScrollSpeed}
+                    onChange={(e) => updateStageSettings({ autoScrollSpeed: parseInt(e.target.value, 10) })}
+                    className="flex-1 h-2 accent-blue-500 cursor-pointer bg-[#25252E] rounded-lg"
+                    title={`Vitesse de défilement : ${stageSettings.autoScrollSpeed}x`}
+                  />
+                </div>
+              </div>
+
+              {/* Métronome & MIDI & PDF Row */}
+              <div className="pt-2 border-t border-[#222228] flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-gray-400 text-[11px] font-medium">BPM :</span>
+                    <MetronomeStageControl
+                      initialBpm={effectiveTempo}
+                      initialTimeSignature={song.timeSignature || parsedData?.timeSignature || '4/4'}
+                      onBpmChange={handleUpdateTempo}
+                      onTimeSignatureChange={handleUpdateTimeSignature}
+                      songTitle={song.title}
+                    />
+                  </div>
+                  
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-gray-400 text-[11px] font-medium">MIDI :</span>
+                    <MidiStatusIndicator showLabel className="!py-1 !text-xs !bg-[#1A1A20] !border-[#2B2B34]" />
+                  </div>
+                </div>
+
+                {/* Exporter PDF Button */}
                 <button
                   type="button"
-                  onClick={() => updateStageSettings({ showChords: true })}
-                  className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-all cursor-pointer ${
-                    stageSettings.showChords ? 'bg-blue-600 text-white font-semibold shadow-xs' : 'text-gray-400 hover:text-white'
-                  }`}
+                  onClick={() => setShowPdfModal(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1C1C22] hover:bg-emerald-950/40 text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 hover:border-emerald-500/60 font-semibold text-xs transition-all cursor-pointer shadow-xs active:scale-95 ml-auto sm:ml-0"
+                  title="Exporter cette partition en PDF"
                 >
-                  <Eye className="w-3 h-3" />
-                  <span>Afficher</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => updateStageSettings({ showChords: false })}
-                  className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-all cursor-pointer ${
-                    !stageSettings.showChords ? 'bg-blue-600 text-white font-semibold shadow-xs' : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  <EyeOff className="w-3 h-3" />
-                  <span>Masquer</span>
+                  <FileDown className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Exporter PDF</span>
                 </button>
               </div>
+
             </div>
 
-            {/* Auto-Scroll Controller */}
-            <div className="flex items-center gap-1.5">
-              <span className="text-gray-400 text-[11px] font-medium shrink-0">Défilement :</span>
-              <div className="inline-flex items-center gap-1.5 bg-[#1C1C1E] px-1.5 py-0.5 rounded-md border border-[#333]">
-                <button
-                  type="button"
-                  onClick={() => updateStageSettings({ isAutoScrolling: !stageSettings.isAutoScrolling })}
-                  className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold transition-all cursor-pointer ${
-                    stageSettings.isAutoScrolling
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : 'bg-[#2A2A2D] text-gray-200 hover:bg-[#333]'
-                  }`}
-                >
-                  {stageSettings.isAutoScrolling ? <Pause className="w-2.5 h-2.5" /> : <Play className="w-2.5 h-2.5" />}
-                  <span>{stageSettings.isAutoScrolling ? 'Pause' : 'Lancer'}</span>
-                </button>
-                <span className="text-[10px] text-gray-400 font-mono">{stageSettings.autoScrollSpeed}x</span>
-                <input
-                  type="range"
-                  min={1}
-                  max={10}
-                  value={stageSettings.autoScrollSpeed}
-                  onChange={(e) => updateStageSettings({ autoScrollSpeed: parseInt(e.target.value, 10) })}
-                  className="w-14 accent-blue-500 cursor-pointer h-1 bg-[#0A0A0B] rounded-lg"
-                  title={`Vitesse: ${stageSettings.autoScrollSpeed}x`}
-                />
-              </div>
-            </div>
-
-            {/* Métronome Visuel & Sonore */}
-            <div className="flex items-center gap-1.5">
-              <span className="text-gray-400 text-[11px] font-medium shrink-0">Métronome :</span>
-              <MetronomeStageControl
-                initialBpm={effectiveTempo}
-                initialTimeSignature={song.timeSignature || parsedData?.timeSignature || '4/4'}
-                onBpmChange={handleUpdateTempo}
-                onTimeSignatureChange={handleUpdateTimeSignature}
-                songTitle={song.title}
-              />
-            </div>
-
-            {/* Pédalier / Contrôleur MIDI */}
-            <div className="flex items-center gap-1.5">
-              <span className="text-gray-400 text-[11px] font-medium shrink-0">MIDI :</span>
-              <MidiStatusIndicator showLabel className="!py-0.5 !text-[11px]" />
-            </div>
-
-            {/* Action : PDF */}
-            <div className="flex items-center gap-1.5 sm:ml-auto w-full sm:w-auto pt-1 sm:pt-0 border-t sm:border-t-0 border-[#222224]">
-              <button
-                type="button"
-                onClick={() => setShowPdfModal(true)}
-                className="flex-1 sm:flex-none flex items-center justify-center gap-1 px-2.5 py-1 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-200 border border-[#333] font-medium text-[11px] sm:text-xs transition-colors cursor-pointer"
-                title="Exporter cette partition en PDF"
-              >
-                <FileDown className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                <span>Exporter PDF</span>
-              </button>
-            </div>
           </div>
 
         </div>

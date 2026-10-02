@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { 
   ArrowLeft, 
@@ -36,7 +36,14 @@ import {
   FolderDown,
   Download,
   Trash2,
-  MousePointerClick
+  MousePointerClick,
+  Globe,
+  Mic,
+  FileEdit,
+  FileDown,
+  Settings2,
+  ArrowUpDown,
+  SlidersHorizontal
 } from 'lucide-react';
 import { useMidi } from '../context/MidiContext';
 import { MidiSettingsModal } from './MidiSettingsModal';
@@ -50,8 +57,49 @@ import {
   getSectionColor 
 } from '../utils/displayDefaults';
 import { SectionColors, SongTypographySettings, SectionBorders } from '../types';
-import { transposeChord } from '../utils/chordUtils';
+import { transposeChord, stripParentheses, LATIN_NOTES } from '../utils/chordUtils';
+import { getLanguageMeta } from '../utils/languageUtils';
 import { DuplicateCleanerSection } from './DuplicateCleanerSection';
+
+export interface PreviewMetadataVisibility {
+  artist: boolean;
+  language: boolean;
+  duration: boolean;
+  tags: boolean;
+  controlsBar: boolean;
+  notes: boolean;
+  actions: boolean;
+  vocalArrangement: boolean;
+}
+
+const PREVIEW_METADATA_STORAGE_KEY = 'melobook_settings_preview_metadata';
+
+const DEFAULT_PREVIEW_METADATA: PreviewMetadataVisibility = {
+  artist: true,
+  language: true,
+  duration: true,
+  tags: true,
+  controlsBar: true,
+  notes: true,
+  actions: true,
+  vocalArrangement: true,
+};
+
+const METADATA_TOGGLE_ITEMS: Array<{
+  key: keyof PreviewMetadataVisibility;
+  label: string;
+  iconName: string;
+  description: string;
+}> = [
+  { key: 'language', label: 'Langue', iconName: 'Globe', description: 'Badge langue (ex: FR, EN)' },
+  { key: 'duration', label: 'Durée', iconName: 'Clock', description: 'Badge durée (ex: 04:30)' },
+  { key: 'artist', label: 'Artiste', iconName: 'Type', description: 'Nom de l\'artiste ou groupe' },
+  { key: 'tags', label: 'Catégories', iconName: 'Tag', description: 'Badges de catégories et thèmes' },
+  { key: 'controlsBar', label: 'Tonalité & Tempo', iconName: 'Music', description: 'Barre de contrôles (Tonalité, Transpose, BPM)' },
+  { key: 'notes', label: 'Note du chant', iconName: 'Bookmark', description: 'Bannière d\'instructions et directives' },
+  { key: 'actions', label: 'Actions rapides', iconName: 'Maximize2', description: 'Boutons plein écran, éditer, PDF, options' },
+  { key: 'vocalArrangement', label: 'Voix +', iconName: 'Mic', description: 'Badge arrangement vocal sur les sections' },
+];
 
 export type PointNClickTargetType = 
   | 'title' 
@@ -661,6 +709,164 @@ export const SettingsView: React.FC = () => {
     ? (isSystemLight ? 'light' : 'dark')
     : (stageSettings.theme || 'dark');
 
+  // Visibilité des métadonnées dans l'aperçu (persisté en local)
+  const [previewMetadata, setPreviewMetadata] = useState<PreviewMetadataVisibility>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem(PREVIEW_METADATA_STORAGE_KEY);
+        if (saved) {
+          return { ...DEFAULT_PREVIEW_METADATA, ...JSON.parse(saved) };
+        }
+      } catch {
+        // ignore
+      }
+    }
+    return DEFAULT_PREVIEW_METADATA;
+  });
+
+  const togglePreviewMetadata = (key: keyof PreviewMetadataVisibility) => {
+    setPreviewMetadata(prev => {
+      const next = { ...prev, [key]: !prev[key] };
+      try {
+        localStorage.setItem(PREVIEW_METADATA_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
+
+  const handleShowAllPreviewMetadata = () => {
+    const allOn: PreviewMetadataVisibility = {
+      artist: true,
+      language: true,
+      duration: true,
+      tags: true,
+      controlsBar: true,
+      notes: true,
+      actions: true,
+      vocalArrangement: true,
+    };
+    setPreviewMetadata(allOn);
+    try {
+      localStorage.setItem(PREVIEW_METADATA_STORAGE_KEY, JSON.stringify(allOn));
+    } catch {
+      // ignore
+    }
+    notify('Toutes les métadonnées sont affichées dans l\'aperçu');
+  };
+
+  const handleHideAllPreviewMetadata = () => {
+    const allOff: PreviewMetadataVisibility = {
+      artist: false,
+      language: false,
+      duration: false,
+      tags: false,
+      controlsBar: false,
+      notes: false,
+      actions: false,
+      vocalArrangement: false,
+    };
+    setPreviewMetadata(allOff);
+    try {
+      localStorage.setItem(PREVIEW_METADATA_STORAGE_KEY, JSON.stringify(allOff));
+    } catch {
+      // ignore
+    }
+    notify('Toutes les métadonnées sont masquées dans l\'aperçu');
+  };
+
+  const activeMetadataCount = Object.values(previewMetadata).filter(Boolean).length;
+
+  // Choix du chant prévisualisé (exemples riches ou chant de la bibliothèque)
+  const [previewSongId, setPreviewSongId] = useState<string>(() => {
+    if (selectedSong?.id) return selectedSong.id;
+    return 'demo-amazing-grace';
+  });
+
+  // Calcul des données du chant actif dans l'aperçu
+  const activeSongData = useMemo(() => {
+    if (previewSongId === 'demo-amazing-grace') {
+      return {
+        title: 'Amazing Grace',
+        artist: 'John Newton / Chris Tomlin',
+        language: 'Anglais',
+        duration: '04:30',
+        tags: ['Classique', 'Hymne', 'Grâce'],
+        key: 'E',
+        tempo: 75,
+        notes: 'English version of Grâce Infinie.',
+        verseTitle: 'VERSE 1',
+        verseLyrics1: 'Amazing grace how sweet the sound',
+        verseLyrics2: 'That saved a wretch like me',
+        chorusTitle: 'CHORUS',
+        chorusLyrics: "My chains are gone, I've been set free",
+        bridgeTitle: 'BRIDGE',
+        bridgeLyrics: 'The earth shall soon dissolve like snow'
+      };
+    }
+    if (previewSongId === 'demo-jesus-tu-es-bon') {
+      return {
+        title: 'Jésus tu es bon',
+        artist: 'Bethel Music / Jenn Johnson',
+        language: 'Français',
+        duration: '05:10',
+        tags: ['Adoration', 'Grâce', 'Fidélité'],
+        key: 'G',
+        tempo: 72,
+        notes: 'Intro douce à la guitare acoustique. Monter en puissance au Pont.',
+        verseTitle: 'COUPLET 1',
+        verseLyrics1: 'Grâce infinie, au son si doux',
+        verseLyrics2: 'qui sauva un rebelle comme moi !',
+        chorusTitle: 'REFRAIN',
+        chorusLyrics: "J'étais perdu mais je suis retrouvé,\nAveugle et maintenant je vois.",
+        bridgeTitle: 'PONT',
+        bridgeLyrics: 'Quand nous serons là-haut depuis dix mille ans,'
+      };
+    }
+
+    const matched = songs.find(s => s.id === previewSongId) || selectedSong;
+    if (matched) {
+      return {
+        title: matched.title || 'Chant sélectionné',
+        artist: matched.artist || 'Artiste / Groupe',
+        language: matched.language || 'Français',
+        duration: matched.duration || '04:30',
+        tags: (matched.tags && matched.tags.length > 0) ? matched.tags : ['Louange', 'Adoration'],
+        key: matched.key || 'G',
+        tempo: matched.tempo || 72,
+        notes: matched.notes || 'Note : Version préparée pour le culte.',
+        verseTitle: 'COUPLET 1',
+        verseLyrics1: 'Grâce infinie, au son si doux',
+        verseLyrics2: 'qui sauva un rebelle comme moi !',
+        chorusTitle: 'REFRAIN',
+        chorusLyrics: "J'étais perdu mais je suis retrouvé,\nAveugle et maintenant je vois.",
+        bridgeTitle: 'PONT',
+        bridgeLyrics: 'Quand nous serons là-haut depuis dix mille ans,'
+      };
+    }
+
+    return {
+      title: 'Amazing Grace',
+      artist: 'John Newton / Chris Tomlin',
+      language: 'Anglais',
+      duration: '04:30',
+      tags: ['Classique', 'Hymne', 'Grâce'],
+      key: 'E',
+      tempo: 75,
+      notes: 'English version of Grâce Infinie.',
+      verseTitle: 'VERSE 1',
+      verseLyrics1: 'Amazing grace how sweet the sound',
+      verseLyrics2: 'That saved a wretch like me',
+      chorusTitle: 'CHORUS',
+      chorusLyrics: "My chains are gone, I've been set free",
+      bridgeTitle: 'BRIDGE',
+      bridgeLyrics: 'The earth shall soon dissolve like snow'
+    };
+  }, [previewSongId, songs, selectedSong]);
+
+  const langMeta = getLanguageMeta(activeSongData.language);
+
   const renderSongPreviewBody = (isFullscreen = false) => {
     const currentSpacing = typography.sectionSpacing !== undefined ? typography.sectionSpacing : 4;
     const isPreviewCompact = currentSpacing <= 6;
@@ -693,78 +899,351 @@ export const SettingsView: React.FC = () => {
             <div className="flex items-center gap-2">
               <MousePointerClick className="w-4 h-4 text-blue-400 animate-pulse shrink-0" />
               <span className="text-[11px] font-medium leading-tight">
-                <strong>Mode Point-n-Click :</strong> Cliquez directement sur le titre, les accords, les paroles ou les badges pour ajuster leur taille ou couleur.
+                <strong>Mode Point-n-Click :</strong> Cliquez directement sur le titre, les accords, les paroles, les métadonnées ou les badges pour ajuster leur taille ou couleur.
               </span>
             </div>
           </div>
         )}
 
-        {/* Song Header Preview (Pure Live Display) */}
-        <div className="border-b border-[#222224] pb-2.5 flex flex-col gap-2">
+        {/* Panneau de sélection interactive des métadonnées de l'aperçu */}
+        <div className="p-2.5 sm:p-3 rounded-xl bg-[#16161B]/95 border border-[#282834] space-y-2.5 shadow-md">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div className="flex-1 min-w-0">
-              <h3 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedPreviewElement({ type: 'title', label: 'Titre du chant' });
-                }}
-                className={`font-bold tracking-tight leading-tight break-words cursor-pointer transition-all rounded px-1.5 py-0.5 -mx-1.5 ${
-                  selectedPreviewElement?.type === 'title'
-                    ? 'ring-2 ring-blue-500 bg-blue-500/20 text-white'
-                    : 'hover:ring-1 hover:ring-blue-400/50 hover:bg-blue-500/5'
-                } ${
-                  effectivePreviewTheme === 'light' ? 'text-[#18181B]' : 'text-white'
-                }`}
-                style={{ fontSize: `${typography.titleSize}px` }}
-                title="Cliquer pour modifier la taille du titre"
-              >
-                {selectedSong ? selectedSong.title : 'Grâce Infinie'}
-              </h3>
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5">
+                <SlidersHorizontal className="w-3.5 h-3.5 text-blue-400" />
+                <span className="text-xs font-bold text-white">
+                  Métadonnées dans l'aperçu :
+                </span>
+                <span className="px-1.5 py-0.5 rounded-full bg-blue-950/70 text-blue-300 border border-blue-500/30 font-mono text-[10px] font-bold">
+                  {activeMetadataCount}/8
+                </span>
+              </div>
+
+              <div className="flex items-center gap-1.5 text-xs pl-0 sm:pl-2 sm:border-l sm:border-[#2C2C38]">
+                <button
+                  type="button"
+                  onClick={handleShowAllPreviewMetadata}
+                  className="text-[11px] font-semibold text-blue-400 hover:text-blue-300 transition-colors cursor-pointer"
+                  title="Afficher toutes les métadonnées dans l'aperçu"
+                >
+                  Tout afficher
+                </button>
+                <span className="text-gray-600">•</span>
+                <button
+                  type="button"
+                  onClick={handleHideAllPreviewMetadata}
+                  className="text-[11px] font-semibold text-gray-400 hover:text-gray-300 transition-colors cursor-pointer"
+                  title="Masquer toutes les métadonnées dans l'aperçu"
+                >
+                  Tout masquer
+                </button>
+              </div>
             </div>
 
+            {/* Sélecteur du chant affiché en aperçu */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span className="text-[11px] text-gray-400 hidden sm:inline">Chant :</span>
+              <select
+                value={previewSongId}
+                onChange={(e) => setPreviewSongId(e.target.value)}
+                className="bg-[#101014] border border-[#2C2C38] hover:border-blue-500/50 text-[11px] text-white rounded-lg px-2 py-1 cursor-pointer focus:outline-none focus:border-blue-500 max-w-[210px] truncate"
+                title="Choisir le chant affiché dans l'aperçu"
+              >
+                <option value="demo-amazing-grace">Amazing Grace (Exemple EN avec tags)</option>
+                <option value="demo-jesus-tu-es-bon">Jésus tu es bon (Exemple FR avec tags)</option>
+                {songs.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.title} {s.artist ? `(${s.artist})` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Boutons Pills de filtre métadonnées */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {METADATA_TOGGLE_ITEMS.map((item) => {
+              const isVisible = previewMetadata[item.key];
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => togglePreviewMetadata(item.key)}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer border ${
+                    isVisible
+                      ? 'bg-blue-600/20 text-blue-300 border-blue-500/40 hover:bg-blue-600/30 shadow-xs'
+                      : 'bg-[#121216] text-gray-500 border-[#25252D] hover:text-gray-300 hover:border-gray-600 line-through opacity-70'
+                  }`}
+                  title={`${isVisible ? 'Cliquer pour masquer' : 'Cliquer pour afficher'} ${item.label} dans l'aperçu (${item.description})`}
+                >
+                  {item.key === 'language' && <Globe className="w-3 h-3 text-blue-400" />}
+                  {item.key === 'duration' && <Clock className="w-3 h-3 text-cyan-400" />}
+                  {item.key === 'artist' && <Type className="w-3 h-3 text-gray-300" />}
+                  {item.key === 'tags' && <Tag className="w-3 h-3 text-blue-400" />}
+                  {item.key === 'controlsBar' && <Music className="w-3 h-3 text-amber-400" />}
+                  {item.key === 'notes' && <Bookmark className="w-3 h-3 text-emerald-400" />}
+                  {item.key === 'actions' && <Maximize2 className="w-3 h-3 text-purple-400" />}
+                  {item.key === 'vocalArrangement' && <Mic className="w-3 h-3 text-purple-400" />}
+                  <span>{item.label}</span>
+                  {isVisible ? (
+                    <Check className="w-2.5 h-2.5 text-blue-400 ml-0.5 stroke-[3]" />
+                  ) : (
+                    <EyeOff className="w-2.5 h-2.5 text-gray-500 ml-0.5" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* En-tête du chant reproduisant fidèlement SongReader */}
+        <div className="border-b border-[#222224] pb-2.5 flex flex-col gap-2">
+          {/* Ligne 1: Titre, Langue, Durée & Boutons d'action */}
+          <div className="flex items-start justify-between gap-2 sm:gap-3 mb-0.5">
+            <div className="flex-1 min-w-0 pr-1 sm:pr-2">
+              <div className="flex items-center flex-wrap gap-1.5 sm:gap-2 mb-0.5">
+                <h3 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedPreviewElement({ type: 'title', label: 'Titre du chant' });
+                  }}
+                  className={`font-bold tracking-tight leading-tight break-words cursor-pointer transition-all rounded px-1.5 py-0.5 -mx-1.5 ${
+                    selectedPreviewElement?.type === 'title'
+                      ? 'ring-2 ring-blue-500 bg-blue-500/20 text-white'
+                      : 'hover:ring-1 hover:ring-blue-400/50 hover:bg-blue-500/5'
+                  } ${
+                    effectivePreviewTheme === 'light' ? 'text-[#18181B]' : 'text-white'
+                  }`}
+                  style={{ fontSize: `clamp(17px, 3.8vw, ${typography.titleSize}px)` }}
+                  title="Cliquer pour modifier la taille du titre"
+                >
+                  {stripParentheses(activeSongData.title)}
+                </h3>
+
+                {/* Badge Langue */}
+                {previewMetadata.language && (
+                  <div
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedPreviewElement({ type: 'metadata', label: 'Badge Langue' });
+                    }}
+                    className={`inline-flex items-center justify-center gap-1.5 px-2 py-0.5 rounded-md border text-xs font-bold transition-all shadow-xs cursor-pointer ${
+                      selectedPreviewElement?.type === 'metadata' ? 'ring-2 ring-blue-500' : 'hover:scale-105'
+                    } ${langMeta.badgeClass}`}
+                    title={`Langue : ${langMeta.name} (${langMeta.code}) - Cliquer pour ajuster la taille`}
+                  >
+                    <Globe className="w-3.5 h-3.5 shrink-0" />
+                    <span className="leading-none text-[11px] font-bold tracking-tight">{langMeta.code}</span>
+                  </div>
+                )}
+
+                {/* Badge Durée */}
+                {previewMetadata.duration && (
+                  <div
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedPreviewElement({ type: 'metadata', label: 'Badge Durée' });
+                    }}
+                    className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-gray-300 shadow-xs cursor-pointer transition-all ${
+                      selectedPreviewElement?.type === 'metadata' ? 'ring-2 ring-blue-500' : 'hover:scale-105'
+                    } ${
+                      effectivePreviewTheme === 'light'
+                        ? 'bg-gray-100 border-gray-300 text-gray-700'
+                        : 'bg-[#18181C] border-[#2A2A30]'
+                    }`}
+                    style={{ fontSize: `${typography.metadataSize}px` }}
+                    title={`Durée estimée : ${activeSongData.duration} - Cliquer pour ajuster la taille`}
+                  >
+                    <Clock className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                    <span className="text-cyan-300 font-bold font-mono text-xs">
+                      {activeSongData.duration}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Boutons d'action rapides (Plein écran, Éditer, PDF, Options) */}
+            {previewMetadata.actions && (
+              <div 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedPreviewElement({ type: 'metadata', label: 'Boutons d\'action du lecteur' });
+                }}
+                className={`flex items-center gap-1 sm:gap-1.5 shrink-0 cursor-pointer rounded-lg p-0.5 transition-all ${
+                  selectedPreviewElement?.type === 'metadata' && selectedPreviewElement.label.includes('action')
+                    ? 'ring-2 ring-blue-500 bg-blue-500/10'
+                    : 'hover:bg-white/5'
+                }`}
+                title="Boutons d'action du lecteur de scène"
+              >
+                <div className="p-1.5 rounded-lg border text-xs font-medium flex items-center justify-center bg-[#1C1C1E] text-gray-300 border-[#333]">
+                  <Maximize2 className="w-3.5 h-3.5" />
+                </div>
+                <div className="p-1.5 rounded-lg bg-[#1C1C1E] text-gray-200 border border-[#333] flex items-center justify-center">
+                  <FileEdit className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                </div>
+                <div className="p-1.5 rounded-lg bg-[#1C1C1E] text-gray-200 border border-[#333] flex items-center justify-center">
+                  <FileDown className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                </div>
+                <div className="p-1.5 rounded-lg bg-[#1C1C1E] border border-[#333] text-gray-200 flex items-center justify-center">
+                  <Settings2 className="w-3.5 h-3.5" />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Ligne 2: Artiste & Catégories / Tags */}
+          {(previewMetadata.artist || (previewMetadata.tags && activeSongData.tags.length > 0)) && (
+            <div className="w-full flex items-center gap-1.5 sm:gap-2 flex-wrap mb-1 text-xs">
+              {previewMetadata.artist && (
+                <div 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedPreviewElement({ type: 'metadata', label: 'Artiste' });
+                  }}
+                  className={`font-medium break-words shrink-0 cursor-pointer transition-all rounded px-1.5 py-0.5 -mx-1.5 ${
+                    selectedPreviewElement?.type === 'metadata'
+                      ? 'ring-2 ring-blue-500 bg-blue-500/20 text-blue-200'
+                      : 'hover:ring-1 hover:ring-blue-400/50 hover:bg-blue-500/5'
+                  } ${
+                    effectivePreviewTheme === 'light' ? 'text-gray-600' : 'text-gray-300'
+                  }`}
+                  style={{ fontSize: `clamp(11px, 2.5vw, ${typography.metadataSize}px)` }}
+                  title="Cliquer pour modifier la taille des métadonnées"
+                >
+                  {activeSongData.artist}
+                </div>
+              )}
+
+              {previewMetadata.tags && activeSongData.tags.length > 0 && (
+                <div 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedPreviewElement({ type: 'metadata', label: 'Catégories / Tags' });
+                  }}
+                  className={`w-full sm:w-auto flex items-center gap-1 sm:gap-1.5 flex-wrap cursor-pointer ${
+                    previewMetadata.artist ? 'sm:border-l sm:border-[#2A2A2E] sm:pl-2' : ''
+                  }`}
+                  title="Catégories du chant - Cliquer pour ajuster la taille"
+                >
+                  {activeSongData.tags.map((cat, idx) => (
+                    <span
+                      key={idx}
+                      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-gray-300 text-[11px] sm:text-xs font-medium shadow-xs transition-all ${
+                        selectedPreviewElement?.type === 'metadata' ? 'ring-1 ring-blue-500' : ''
+                      } ${
+                        effectivePreviewTheme === 'light'
+                          ? 'bg-gray-100 border-gray-300 text-gray-700'
+                          : 'bg-[#18181C] border-[#2A2A30]'
+                      }`}
+                    >
+                      <Tag className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-blue-400" />
+                      <span>{cat}</span>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Ligne 3: Barre de contrôles (Tonalité, Transposition, BPM) */}
+          {previewMetadata.controlsBar && (
             <div 
               onClick={(e) => {
                 e.stopPropagation();
-                setSelectedPreviewElement({ type: 'metadata', label: 'Artiste & Métadonnées' });
+                setSelectedPreviewElement({ type: 'metadata', label: 'Barre Tonalité & Tempo' });
               }}
-              className={`flex flex-wrap items-center gap-2 shrink-0 self-start sm:self-auto px-2.5 py-1 rounded-lg font-mono shadow-sm cursor-pointer transition-all ${
-                selectedPreviewElement?.type === 'metadata'
-                  ? 'ring-2 ring-blue-500 bg-blue-500/20'
-                  : 'hover:ring-1 hover:ring-blue-400/50 hover:bg-blue-500/5'
+              className={`flex items-center gap-2 flex-wrap text-xs cursor-pointer rounded-lg p-0.5 transition-all ${
+                selectedPreviewElement?.type === 'metadata' && selectedPreviewElement.label.includes('Tonalité')
+                  ? 'ring-2 ring-blue-500 bg-blue-500/10'
+                  : ''
+              }`}
+              title="Barre de contrôles de tonalité et tempo - Cliquer pour ajuster la taille"
+            >
+              {/* Tonalité */}
+              <div 
+                className={`h-8 inline-flex items-center gap-1.5 px-2.5 rounded-lg border font-mono shadow-xs ${
+                  effectivePreviewTheme === 'light'
+                    ? 'bg-gray-100 border-gray-300 text-gray-700'
+                    : 'bg-[#141416] border-[#242428] text-gray-300'
+                }`}
+                style={{ fontSize: `${typography.metadataSize}px` }}
+              >
+                <Music className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                <span className="text-gray-400 font-sans text-xs hidden sm:inline">Tonalité :</span>
+                <span className="text-blue-400 font-bold font-mono text-xs">
+                  {stageSettings.notation === 'latin' ? (LATIN_NOTES[activeSongData.key] || activeSongData.key) : activeSongData.key}
+                </span>
+                <ChevronDown className="w-3 h-3 text-blue-400/80" />
+              </div>
+
+              {/* Transpose */}
+              <div 
+                className={`h-8 inline-flex items-center gap-1.5 px-2.5 rounded-lg border font-mono shadow-xs ${
+                  effectivePreviewTheme === 'light'
+                    ? 'bg-gray-100 border-gray-300 text-gray-700'
+                    : 'bg-[#141416] border-[#242428] text-gray-300'
+                }`}
+                style={{ fontSize: `${typography.metadataSize}px` }}
+              >
+                <ArrowUpDown className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <span className="text-amber-400/90 font-sans text-xs shrink-0 hidden sm:inline">Transpose :</span>
+                <span className={`px-1.5 py-0.5 rounded font-mono font-bold text-xs ${
+                  stageSettings.transposeOffset !== 0
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                    : effectivePreviewTheme === 'light' ? 'bg-gray-200 text-gray-700' : 'bg-[#18181C] text-gray-300 border border-[#242428]'
+                }`}>
+                  {stageSettings.transposeOffset === 0 ? '0' : (stageSettings.transposeOffset > 0 ? `+${stageSettings.transposeOffset}` : `${stageSettings.transposeOffset}`)}
+                </span>
+                <ChevronDown className="w-3 h-3 text-amber-400/80" />
+              </div>
+
+              {/* Tempo */}
+              <div 
+                className={`h-8 inline-flex items-center gap-1.5 px-2.5 rounded-lg border font-mono shadow-xs ${
+                  effectivePreviewTheme === 'light'
+                    ? 'bg-gray-100 border-gray-300 text-gray-700'
+                    : 'bg-[#141416] border-[#242428] text-gray-300'
+                }`}
+                style={{ fontSize: `${typography.metadataSize}px` }}
+              >
+                <Gauge className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span className="text-gray-400 font-sans text-xs hidden sm:inline">Tempo :</span>
+                <span className="text-emerald-400 font-bold font-mono text-xs">{activeSongData.tempo}</span>
+                <span className="text-gray-400 font-mono text-[11px]">BPM</span>
+                <ChevronDown className="w-3 h-3 text-emerald-400/80" />
+              </div>
+            </div>
+          )}
+
+          {/* Ligne 4: Note / Remarques */}
+          {previewMetadata.notes && activeSongData.notes && (
+            <div 
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedPreviewElement({ type: 'metadata', label: 'Note du chant' });
+              }}
+              className={`mt-1 p-2 rounded-lg border flex items-start gap-2.5 transition-all text-xs cursor-pointer ${
+                selectedPreviewElement?.type === 'metadata' && selectedPreviewElement.label.includes('Note')
+                  ? 'ring-2 ring-blue-500'
+                  : ''
               } ${
                 effectivePreviewTheme === 'light'
-                  ? 'bg-gray-100 border border-gray-300 text-gray-700'
-                  : 'bg-[#141416] border border-[#242428] text-gray-300'
+                  ? 'bg-amber-50/60 border-amber-200/80'
+                  : 'bg-[#111112] border-[#222224]'
               }`}
-              style={{ fontSize: `${typography.metadataSize}px` }}
-              title="Cliquer pour modifier la taille des métadonnées"
+              style={{ fontSize: `${Math.max(11, typography.metadataSize)}px` }}
+              title="Note du chant - Cliquer pour ajuster la taille"
             >
-              <div className="flex items-center gap-1">
-                <span className="text-gray-400">Tonalité :</span>
-                <strong className="text-blue-500">G</strong>
+              <div className="text-gray-300 font-sans italic flex-1">
+                <span className="text-amber-400/90 font-semibold not-italic mr-1.5">Note :</span>
+                <span className={effectivePreviewTheme === 'light' ? 'text-gray-700' : 'text-gray-300'}>
+                  {activeSongData.notes}
+                </span>
               </div>
-              <span className="text-gray-400">•</span>
-              <strong>72 BPM</strong>
             </div>
-          </div>
-
-          <div 
-            onClick={(e) => {
-              e.stopPropagation();
-              setSelectedPreviewElement({ type: 'metadata', label: 'Artiste & Métadonnées' });
-            }}
-            className={`font-medium break-words cursor-pointer transition-all rounded px-1.5 py-0.5 -mx-1.5 ${
-              selectedPreviewElement?.type === 'metadata'
-                ? 'ring-2 ring-blue-500 bg-blue-500/20 text-blue-200'
-                : 'hover:ring-1 hover:ring-blue-400/50 hover:bg-blue-500/5'
-            } ${
-              effectivePreviewTheme === 'light' ? 'text-gray-600' : 'text-gray-300'
-            }`}
-            style={{ fontSize: `${typography.metadataSize}px` }}
-            title="Cliquer pour modifier la taille des métadonnées"
-          >
-            {selectedSong?.artist || 'John Newton'}
-          </div>
+          )}
         </div>
 
         {/* Sections Container (1 to 5 columns preview) */}
@@ -785,13 +1264,13 @@ export const SettingsView: React.FC = () => {
             rowGap: `${currentSpacing}px`,
           }}
         >
-          {/* Section 1: Couplet */}
+          {/* Section 1: Couplet / Verse */}
           <div 
             onClick={() => {
               setSelectedPreviewElement({
                 type: 'sectionCard',
                 sectionType: 'verse',
-                label: 'Cadre & Espacement : Couplet'
+                label: `Cadre & Espacement : ${activeSongData.verseTitle}`
               });
             }}
             className={`rounded-lg ${previewPadding} transition-all cursor-pointer ${
@@ -809,7 +1288,7 @@ export const SettingsView: React.FC = () => {
                   setSelectedPreviewElement({
                     type: 'sectionHeader',
                     sectionType: 'verse',
-                    label: 'Badge : Couplet'
+                    label: `Badge : ${activeSongData.verseTitle}`
                   });
                 }}
                 className={`inline-block font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border shadow-xs select-none cursor-pointer transition-all ${
@@ -823,10 +1302,28 @@ export const SettingsView: React.FC = () => {
                   borderColor: `${sectionColors.verse}50`,
                   backgroundColor: `${sectionColors.verse}1C`
                 }}
-                title="Cliquer pour modifier la taille et la couleur du badge Couplet"
+                title={`Cliquer pour modifier la taille et la couleur du badge ${activeSongData.verseTitle}`}
               >
-                Couplet 1
+                {activeSongData.verseTitle}
               </span>
+
+              {/* Badge d'arrangement vocal (Voix +) */}
+              {previewMetadata.vocalArrangement && (
+                <div
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedPreviewElement({
+                      type: 'metadata',
+                      label: 'Arrangement vocal (Voix +)'
+                    });
+                  }}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#1B1626] border border-purple-500/30 text-purple-300 text-[11px] font-medium shadow-xs hover:bg-purple-950/60 transition-colors"
+                  title="Arrangement vocal de la section (Voix +)"
+                >
+                  <Mic className="w-3 h-3 text-purple-400 shrink-0" />
+                  <span>Voix +</span>
+                </div>
+              )}
             </div>
 
             <div className="space-y-1 font-mono">
@@ -845,7 +1342,7 @@ export const SettingsView: React.FC = () => {
                     style={{ fontSize: `${typography.chordSize}px`, color: chordColor }}
                     title="Cliquer pour modifier la taille et la couleur des accords"
                   >
-                    {transposeChord('G', 0, stageSettings.notation)}
+                    {transposeChord(activeSongData.key === 'E' ? 'E' : 'G', stageSettings.transposeOffset, stageSettings.notation)}
                   </span>
                 )}
                 <span 
@@ -861,7 +1358,7 @@ export const SettingsView: React.FC = () => {
                   style={{ fontSize: `${typography.lyricsSize}px` }}
                   title="Cliquer pour modifier la taille et l'interligne des paroles"
                 >
-                  Grâce infinie, au son si doux
+                  {activeSongData.verseLyrics1}
                 </span>
               </div>
 
@@ -880,7 +1377,11 @@ export const SettingsView: React.FC = () => {
                     style={{ fontSize: `${typography.chordSize}px`, color: chordColor }}
                     title="Cliquer pour modifier la taille et la couleur des accords"
                   >
-                    {transposeChord('C', 0, stageSettings.notation)}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{transposeChord('G', 0, stageSettings.notation)}
+                    {activeSongData.key === 'E' ? (
+                      <>{transposeChord('A', stageSettings.transposeOffset, stageSettings.notation)}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{transposeChord('E', stageSettings.transposeOffset, stageSettings.notation)}</>
+                    ) : (
+                      <>{transposeChord('C', stageSettings.transposeOffset, stageSettings.notation)}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{transposeChord('G', stageSettings.transposeOffset, stageSettings.notation)}</>
+                    )}
                   </span>
                 )}
                 <span 
@@ -896,19 +1397,19 @@ export const SettingsView: React.FC = () => {
                   style={{ fontSize: `${typography.lyricsSize}px` }}
                   title="Cliquer pour modifier la taille et l'interligne des paroles"
                 >
-                  qui sauva un rebelle comme moi !
+                  {activeSongData.verseLyrics2}
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Section 2: Refrain */}
+          {/* Section 2: Refrain / Chorus */}
           <div 
             onClick={() => {
               setSelectedPreviewElement({
                 type: 'sectionCard',
                 sectionType: 'chorus',
-                label: 'Cadre & Espacement : Refrain'
+                label: `Cadre & Espacement : ${activeSongData.chorusTitle}`
               });
             }}
             className={`rounded-lg ${previewPadding} transition-all cursor-pointer ${
@@ -926,7 +1427,7 @@ export const SettingsView: React.FC = () => {
                   setSelectedPreviewElement({
                     type: 'sectionHeader',
                     sectionType: 'chorus',
-                    label: 'Badge : Refrain'
+                    label: `Badge : ${activeSongData.chorusTitle}`
                   });
                 }}
                 className={`inline-block font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border shadow-xs select-none cursor-pointer transition-all ${
@@ -940,10 +1441,28 @@ export const SettingsView: React.FC = () => {
                   borderColor: `${sectionColors.chorus}50`,
                   backgroundColor: `${sectionColors.chorus}1C`
                 }}
-                title="Cliquer pour modifier la taille et la couleur du badge Refrain"
+                title={`Cliquer pour modifier la taille et la couleur du badge ${activeSongData.chorusTitle}`}
               >
-                Refrain
+                {activeSongData.chorusTitle}
               </span>
+
+              {/* Badge d'arrangement vocal (Voix +) */}
+              {previewMetadata.vocalArrangement && (
+                <div
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedPreviewElement({
+                      type: 'metadata',
+                      label: 'Arrangement vocal (Voix +)'
+                    });
+                  }}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#1B1626] border border-purple-500/30 text-purple-300 text-[11px] font-medium shadow-xs hover:bg-purple-950/60 transition-colors"
+                  title="Arrangement vocal de la section (Voix +)"
+                >
+                  <Mic className="w-3 h-3 text-purple-400 shrink-0" />
+                  <span>Voix +</span>
+                </div>
+              )}
             </div>
 
             <div className="space-y-1 font-mono">
@@ -962,7 +1481,11 @@ export const SettingsView: React.FC = () => {
                     style={{ fontSize: `${typography.chordSize}px`, color: chordColor }}
                     title="Cliquer pour modifier la taille et la couleur des accords"
                   >
-                    {transposeChord('Em', 0, stageSettings.notation)}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{transposeChord('D', 0, stageSettings.notation)}
+                    {activeSongData.key === 'E' ? (
+                      <>{transposeChord('A', stageSettings.transposeOffset, stageSettings.notation)}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{transposeChord('E', stageSettings.transposeOffset, stageSettings.notation)}</>
+                    ) : (
+                      <>{transposeChord('Em', stageSettings.transposeOffset, stageSettings.notation)}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{transposeChord('D', stageSettings.transposeOffset, stageSettings.notation)}</>
+                    )}
                   </span>
                 )}
                 <span 
@@ -978,54 +1501,19 @@ export const SettingsView: React.FC = () => {
                   style={{ fontSize: `${typography.lyricsSize}px` }}
                   title="Cliquer pour modifier la taille et l'interligne des paroles"
                 >
-                  J'étais perdu mais je suis retrouvé,
-                </span>
-              </div>
-
-              <div className="inline-flex flex-col">
-                {stageSettings.showChords && (
-                  <span 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedPreviewElement({ type: 'chord', label: 'Accords' });
-                    }}
-                    className={`font-mono font-bold leading-none mb-1 cursor-pointer transition-all rounded px-1 -mx-1 select-none ${
-                      selectedPreviewElement?.type === 'chord'
-                        ? 'ring-2 ring-blue-500 bg-blue-500/20'
-                        : 'hover:ring-1 hover:ring-blue-400/60 hover:bg-blue-500/10'
-                    }`}
-                    style={{ fontSize: `${typography.chordSize}px`, color: chordColor }}
-                    title="Cliquer pour modifier la taille et la couleur des accords"
-                  >
-                    {transposeChord('G', 0, stageSettings.notation)}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{transposeChord('D7', 0, stageSettings.notation)}&nbsp;&nbsp;&nbsp;{transposeChord('G', 0, stageSettings.notation)}
-                  </span>
-                )}
-                <span 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedPreviewElement({ type: 'lyrics', label: 'Paroles' });
-                  }}
-                  className={`font-sans cursor-pointer transition-all rounded px-1 -mx-1 ${
-                    selectedPreviewElement?.type === 'lyrics'
-                      ? 'ring-2 ring-blue-500 bg-blue-500/15'
-                      : 'hover:ring-1 hover:ring-blue-400/50 hover:bg-blue-500/5'
-                  } ${effectivePreviewTheme === 'light' ? 'text-[#18181B]' : 'text-[#E0E0E0]'}`}
-                  style={{ fontSize: `${typography.lyricsSize}px` }}
-                  title="Cliquer pour modifier la taille et l'interligne des paroles"
-                >
-                  Aveugle et maintenant je vois.
+                  {activeSongData.chorusLyrics}
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Section 3: Pont */}
+          {/* Section 3: Pont / Bridge */}
           <div 
             onClick={() => {
               setSelectedPreviewElement({
                 type: 'sectionCard',
                 sectionType: 'bridge',
-                label: 'Cadre & Espacement : Pont'
+                label: `Cadre & Espacement : ${activeSongData.bridgeTitle}`
               });
             }}
             className={`rounded-lg ${previewPadding} transition-all cursor-pointer ${
@@ -1043,7 +1531,7 @@ export const SettingsView: React.FC = () => {
                   setSelectedPreviewElement({
                     type: 'sectionHeader',
                     sectionType: 'bridge',
-                    label: 'Badge : Pont'
+                    label: `Badge : ${activeSongData.bridgeTitle}`
                   });
                 }}
                 className={`inline-block font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border shadow-xs select-none cursor-pointer transition-all ${
@@ -1057,10 +1545,28 @@ export const SettingsView: React.FC = () => {
                   borderColor: `${sectionColors.bridge}50`,
                   backgroundColor: `${sectionColors.bridge}1C`
                 }}
-                title="Cliquer pour modifier la taille et la couleur du badge Pont"
+                title={`Cliquer pour modifier la taille et la couleur du badge ${activeSongData.bridgeTitle}`}
               >
-                Pont
+                {activeSongData.bridgeTitle}
               </span>
+
+              {/* Badge d'arrangement vocal (Voix +) */}
+              {previewMetadata.vocalArrangement && (
+                <div
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedPreviewElement({
+                      type: 'metadata',
+                      label: 'Arrangement vocal (Voix +)'
+                    });
+                  }}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#1B1626] border border-purple-500/30 text-purple-300 text-[11px] font-medium shadow-xs hover:bg-purple-950/60 transition-colors"
+                  title="Arrangement vocal de la section (Voix +)"
+                >
+                  <Mic className="w-3 h-3 text-purple-400 shrink-0" />
+                  <span>Voix +</span>
+                </div>
+              )}
             </div>
 
             <div className="space-y-1 font-mono">
@@ -1079,7 +1585,11 @@ export const SettingsView: React.FC = () => {
                     style={{ fontSize: `${typography.chordSize}px`, color: chordColor }}
                     title="Cliquer pour modifier la taille et la couleur des accords"
                   >
-                    {transposeChord('C', 0, stageSettings.notation)}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{transposeChord('G/B', 0, stageSettings.notation)}
+                    {activeSongData.key === 'E' ? (
+                      <>{transposeChord('C#m', stageSettings.transposeOffset, stageSettings.notation)}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{transposeChord('B', stageSettings.transposeOffset, stageSettings.notation)}</>
+                    ) : (
+                      <>{transposeChord('C', stageSettings.transposeOffset, stageSettings.notation)}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{transposeChord('G/B', stageSettings.transposeOffset, stageSettings.notation)}</>
+                    )}
                   </span>
                 )}
                 <span 
@@ -1095,7 +1605,7 @@ export const SettingsView: React.FC = () => {
                   style={{ fontSize: `${typography.lyricsSize}px` }}
                   title="Cliquer pour modifier la taille et l'interligne des paroles"
                 >
-                  Quand nous serons là-haut depuis dix mille ans,
+                  {activeSongData.bridgeLyrics}
                 </span>
               </div>
             </div>
@@ -1143,6 +1653,24 @@ export const SettingsView: React.FC = () => {
               >
                 Outro
               </span>
+
+              {/* Badge d'arrangement vocal (Voix +) */}
+              {previewMetadata.vocalArrangement && (
+                <div
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedPreviewElement({
+                      type: 'metadata',
+                      label: 'Arrangement vocal (Voix +)'
+                    });
+                  }}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#1B1626] border border-purple-500/30 text-purple-300 text-[11px] font-medium shadow-xs hover:bg-purple-950/60 transition-colors"
+                  title="Arrangement vocal de la section (Voix +)"
+                >
+                  <Mic className="w-3 h-3 text-purple-400 shrink-0" />
+                  <span>Voix +</span>
+                </div>
+              )}
             </div>
 
             <div className="space-y-1 font-mono">
@@ -1161,7 +1689,11 @@ export const SettingsView: React.FC = () => {
                     style={{ fontSize: `${typography.chordSize}px`, color: chordColor }}
                     title="Cliquer pour modifier la taille et la couleur des accords"
                   >
-                    {transposeChord('C', 0, stageSettings.notation)}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{transposeChord('G', 0, stageSettings.notation)}
+                    {activeSongData.key === 'E' ? (
+                      <>{transposeChord('A', stageSettings.transposeOffset, stageSettings.notation)}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{transposeChord('E', stageSettings.transposeOffset, stageSettings.notation)}</>
+                    ) : (
+                      <>{transposeChord('C', stageSettings.transposeOffset, stageSettings.notation)}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{transposeChord('G', stageSettings.transposeOffset, stageSettings.notation)}</>
+                    )}
                   </span>
                 )}
                 <span 
@@ -1260,6 +1792,9 @@ export const SettingsView: React.FC = () => {
               <span className="text-xs font-bold text-white uppercase tracking-wider">
                 Aperçu en Direct
               </span>
+              <span className="px-1.5 py-0.5 rounded-full bg-blue-950/60 text-blue-300 border border-blue-500/30 font-mono text-[10px] font-bold">
+                {activeMetadataCount}/8 méta
+              </span>
             </div>
             <div className="flex items-center gap-2">
               {/* Fullscreen Preview button */}
@@ -1320,15 +1855,6 @@ export const SettingsView: React.FC = () => {
               style={{ lineHeight: typography.lineSpacing }}
             >
               {renderSongPreviewBody(false)}
-            </div>
-          )}
-
-          {/* Bottom live stats */}
-          {!isMobilePreviewCollapsed && (
-            <div className="p-2.5 bg-[#141416] border-t border-[#222224] flex items-center justify-between text-[11px] text-gray-400 font-mono shrink-0">
-              <span>Interligne : {typography.lineSpacing.toFixed(1)}x</span>
-              <span>Paroles : {typography.lyricsSize}px</span>
-              <span>Accords : {typography.chordSize}px</span>
             </div>
           )}
         </div>
@@ -1477,6 +2003,92 @@ export const SettingsView: React.FC = () => {
                     <Monitor className="w-3.5 h-3.5 shrink-0" />
                     <span>Système</span>
                   </button>
+                </div>
+              </div>
+
+              {/* Visibilité des Métadonnées dans l'Aperçu du Chant */}
+              <div className="p-3.5 sm:p-4 rounded-xl bg-[#141418] border border-[#26262E] space-y-3 sm:col-span-2 lg:col-span-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-[#25252E]">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <SlidersHorizontal className="w-4 h-4 text-blue-400" />
+                      <span className="text-xs font-bold text-white">
+                        Métadonnées dans l'Aperçu du Chant
+                      </span>
+                      <span className="px-1.5 py-0.5 rounded-full bg-blue-950/60 text-blue-300 border border-blue-500/30 font-mono text-[10px] font-bold">
+                        {activeMetadataCount}/8 actives
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-gray-400 block mt-0.5">
+                      Choisissez quelles métadonnées afficher ou masquer dans l'aperçu du chant
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-xs">
+                    <button
+                      type="button"
+                      onClick={handleShowAllPreviewMetadata}
+                      className="px-2.5 py-1 rounded-md bg-[#1C1C22] hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 text-[11px] font-semibold transition-colors cursor-pointer"
+                    >
+                      Tout afficher
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleHideAllPreviewMetadata}
+                      className="px-2.5 py-1 rounded-md bg-[#1C1C22] hover:bg-[#2A2A34] text-gray-400 hover:text-white border border-[#333] text-[11px] font-semibold transition-colors cursor-pointer"
+                    >
+                      Tout masquer
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                  {METADATA_TOGGLE_ITEMS.map((item) => {
+                    const isVisible = previewMetadata[item.key];
+                    return (
+                      <div
+                        key={item.key}
+                        onClick={() => togglePreviewMetadata(item.key)}
+                        className={`p-2.5 rounded-lg border transition-all cursor-pointer flex items-center justify-between gap-2 select-none ${
+                          isVisible
+                            ? 'bg-[#161622] border-blue-500/40 hover:border-blue-500/70 shadow-xs'
+                            : 'bg-[#121215] border-[#222228] hover:border-[#383842] opacity-75'
+                        }`}
+                        title={`${isVisible ? 'Cliquer pour masquer' : 'Cliquer pour afficher'} ${item.label}`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 ${
+                            isVisible ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'bg-[#1C1C20] text-gray-500 border border-[#2B2B30]'
+                          }`}>
+                            {item.key === 'language' && <Globe className="w-3.5 h-3.5" />}
+                            {item.key === 'duration' && <Clock className="w-3.5 h-3.5 text-cyan-400" />}
+                            {item.key === 'artist' && <Type className="w-3.5 h-3.5" />}
+                            {item.key === 'tags' && <Tag className="w-3.5 h-3.5 text-blue-400" />}
+                            {item.key === 'controlsBar' && <Music className="w-3.5 h-3.5 text-amber-400" />}
+                            {item.key === 'notes' && <Bookmark className="w-3.5 h-3.5 text-emerald-400" />}
+                            {item.key === 'actions' && <Maximize2 className="w-3.5 h-3.5 text-purple-400" />}
+                            {item.key === 'vocalArrangement' && <Mic className="w-3.5 h-3.5 text-purple-400" />}
+                          </div>
+                          <div className="min-w-0">
+                            <span className={`text-xs font-bold block truncate ${isVisible ? 'text-white' : 'text-gray-400 line-through'}`}>
+                              {item.label}
+                            </span>
+                            <span className="text-[10px] text-gray-500 block truncate">
+                              {item.description}
+                            </span>
+                          </div>
+                        </div>
+
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold shrink-0 border ${
+                          isVisible
+                            ? 'bg-blue-600 text-white border-blue-500'
+                            : 'bg-[#18181C] text-gray-400 border-[#2E2E36]'
+                        }`}>
+                          {isVisible ? 'Visible' : 'Masqué'}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 

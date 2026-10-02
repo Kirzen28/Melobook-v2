@@ -108,17 +108,9 @@ const PointNClickInspector: React.FC<PointNClickInspectorProps> = ({
             {selection.type === 'sectionCard' && <Layers className="w-3.5 h-3.5 text-purple-400" />}
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-white tracking-wide">
-                {selection.label}
-              </span>
-              <span className="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase bg-blue-500/20 text-blue-300 border border-blue-500/30">
-                Point-n-Click
-              </span>
-            </div>
-            <p className="text-[10px] text-gray-400">
-              Modifiez la taille ou la couleur directement
-            </p>
+            <span className="text-xs font-bold text-white tracking-wide">
+              {selection.label}
+            </span>
           </div>
         </div>
 
@@ -795,19 +787,17 @@ export const SettingsView: React.FC = () => {
         >
           {/* Section 1: Couplet */}
           <div 
-            onClick={(e) => {
-              if (e.target === e.currentTarget) {
-                setSelectedPreviewElement({
-                  type: 'sectionCard',
-                  sectionType: 'verse',
-                  label: 'Cadre & Espacement : Couplet'
-                });
-              }
+            onClick={() => {
+              setSelectedPreviewElement({
+                type: 'sectionCard',
+                sectionType: 'verse',
+                label: 'Cadre & Espacement : Couplet'
+              });
             }}
             className={`rounded-lg ${previewPadding} transition-all cursor-pointer ${
               selectedPreviewElement?.type === 'sectionCard' && selectedPreviewElement.sectionType === 'verse'
-                ? 'ring-2 ring-blue-500 bg-blue-500/5'
-                : ''
+                ? 'ring-2 ring-blue-500 bg-blue-500/10 shadow-sm'
+                : 'hover:ring-2 hover:ring-blue-400/50 hover:bg-blue-500/5'
             }`}
             style={getSectionBorderStyles(sectionColors.verse, sectionBorders)}
             title="Cliquer pour modifier l'espacement et les bordures de cette section"
@@ -914,19 +904,17 @@ export const SettingsView: React.FC = () => {
 
           {/* Section 2: Refrain */}
           <div 
-            onClick={(e) => {
-              if (e.target === e.currentTarget) {
-                setSelectedPreviewElement({
-                  type: 'sectionCard',
-                  sectionType: 'chorus',
-                  label: 'Cadre & Espacement : Refrain'
-                });
-              }
+            onClick={() => {
+              setSelectedPreviewElement({
+                type: 'sectionCard',
+                sectionType: 'chorus',
+                label: 'Cadre & Espacement : Refrain'
+              });
             }}
             className={`rounded-lg ${previewPadding} transition-all cursor-pointer ${
               selectedPreviewElement?.type === 'sectionCard' && selectedPreviewElement.sectionType === 'chorus'
-                ? 'ring-2 ring-blue-500 bg-blue-500/5'
-                : ''
+                ? 'ring-2 ring-blue-500 bg-blue-500/10 shadow-sm'
+                : 'hover:ring-2 hover:ring-blue-400/50 hover:bg-blue-500/5'
             }`}
             style={getSectionBorderStyles(sectionColors.chorus, sectionBorders)}
             title="Cliquer pour modifier l'espacement et les bordures de cette section"
@@ -1033,19 +1021,17 @@ export const SettingsView: React.FC = () => {
 
           {/* Section 3: Pont */}
           <div 
-            onClick={(e) => {
-              if (e.target === e.currentTarget) {
-                setSelectedPreviewElement({
-                  type: 'sectionCard',
-                  sectionType: 'bridge',
-                  label: 'Cadre & Espacement : Pont'
-                });
-              }
+            onClick={() => {
+              setSelectedPreviewElement({
+                type: 'sectionCard',
+                sectionType: 'bridge',
+                label: 'Cadre & Espacement : Pont'
+              });
             }}
             className={`rounded-lg ${previewPadding} transition-all cursor-pointer ${
               selectedPreviewElement?.type === 'sectionCard' && selectedPreviewElement.sectionType === 'bridge'
-                ? 'ring-2 ring-blue-500 bg-blue-500/5'
-                : ''
+                ? 'ring-2 ring-blue-500 bg-blue-500/10 shadow-sm'
+                : 'hover:ring-2 hover:ring-blue-400/50 hover:bg-blue-500/5'
             }`}
             style={getSectionBorderStyles(sectionColors.bridge, sectionBorders)}
             title="Cliquer pour modifier l'espacement et les bordures de cette section"
@@ -1117,19 +1103,17 @@ export const SettingsView: React.FC = () => {
 
           {/* Section 4: Outro */}
           <div 
-            onClick={(e) => {
-              if (e.target === e.currentTarget) {
-                setSelectedPreviewElement({
-                  type: 'sectionCard',
-                  sectionType: 'outro',
-                  label: 'Cadre & Espacement : Outro'
-                });
-              }
+            onClick={() => {
+              setSelectedPreviewElement({
+                type: 'sectionCard',
+                sectionType: 'outro',
+                label: 'Cadre & Espacement : Outro'
+              });
             }}
             className={`rounded-lg ${previewPadding} transition-all cursor-pointer ${
               selectedPreviewElement?.type === 'sectionCard' && selectedPreviewElement.sectionType === 'outro'
-                ? 'ring-2 ring-blue-500 bg-blue-500/5'
-                : ''
+                ? 'ring-2 ring-blue-500 bg-blue-500/10 shadow-sm'
+                : 'hover:ring-2 hover:ring-blue-400/50 hover:bg-blue-500/5'
             }`}
             style={getSectionBorderStyles(sectionColors.outro, sectionBorders)}
             title="Cliquer pour modifier l'espacement et les bordures de cette section"
@@ -1275,10 +1259,6 @@ export const SettingsView: React.FC = () => {
               <Eye className="w-4 h-4 text-green-400" />
               <span className="text-xs font-bold text-white uppercase tracking-wider">
                 Aperçu en Direct
-              </span>
-              <span className="hidden sm:inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-500/15 text-blue-300 border border-blue-500/30">
-                <MousePointerClick className="w-3 h-3 text-blue-400" />
-                Point-n-Click
               </span>
             </div>
             <div className="flex items-center gap-2">
@@ -1504,7 +1484,44 @@ export const SettingsView: React.FC = () => {
           </div>
         </div>
 
-          {/* 2. CARTES DE CHANTS - VISIBILITE DES METADONNEES DANS LA BIBLIOTHEQUE */}
+          {/* 2. PERSONNALISATION VISUELLE INTERACTIVE */}
+          <div className="bg-[#111112] border border-[#222224] rounded-xl overflow-hidden shadow-sm transition-colors hover:border-[#303036]">
+            {/* Header / Trigger */}
+            <div 
+              onClick={() => {
+                setIsMobilePreviewFullscreen(true);
+                setIsMobilePreviewCollapsed(false);
+              }}
+              className="w-full text-left p-3.5 sm:p-4.5 flex items-center justify-between gap-3 cursor-pointer transition-colors hover:bg-[#151518]/50 select-none"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 shrink-0">
+                  <MousePointerClick className="w-4 h-4" />
+                </div>
+                <h2 className="text-sm font-bold text-white truncate">
+                  Personnalisation Visuelle Interactive
+                </h2>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsMobilePreviewFullscreen(true);
+                    setIsMobilePreviewCollapsed(false);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all active:scale-95 shadow-sm cursor-pointer"
+                  title="Ouvrir l'aperçu interactif en plein écran"
+                >
+                  <Maximize2 className="w-3.5 h-3.5" />
+                  <span>Ouvrir en Plein Écran</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* 3. CARTES DE CHANTS - VISIBILITE DES METADONNEES DANS LA BIBLIOTHEQUE */}
           <div className="bg-[#111112] border border-[#222224] rounded-xl overflow-hidden shadow-sm transition-colors hover:border-[#303036]">
             {/* Header / Trigger */}
             <div 
@@ -1733,196 +1750,7 @@ export const SettingsView: React.FC = () => {
             </div>
           </div>
 
-          {/* 3. PERSONNALISATION VISUELLE INTERACTIVE (POINT-N-CLICK) */}
-          <div className="rounded-2xl bg-gradient-to-b from-[#181820] to-[#121215] border border-blue-500/30 p-4 sm:p-6 shadow-xl shadow-black/40 space-y-4 sm:space-y-5 transition-all">
-            {/* Header with Title, Badge, Description & Primary Action Button */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="flex items-start sm:items-center gap-3.5 min-w-0 flex-1">
-                <div className="w-11 h-11 rounded-xl bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400 shrink-0 shadow-inner">
-                  <MousePointerClick className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">
-                      Personnalisation Visuelle Interactive
-                    </h2>
-                    <span className="px-2 py-0.5 rounded-md text-[10px] sm:text-xs font-bold uppercase bg-blue-500/20 text-blue-300 border border-blue-500/40 shadow-xs">
-                      Point-n-Click
-                    </span>
-                  </div>
-                  <p className="text-xs sm:text-sm text-gray-300 mt-1 leading-relaxed">
-                    Cliquez sur un élément ci-dessous ou directement sur la partition dans l'aperçu pour ajuster ses polices, couleurs ou bordures en direct.
-                  </p>
-                </div>
-              </div>
-
-              {/* Big, highly legible CTA button */}
-              <button
-                type="button"
-                onClick={() => {
-                  setIsMobilePreviewFullscreen(true);
-                  setIsMobilePreviewCollapsed(false);
-                }}
-                className="w-full md:w-auto px-5 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:from-blue-700 active:to-indigo-700 text-white font-bold text-sm sm:text-base flex items-center justify-center gap-2.5 transition-all active:scale-95 shadow-lg shadow-blue-950/60 hover:shadow-blue-600/40 border border-blue-400/40 cursor-pointer shrink-0"
-                title="Ouvrir l'aperçu interactif en plein écran"
-              >
-                <Maximize2 className="w-4 h-4 sm:w-5 sm:h-5 text-blue-200" />
-                <span>Ouvrir l'Aperçu Plein Écran</span>
-              </button>
-            </div>
-
-            {/* Quick-access interactive action chips */}
-            <div>
-              <div className="flex items-center justify-between text-xs text-gray-400 font-semibold mb-2.5 uppercase tracking-wider">
-                <span>Raccourcis de réglages rapides :</span>
-                <span className="text-[11px] text-blue-400 font-normal normal-case hidden sm:inline">
-                  Cliquez pour ouvrir l'inspecteur
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                {/* 1. Titre & Infos */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedPreviewElement({ type: 'title', label: 'Titre du Chant' });
-                    setIsMobilePreviewCollapsed(false);
-                    if (window.innerWidth < 1024) setIsMobilePreviewFullscreen(true);
-                  }}
-                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-1.5 ${
-                    selectedPreviewElement?.type === 'title' || selectedPreviewElement?.type === 'metadata'
-                      ? 'bg-blue-600/25 border-blue-500 ring-2 ring-blue-500/40 shadow-sm'
-                      : 'bg-[#1A1A22] hover:bg-[#22222D] border-[#2E2E38] hover:border-blue-500/40'
-                  }`}
-                  title="Cliquer pour ajuster la taille du titre et des métadonnées"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="w-6 h-6 rounded-lg bg-purple-500/20 text-purple-300 border border-purple-500/40 flex items-center justify-center">
-                      <Heading1 className="w-3.5 h-3.5" />
-                    </span>
-                    <span className="text-[11px] font-mono font-bold text-gray-300 px-1.5 py-0.5 rounded bg-black/40 border border-white/10">
-                      {typography.titleSize}px
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-xs font-bold text-white block">Titre & Artiste</span>
-                    <span className="text-[10px] text-gray-400 block">Taille et visibilité</span>
-                  </div>
-                </button>
-
-                {/* 2. Accords */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedPreviewElement({ type: 'chord', label: 'Accords' });
-                    setIsMobilePreviewCollapsed(false);
-                    if (window.innerWidth < 1024) setIsMobilePreviewFullscreen(true);
-                  }}
-                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-1.5 ${
-                    selectedPreviewElement?.type === 'chord'
-                      ? 'bg-blue-600/25 border-blue-500 ring-2 ring-blue-500/40 shadow-sm'
-                      : 'bg-[#1A1A22] hover:bg-[#22222D] border-[#2E2E38] hover:border-blue-500/40'
-                  }`}
-                  title="Cliquer pour ajuster la taille et la couleur des accords"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center justify-center">
-                      <Music className="w-3.5 h-3.5" />
-                    </span>
-                    <div className="flex items-center gap-1.5">
-                      <span 
-                        className="w-3 h-3 rounded-full border border-white/40 shadow-xs" 
-                        style={{ backgroundColor: chordColor }} 
-                        title={`Couleur : ${chordColor}`}
-                      />
-                      <span className="text-[11px] font-mono font-bold text-amber-300 px-1.5 py-0.5 rounded bg-black/40 border border-white/10">
-                        {typography.chordSize}px
-                      </span>
-                    </div>
-                  </div>
-                  <div>
-                    <span className="text-xs font-bold text-white block">Accords</span>
-                    <span className="text-[10px] text-gray-400 block">Taille et teinte</span>
-                  </div>
-                </button>
-
-                {/* 3. Paroles */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedPreviewElement({ type: 'lyrics', label: 'Paroles' });
-                    setIsMobilePreviewCollapsed(false);
-                    if (window.innerWidth < 1024) setIsMobilePreviewFullscreen(true);
-                  }}
-                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-1.5 ${
-                    selectedPreviewElement?.type === 'lyrics'
-                      ? 'bg-blue-600/25 border-blue-500 ring-2 ring-blue-500/40 shadow-sm'
-                      : 'bg-[#1A1A22] hover:bg-[#22222D] border-[#2E2E38] hover:border-blue-500/40'
-                  }`}
-                  title="Cliquer pour ajuster la taille et l'interligne des paroles"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="w-6 h-6 rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 flex items-center justify-center">
-                      <Type className="w-3.5 h-3.5" />
-                    </span>
-                    <span className="text-[11px] font-mono font-bold text-cyan-300 px-1.5 py-0.5 rounded bg-black/40 border border-white/10">
-                      {typography.lyricsSize}px
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-xs font-bold text-white block">Paroles</span>
-                    <span className="text-[10px] text-gray-400 block">Taille et interligne</span>
-                  </div>
-                </button>
-
-                {/* 4. Sections & Bordures */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedPreviewElement({ type: 'sectionHeader', sectionType: 'chorus', label: 'Badge : Refrain' });
-                    setIsMobilePreviewCollapsed(false);
-                    if (window.innerWidth < 1024) setIsMobilePreviewFullscreen(true);
-                  }}
-                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-1.5 ${
-                    selectedPreviewElement?.type === 'sectionHeader' || selectedPreviewElement?.type === 'sectionCard'
-                      ? 'bg-blue-600/25 border-blue-500 ring-2 ring-blue-500/40 shadow-sm'
-                      : 'bg-[#1A1A22] hover:bg-[#22222D] border-[#2E2E38] hover:border-blue-500/40'
-                  }`}
-                  title="Cliquer pour ajuster les badges de sections et les styles d'encadrés"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="w-6 h-6 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center justify-center">
-                      <Bookmark className="w-3.5 h-3.5" />
-                    </span>
-                    <span className="text-[11px] font-mono font-bold text-emerald-300 px-1.5 py-0.5 rounded bg-black/40 border border-white/10">
-                      {typography.headerSize}px
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-xs font-bold text-white block">Sections & Badges</span>
-                    <span className="text-[10px] text-gray-400 block">Bordures et couleurs</span>
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            {/* Desktop right panel hint */}
-            <div className="hidden lg:flex items-center justify-between pt-3 border-t border-[#252530] text-xs text-gray-400">
-              <span className="flex items-center gap-1.5 text-gray-300">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                L'aperçu en direct est toujours actif à droite de votre écran.
-              </span>
-              <span className="text-blue-400 font-medium">
-                Pointez et cliquez sur n'importe quel élément pour le modifier ↗
-              </span>
-            </div>
-          </div>
-
-
-
-
-
-          {/* 6. MIDI DEVICES & FOOT PEDAL CONTROLS */}
+          {/* 4. MIDI DEVICES & FOOT PEDAL CONTROLS */}
           <div className="bg-[#111112] border border-[#222224] rounded-xl overflow-hidden shadow-sm transition-colors hover:border-[#303036]">
             {/* Header / Trigger */}
             <div 
@@ -2299,9 +2127,6 @@ export const SettingsView: React.FC = () => {
                 <span className="text-sm font-bold text-white tracking-tight truncate">
                   Aperçu Plein Écran
                 </span>
-                <span className="hidden sm:inline-block px-2 py-0.5 rounded text-[10px] font-mono bg-blue-500/20 text-blue-300 border border-blue-500/30 font-semibold">
-                  Mode Scène
-                </span>
               </div>
             </div>
 
@@ -2373,24 +2198,6 @@ export const SettingsView: React.FC = () => {
             <div className="max-w-3xl mx-auto space-y-4 pb-24">
               {renderSongPreviewBody(true)}
             </div>
-          </div>
-
-          {/* Fullscreen Bottom Footer Bar */}
-          <div className="bg-[#121214]/95 backdrop-blur-md border-t border-[#242428] px-4 py-2.5 flex items-center justify-between gap-2 shrink-0 z-20">
-            <div className="flex items-center gap-3 text-xs font-mono text-gray-400 overflow-x-auto py-0.5 scrollbar-none">
-              <span>Paroles : <strong className="text-white">{typography.lyricsSize}px</strong></span>
-              <span>Accords : <strong className="text-white">{typography.chordSize}px</strong></span>
-              <span>Interligne : <strong className="text-white">{typography.lineSpacing.toFixed(1)}x</strong></span>
-              <span className="hidden sm:inline">En-têtes : <strong className="text-white">{typography.headerSize}px</strong></span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setIsMobilePreviewFullscreen(false)}
-              className="hidden sm:flex shrink-0 items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-md transition-all active:scale-95"
-            >
-              <Minimize2 className="w-3.5 h-3.5" />
-              <span>Quitter le plein écran</span>
-            </button>
           </div>
         </div>
       )}

@@ -12,6 +12,7 @@ import {
   parseDurationToSeconds,
   formatSecondsToMinutes,
   formatDurationToMMSS,
+  calculateSongAutoDuration,
   LATIN_NOTES,
   getSemitoneDifference,
   transposeChordProText,
@@ -304,6 +305,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollAnimRef = useRef<number | null>(null);
   const lastScrollTimeRef = useRef<number>(performance.now());
+  const scrollPosRef = useRef<number>(0);
 
   // Parse ChordPro
   const parsedData = useMemo(() => {
@@ -318,6 +320,31 @@ export const SongReader: React.FC<SongReaderProps> = ({
   const effectiveTempo = setlistOverride?.tempo || song?.tempo || parsedData?.tempo || 120;
   const rawDuration = setlistOverride?.duration || song?.duration || parsedData?.duration || '03:30';
   const effectiveDuration = useMemo(() => formatDurationToMMSS(rawDuration), [rawDuration]);
+
+  // Durée du chant en secondes pour le calcul du défilement automatique
+  const songDurationSeconds = useMemo(() => {
+    const parsedSec = parseDurationToSeconds(effectiveDuration);
+    if (parsedSec && parsedSec > 0) return parsedSec;
+    if (song?.contentChordPro) {
+      const autoCalc = calculateSongAutoDuration(song.contentChordPro, effectiveTempo, song?.timeSignature);
+      if (autoCalc && autoCalc.seconds > 0) return autoCalc.seconds;
+    }
+    return 210; // 3 min 30 s par défaut
+  }, [effectiveDuration, song?.contentChordPro, effectiveTempo, song?.timeSignature]);
+
+  const handleToggleAutoScroll = useCallback(() => {
+    if (!stageSettings.isAutoScrolling && containerRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
+      // Si on est déjà tout en bas (à moins de 10px de la fin), on repart du début du chant
+      if (scrollTop + clientHeight >= scrollHeight - 10) {
+        containerRef.current.scrollTop = 0;
+        scrollPosRef.current = 0;
+      } else {
+        scrollPosRef.current = scrollTop;
+      }
+    }
+    updateStageSettings({ isAutoScrolling: !stageSettings.isAutoScrolling });
+  }, [stageSettings.isAutoScrolling, updateStageSettings]);
   const effectiveNotes = setlistOverride?.notes !== undefined ? setlistOverride.notes : (song?.notes || '');
   const effectiveCapo = setlistOverride?.capo !== undefined ? setlistOverride.capo : (song?.capo || 0);
 
@@ -876,7 +903,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
 
   const currentKeyDisplay = transposedKeyDisplay || baseKeyDisplay;
 
-  // Auto-Scroll Loop
+  // Auto-Scroll Loop : vitesse calculée précisément selon la durée du chant
   useEffect(() => {
     if (!stageSettings.isAutoScrolling) {
       if (scrollAnimRef.current) {
@@ -886,6 +913,16 @@ export const SongReader: React.FC<SongReaderProps> = ({
       return;
     }
 
+    if (containerRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
+      if (scrollTop + clientHeight >= scrollHeight - 10) {
+        containerRef.current.scrollTop = 0;
+        scrollPosRef.current = 0;
+      } else {
+        scrollPosRef.current = scrollTop;
+      }
+    }
+
     lastScrollTimeRef.current = performance.now();
 
     const scrollStep = (time: number) => {
@@ -893,17 +930,27 @@ export const SongReader: React.FC<SongReaderProps> = ({
       lastScrollTimeRef.current = time;
 
       if (containerRef.current) {
-        // Calculate speed in px per second based on speed 1..10
-        // speed 1 = 15px/s, speed 5 = 45px/s, speed 10 = 100px/s
-        const pxPerSecond = stageSettings.autoScrollSpeed * 10 + 5;
-        containerRef.current.scrollTop += pxPerSecond * delta;
+        const { scrollHeight, clientHeight } = containerRef.current;
+        const totalScrollable = Math.max(0, scrollHeight - clientHeight);
 
-        const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
-        const progress = Math.min(100, Math.round((scrollTop / (scrollHeight - clientHeight)) * 100)) || 0;
+        if (totalScrollable <= 0) {
+          updateStageSettings({ isAutoScrolling: false });
+          return;
+        }
+
+        const durationSec = Math.max(10, songDurationSeconds);
+        // Vitesse en pixels par seconde calée précisément sur la durée totale du chant
+        const pxPerSecond = totalScrollable / durationSec;
+
+        scrollPosRef.current += pxPerSecond * delta;
+        containerRef.current.scrollTop = scrollPosRef.current;
+
+        const currentTop = containerRef.current.scrollTop;
+        const progress = Math.min(100, Math.round((currentTop / totalScrollable) * 100)) || 0;
         setScrollProgress(progress);
 
-        // Check if reached bottom
-        if (scrollTop + clientHeight >= scrollHeight - 2) {
+        // Détection arrivée en bas de page
+        if (currentTop + clientHeight >= scrollHeight - 2) {
           updateStageSettings({ isAutoScrolling: false });
           return;
         }
@@ -920,13 +967,15 @@ export const SongReader: React.FC<SongReaderProps> = ({
         scrollAnimRef.current = null;
       }
     };
-  }, [stageSettings.isAutoScrolling, stageSettings.autoScrollSpeed, updateStageSettings]);
+  }, [stageSettings.isAutoScrolling, songDurationSeconds, updateStageSettings]);
 
   // Manual scroll progress tracker
   const handleScroll = () => {
     if (containerRef.current) {
       const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
-      const progress = Math.min(100, Math.round((scrollTop / (scrollHeight - clientHeight)) * 100)) || 0;
+      scrollPosRef.current = scrollTop;
+      const totalScrollable = Math.max(1, scrollHeight - clientHeight);
+      const progress = Math.min(100, Math.round((scrollTop / totalScrollable) * 100)) || 0;
       setScrollProgress(progress);
     }
   };
@@ -941,7 +990,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
 
       if (e.code === 'Space') {
         e.preventDefault();
-        updateStageSettings({ isAutoScrolling: !stageSettings.isAutoScrolling });
+        handleToggleAutoScroll();
       } else if (e.key === 'PageDown' || e.key === 'ArrowRight') {
         if (onNext) {
           e.preventDefault();
@@ -968,7 +1017,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
   // MIDI Remote Control Handlers for SongReader (Scroll & Navigation)
   useEffect(() => {
     const unsubToggleAuto = registerActionHandler('toggle_autoscroll', () => {
-      updateStageSettings({ isAutoScrolling: !stageSettings.isAutoScrolling });
+      handleToggleAutoScroll();
     });
 
     const unsubSpeedUp = registerActionHandler('speed_up_autoscroll', () => {
@@ -1280,36 +1329,35 @@ export const SongReader: React.FC<SongReaderProps> = ({
 
             {/* Défilement automatique */}
             <div className="flex items-center justify-between gap-2">
-              <span className="text-gray-400 flex items-center gap-1.5 shrink-0">
-                <Play className="w-3.5 h-3.5 text-blue-400" />
-                <span>Défilement</span>
-              </span>
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                <button
-                  type="button"
-                  onClick={() => updateStageSettings({ isAutoScrolling: !stageSettings.isAutoScrolling })}
-                  className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0 shadow-xs ${
-                    stageSettings.isAutoScrolling
-                      ? 'bg-emerald-600 hover:bg-emerald-500 text-white ring-1 ring-emerald-400/40'
-                      : 'bg-[#202026] hover:bg-[#282832] border border-[#30303A] text-gray-300'
-                  }`}
-                >
-                  {stageSettings.isAutoScrolling ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
-                  <span>{stageSettings.isAutoScrolling ? 'Pause' : 'Jouer'}</span>
-                </button>
-                <span className="text-[10px] font-mono font-bold text-gray-400 shrink-0">
-                  {stageSettings.autoScrollSpeed}x
+              <div className="flex items-center gap-1.5 min-w-0">
+                <Play className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                <span className="text-gray-400 font-medium">Défilement</span>
+                <span className="text-[10px] font-mono text-gray-500 ml-0.5 truncate" title={`Vitesse calée sur la durée du chant (${effectiveDuration})`}>
+                  ({effectiveDuration})
                 </span>
-                <input
-                  type="range"
-                  min={1}
-                  max={10}
-                  value={stageSettings.autoScrollSpeed}
-                  onChange={(e) => updateStageSettings({ autoScrollSpeed: parseInt(e.target.value, 10) })}
-                  className="flex-1 h-2 accent-blue-500 cursor-pointer bg-[#25252E] rounded-lg min-w-0"
-                  title={`Vitesse : ${stageSettings.autoScrollSpeed}x`}
-                />
               </div>
+              <button
+                type="button"
+                onClick={handleToggleAutoScroll}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0 shadow-xs ${
+                  stageSettings.isAutoScrolling
+                    ? 'bg-amber-600 hover:bg-amber-500 text-white ring-1 ring-amber-400/40'
+                    : 'bg-emerald-600 hover:bg-emerald-500 text-white ring-1 ring-emerald-400/30'
+                }`}
+                title={stageSettings.isAutoScrolling ? "Mettre en pause le défilement" : `Lancer le défilement calé sur la durée (${effectiveDuration})`}
+              >
+                {stageSettings.isAutoScrolling ? (
+                  <>
+                    <Pause className="w-3.5 h-3.5" />
+                    <span>Pause</span>
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-3.5 h-3.5" />
+                    <span>Play</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </>
@@ -2266,35 +2314,11 @@ export const SongReader: React.FC<SongReaderProps> = ({
                       <button
                         type="button"
                         onClick={handleTapTempo}
-                        className="w-full py-1.5 px-3 rounded-lg bg-[#202026] hover:bg-[#282832] text-gray-300 hover:text-emerald-300 border border-[#30303A] hover:border-emerald-500/40 font-medium text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer mb-2.5"
+                        className="w-full py-1.5 px-3 rounded-lg bg-[#202026] hover:bg-[#282832] text-gray-300 hover:text-emerald-300 border border-[#30303A] hover:border-emerald-500/40 font-medium text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                       >
                         <Gauge className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
                         <span>Tapez le tempo (Tap)</span>
                       </button>
-
-                      {/* Presets rapides */}
-                      <div className="text-[10px] text-gray-500 font-semibold mb-1 uppercase tracking-wider flex items-center justify-between">
-                        <span>Tempos usuels</span>
-                        <span className="text-[9px] text-gray-600 font-normal">BPM</span>
-                      </div>
-                      <div className="grid grid-cols-5 gap-1.5 text-xs">
-                        {[70, 85, 100, 120, 140].map((bpm) => (
-                          <button
-                            key={bpm}
-                            type="button"
-                            onClick={() => {
-                              handleUpdateTempo(bpm);
-                            }}
-                            className={`py-1 rounded font-mono text-[11px] transition-colors cursor-pointer text-center ${
-                              effectiveTempo === bpm
-                                ? 'bg-emerald-600 text-white font-bold'
-                                : 'bg-[#202026] text-gray-300 hover:bg-[#282832] border border-[#2E2E38]'
-                            }`}
-                          >
-                            {bpm}
-                          </button>
-                        ))}
-                      </div>
                     </div>
                   </>
                 )}

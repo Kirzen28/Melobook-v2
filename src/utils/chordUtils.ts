@@ -958,9 +958,32 @@ class MetronomeEngine {
   private accents: number[] = [0];
   private timerId: number | null = null;
   private onBeatCallback: ((beat: number, isAccent: boolean, totalBeats: number) => void) | null = null;
+  private stateListeners: Set<(isPlaying: boolean) => void> = new Set();
+  private beatListeners: Set<(beat: number, isAccent: boolean, totalBeats: number) => void> = new Set();
 
   constructor() {
     // Lazy AudioContext
+  }
+
+  public subscribeState(cb: (isPlaying: boolean) => void): () => void {
+    this.stateListeners.add(cb);
+    try { cb(this.isPlaying); } catch {}
+    return () => {
+      this.stateListeners.delete(cb);
+    };
+  }
+
+  public subscribeBeat(cb: (beat: number, isAccent: boolean, totalBeats: number) => void): () => void {
+    this.beatListeners.add(cb);
+    return () => {
+      this.beatListeners.delete(cb);
+    };
+  }
+
+  private notifyState() {
+    this.stateListeners.forEach((cb) => {
+      try { cb(this.isPlaying); } catch {}
+    });
   }
 
   private initCtx() {
@@ -989,6 +1012,7 @@ class MetronomeEngine {
     this.isPlaying = true;
     this.currentBeat = 0;
     this.nextBeatTime = this.audioCtx ? this.audioCtx.currentTime + 0.03 : 0;
+    this.notifyState();
 
     this.scheduleLoop();
   }
@@ -1027,6 +1051,7 @@ class MetronomeEngine {
       window.clearTimeout(this.timerId);
       this.timerId = null;
     }
+    this.notifyState();
   }
 
   private scheduleLoop = () => {
@@ -1038,14 +1063,19 @@ class MetronomeEngine {
         this.playClick(this.nextBeatTime, isAccent);
       }
 
-      if (this.onBeatCallback) {
+      if (this.onBeatCallback || this.beatListeners.size > 0) {
         // Dispatch UI update on exact scheduled time
         const beatNum = this.currentBeat;
         const total = this.beatsPerMeasure;
         const delayMs = Math.max(0, (this.nextBeatTime - this.audioCtx.currentTime) * 1000);
         setTimeout(() => {
-          if (this.isPlaying && this.onBeatCallback) {
-            this.onBeatCallback(beatNum, isAccent, total);
+          if (this.isPlaying) {
+            this.beatListeners.forEach((cb) => {
+              try { cb(beatNum, isAccent, total); } catch {}
+            });
+            if (this.onBeatCallback) {
+              this.onBeatCallback(beatNum, isAccent, total);
+            }
           }
         }, delayMs);
       }

@@ -15,7 +15,8 @@ import {
   LATIN_NOTES,
   getSemitoneDifference,
   transposeChordProText,
-  stripParentheses
+  stripParentheses,
+  parseTimeSignatureToBeats
 } from '../utils/chordUtils';
 import { cacheSongInWorker } from '../utils/pwaCache';
 import { getSectionColor, getSectionBorderStyles } from '../utils/displayDefaults';
@@ -69,7 +70,8 @@ import {
   ZoomOut,
   SlidersHorizontal,
   RefreshCw,
-  ArrowRight
+  ArrowRight,
+  Zap
 } from 'lucide-react';
 import { SetlistPdfModal } from './SetlistPdfModal';
 import { ChordModal } from './ChordModal';
@@ -357,11 +359,30 @@ export const SongReader: React.FC<SongReaderProps> = ({
   const [showTempoMenu, setShowTempoMenu] = useState(false);
   const [showZoomMenu, setShowZoomMenu] = useState(false);
 
+  // État du métronome et du flash écran
+  const [isMetronomePlaying, setIsMetronomePlaying] = useState<boolean>(() => metronome.getIsPlaying());
+  const [enableScreenFlash, setEnableScreenFlash] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('songbook_metronome_flash') === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const [flashActive, setFlashActive] = useState<'accent' | 'beat' | null>(null);
+  const flashTimeoutRef = useRef<number | null>(null);
+  const enableScreenFlashRef = useRef<boolean>(enableScreenFlash);
+
+  // Édition directe du tempo dans le popover "Réglage du tempo"
+  const [isEditingTempoPopover, setIsEditingTempoPopover] = useState(false);
+  const [tempoInputValue, setTempoInputValue] = useState(String(effectiveTempo));
+  const tempoInputRef = useRef<HTMLInputElement>(null);
+
   // Refs for toolbar buttons to calculate viewport-safe placement
   const keyButtonRef = useRef<HTMLButtonElement>(null);
   const transposeButtonRef = useRef<HTMLButtonElement>(null);
   const tempoButtonRef = useRef<HTMLButtonElement>(null);
   const zoomButtonRef = useRef<HTMLButtonElement>(null);
+  const settingsButtonRef = useRef<HTMLButtonElement>(null);
 
   const calculatePopoverPos = (btn: HTMLButtonElement | null) => {
     if (!btn) return { right: 0, width: 288 };
@@ -388,6 +409,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
   const [transposePopoverStyle, setTransposePopoverStyle] = useState<React.CSSProperties>({ left: 0 });
   const [keyPopoverStyle, setKeyPopoverStyle] = useState<React.CSSProperties>({ left: 0 });
   const [zoomPopoverStyle, setZoomPopoverStyle] = useState<React.CSSProperties>({ left: 0 });
+  const [settingsPopoverStyle, setSettingsPopoverStyle] = useState<React.CSSProperties>({ right: 0 });
 
   useEffect(() => {
     if (showTempoMenu) {
@@ -731,6 +753,100 @@ export const SongReader: React.FC<SongReaderProps> = ({
     }
   };
 
+  // Synchronisation avec la préférence du flash écran
+  useEffect(() => {
+    enableScreenFlashRef.current = enableScreenFlash;
+    try {
+      localStorage.setItem('songbook_metronome_flash', enableScreenFlash ? 'true' : 'false');
+    } catch {}
+  }, [enableScreenFlash]);
+
+  // Déclenchement du flash écran visuel discret
+  const triggerScreenFlash = useCallback((isAccent: boolean) => {
+    if (flashTimeoutRef.current) {
+      window.clearTimeout(flashTimeoutRef.current);
+    }
+    setFlashActive(isAccent ? 'accent' : 'beat');
+    flashTimeoutRef.current = window.setTimeout(() => {
+      setFlashActive(null);
+      flashTimeoutRef.current = null;
+    }, 75);
+  }, []);
+
+  // Synchronisation globale du métronome et des pulsations de beat
+  useEffect(() => {
+    const unsubState = metronome.subscribeState((playing) => {
+      setIsMetronomePlaying(playing);
+      if (!playing) {
+        setFlashActive(null);
+      }
+    });
+
+    const unsubBeat = metronome.subscribeBeat((_beat, isAccent) => {
+      if (enableScreenFlashRef.current) {
+        triggerScreenFlash(isAccent);
+      }
+    });
+
+    return () => {
+      unsubState();
+      unsubBeat();
+      metronome.stop();
+      if (flashTimeoutRef.current) {
+        window.clearTimeout(flashTimeoutRef.current);
+      }
+    };
+  }, [triggerScreenFlash]);
+
+  // Démarrer ou arrêter le métronome
+  const handleToggleMetronome = useCallback(() => {
+    if (metronome.getIsPlaying()) {
+      metronome.stop();
+    } else {
+      const validBpm = Math.max(30, Math.min(280, effectiveTempo));
+      const sigInfo = parseTimeSignatureToBeats(song?.timeSignature || parsedData?.timeSignature || '4/4');
+      metronome.start(validBpm, sigInfo.beatsPerMeasure, sigInfo.accents);
+    }
+  }, [effectiveTempo, song?.timeSignature, parsedData?.timeSignature]);
+
+  // Activer ou désactiver le flash écran avec aperçu instantané
+  const handleToggleScreenFlash = useCallback(() => {
+    const nextVal = !enableScreenFlash;
+    setEnableScreenFlash(nextVal);
+    enableScreenFlashRef.current = nextVal;
+    try {
+      localStorage.setItem('songbook_metronome_flash', nextVal ? 'true' : 'false');
+    } catch {}
+    if (nextVal) {
+      triggerScreenFlash(true);
+    } else {
+      if (flashTimeoutRef.current) {
+        window.clearTimeout(flashTimeoutRef.current);
+      }
+      setFlashActive(null);
+    }
+  }, [enableScreenFlash, triggerScreenFlash]);
+
+  // Validation de la saisie libre du tempo
+  const commitTempoInput = useCallback(async () => {
+    const parsed = parseInt(tempoInputValue, 10);
+    if (!isNaN(parsed) && parsed > 0) {
+      const clamped = Math.max(30, Math.min(280, parsed));
+      setTempoInputValue(String(clamped));
+      await handleUpdateTempo(clamped);
+    } else {
+      setTempoInputValue(String(effectiveTempo));
+    }
+    setIsEditingTempoPopover(false);
+  }, [tempoInputValue, effectiveTempo, handleUpdateTempo]);
+
+  // Synchronisation de la valeur affichée du tempo tant qu'on n'est pas en train d'écrire
+  useEffect(() => {
+    if (!isEditingTempoPopover) {
+      setTempoInputValue(String(effectiveTempo));
+    }
+  }, [effectiveTempo, isEditingTempoPopover]);
+
   // Time Signature Handlers
   const handleUpdateTimeSignature = async (newSig: string) => {
     if (!song) return;
@@ -1015,6 +1131,18 @@ export const SongReader: React.FC<SongReaderProps> = ({
   return (
     <div className={`${containerClasses} flex flex-col ${themeClasses} select-none transition-colors`}>
       
+      {/* Flash écran contour rythmé (métronome) */}
+      {flashActive && (
+        <div 
+          id="songreader-screen-flash-overlay"
+          className={`fixed inset-0 pointer-events-none z-[99999] bg-transparent transition-opacity duration-75 ${
+            flashActive === 'accent'
+              ? 'ring-4 sm:ring-8 ring-inset ring-amber-400/90 shadow-[inset_0_0_24px_rgba(251,191,36,0.35)]'
+              : 'ring-2 sm:ring-4 ring-inset ring-emerald-400/70 shadow-[inset_0_0_16px_rgba(52,211,153,0.25)]'
+          }`}
+        />
+      )}
+
       {/* Progress Bar for Auto-Scroll */}
       <div className="no-print w-full h-0.5 bg-[#222224] overflow-hidden">
         <div 
@@ -1023,407 +1151,170 @@ export const SongReader: React.FC<SongReaderProps> = ({
         />
       </div>
 
-      {/* Settings Drawer (Overlay) */}
+      {/* Settings Popover (compact, anchored to the settings button) */}
       {showSettingsDrawer && (
-        <div className="no-print bg-[#111114]/95 backdrop-blur-md border-b border-[#25252C] px-3 sm:px-5 py-2.5 sm:py-3.5 text-xs shadow-2xl z-30 animate-in fade-in slide-in-from-top-1 duration-150">
-          
-          {/* Header with Title, Song name, Fullscreen quick toggle and Close Button */}
-          <div className="flex items-center justify-between gap-3 pb-2.5 mb-3 border-b border-[#202026]">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-7 h-7 rounded-lg bg-blue-600/20 border border-blue-500/30 flex items-center justify-center shrink-0 shadow-xs">
-                <Settings2 className="w-4 h-4 text-blue-400" />
-              </div>
-              <div className="flex items-center gap-2 min-w-0 flex-wrap">
-                <span className="font-bold text-gray-100 text-sm tracking-tight truncate">
-                  Réglages du chant
-                </span>
+        <>
+          {/* Backdrop to close */}
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setShowSettingsDrawer(false)}
+          />
+          <div
+            style={settingsPopoverStyle}
+            className="no-print absolute z-50 w-72 max-w-[calc(100vw-24px)] bg-[#16161A] border border-[#2E2E36] rounded-xl shadow-2xl p-3 backdrop-blur-md animate-in fade-in zoom-in-95 duration-100 box-border text-xs"
+          >
+            {/* En-tête */}
+            <div className="flex items-center justify-between mb-3 pb-2 border-b border-[#282830]">
+              <div className="flex items-center gap-1.5">
+                <Settings2 className="w-3.5 h-3.5 text-blue-400" />
+                <span className="font-semibold text-gray-200 text-[11px]">Réglages du chant</span>
                 {song.title && (
-                  <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#1C1C22] border border-[#2E2E36] text-gray-300 truncate max-w-xs sm:max-w-md">
-                    {stripParentheses(song.title)}
+                  <span className="text-[10px] text-gray-400 font-normal truncate max-w-[100px]">
+                    — {stripParentheses(song.title)}
                   </span>
                 )}
               </div>
-            </div>
-
-            <div className="flex items-center gap-2 shrink-0">
-              {/* Fullscreen Button in Header for high visibility and quick access */}
-              <button
-                type="button"
-                id="drawer-stage-fullscreen"
-                onClick={() => toggleFullscreen()}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer border shadow-xs ${
-                  isFullscreen
-                    ? 'bg-blue-600 text-white border-blue-400 ring-2 ring-blue-500/30 shadow-blue-900/30'
-                    : 'bg-[#1C1C22] hover:bg-[#282830] text-gray-200 hover:text-white border-[#32323D]'
-                }`}
-                title={isFullscreen ? "Quitter le mode plein écran" : "Basculer en mode plein écran"}
-              >
-                {isFullscreen ? <Minimize2 className="w-3.5 h-3.5 text-blue-200" /> : <Maximize2 className="w-3.5 h-3.5 text-blue-400" />}
-                <span className="hidden sm:inline">{isFullscreen ? 'Quitter plein écran' : 'Plein écran'}</span>
-                <span className="sm:hidden">{isFullscreen ? 'Réduire' : 'Plein écran'}</span>
-              </button>
-
-              {/* Close Button */}
               <button
                 type="button"
                 onClick={() => setShowSettingsDrawer(false)}
-                className="p-1.5 rounded-lg text-gray-400 hover:text-white bg-[#18181C] hover:bg-[#25252D] border border-[#2B2B34] transition-all cursor-pointer"
-                title="Fermer les réglages"
-                aria-label="Fermer les réglages"
+                className="p-1 rounded-md text-gray-500 hover:text-white hover:bg-[#252530] transition-all cursor-pointer"
+                title="Fermer"
               >
-                <X className="w-4 h-4" />
+                <X className="w-3.5 h-3.5" />
               </button>
             </div>
-          </div>
 
-          {/* Structured Controls: Grid of clean semantic cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5 sm:gap-3 text-xs">
-            
-            {/* CARD 1: Typographie & Taille de Police */}
-            <div className="p-2.5 sm:p-3 rounded-xl bg-[#151518] border border-[#232329] flex flex-col justify-between gap-2.5 shadow-xs">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-gray-300 font-semibold text-xs flex items-center gap-1.5">
-                  <SlidersHorizontal className="w-3.5 h-3.5 text-blue-400" />
-                  <span>Taille du texte</span>
-                </span>
-                
-                {/* Popover trigger button - clearly readable and styled */}
-                <div className="relative inline-block">
-                  <button
-                    ref={zoomButtonRef}
-                    type="button"
-                    id="drawer-stage-zoom-btn"
-                    onClick={() => {
-                      const next = !showZoomMenu;
-                      setShowZoomMenu(next);
-                      if (next) {
-                        setZoomPopoverStyle(calculatePopoverPos(zoomButtonRef.current));
-                      }
-                    }}
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer border ${
-                      showZoomMenu
-                        ? 'bg-blue-600 text-white border-blue-400 ring-2 ring-blue-500/30'
-                        : 'bg-[#1E1E24] border-[#32323D] hover:border-blue-500/50 text-blue-400 hover:text-white'
-                    }`}
-                    title="Ouvrir les détails de la taille"
-                  >
-                    <span className="font-mono">{zoomPercentage}%</span>
-                    <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showZoomMenu ? 'rotate-180' : ''}`} />
-                  </button>
-
-                  {/* Popover */}
-                  {showZoomMenu && (
-                    <>
-                      <div 
-                        className="fixed inset-0 z-40" 
-                        onClick={() => setShowZoomMenu(false)} 
-                      />
-                      <div 
-                        style={zoomPopoverStyle}
-                        className="absolute top-full mt-1.5 z-50 w-72 max-w-[calc(100vw-24px)] bg-[#16161A] border border-[#2E2E36] rounded-xl shadow-2xl p-3 backdrop-blur-md animate-in fade-in zoom-in-95 duration-100 box-border text-left"
-                      >
-                        {/* En-tête Popover */}
-                        <div className="text-[11px] font-semibold text-gray-400 pb-2 mb-2.5 border-b border-[#282830] flex items-center justify-between">
-                          <div className="flex items-center gap-1.5">
-                            <SlidersHorizontal className="w-3.5 h-3.5 text-blue-400" />
-                            <span className="text-gray-200">Taille de tous les textes</span>
-                          </div>
-                          <span className="text-[11px] text-blue-400 font-mono font-bold bg-blue-950/50 border border-blue-500/40 px-1.5 py-0.5 rounded">
-                            {zoomPercentage}%
-                          </span>
-                        </div>
-
-                        {/* Jauge / Slider avec boutons - / + */}
-                        <div className="mb-3">
-                          <div className="flex items-center justify-between text-[11px] text-gray-400 mb-1.5">
-                            <span className="flex items-center gap-1 font-medium text-gray-300">
-                              <Type className="w-3 h-3 text-gray-500" />
-                              <span>Jauge de zoom</span>
-                            </span>
-                            <button
-                              type="button"
-                              onClick={handleResetZoom}
-                              className="text-[10px] text-blue-400 hover:text-blue-300 cursor-pointer transition-colors"
-                              title="Rétablir à 100% (par défaut)"
-                            >
-                              100% (Défaut)
-                            </button>
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => handleSetZoomPercentage(zoomPercentage - 5)}
-                              disabled={zoomPercentage <= 65}
-                              className="p-1.5 rounded-lg bg-[#202026] hover:bg-[#282832] text-gray-300 disabled:opacity-30 border border-[#30303A] cursor-pointer shrink-0 transition-colors"
-                              title="Réduire (-5%)"
-                            >
-                              <Minus className="w-3.5 h-3.5" />
-                            </button>
-
-                            <div className="relative flex-1 flex items-center py-1">
-                              <input
-                                type="range"
-                                min="65"
-                                max="175"
-                                step="5"
-                                value={zoomPercentage}
-                                onChange={(e) => handleSetZoomPercentage(Number(e.target.value))}
-                                className="w-full h-2 bg-[#26262E] rounded-lg appearance-none cursor-pointer accent-blue-500 hover:accent-blue-400 transition-all"
-                              />
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={() => handleSetZoomPercentage(zoomPercentage + 5)}
-                              disabled={zoomPercentage >= 175}
-                              className="p-1.5 rounded-lg bg-[#202026] hover:bg-[#282832] text-gray-300 disabled:opacity-30 border border-[#30303A] cursor-pointer shrink-0 transition-colors"
-                              title="Agrandir (+5%)"
-                            >
-                              <Plus className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Préréglages rapides (Presets) */}
-                        <div className="text-[10px] text-gray-400 font-semibold mb-1.5 uppercase tracking-wider flex items-center justify-between">
-                          <span>Préréglages rapides</span>
-                          <span className="text-[9px] text-gray-500 font-normal">1 clic</span>
-                        </div>
-                        <div className="grid grid-cols-4 gap-1.5 text-xs mb-3">
-                          {[
-                            { label: 'Petit', pct: 85 },
-                            { label: 'Standard', pct: 100 },
-                            { label: 'Grand', pct: 120 },
-                            { label: 'Très grand', pct: 140 },
-                          ].map((preset) => {
-                            const isActive = Math.abs(zoomPercentage - preset.pct) <= 4;
-                            return (
-                              <button
-                                key={preset.label}
-                                type="button"
-                                onClick={() => handleSetZoomPercentage(preset.pct)}
-                                className={`py-1.5 px-1 rounded-lg transition-all cursor-pointer flex flex-col items-center justify-center ${
-                                  isActive
-                                    ? 'bg-blue-600 text-white font-bold shadow-xs border border-blue-400/50 ring-1 ring-blue-400/30'
-                                    : 'bg-[#202026] text-gray-300 hover:bg-[#282832] hover:text-white border border-[#2E2E38]'
-                                }`}
-                                title={`Préréglage ${preset.label} (${preset.pct}%)`}
-                              >
-                                <span className="text-[11px] font-medium leading-tight">{preset.label}</span>
-                                <span className={`text-[9px] font-mono leading-tight ${isActive ? 'text-blue-100' : 'text-gray-500'}`}>
-                                  {preset.pct}%
-                                </span>
-                              </button>
-                            );
-                          })}
-                        </div>
-
-                        {/* Détail en temps réel de tous les textes ajustés */}
-                        <div className="pt-2 border-t border-[#24242C] grid grid-cols-4 gap-1 text-center font-mono text-[10px]">
-                          <div className="p-1 rounded bg-[#18181E] border border-[#282832]">
-                            <span className="text-gray-400 block text-[9px] font-sans">Paroles</span>
-                            <span className="text-white font-semibold">{displaySettings.typography?.lyricsSize || 18}px</span>
-                          </div>
-                          <div className="p-1 rounded bg-[#18181E] border border-[#282832]">
-                            <span className="text-blue-400/90 block text-[9px] font-sans">Accords</span>
-                            <span className="text-blue-300 font-semibold">{displaySettings.typography?.chordSize || 16}px</span>
-                          </div>
-                          <div className="p-1 rounded bg-[#18181E] border border-[#282832]">
-                            <span className="text-amber-400/90 block text-[9px] font-sans">Sections</span>
-                            <span className="text-amber-300 font-semibold">{displaySettings.typography?.headerSize || 12}px</span>
-                          </div>
-                          <div className="p-1 rounded bg-[#18181E] border border-[#282832]">
-                            <span className="text-emerald-400/90 block text-[9px] font-sans">Voix</span>
-                            <span className="text-emerald-300 font-semibold">{Math.max(10, Math.round((displaySettings.typography?.headerSize || 12) * 0.95))}px</span>
-                          </div>
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
+            {/* Accords */}
+            <div className="flex items-center justify-between mb-2.5">
+              <span className="text-gray-400 flex items-center gap-1.5">
+                <Eye className="w-3.5 h-3.5 text-amber-400" />
+                <span>Accords</span>
+              </span>
+              <div className="inline-flex items-center p-0.5 rounded-lg bg-[#1A1A20] border border-[#2B2B34]">
+                <button
+                  type="button"
+                  onClick={() => updateStageSettings({ showChords: true })}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                    stageSettings.showChords
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  <Eye className="w-3 h-3" />
+                  <span>Affichés</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => updateStageSettings({ showChords: false })}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                    !stageSettings.showChords
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  <EyeOff className="w-3 h-3" />
+                  <span>Masqués</span>
+                </button>
               </div>
+            </div>
 
-              {/* Slider + Stepper row */}
-              <div className="flex items-center gap-2 bg-[#1A1A20] px-2.5 py-1.5 rounded-lg border border-[#2B2B34]">
+            {/* Taille du texte */}
+            <div className="flex items-center justify-between mb-2.5">
+              <span className="text-gray-400 flex items-center gap-1.5">
+                <SlidersHorizontal className="w-3.5 h-3.5 text-blue-400" />
+                <span>Taille</span>
+              </span>
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => handleSetZoomPercentage(zoomPercentage - 5)}
                   disabled={zoomPercentage <= 65}
-                  className="w-7 h-7 flex items-center justify-center rounded-md bg-[#24242C] hover:bg-blue-600/30 text-gray-200 hover:text-white disabled:opacity-30 border border-[#343440] transition-colors cursor-pointer shrink-0"
-                  title="Diminuer la taille (-5%)"
+                  className="p-1 rounded bg-[#202026] hover:bg-[#282832] text-gray-300 disabled:opacity-30 border border-[#30303A] cursor-pointer transition-colors"
+                  title="Réduire (-5%)"
                 >
                   <Minus className="w-3.5 h-3.5" />
                 </button>
-                <input
-                  type="range"
-                  min="65"
-                  max="175"
-                  step="5"
-                  value={zoomPercentage}
-                  onChange={(e) => handleSetZoomPercentage(Number(e.target.value))}
-                  className="flex-1 h-2 bg-[#25252E] rounded-lg appearance-none cursor-pointer accent-blue-500 hover:accent-blue-400"
-                  title={`Jauge de zoom : ${zoomPercentage}%`}
-                />
+                <span className="font-mono font-bold text-blue-400 text-xs w-10 text-center">
+                  {zoomPercentage}%
+                </span>
                 <button
                   type="button"
                   onClick={() => handleSetZoomPercentage(zoomPercentage + 5)}
                   disabled={zoomPercentage >= 175}
-                  className="w-7 h-7 flex items-center justify-center rounded-md bg-[#24242C] hover:bg-blue-600/30 text-gray-200 hover:text-white disabled:opacity-30 border border-[#343440] transition-colors cursor-pointer shrink-0"
-                  title="Augmenter la taille (+5%)"
+                  className="p-1 rounded bg-[#202026] hover:bg-[#282832] text-gray-300 disabled:opacity-30 border border-[#30303A] cursor-pointer transition-colors"
+                  title="Agrandir (+5%)"
                 >
                   <Plus className="w-3.5 h-3.5" />
                 </button>
-              </div>
-
-              {/* Presets chips */}
-              <div className="grid grid-cols-4 gap-1.5">
-                {[
-                  { label: 'Petit', pct: 85 },
-                  { label: 'Standard', pct: 100 },
-                  { label: 'Grand', pct: 120 },
-                  { label: 'Max', pct: 140 },
-                ].map((preset) => {
-                  const isActive = Math.abs(zoomPercentage - preset.pct) <= 4;
-                  return (
-                    <button
-                      key={preset.label}
-                      type="button"
-                      onClick={() => handleSetZoomPercentage(preset.pct)}
-                      className={`py-1 px-1.5 rounded-lg text-[11px] font-semibold transition-all cursor-pointer border text-center ${
-                        isActive
-                          ? 'bg-blue-600 text-white border-blue-400 shadow-xs ring-1 ring-blue-400/40'
-                          : 'bg-[#1C1C22] text-gray-300 hover:text-white border-[#2E2E38] hover:bg-[#25252E]'
-                      }`}
-                      title={`Préréglage ${preset.label} (${preset.pct}%)`}
-                    >
-                      {preset.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* CARD 2: Affichage des Accords */}
-            <div className="p-2.5 sm:p-3 rounded-xl bg-[#151518] border border-[#232329] flex flex-col justify-center gap-2.5 shadow-xs">
-              {/* Accords Switch */}
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-gray-300 font-semibold text-xs flex items-center gap-1.5">
-                  <Eye className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Accords</span>
-                </span>
-                
-                <div className="inline-flex items-center p-0.5 rounded-lg bg-[#1A1A20] border border-[#2B2B34]">
-                  <button
-                    type="button"
-                    onClick={() => updateStageSettings({ showChords: true })}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
-                      stageSettings.showChords
-                        ? 'bg-blue-600 text-white shadow-xs'
-                        : 'text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    <Eye className="w-3.5 h-3.5" />
-                    <span>Affichés</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => updateStageSettings({ showChords: false })}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
-                      !stageSettings.showChords
-                        ? 'bg-blue-600 text-white shadow-xs'
-                        : 'text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    <EyeOff className="w-3.5 h-3.5" />
-                    <span>Masqués</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* CARD 3: Outils Live, Défilement & Actions */}
-            <div className="p-2.5 sm:p-3 rounded-xl bg-[#151518] border border-[#232329] flex flex-col justify-between gap-2.5 shadow-xs md:col-span-2 xl:col-span-1">
-              
-              {/* Défilement Automatique */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-300 font-semibold text-xs flex items-center gap-1.5">
-                    {stageSettings.isAutoScrolling ? (
-                      <Pause className="w-3.5 h-3.5 text-emerald-400" />
-                    ) : (
-                      <Play className="w-3.5 h-3.5 text-blue-400" />
-                    )}
-                    <span>Défilement auto</span>
-                  </span>
-                  <span className="text-xs font-mono font-bold text-gray-300 bg-[#1C1C22] border border-[#2E2E36] px-2 py-0.5 rounded-md">
-                    {stageSettings.autoScrollSpeed}x
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2 bg-[#1A1A20] p-1.5 rounded-lg border border-[#2B2B34]">
-                  <button
-                    type="button"
-                    onClick={() => updateStageSettings({ isAutoScrolling: !stageSettings.isAutoScrolling })}
-                    className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer shrink-0 shadow-xs ${
-                      stageSettings.isAutoScrolling
-                        ? 'bg-emerald-600 hover:bg-emerald-500 text-white ring-1 ring-emerald-400/40'
-                        : 'bg-blue-600 hover:bg-blue-500 text-white ring-1 ring-blue-400/40'
-                    }`}
-                  >
-                    {stageSettings.isAutoScrolling ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-                    <span>{stageSettings.isAutoScrolling ? 'Pause' : 'Lancer'}</span>
-                  </button>
-                  <input
-                    type="range"
-                    min={1}
-                    max={10}
-                    value={stageSettings.autoScrollSpeed}
-                    onChange={(e) => updateStageSettings({ autoScrollSpeed: parseInt(e.target.value, 10) })}
-                    className="flex-1 h-2 accent-blue-500 cursor-pointer bg-[#25252E] rounded-lg"
-                    title={`Vitesse de défilement : ${stageSettings.autoScrollSpeed}x`}
-                  />
-                </div>
-              </div>
-
-              {/* Métronome & MIDI & PDF Row */}
-              <div className="pt-2 border-t border-[#222228] flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-gray-400 text-[11px] font-medium">BPM :</span>
-                    <MetronomeStageControl
-                      initialBpm={effectiveTempo}
-                      initialTimeSignature={song.timeSignature || parsedData?.timeSignature || '4/4'}
-                      onBpmChange={handleUpdateTempo}
-                      onTimeSignatureChange={handleUpdateTimeSignature}
-                      songTitle={song.title}
-                    />
-                  </div>
-                  
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-gray-400 text-[11px] font-medium">MIDI :</span>
-                    <MidiStatusIndicator showLabel className="!py-1 !text-xs !bg-[#1A1A20] !border-[#2B2B34]" />
-                  </div>
-                </div>
-
-                {/* Exporter PDF Button */}
                 <button
                   type="button"
-                  onClick={() => setShowPdfModal(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1C1C22] hover:bg-emerald-950/40 text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 hover:border-emerald-500/60 font-semibold text-xs transition-all cursor-pointer shadow-xs active:scale-95 ml-auto sm:ml-0"
-                  title="Exporter cette partition en PDF"
+                  onClick={handleResetZoom}
+                  className="text-[10px] text-blue-400 hover:text-blue-300 cursor-pointer transition-colors shrink-0"
+                  title="Rétablir à 100%"
                 >
-                  <FileDown className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Exporter PDF</span>
+                  Reset
                 </button>
               </div>
-
             </div>
 
-          </div>
+            {/* Slider zoom */}
+            <div className="mb-3">
+              <input
+                type="range"
+                min="65"
+                max="175"
+                step="5"
+                value={zoomPercentage}
+                onChange={(e) => handleSetZoomPercentage(Number(e.target.value))}
+                className="w-full h-2 bg-[#26262E] rounded-lg appearance-none cursor-pointer accent-blue-500"
+              />
+              <div className="flex justify-between text-[9px] text-gray-600 mt-0.5 px-0.5">
+                <span>65%</span>
+                <span>100%</span>
+                <span>175%</span>
+              </div>
+            </div>
 
-        </div>
+            {/* Séparateur */}
+            <div className="border-t border-[#282830] mb-2.5" />
+
+            {/* Défilement automatique */}
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-gray-400 flex items-center gap-1.5 shrink-0">
+                <Play className="w-3.5 h-3.5 text-blue-400" />
+                <span>Défilement</span>
+              </span>
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <button
+                  type="button"
+                  onClick={() => updateStageSettings({ isAutoScrolling: !stageSettings.isAutoScrolling })}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0 shadow-xs ${
+                    stageSettings.isAutoScrolling
+                      ? 'bg-emerald-600 hover:bg-emerald-500 text-white ring-1 ring-emerald-400/40'
+                      : 'bg-[#202026] hover:bg-[#282832] border border-[#30303A] text-gray-300'
+                  }`}
+                >
+                  {stageSettings.isAutoScrolling ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+                  <span>{stageSettings.isAutoScrolling ? 'Pause' : 'Jouer'}</span>
+                </button>
+                <span className="text-[10px] font-mono font-bold text-gray-400 shrink-0">
+                  {stageSettings.autoScrollSpeed}x
+                </span>
+                <input
+                  type="range"
+                  min={1}
+                  max={10}
+                  value={stageSettings.autoScrollSpeed}
+                  onChange={(e) => updateStageSettings({ autoScrollSpeed: parseInt(e.target.value, 10) })}
+                  className="flex-1 h-2 accent-blue-500 cursor-pointer bg-[#25252E] rounded-lg min-w-0"
+                  title={`Vitesse : ${stageSettings.autoScrollSpeed}x`}
+                />
+              </div>
+            </div>
+          </div>
+        </>
       )}
+
 
       {/* Main Chord & Lyrics Canvas (Stage Reader) */}
       <div 
@@ -1526,6 +1417,18 @@ export const SongReader: React.FC<SongReaderProps> = ({
                       <FileEdit className="w-3.5 h-3.5 text-amber-400 group-hover:scale-110 transition-transform shrink-0" />
                     </button>
                   )}
+
+                  {/* Bouton Export PDF */}
+                  <button
+                    type="button"
+                    id="btn-song-pdf-compact"
+                    onClick={() => setShowPdfModal(true)}
+                    className="p-1.5 rounded-lg bg-[#1C1C1E] hover:bg-emerald-500/15 text-gray-200 hover:text-emerald-300 border border-[#333] hover:border-emerald-500/50 transition-all shadow-xs cursor-pointer group flex items-center justify-center"
+                    title="Exporter en PDF"
+                    aria-label="Exporter en PDF"
+                  >
+                    <FileDown className="w-3.5 h-3.5 text-emerald-400 group-hover:scale-110 transition-transform shrink-0" />
+                  </button>
 
                   <button
                     type="button"
@@ -1787,6 +1690,19 @@ export const SongReader: React.FC<SongReaderProps> = ({
                     <FileEdit className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400 group-hover:scale-110 transition-transform shrink-0" />
                   </button>
                 )}
+
+                {/* Bouton Export PDF */}
+                <button
+                  type="button"
+                  id="btn-song-pdf"
+                  onClick={() => setShowPdfModal(true)}
+                  className="p-1.5 sm:p-2 rounded-lg bg-[#1C1C1E] hover:bg-emerald-500/15 text-gray-200 hover:text-emerald-300 border border-[#333] hover:border-emerald-500/50 transition-all shadow-xs cursor-pointer group flex items-center justify-center"
+                  title="Exporter en PDF"
+                  aria-label="Exporter en PDF"
+                >
+                  <FileDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400 group-hover:scale-110 transition-transform shrink-0" />
+                </button>
+
                 <button
                   type="button"
                   onClick={() => setShowSettingsDrawer(!showSettingsDrawer)}
@@ -2141,6 +2057,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
               <div className="relative inline-block">
                 <button
                   ref={tempoButtonRef}
+                  id="btn-song-tempo"
                   type="button"
                   onClick={() => {
                     const next = !showTempoMenu;
@@ -2155,15 +2072,20 @@ export const SongReader: React.FC<SongReaderProps> = ({
                   className={`h-8 inline-flex items-center gap-1.5 px-2.5 rounded-lg border font-mono shadow-xs transition-all cursor-pointer ${
                     showTempoMenu
                       ? 'bg-emerald-950/40 border-emerald-500 text-emerald-300 ring-1 ring-emerald-500/40'
-                      : 'bg-[#141416] hover:bg-[#1A1A1E] border-[#242428] hover:border-emerald-500/40 text-gray-300'
+                      : isMetronomePlaying
+                        ? 'bg-emerald-950/50 border-emerald-500/60 text-emerald-300 ring-1 ring-emerald-500/40 shadow-xs'
+                        : 'bg-[#141416] hover:bg-[#1A1A1E] border-[#242428] hover:border-emerald-500/40 text-gray-300'
                   }`}
                   style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
                   title="Cliquer pour afficher et régler le tempo (BPM)"
                 >
-                  <Gauge className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <Gauge className={`w-3.5 h-3.5 text-emerald-400 shrink-0 ${isMetronomePlaying ? 'animate-pulse' : ''}`} />
                   <span className="text-gray-400 font-sans text-xs hidden sm:inline">Tempo :</span>
                   <span className="text-emerald-400 font-bold font-mono text-xs">{effectiveTempo}</span>
                   <span className="text-gray-400 font-mono text-[11px]">BPM</span>
+                  {isMetronomePlaying && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping inline-block shrink-0" />
+                  )}
                   <ChevronDown className={`w-3 h-3 text-emerald-400/80 transition-transform ${showTempoMenu ? 'rotate-180' : ''}`} />
                 </button>
 
@@ -2171,23 +2093,38 @@ export const SongReader: React.FC<SongReaderProps> = ({
                   <>
                     <div 
                       className="fixed inset-0 z-40" 
-                      onClick={() => setShowTempoMenu(false)} 
+                      onClick={() => {
+                        setShowTempoMenu(false);
+                        setIsEditingTempoPopover(false);
+                      }} 
                     />
                     <div 
                       style={tempoPopoverStyle}
                       className="absolute top-full mt-1.5 z-50 w-72 max-w-[calc(100vw-24px)] bg-[#16161A] border border-[#2E2E36] rounded-xl shadow-2xl p-3 backdrop-blur-md animate-in fade-in zoom-in-95 duration-100 box-border"
                     >
+                      {/* En-tête */}
                       <div className="text-[11px] font-semibold text-gray-400 pb-2 mb-2.5 border-b border-[#282830] flex items-center justify-between">
-                        <span>Réglage du tempo</span>
-                        <span className="text-[10px] text-emerald-400 font-mono font-bold">{effectiveTempo} BPM</span>
+                        <div className="flex items-center gap-1.5">
+                          <Gauge className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>Réglage du tempo</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          {isMetronomePlaying && (
+                            <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400 font-sans font-medium px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                              Actif
+                            </span>
+                          )}
+                          <span className="text-[10px] text-emerald-400 font-mono font-bold">{effectiveTempo} BPM</span>
+                        </div>
                       </div>
 
-                      {/* Stepper rapide */}
-                      <div className="flex items-center justify-between gap-1 mb-3">
+                      {/* Stepper rapide avec Tempo Éditable au clic */}
+                      <div className="flex items-center justify-between gap-1 mb-2.5">
                         <button
                           type="button"
                           onClick={() => handleUpdateTempo(Math.max(30, effectiveTempo - 10))}
-                          className="px-2 py-1 rounded bg-[#202026] hover:bg-[#282832] text-gray-300 text-xs font-mono border border-[#30303A] cursor-pointer shrink-0"
+                          className="px-2 py-1.5 rounded bg-[#202026] hover:bg-[#282832] text-gray-300 text-xs font-mono border border-[#30303A] cursor-pointer shrink-0"
                           title="-10 BPM"
                         >
                           -10
@@ -2195,19 +2132,82 @@ export const SongReader: React.FC<SongReaderProps> = ({
                         <button
                           type="button"
                           onClick={() => handleUpdateTempo(Math.max(30, effectiveTempo - 1))}
-                          className="p-1 rounded bg-[#202026] hover:bg-[#282832] text-gray-300 border border-[#30303A] cursor-pointer shrink-0"
+                          className="p-1.5 rounded bg-[#202026] hover:bg-[#282832] text-gray-300 border border-[#30303A] cursor-pointer shrink-0"
                           title="-1 BPM"
                         >
                           <Minus className="w-3.5 h-3.5" />
                         </button>
-                        <div className="text-center font-mono font-bold text-lg text-emerald-400 min-w-16">
-                          {effectiveTempo}
-                          <div className="text-[9px] text-gray-500 font-sans uppercase">BPM</div>
-                        </div>
+
+                        {/* Valeur du tempo : Clic pour éditer directement */}
+                        {isEditingTempoPopover ? (
+                          <div className="flex flex-col items-center justify-center min-w-20">
+                            <div className="flex items-center gap-1">
+                              <input
+                                ref={tempoInputRef}
+                                type="number"
+                                min="30"
+                                max="280"
+                                value={tempoInputValue}
+                                onChange={(e) => setTempoInputValue(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    commitTempoInput();
+                                  } else if (e.key === 'Escape') {
+                                    setIsEditingTempoPopover(false);
+                                    setTempoInputValue(String(effectiveTempo));
+                                  }
+                                }}
+                                onBlur={commitTempoInput}
+                                autoFocus
+                                className="w-16 px-1 py-0.5 text-center font-mono font-bold text-base text-emerald-400 bg-[#0E0E12] border-2 border-emerald-500 rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-400 shadow-inner"
+                              />
+                              <button
+                                type="button"
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  commitTempoInput();
+                                }}
+                                className="p-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer shadow-xs"
+                                title="Valider"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                            <span className="text-[8px] text-emerald-400/80 font-sans tracking-tight mt-0.5">
+                              Entrée pour valider
+                            </span>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setTempoInputValue(String(effectiveTempo));
+                              setIsEditingTempoPopover(true);
+                              setTimeout(() => {
+                                tempoInputRef.current?.focus();
+                                tempoInputRef.current?.select();
+                              }, 50);
+                            }}
+                            className="group flex flex-col items-center justify-center px-2 py-0.5 rounded-lg hover:bg-[#202028] border border-transparent hover:border-emerald-500/40 transition-all cursor-pointer min-w-16"
+                            title="Cliquer pour saisir directement une valeur de tempo"
+                          >
+                            <div className="flex items-center gap-1">
+                              <span className="font-mono font-bold text-lg text-emerald-400 group-hover:text-emerald-300 transition-colors">
+                                {effectiveTempo}
+                              </span>
+                              <FileEdit className="w-3 h-3 text-gray-500 group-hover:text-emerald-400 transition-colors" />
+                            </div>
+                            <div className="text-[9px] text-gray-500 group-hover:text-gray-400 font-sans uppercase">
+                              BPM
+                            </div>
+                          </button>
+                        )}
+
                         <button
                           type="button"
                           onClick={() => handleUpdateTempo(Math.min(260, effectiveTempo + 1))}
-                          className="p-1 rounded bg-[#202026] hover:bg-[#282832] text-gray-300 border border-[#30303A] cursor-pointer shrink-0"
+                          className="p-1.5 rounded bg-[#202026] hover:bg-[#282832] text-gray-300 border border-[#30303A] cursor-pointer shrink-0"
                           title="+1 BPM"
                         >
                           <Plus className="w-3.5 h-3.5" />
@@ -2215,10 +2215,50 @@ export const SongReader: React.FC<SongReaderProps> = ({
                         <button
                           type="button"
                           onClick={() => handleUpdateTempo(Math.min(260, effectiveTempo + 10))}
-                          className="px-2 py-1 rounded bg-[#202026] hover:bg-[#282832] text-gray-300 text-xs font-mono border border-[#30303A] cursor-pointer shrink-0"
+                          className="px-2 py-1.5 rounded bg-[#202026] hover:bg-[#282832] text-gray-300 text-xs font-mono border border-[#30303A] cursor-pointer shrink-0"
                           title="+10 BPM"
                         >
                           +10
+                        </button>
+                      </div>
+
+                      {/* Boutons Play Métronome & Flash Écran */}
+                      <div className="grid grid-cols-2 gap-2 mb-2.5">
+                        <button
+                          type="button"
+                          onClick={handleToggleMetronome}
+                          className={`py-2 px-3 rounded-lg font-semibold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                            isMetronomePlaying
+                              ? 'bg-emerald-500 hover:bg-emerald-400 text-white shadow-md shadow-emerald-500/25 ring-2 ring-emerald-400/40 animate-pulse'
+                              : 'bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40'
+                          }`}
+                          title={isMetronomePlaying ? 'Arrêter le métronome' : 'Lancer le métronome'}
+                        >
+                          {isMetronomePlaying ? (
+                            <>
+                              <Pause className="w-3.5 h-3.5 fill-current" />
+                              <span>Pause</span>
+                            </>
+                          ) : (
+                            <>
+                              <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
+                              <span>Play</span>
+                            </>
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleToggleScreenFlash}
+                          className={`py-2 px-3 rounded-lg font-medium text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                            enableScreenFlash
+                              ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/50 shadow-xs'
+                              : 'bg-[#202026] hover:bg-[#282832] text-gray-400 hover:text-gray-200 border border-[#30303A]'
+                          }`}
+                          title={enableScreenFlash ? 'Flash d’écran actif (cliquer pour désactiver)' : 'Activer le flash d’écran sur le tempo'}
+                        >
+                          <Zap className={`w-3.5 h-3.5 ${enableScreenFlash ? 'fill-amber-400 text-amber-400' : 'text-gray-400'}`} />
+                          <span>{enableScreenFlash ? 'Flash actif' : 'Flash écran'}</span>
                         </button>
                       </div>
 
@@ -2226,15 +2266,16 @@ export const SongReader: React.FC<SongReaderProps> = ({
                       <button
                         type="button"
                         onClick={handleTapTempo}
-                        className="w-full py-2 px-3 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 font-medium text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer mb-2.5"
+                        className="w-full py-1.5 px-3 rounded-lg bg-[#202026] hover:bg-[#282832] text-gray-300 hover:text-emerald-300 border border-[#30303A] hover:border-emerald-500/40 font-medium text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer mb-2.5"
                       >
-                        <Gauge className="w-3.5 h-3.5 shrink-0" />
+                        <Gauge className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
                         <span>Tapez le tempo (Tap)</span>
                       </button>
 
                       {/* Presets rapides */}
-                      <div className="text-[10px] text-gray-500 font-semibold mb-1 uppercase tracking-wider">
-                        Tempos usuels
+                      <div className="text-[10px] text-gray-500 font-semibold mb-1 uppercase tracking-wider flex items-center justify-between">
+                        <span>Tempos usuels</span>
+                        <span className="text-[9px] text-gray-600 font-normal">BPM</span>
                       </div>
                       <div className="grid grid-cols-5 gap-1.5 text-xs">
                         {[70, 85, 100, 120, 140].map((bpm) => (
@@ -2243,7 +2284,6 @@ export const SongReader: React.FC<SongReaderProps> = ({
                             type="button"
                             onClick={() => {
                               handleUpdateTempo(bpm);
-                              setShowTempoMenu(false);
                             }}
                             className={`py-1 rounded font-mono text-[11px] transition-colors cursor-pointer text-center ${
                               effectiveTempo === bpm

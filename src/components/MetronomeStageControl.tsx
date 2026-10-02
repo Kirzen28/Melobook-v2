@@ -67,6 +67,17 @@ export const MetronomeStageControl: React.FC<MetronomeStageControlProps> = ({
     }, 70);
   };
 
+  // Synchronisation réactive avec l'état global du métronome
+  useEffect(() => {
+    return metronome.subscribeState((playing) => {
+      setIsPlaying(playing);
+      if (!playing) {
+        setCurrentBeat(0);
+        setFlashActive(null);
+      }
+    });
+  }, []);
+
   // Synchronisation avec les props entrantes
   useEffect(() => {
     if (initialBpm && initialBpm > 0) {

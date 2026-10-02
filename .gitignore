@@ -6,3 +6,13 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Firebase
+.firebase/
+.firebaserc.user
+firebase-debug.log*
+firestore-debug.log*
+
+# Éditeurs & IDE
+.vscode/
+.cursor/

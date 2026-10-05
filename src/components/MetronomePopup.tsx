@@ -9,31 +9,69 @@ import {
   Minus, 
   RotateCcw,
   Zap,
-  Music
+  Clock,
+  Music,
+  ChevronDown,
+  Check
 } from 'lucide-react';
 import { MetronomeIcon } from './MetronomeIcon';
 import { useApp } from '../context/AppContext';
 import { 
   metronomeAudio, 
-  getTempoMarking, 
   MetronomeSound, 
   MetronomeSubdivision 
 } from '../utils/metronomeAudio';
+import { metronome } from '../utils/chordUtils';
 
-const TIME_SIGNATURE_PRESETS = [
-  { label: '2/4', beats: 2 },
-  { label: '3/4', beats: 3 },
-  { label: '4/4', beats: 4 },
-  { label: '5/4', beats: 5 },
-  { label: '6/8', beats: 6 },
-  { label: '7/8', beats: 7 },
-  { label: '12/8', beats: 12 },
+export interface SignatureOption {
+  label: string;
+  beats: number;
+  desc: string;
+}
+
+export const SIGNATURE_OPTIONS: SignatureOption[] = [
+  { label: '2/4', beats: 2, desc: '2 temps (Marche, Polka)' },
+  { label: '3/4', beats: 3, desc: '3 temps (Valse, Ballade)' },
+  { label: '4/4', beats: 4, desc: '4 temps (Standard Pop, Rock, Culte)' },
+  { label: '5/4', beats: 5, desc: '5 temps (Rythme asymétrique)' },
+  { label: '6/8', beats: 6, desc: '6 temps (Balancement ternaire)' },
+  { label: '7/8', beats: 7, desc: '7 temps (Rythme complexe)' },
+  { label: '9/8', beats: 9, desc: '9 temps (Ternaire composé)' },
+  { label: '12/8', beats: 12, desc: '12 temps (Blues, Gospel, Soul)' },
 ];
 
-const TEMPO_QUICK_PRESETS = [60, 80, 100, 120, 140, 160];
+export interface SubdivisionOption {
+  sub: MetronomeSubdivision;
+  label: string;
+  notation: string;
+  desc: string;
+}
+
+export const SUBDIVISION_OPTIONS: SubdivisionOption[] = [
+  { sub: 1, label: 'Noires', notation: '♩', desc: '' },
+  { sub: 2, label: 'Croches', notation: '♪♪', desc: '' },
+  { sub: 3, label: 'Triolets', notation: '³♪', desc: '' },
+  { sub: 4, label: 'Doubles', notation: '♬', desc: '' },
+];
+
+export interface SoundOption {
+  id: MetronomeSound;
+  label: string;
+  icon: string;
+  desc: string;
+}
+
+export const SOUND_OPTIONS: SoundOption[] = [
+  { id: 'woodblock', label: 'Woodblock', icon: '🪵', desc: 'Bois naturel classique, doux et percutant' },
+  { id: 'digital', label: 'Digital', icon: '⚡', desc: 'Bip électronique moderne à haute clarté' },
+  { id: 'mechanical', label: 'Mécanique', icon: '⚙️', desc: 'Tic-tac acoustique vintage de studio' },
+  { id: 'diapason', label: 'Diapason', icon: '🔔', desc: 'Onde sinusoïdale pure et harmonique' },
+];
+
+const TIME_SIGNATURE_PRESETS = SIGNATURE_OPTIONS;
 
 export const MetronomePopup: React.FC = () => {
-  const { isMetronomeOpen, setIsMetronomeOpen, selectedSong } = useApp();
+  const { isMetronomeOpen, setIsMetronomeOpen } = useApp();
 
   const [isPlaying, setIsPlaying] = useState<boolean>(() => metronomeAudio.getState().isPlaying);
   const [bpm, setBpm] = useState<number>(() => metronomeAudio.getState().bpm);
@@ -47,13 +85,41 @@ export const MetronomePopup: React.FC = () => {
   const [activeBeat, setActiveBeat] = useState<number>(-1);
   const [isAccentBeat, setIsAccentBeat] = useState<boolean>(false);
   const [activeSubBeat, setActiveSubBeat] = useState<number>(0);
-  const [enableScreenFlash, setEnableScreenFlash] = useState<boolean>(false);
+  const [enableScreenFlash, setEnableScreenFlash] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('songbook_standalone_metronome_flash') === 'true';
+    } catch {
+      return false;
+    }
+  });
   const [flashActive, setFlashActive] = useState<boolean>(false);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('songbook_standalone_metronome_flash', enableScreenFlash ? 'true' : 'false');
+    } catch {}
+  }, [enableScreenFlash]);
 
   // Tap tempo state
   const tapTimesRef = useRef<number[]>([]);
   const [tapFeedback, setTapFeedback] = useState<string | null>(null);
   const tapFeedbackTimerRef = useRef<number | null>(null);
+
+  // Dropdown states for signature, subdivision, and sound
+  const [activeDropdown, setActiveDropdown] = useState<'signature' | 'subdivision' | 'sound' | null>(null);
+  const dropdownContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownContainerRef.current && !dropdownContainerRef.current.contains(e.target as Node)) {
+        setActiveDropdown(null);
+      }
+    };
+    if (activeDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [activeDropdown]);
 
   // Sync state from engine
   useEffect(() => {
@@ -90,6 +156,10 @@ export const MetronomePopup: React.FC = () => {
       metronomeAudio.stop();
       setActiveBeat(-1);
     } else {
+      // Si le métronome du chant en mode scène était actif, l'arrêter pour éviter tout double clic
+      if (metronome.getIsPlaying()) {
+        metronome.stop();
+      }
       metronomeAudio.start(bpm, beatsPerMeasure);
     }
   }, [isPlaying, bpm, beatsPerMeasure]);
@@ -207,9 +277,17 @@ export const MetronomePopup: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isMetronomeOpen, togglePlay, handleBpmStep, setIsMetronomeOpen]);
 
-  if (!isMetronomeOpen) return null;
+  const currentSignature = SIGNATURE_OPTIONS.find(s => s.beats === beatsPerMeasure) || {
+    label: `${beatsPerMeasure}/4`,
+    beats: beatsPerMeasure,
+    desc: `${beatsPerMeasure} temps / mesure`
+  };
 
-  const tempoInfo = getTempoMarking(bpm);
+  const currentSubdivision = SUBDIVISION_OPTIONS.find(s => s.sub === subdivision) || SUBDIVISION_OPTIONS[0];
+
+  const currentSound = SOUND_OPTIONS.find(s => s.id === sound) || SOUND_OPTIONS[0];
+
+  if (!isMetronomeOpen) return null;
 
   return (
     <div 
@@ -229,22 +307,35 @@ export const MetronomePopup: React.FC = () => {
         aria-label="Métronome"
       >
         {/* Header Bar */}
-        <div className="px-4 py-2.5 bg-[#18181B] border-b border-[#26262B] flex items-center justify-between gap-2">
+        <div className="px-4 py-2.5 bg-[#18181B] border-b border-[#26262B] flex items-center justify-between gap-2 shrink-0">
           <div className="flex items-center gap-2">
             <div className={`p-1.5 rounded-md ${isPlaying ? 'bg-blue-600/20 text-blue-400' : 'bg-[#222] text-gray-400'}`}>
               <MetronomeIcon className="w-4 h-4" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-bold text-white tracking-wide">Métronome</span>
-                <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-[#222226] text-blue-300 border border-[#333]">
-                  {tempoInfo.name}
-                </span>
-              </div>
+              <span className="text-sm font-bold text-white tracking-wide">Métronome</span>
             </div>
           </div>
 
           <div className="flex items-center gap-1.5">
+            {/* Flash Screen Toggle Button */}
+            <button
+              type="button"
+              onClick={() => setEnableScreenFlash(prev => !prev)}
+              className={`p-1.5 rounded-md border transition-all cursor-pointer flex items-center gap-1.5 ${
+                enableScreenFlash 
+                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-xs' 
+                  : 'bg-[#1F1F24] hover:bg-[#28282F] text-gray-400 hover:text-white border-[#333]'
+              }`}
+              title={enableScreenFlash ? "Désactiver le flash visuel de l'écran" : "Activer le flash visuel de l'écran à chaque temps"}
+              aria-label="Flash visuel"
+            >
+              <Zap className={`w-4 h-4 ${enableScreenFlash ? 'text-amber-400 fill-amber-400' : 'text-gray-400'}`} />
+              <span className="text-[11px] font-semibold hidden sm:inline">
+                {enableScreenFlash ? 'Flash On' : 'Flash'}
+              </span>
+            </button>
+
             {/* Volume & Mute */}
             <button
               onClick={handleToggleMute}
@@ -269,40 +360,11 @@ export const MetronomePopup: React.FC = () => {
           </div>
         </div>
 
-        {/* Selected Song banner (optional quick load) */}
-        {selectedSong && selectedSong.tempo ? (
-          <div className="px-4 py-2 bg-blue-950/30 border-b border-blue-900/30 flex items-center justify-between gap-2 text-xs">
-            <div className="flex items-center gap-2 truncate">
-              <Music className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-              <span className="text-gray-300 truncate">
-                Morceau : <strong className="text-white">{selectedSong.title}</strong> ({selectedSong.tempo} BPM{selectedSong.timeSignature ? ` • ${selectedSong.timeSignature}` : ''})
-              </span>
-            </div>
-            {bpm !== selectedSong.tempo && (
-              <button
-                onClick={() => {
-                  handleBpmChange(selectedSong.tempo);
-                  if (selectedSong.timeSignature) {
-                    const match = selectedSong.timeSignature.match(/^(\d+)/);
-                    if (match) {
-                      const b = parseInt(match[1], 10);
-                      if (b >= 1 && b <= 16) handleBeatsChange(b);
-                    }
-                  }
-                }}
-                className="px-2 py-0.5 rounded bg-blue-600 hover:bg-blue-500 text-white font-medium shrink-0 transition-colors cursor-pointer text-[11px]"
-              >
-                Appliquer ({selectedSong.tempo})
-              </button>
-            )}
-          </div>
-        ) : null}
-
-        {/* Main Content Area */}
-        <div className="p-4 sm:p-5 flex flex-col gap-4">
+        {/* Main Content Area - Sans barre de défilement ni scroll */}
+        <div className="p-4 sm:p-5 flex flex-col gap-3.5 sm:gap-4 overflow-visible">
           
           {/* Visual Beat Indicator Dots */}
-          <div className="bg-[#0F0F12] border border-[#222226] rounded-xl p-3 flex flex-col items-center justify-center gap-2">
+          <div className="bg-[#0F0F12] border border-[#222226] rounded-xl p-3 sm:p-4 flex flex-col items-center justify-center">
             <div className="flex items-center justify-center gap-2 sm:gap-3 flex-wrap">
               {Array.from({ length: beatsPerMeasure }).map((_, index) => {
                 const isCurrent = isPlaying && activeBeat === index;
@@ -345,25 +407,6 @@ export const MetronomePopup: React.FC = () => {
                   </div>
                 );
               })}
-            </div>
-
-            {/* Flash Screen & Sub-text info */}
-            <div className="flex items-center justify-between w-full mt-1 pt-2 border-t border-[#1C1C22] text-[11px] text-gray-400 px-1">
-              <span className="font-mono">
-                {beatsPerMeasure} temps / mesure
-                {subdivision > 1 ? ` • Subdiv. ×${subdivision}` : ''}
-              </span>
-
-              <label className="flex items-center gap-1.5 cursor-pointer hover:text-gray-200 transition-colors">
-                <input
-                  type="checkbox"
-                  checked={enableScreenFlash}
-                  onChange={(e) => setEnableScreenFlash(e.target.checked)}
-                  className="rounded bg-[#222] border-[#444] text-blue-600 focus:ring-0 cursor-pointer w-3.5 h-3.5"
-                />
-                <Zap className="w-3 h-3 text-amber-400" />
-                <span>Flash visuel</span>
-              </label>
             </div>
           </div>
 
@@ -474,106 +517,197 @@ export const MetronomePopup: React.FC = () => {
             </button>
           </div>
 
-          {/* Quick BPM Presets */}
-          <div className="flex items-center justify-between gap-1 bg-[#101014] p-1.5 rounded-lg border border-[#222228]">
-            <span className="text-[10px] text-gray-400 font-semibold px-1">Presets :</span>
-            <div className="flex items-center gap-1 overflow-x-auto">
-              {TEMPO_QUICK_PRESETS.map((p) => (
-                <button
-                  key={p}
-                  onClick={() => handleBpmChange(p)}
-                  className={`px-2 py-1 rounded text-xs font-mono font-medium transition-colors cursor-pointer ${
-                    bpm === p 
-                      ? 'bg-blue-600 text-white font-bold' 
-                      : 'bg-[#1C1C22] text-gray-300 hover:text-white hover:bg-[#26262E]'
-                  }`}
-                >
-                  {p}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Advanced Controls Accordion / Toolbar */}
-          <div className="bg-[#101014] border border-[#222228] rounded-xl p-3 flex flex-col gap-2.5 text-xs">
-            {/* Signature & Subdivisions */}
-            <div className="grid grid-cols-2 gap-3">
-              {/* Chiffrage (Beats per measure) */}
-              <div className="flex flex-col gap-1">
-                <label className="text-[11px] text-gray-400 font-medium">Signature / Mesure :</label>
-                <select
-                  value={beatsPerMeasure}
-                  onChange={(e) => handleBeatsChange(Number(e.target.value))}
-                  className="bg-[#1C1C22] border border-[#2E2E36] rounded-md px-2 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500 cursor-pointer"
-                >
-                  {TIME_SIGNATURE_PRESETS.map((sig) => (
-                    <option key={sig.label} value={sig.beats}>
-                      {sig.label} ({sig.beats} temps)
-                    </option>
-                  ))}
-                  <option value={1}>1/4 (Pas d'accent)</option>
-                  <option value={8}>8/8 (8 temps)</option>
-                  <option value={9}>9/8 (9 temps)</option>
-                </select>
+          {/* Advanced Controls Toolbar - Grille de 3 éléments avec uniquement les textes utiles */}
+          <div ref={dropdownContainerRef} className="grid grid-cols-3 gap-2 bg-[#101014] border border-[#222228] rounded-xl p-2.5 sm:p-3 text-xs">
+            {/* 1. Mesure */}
+            <div className="relative">
+              <div className="flex items-center gap-1.5 mb-1.5 text-[11px] font-semibold text-gray-300">
+                <Clock className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                <span className="truncate">Mesure</span>
               </div>
 
-              {/* Subdivisions */}
-              <div className="flex flex-col gap-1">
-                <label className="text-[11px] text-gray-400 font-medium">Subdivision :</label>
-                <select
-                  value={subdivision}
-                  onChange={(e) => handleSubdivisionChange(Number(e.target.value) as MetronomeSubdivision)}
-                  className="bg-[#1C1C22] border border-[#2E2E36] rounded-md px-2 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500 cursor-pointer"
-                >
-                  <option value={1}>1 • Noires</option>
-                  <option value={2}>2 • Croches</option>
-                  <option value={3}>3 • Triolets</option>
-                  <option value={4}>4 • Doubles-croches</option>
-                </select>
-              </div>
-            </div>
+              <button
+                type="button"
+                onClick={() => setActiveDropdown(prev => prev === 'signature' ? null : 'signature')}
+                className={`w-full flex items-center justify-between px-2 sm:px-2.5 py-2 rounded-lg border text-xs font-semibold transition-all cursor-pointer ${
+                  activeDropdown === 'signature'
+                    ? 'bg-[#181822] border-blue-500 ring-2 ring-blue-500/25 text-white'
+                    : 'bg-[#141418] hover:bg-[#1A1A22] border-[#252530] hover:border-gray-500 text-gray-200'
+                }`}
+                aria-expanded={activeDropdown === 'signature'}
+                aria-haspopup="listbox"
+                aria-label="Sélectionner la mesure"
+              >
+                <span className="font-mono font-bold text-blue-400 text-xs truncate">
+                  {currentSignature.label}
+                </span>
+                <ChevronDown className={`w-3.5 h-3.5 text-gray-400 shrink-0 transition-transform duration-200 ${activeDropdown === 'signature' ? 'rotate-180 text-blue-400' : ''}`} />
+              </button>
 
-            {/* Sound Timbre & Volume */}
-            <div className="grid grid-cols-2 gap-3 pt-2 border-t border-[#1C1C22]">
-              {/* Sound Timbre */}
-              <div className="flex flex-col gap-1">
-                <label className="text-[11px] text-gray-400 font-medium">Son :</label>
-                <select
-                  value={sound}
-                  onChange={(e) => handleSoundChange(e.target.value as MetronomeSound)}
-                  className="bg-[#1C1C22] border border-[#2E2E36] rounded-md px-2 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500 cursor-pointer"
+              {activeDropdown === 'signature' && (
+                <div 
+                  role="listbox"
+                  aria-label="Mesures disponibles"
+                  className="absolute left-0 min-w-full sm:min-w-[120px] bottom-full mb-1.5 z-40 bg-[#141418] border border-[#2B2B36] rounded-xl shadow-2xl p-1 max-h-48 overflow-y-auto custom-scrollbar space-y-0.5 animate-in fade-in zoom-in-95 duration-100"
                 >
-                  <option value="woodblock">Woodblock (Clave)</option>
-                  <option value="digital">Bip digital</option>
-                  <option value="mechanical">Clic mécanique</option>
-                  <option value="diapason">Diapason (Cloche)</option>
-                </select>
-              </div>
-
-              {/* Volume */}
-              <div className="flex flex-col gap-1">
-                <div className="flex justify-between items-center text-[11px] text-gray-400">
-                  <span className="font-medium">Volume :</span>
-                  <span className="font-mono">{Math.round(volume * 100)}%</span>
+                  {SIGNATURE_OPTIONS.map((sig) => {
+                    const isSelected = beatsPerMeasure === sig.beats;
+                    return (
+                      <button
+                        key={sig.label}
+                        type="button"
+                        role="option"
+                        aria-selected={isSelected}
+                        onClick={() => {
+                          handleBeatsChange(sig.beats);
+                          setActiveDropdown(null);
+                        }}
+                        className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer text-left ${
+                          isSelected
+                            ? 'bg-blue-600/20 text-blue-300 font-bold border border-blue-500/30 shadow-xs'
+                            : 'text-gray-300 hover:text-white hover:bg-[#1A1A22] border border-transparent'
+                        }`}
+                      >
+                        <span className="font-mono font-bold">{sig.label}</span>
+                        {isSelected && <Check className="w-3.5 h-3.5 text-blue-400 shrink-0 ml-1.5" />}
+                      </button>
+                    );
+                  })}
                 </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  value={volume}
-                  onChange={(e) => handleVolumeChange(Number(e.target.value))}
-                  className="w-full h-2 bg-[#232328] rounded-lg appearance-none cursor-pointer accent-blue-500 mt-1"
-                />
-              </div>
+              )}
             </div>
-          </div>
 
-          {/* Quick Keyboard shortcuts hint */}
-          <div className="hidden sm:flex items-center justify-center gap-4 text-[10px] text-gray-500 font-mono">
-            <span>[Espace] Play/Stop</span>
-            <span>[← / →] Ajuster BPM</span>
-            <span>[Échap] Fermer</span>
+            {/* 2. Subdivision */}
+            <div className="relative">
+              <div className="flex items-center gap-1.5 mb-1.5 text-[11px] font-semibold text-gray-300">
+                <Music className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                <span className="truncate">Subdivision</span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setActiveDropdown(prev => prev === 'subdivision' ? null : 'subdivision')}
+                className={`w-full flex items-center justify-between px-2 sm:px-2.5 py-2 rounded-lg border text-xs font-semibold transition-all cursor-pointer ${
+                  activeDropdown === 'subdivision'
+                    ? 'bg-[#181822] border-indigo-500 ring-2 ring-indigo-500/25 text-white'
+                    : 'bg-[#141418] hover:bg-[#1A1A22] border-[#252530] hover:border-gray-500 text-gray-200'
+                }`}
+                aria-expanded={activeDropdown === 'subdivision'}
+                aria-haspopup="listbox"
+                aria-label="Sélectionner la subdivision"
+              >
+                <div className="flex items-center gap-1.5 truncate">
+                  <span className="font-serif font-bold text-indigo-400 shrink-0">
+                    {currentSubdivision.notation}
+                  </span>
+                  <span className="text-gray-300 truncate text-[11px] sm:text-xs">
+                    {currentSubdivision.label}
+                  </span>
+                </div>
+                <ChevronDown className={`w-3.5 h-3.5 text-gray-400 shrink-0 transition-transform duration-200 ${activeDropdown === 'subdivision' ? 'rotate-180 text-indigo-400' : ''}`} />
+              </button>
+
+              {activeDropdown === 'subdivision' && (
+                <div 
+                  role="listbox"
+                  aria-label="Subdivisions disponibles"
+                  className="absolute left-1/2 -translate-x-1/2 min-w-full sm:min-w-[130px] bottom-full mb-1.5 z-40 bg-[#141418] border border-[#2B2B36] rounded-xl shadow-2xl p-1 space-y-0.5 animate-in fade-in zoom-in-95 duration-100"
+                >
+                  {SUBDIVISION_OPTIONS.map((subItem) => {
+                    const isSelected = subdivision === subItem.sub;
+                    return (
+                      <button
+                        key={subItem.sub}
+                        type="button"
+                        role="option"
+                        aria-selected={isSelected}
+                        onClick={() => {
+                          handleSubdivisionChange(subItem.sub);
+                          setActiveDropdown(null);
+                        }}
+                        className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer text-left ${
+                          isSelected
+                            ? 'bg-indigo-600/20 text-indigo-300 font-bold border border-indigo-500/30 shadow-xs'
+                            : 'text-gray-300 hover:text-white hover:bg-[#1A1A22] border border-transparent'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="font-serif font-bold text-indigo-400 w-5 text-center">
+                            {subItem.notation}
+                          </span>
+                          <span>{subItem.label}</span>
+                        </div>
+                        {isSelected && <Check className="w-3.5 h-3.5 text-indigo-400 shrink-0 ml-1.5" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* 3. Son */}
+            <div className="relative">
+              <div className="flex items-center gap-1.5 mb-1.5 text-[11px] font-semibold text-gray-300">
+                <Volume2 className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <span className="truncate">Son</span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setActiveDropdown(prev => prev === 'sound' ? null : 'sound')}
+                className={`w-full flex items-center justify-between px-2 sm:px-2.5 py-2 rounded-lg border text-xs font-semibold transition-all cursor-pointer ${
+                  activeDropdown === 'sound'
+                    ? 'bg-[#181822] border-amber-500 ring-2 ring-amber-500/25 text-white'
+                    : 'bg-[#141418] hover:bg-[#1A1A22] border-[#252530] hover:border-gray-500 text-gray-200'
+                }`}
+                aria-expanded={activeDropdown === 'sound'}
+                aria-haspopup="listbox"
+                aria-label="Sélectionner le son"
+              >
+                <div className="flex items-center gap-1.5 truncate">
+                  <span className="text-sm shrink-0">{currentSound.icon}</span>
+                  <span className="text-gray-300 truncate text-[11px] sm:text-xs">
+                    {currentSound.label}
+                  </span>
+                </div>
+                <ChevronDown className={`w-3.5 h-3.5 text-gray-400 shrink-0 transition-transform duration-200 ${activeDropdown === 'sound' ? 'rotate-180 text-amber-400' : ''}`} />
+              </button>
+
+              {activeDropdown === 'sound' && (
+                <div 
+                  role="listbox"
+                  aria-label="Sons disponibles"
+                  className="absolute right-0 min-w-full sm:min-w-[130px] bottom-full mb-1.5 z-40 bg-[#141418] border border-[#2B2B36] rounded-xl shadow-2xl p-1 space-y-0.5 animate-in fade-in zoom-in-95 duration-100"
+                >
+                  {SOUND_OPTIONS.map((soundItem) => {
+                    const isSelected = sound === soundItem.id;
+                    return (
+                      <button
+                        key={soundItem.id}
+                        type="button"
+                        role="option"
+                        aria-selected={isSelected}
+                        onClick={() => {
+                          handleSoundChange(soundItem.id);
+                          setActiveDropdown(null);
+                        }}
+                        className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer text-left ${
+                          isSelected
+                            ? 'bg-amber-600/20 text-amber-300 font-bold border border-amber-500/30 shadow-xs'
+                            : 'text-gray-300 hover:text-white hover:bg-[#1A1A22] border border-transparent'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm">{soundItem.icon}</span>
+                          <span>{soundItem.label}</span>
+                        </div>
+                        {isSelected && <Check className="w-3.5 h-3.5 text-amber-400 shrink-0 ml-1.5" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
 
         </div>
@@ -581,3 +715,4 @@ export const MetronomePopup: React.FC = () => {
     </div>
   );
 };
+

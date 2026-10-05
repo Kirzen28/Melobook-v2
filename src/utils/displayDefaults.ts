@@ -1,5 +1,5 @@
 import React from 'react';
-import { DisplaySettings, SectionColors, SectionBorders } from '../types';
+import { DisplaySettings, SectionColors, SectionBorders, SongMetadataVisibility } from '../types';
 
 export const DEFAULT_SECTION_BORDERS: SectionBorders = {
   left: true,
@@ -9,6 +9,20 @@ export const DEFAULT_SECTION_BORDERS: SectionBorders = {
 };
 
 export const DEFAULT_CHORD_COLOR = '#60a5fa';
+
+export const DEFAULT_SONG_METADATA_VISIBILITY: SongMetadataVisibility = {
+  artist: true,
+  language: true,
+  duration: true,
+  tags: true,
+  controlsBar: true,
+  notes: true,
+  actions: true,
+  vocalArrangement: true,
+  sectionHeaders: false,
+};
+
+export const DEFAULT_PREVIEW_METADATA = DEFAULT_SONG_METADATA_VISIBILITY;
 
 export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
   typography: {
@@ -37,7 +51,8 @@ export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
     top: false,
     bottom: false,
   },
-  chordColor: DEFAULT_CHORD_COLOR
+  chordColor: DEFAULT_CHORD_COLOR,
+  metadataVisibility: DEFAULT_SONG_METADATA_VISIBILITY
 };
 
 export const COLOR_PRESETS = [
@@ -141,7 +156,11 @@ export function loadSavedDisplaySettings(): DisplaySettings {
         typography: { ...DEFAULT_DISPLAY_SETTINGS.typography, ...(parsed.typography || {}) },
         sectionColors: { ...DEFAULT_DISPLAY_SETTINGS.sectionColors, ...(parsed.sectionColors || {}) },
         sectionBorders: { ...DEFAULT_SECTION_BORDERS, ...(parsed.sectionBorders || {}) },
-        chordColor: parsed.chordColor || DEFAULT_CHORD_COLOR
+        chordColor: parsed.chordColor || DEFAULT_CHORD_COLOR,
+        metadataVisibility: {
+          ...DEFAULT_SONG_METADATA_VISIBILITY,
+          ...(parsed.metadataVisibility || {})
+        }
       };
     }
   } catch (e) {

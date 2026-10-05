@@ -57,7 +57,6 @@ import {
   ChevronsDown, 
   ChevronsUp, 
   X, 
-  Mic, 
   Copy, 
   Trash2, 
   FileText, 
@@ -1468,7 +1467,6 @@ export const SongEditor: React.FC = () => {
                                 key={vIdx}
                                 className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${vStyle.bg} ${vStyle.border} ${vStyle.text}`}
                               >
-                                <Mic className={`w-2.5 h-2.5 ${vStyle.icon}`} />
                                 <span>{voc}</span>
                               </span>
                             );

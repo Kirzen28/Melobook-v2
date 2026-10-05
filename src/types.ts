@@ -142,11 +142,26 @@ export interface SectionBorders {
   bottom: boolean;
 }
 
+export interface SongMetadataVisibility {
+  artist: boolean;
+  language: boolean;
+  duration: boolean;
+  tags: boolean;
+  controlsBar: boolean;
+  notes: boolean;
+  actions: boolean;
+  vocalArrangement: boolean;
+  sectionHeaders?: boolean;
+}
+
+export type PreviewMetadataVisibility = SongMetadataVisibility;
+
 export interface DisplaySettings {
   typography: SongTypographySettings;
   sectionColors: SectionColors;
   sectionBorders?: SectionBorders;
   chordColor?: string;
+  metadataVisibility?: SongMetadataVisibility;
 }
 
 export interface SongCardMetadataSettings {

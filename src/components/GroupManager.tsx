@@ -596,8 +596,9 @@ export const GroupManager: React.FC = () => {
         
         {/* 1. En-tête : Bibliothèque Active, Actions & Code d'invitation */}
         {currentGroup && (
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-[#222224]">
-            <div className="flex-1 min-w-0">
+          <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 pb-5 border-b border-[#222224]">
+            {/* Colonne gauche : Identité de la bibliothèque active et code d'invitation ergonomique */}
+            <div className="flex-1 min-w-0 space-y-2">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-blue-600/20 text-blue-400 border border-blue-500/30">
                   Bibliothèque Active
@@ -606,43 +607,10 @@ export const GroupManager: React.FC = () => {
                   label="Identifiant technique" 
                   content={`ID : ${currentGroup.id}`} 
                 />
-                {canManageGroups && !isEditingGroup && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => openAssignModal(currentGroup.id)}
-                      className="px-2.5 py-1 rounded text-[11px] font-semibold bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
-                      title="Assigner des membres à cette bibliothèque avec le multiselect"
-                    >
-                      <UserPlus className="w-3 h-3 text-white" />
-                      <span>Assigner des membres</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={startEditGroup}
-                      className="px-2.5 py-1 rounded text-[11px] font-medium bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 hover:text-white border border-[#333] flex items-center gap-1.5 transition-colors cursor-pointer"
-                      title="Modifier le nom et la description"
-                    >
-                      <Pencil className="w-3 h-3 text-blue-400" />
-                      <span>Gérer</span>
-                    </button>
-                  </>
-                )}
-                {currentGroup.id !== 'default-group' && canDeleteLibrary(currentGroup) && !isEditingGroup && (
-                  <button
-                    type="button"
-                    onClick={() => setLibraryToDelete(currentGroup)}
-                    className="px-2.5 py-1 rounded text-[11px] font-semibold bg-rose-600/10 hover:bg-rose-600/20 text-rose-400 hover:text-rose-300 border border-rose-500/30 flex items-center gap-1.5 transition-colors cursor-pointer"
-                    title="Supprimer définitivement cette bibliothèque"
-                  >
-                    <Trash2 className="w-3.5 h-3.5 text-rose-400" />
-                    <span>Supprimer</span>
-                  </button>
-                )}
                 {!canManageGroups && (
-                  <span className="text-[10px] text-gray-500 flex items-center gap-1 font-medium">
+                  <span className="text-[10px] text-gray-500 flex items-center gap-1 font-medium bg-[#16161A] px-2 py-0.5 rounded border border-[#222228]">
                     <Lock className="w-3 h-3 text-gray-500" />
-                    <span>Gestion réservée à l'Administrateur</span>
+                    <span>Consultation seule</span>
                   </span>
                 )}
               </div>
@@ -699,7 +667,7 @@ export const GroupManager: React.FC = () => {
                   </div>
                 </form>
               ) : (
-                <div className="mt-1.5">
+                <div>
                   <h2 className="text-lg sm:text-xl font-bold text-white">
                     {currentGroup.name}
                   </h2>
@@ -708,42 +676,92 @@ export const GroupManager: React.FC = () => {
                       {currentGroup.description}
                     </p>
                   )}
+
+                  {/* Boîte et bouton du code d'invitation intégrés de manière ergonomique */}
+                  <div className="mt-3 flex items-center gap-2 flex-wrap">
+                    <div 
+                      onClick={handleCopyInviteCode}
+                      className="group inline-flex items-center gap-2.5 px-3 py-1.5 rounded-lg bg-[#0A0A0B] hover:bg-[#141418] border border-[#222224] hover:border-blue-500/50 shadow-xs cursor-pointer transition-all active:scale-98 select-none"
+                      title="Cliquer pour copier le code d'invitation"
+                    >
+                      <div className="flex items-center gap-1.5 text-gray-400 group-hover:text-blue-400 transition-colors">
+                        <KeyRound className="w-3.5 h-3.5 text-blue-400" />
+                        <span className="text-[11px] font-semibold">Code d'invitation :</span>
+                      </div>
+                      <span className="text-sm font-bold font-mono tracking-widest text-blue-400 group-hover:text-blue-300">
+                        {currentGroup.inviteCode || 'LOUAN7'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCopyInviteCode();
+                        }}
+                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold shadow-xs transition-all cursor-pointer ${
+                          isCopied
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-blue-600 hover:bg-blue-500 text-white'
+                        }`}
+                        title="Copier le code d'invitation"
+                      >
+                        {isCopied ? (
+                          <>
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Copié</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5" />
+                            <span>Copier</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    <InfoTooltip 
+                      label="Code d'accès" 
+                      content="Transmettez ce code aux musiciens pour qu'ils rejoignent directement cette bibliothèque partagée." 
+                    />
+                  </div>
                 </div>
               )}
             </div>
 
-            {/* Boîte du code d'invitation */}
-            <div className="bg-[#0A0A0B] border border-[#222224] rounded-lg p-3 sm:p-3.5 flex items-center justify-between sm:justify-start gap-3 shrink-0">
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] uppercase font-semibold text-gray-400">Code d'invitation</span>
-                  <InfoTooltip 
-                    label="Code d'accès" 
-                    content="Transmettez ce code aux musiciens pour qu'ils rejoignent directement cette bibliothèque partagée." 
-                  />
-                </div>
-                <div className="text-lg sm:text-xl font-bold font-mono tracking-widest text-blue-400">
-                  {currentGroup.inviteCode || 'LOUAN7'}
-                </div>
-              </div>
-
-              <button
-                onClick={handleCopyInviteCode}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-xs transition-all active:scale-95 whitespace-nowrap cursor-pointer ml-auto"
-                title="Copier le code d'invitation"
-              >
-                {isCopied ? (
-                  <>
-                    <Check className="w-3.5 h-3.5" />
-                    <span>Copié</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-3.5 h-3.5" />
-                    <span>Copier</span>
-                  </>
-                )}
-              </button>
+            {/* Colonne droite : Actions principales de gestion de la bibliothèque */}
+            <div className="flex items-center gap-2 shrink-0 flex-wrap md:self-start">
+              {canManageGroups && !isEditingGroup && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => openAssignModal(currentGroup.id)}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95"
+                    title="Assigner des membres à cette bibliothèque avec le multiselect"
+                  >
+                    <UserPlus className="w-3.5 h-3.5 text-white" />
+                    <span>Assigner des membres</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={startEditGroup}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 hover:text-white border border-[#333] flex items-center gap-1.5 transition-colors cursor-pointer"
+                    title="Modifier le nom et la description"
+                  >
+                    <Pencil className="w-3.5 h-3.5 text-blue-400" />
+                    <span>Gérer</span>
+                  </button>
+                </>
+              )}
+              {currentGroup.id !== 'default-group' && canDeleteLibrary(currentGroup) && !isEditingGroup && (
+                <button
+                  type="button"
+                  onClick={() => setLibraryToDelete(currentGroup)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-600/10 hover:bg-rose-600/20 text-rose-400 hover:text-rose-300 border border-rose-500/30 flex items-center gap-1.5 transition-colors cursor-pointer"
+                  title="Supprimer définitivement cette bibliothèque"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                  <span>Supprimer</span>
+                </button>
+              )}
             </div>
           </div>
         )}

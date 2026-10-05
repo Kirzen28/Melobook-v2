@@ -282,19 +282,6 @@ export const SongList: React.FC = () => {
   const [newSetlistDate, setNewSetlistDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [isSavingSetlists, setIsSavingSetlists] = useState<boolean>(false);
   
-  // Delete confirm state
-  const [confirmDeleteSongId, setConfirmDeleteSongId] = useState<string | null>(null);
-
-  // Auto-reset delete confirmation after 4 seconds
-  React.useEffect(() => {
-    if (confirmDeleteSongId) {
-      const timer = setTimeout(() => {
-        setConfirmDeleteSongId(null);
-      }, 4000);
-      return () => clearTimeout(timer);
-    }
-  }, [confirmDeleteSongId]);
-  
   // Importer state
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isImportDropdownOpen, setIsImportDropdownOpen] = useState(false);
@@ -1388,7 +1375,6 @@ export const SongList: React.FC = () => {
   // Reusable unified Song Card Renderer
   const renderSongCard = (song: Song) => {
     const isSelected = selectedSongIds.includes(song.id);
-    const isConfirming = confirmDeleteSongId === song.id;
 
     return (
       <div
@@ -1532,33 +1518,6 @@ export const SongList: React.FC = () => {
                   aria-label="Éditer le chant"
                 >
                   <FileEdit className="w-3.5 h-3.5 text-amber-400 group-hover:scale-110 transition-transform" />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    if (isMultiSelectMode) return;
-                    e.stopPropagation();
-                    if (isConfirming) {
-                      deleteSong(song.id);
-                      setConfirmDeleteSongId(null);
-                    } else {
-                      setConfirmDeleteSongId(song.id);
-                    }
-                  }}
-                  className={`p-1 sm:p-1.5 rounded transition-all flex items-center justify-center cursor-pointer ${
-                    isConfirming
-                      ? 'bg-rose-600 hover:bg-rose-700 text-white border border-rose-500 shadow-sm animate-pulse'
-                      : 'bg-[#1C1C1E] hover:bg-rose-500/20 text-gray-400 hover:text-rose-400 border border-[#333] hover:border-rose-500/40'
-                  }`}
-                  title={isMultiSelectMode ? undefined : (isConfirming ? "Confirmer la suppression" : "Supprimer le chant")}
-                  aria-label={isConfirming ? "Confirmer la suppression" : "Supprimer"}
-                >
-                  {isConfirming ? (
-                    <Check className="w-3.5 h-3.5 text-white" />
-                  ) : (
-                    <Trash2 className="w-3.5 h-3.5 text-rose-400" />
-                  )}
                 </button>
               </div>
             )}

@@ -432,11 +432,59 @@ export function updateSectionMetaInChordPro(
     }
 
     rawLines[sectionHeaderLineIdx] = newLine;
+
+    // If vocals or repeat are updated, scan through this section's body and remove any existing standalone {vocal:...} or {repeat:...} lines
+    if (options.newVocals !== undefined || options.newRepeat !== undefined) {
+      let j = sectionHeaderLineIdx + 1;
+      while (j < rawLines.length) {
+        const lineTrim = rawLines[j].trim();
+        if (lineTrim.startsWith('{') && lineTrim.endsWith('}')) {
+          const dir = lineTrim.slice(1, -1).trim();
+          const colIdx = dir.indexOf(':');
+          const t = (colIdx !== -1 ? dir.slice(0, colIdx) : dir).trim().toLowerCase();
+          
+          // Stop if reached the next section header or end of section tag
+          if (['comment', 'c', 'start_of_chorus', 'soc', 'start_of_verse', 'sov', 'start_of_bridge', 'sob', 'end_of_chorus', 'eoc', 'end_of_verse', 'eov', 'end_of_bridge', 'eob'].includes(t)) {
+            break;
+          }
+
+          if (options.newVocals !== undefined && ['vocal', 'voix', 'arrangement', 'arrangement_vocal', 'vocal_arrangement'].includes(t)) {
+            rawLines.splice(j, 1);
+            continue;
+          }
+          if (options.newRepeat !== undefined && ['repeat', 'repetition', 'rep', 'fois'].includes(t)) {
+            rawLines.splice(j, 1);
+            continue;
+          }
+        }
+        j++;
+      }
+    }
+
     return rawLines.join('\n');
   }
 
   // If section was general without header at section 0
   if (targetSectionIndex === 0 && rawLines.length > 0) {
+    if (options.newVocals !== undefined) {
+      let j = 0;
+      while (j < rawLines.length) {
+        const lineTrim = rawLines[j].trim();
+        if (lineTrim.startsWith('{') && lineTrim.endsWith('}')) {
+          const dir = lineTrim.slice(1, -1).trim();
+          const colIdx = dir.indexOf(':');
+          const t = (colIdx !== -1 ? dir.slice(0, colIdx) : dir).trim().toLowerCase();
+          if (['comment', 'c', 'start_of_chorus', 'soc', 'start_of_verse', 'sov', 'start_of_bridge', 'sob'].includes(t)) {
+            break;
+          }
+          if (['vocal', 'voix', 'arrangement', 'arrangement_vocal', 'vocal_arrangement'].includes(t)) {
+            rawLines.splice(j, 1);
+            continue;
+          }
+        }
+        j++;
+      }
+    }
     const metaTags: string[] = [];
     if (options.newRepeat && options.newRepeat > 1) metaTags.push(`x${options.newRepeat}`);
     if (options.newVocals) {

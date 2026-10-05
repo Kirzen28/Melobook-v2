@@ -13,12 +13,13 @@ import {
   SectionColors, 
   SectionBorders,
   SongCardMetadataSettings,
+  SongMetadataVisibility,
   UserRole,
   SyncStatus,
   NotificationType,
   AppNotification
 } from '../types';
-import { DEFAULT_DISPLAY_SETTINGS } from '../utils/displayDefaults';
+import { DEFAULT_DISPLAY_SETTINGS, DEFAULT_SONG_METADATA_VISIBILITY } from '../utils/displayDefaults';
 import { 
   auth, 
   db, 
@@ -142,6 +143,7 @@ interface AppContextType {
     sectionColors?: Partial<SectionColors>;
     sectionBorders?: Partial<SectionBorders>;
     chordColor?: string;
+    metadataVisibility?: Partial<SongMetadataVisibility>;
   }, silent?: boolean) => void;
   resetDisplaySettings: () => void;
   songCardMetadata: SongCardMetadataSettings;
@@ -560,6 +562,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           sectionColors: { ...DEFAULT_DISPLAY_SETTINGS.sectionColors, ...(parsed.sectionColors || {}) },
           sectionBorders: { ...DEFAULT_DISPLAY_SETTINGS.sectionBorders, ...(parsed.sectionBorders || {}) },
           chordColor: parsed.chordColor || DEFAULT_DISPLAY_SETTINGS.chordColor || '#60a5fa',
+          metadataVisibility: {
+            ...DEFAULT_SONG_METADATA_VISIBILITY,
+            ...(parsed.metadataVisibility || {})
+          }
         };
       } catch (e) {}
     }
@@ -571,6 +577,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     sectionColors?: Partial<SectionColors>;
     sectionBorders?: Partial<SectionBorders>;
     chordColor?: string;
+    metadataVisibility?: Partial<SongMetadataVisibility>;
   }, silent = false) => {
     setDisplaySettings(prev => {
       const updated: DisplaySettings = {
@@ -586,7 +593,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           ...(prev.sectionBorders || DEFAULT_DISPLAY_SETTINGS.sectionBorders!),
           ...(newSettings.sectionBorders || {})
         },
-        chordColor: newSettings.chordColor !== undefined ? newSettings.chordColor : (prev.chordColor || DEFAULT_DISPLAY_SETTINGS.chordColor || '#60a5fa')
+        chordColor: newSettings.chordColor !== undefined ? newSettings.chordColor : (prev.chordColor || DEFAULT_DISPLAY_SETTINGS.chordColor || '#60a5fa'),
+        metadataVisibility: {
+          ...(prev.metadataVisibility || DEFAULT_SONG_METADATA_VISIBILITY),
+          ...(newSettings.metadataVisibility || {})
+        }
       };
       localStorage.setItem('songbook_display_settings', JSON.stringify(updated));
       return updated;

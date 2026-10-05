@@ -53,37 +53,15 @@ import {
   DEFAULT_DISPLAY_SETTINGS,
   DEFAULT_SECTION_BORDERS,
   DEFAULT_CHORD_COLOR,
+  DEFAULT_SONG_METADATA_VISIBILITY,
+  DEFAULT_PREVIEW_METADATA,
   getSectionBorderStyles,
   getSectionColor 
 } from '../utils/displayDefaults';
-import { SectionColors, SongTypographySettings, SectionBorders } from '../types';
+import { SectionColors, SongTypographySettings, SectionBorders, SongMetadataVisibility, PreviewMetadataVisibility } from '../types';
 import { transposeChord, stripParentheses, LATIN_NOTES } from '../utils/chordUtils';
 import { getLanguageMeta } from '../utils/languageUtils';
 import { DuplicateCleanerSection } from './DuplicateCleanerSection';
-
-export interface PreviewMetadataVisibility {
-  artist: boolean;
-  language: boolean;
-  duration: boolean;
-  tags: boolean;
-  controlsBar: boolean;
-  notes: boolean;
-  actions: boolean;
-  vocalArrangement: boolean;
-}
-
-const PREVIEW_METADATA_STORAGE_KEY = 'melobook_settings_preview_metadata';
-
-const DEFAULT_PREVIEW_METADATA: PreviewMetadataVisibility = {
-  artist: true,
-  language: true,
-  duration: true,
-  tags: true,
-  controlsBar: true,
-  notes: true,
-  actions: true,
-  vocalArrangement: true,
-};
 
 const METADATA_TOGGLE_ITEMS: Array<{
   key: keyof PreviewMetadataVisibility;
@@ -709,35 +687,21 @@ export const SettingsView: React.FC = () => {
     ? (isSystemLight ? 'light' : 'dark')
     : (stageSettings.theme || 'dark');
 
-  // Visibilité des métadonnées dans l'aperçu (persisté en local)
-  const [previewMetadata, setPreviewMetadata] = useState<PreviewMetadataVisibility>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem(PREVIEW_METADATA_STORAGE_KEY);
-        if (saved) {
-          return { ...DEFAULT_PREVIEW_METADATA, ...JSON.parse(saved) };
-        }
-      } catch {
-        // ignore
-      }
-    }
-    return DEFAULT_PREVIEW_METADATA;
-  });
+  // Visibilité des métadonnées synchronisée en temps réel (aperçu et mode scène des chants)
+  const previewMetadata: SongMetadataVisibility = displaySettings.metadataVisibility || DEFAULT_SONG_METADATA_VISIBILITY;
 
-  const togglePreviewMetadata = (key: keyof PreviewMetadataVisibility) => {
-    setPreviewMetadata(prev => {
-      const next = { ...prev, [key]: !prev[key] };
-      try {
-        localStorage.setItem(PREVIEW_METADATA_STORAGE_KEY, JSON.stringify(next));
-      } catch {
-        // ignore
+  const togglePreviewMetadata = (key: keyof SongMetadataVisibility) => {
+    const current = displaySettings.metadataVisibility || DEFAULT_SONG_METADATA_VISIBILITY;
+    updateDisplaySettings({
+      metadataVisibility: {
+        ...current,
+        [key]: !current[key]
       }
-      return next;
     });
   };
 
   const handleShowAllPreviewMetadata = () => {
-    const allOn: PreviewMetadataVisibility = {
+    const allOn: SongMetadataVisibility = {
       artist: true,
       language: true,
       duration: true,
@@ -747,17 +711,12 @@ export const SettingsView: React.FC = () => {
       actions: true,
       vocalArrangement: true,
     };
-    setPreviewMetadata(allOn);
-    try {
-      localStorage.setItem(PREVIEW_METADATA_STORAGE_KEY, JSON.stringify(allOn));
-    } catch {
-      // ignore
-    }
-    notify('Toutes les métadonnées sont affichées dans l\'aperçu');
+    updateDisplaySettings({ metadataVisibility: allOn });
+    notify('Toutes les métadonnées sont affichées (aperçu & mode scène)');
   };
 
   const handleHideAllPreviewMetadata = () => {
-    const allOff: PreviewMetadataVisibility = {
+    const allOff: SongMetadataVisibility = {
       artist: false,
       language: false,
       duration: false,
@@ -767,13 +726,8 @@ export const SettingsView: React.FC = () => {
       actions: false,
       vocalArrangement: false,
     };
-    setPreviewMetadata(allOff);
-    try {
-      localStorage.setItem(PREVIEW_METADATA_STORAGE_KEY, JSON.stringify(allOff));
-    } catch {
-      // ignore
-    }
-    notify('Toutes les métadonnées sont masquées dans l\'aperçu');
+    updateDisplaySettings({ metadataVisibility: allOff });
+    notify('Toutes les métadonnées sont masquées (aperçu & mode scène)');
   };
 
   const activeMetadataCount = Object.values(previewMetadata).filter(Boolean).length;
@@ -881,7 +835,7 @@ export const SettingsView: React.FC = () => {
     return (
       <div className={`space-y-4 ${isFullscreen ? 'max-w-3xl mx-auto' : ''}`}>
         {/* Sticky Point-n-Click Inspector if an item is selected */}
-        {selectedPreviewElement ? (
+        {selectedPreviewElement && (
           <PointNClickInspector
             selection={selectedPreviewElement}
             typography={typography}
@@ -894,28 +848,23 @@ export const SettingsView: React.FC = () => {
             applyBorderPreset={applyBorderPreset}
             onClose={() => setSelectedPreviewElement(null)}
           />
-        ) : (
-          <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-blue-950/30 border border-blue-500/30 text-xs text-blue-200 select-none shadow-sm">
-            <div className="flex items-center gap-2">
-              <MousePointerClick className="w-4 h-4 text-blue-400 animate-pulse shrink-0" />
-              <span className="text-[11px] font-medium leading-tight">
-                <strong>Mode Point-n-Click :</strong> Cliquez directement sur le titre, les accords, les paroles, les métadonnées ou les badges pour ajuster leur taille ou couleur.
-              </span>
-            </div>
-          </div>
         )}
 
         {/* Panneau de sélection interactive des métadonnées de l'aperçu */}
         <div className="p-2.5 sm:p-3 rounded-xl bg-[#16161B]/95 border border-[#282834] space-y-2.5 shadow-md">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div className="flex items-center gap-2 flex-wrap">
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 <SlidersHorizontal className="w-3.5 h-3.5 text-blue-400" />
                 <span className="text-xs font-bold text-white">
-                  Métadonnées dans l'aperçu :
+                  Métadonnées affichées (Aperçu & Mode Scène) :
                 </span>
                 <span className="px-1.5 py-0.5 rounded-full bg-blue-950/70 text-blue-300 border border-blue-500/30 font-mono text-[10px] font-bold">
                   {activeMetadataCount}/8
+                </span>
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-950/60 text-emerald-300 border border-emerald-500/30 text-[10px] font-medium" title="Tout changement est sauvegardé automatiquement et appliqué immédiatement dans le lecteur de chants / mode scène">
+                  <Check className="w-2.5 h-2.5 text-emerald-400" />
+                  <span>Enregistré auto</span>
                 </span>
               </div>
 
@@ -924,7 +873,7 @@ export const SettingsView: React.FC = () => {
                   type="button"
                   onClick={handleShowAllPreviewMetadata}
                   className="text-[11px] font-semibold text-blue-400 hover:text-blue-300 transition-colors cursor-pointer"
-                  title="Afficher toutes les métadonnées dans l'aperçu"
+                  title="Afficher toutes les métadonnées dans l'aperçu et le mode scène"
                 >
                   Tout afficher
                 </button>
@@ -933,7 +882,7 @@ export const SettingsView: React.FC = () => {
                   type="button"
                   onClick={handleHideAllPreviewMetadata}
                   className="text-[11px] font-semibold text-gray-400 hover:text-gray-300 transition-colors cursor-pointer"
-                  title="Masquer toutes les métadonnées dans l'aperçu"
+                  title="Masquer toutes les métadonnées dans l'aperçu et le mode scène"
                 >
                   Tout masquer
                 </button>
@@ -969,12 +918,12 @@ export const SettingsView: React.FC = () => {
                   key={item.key}
                   type="button"
                   onClick={() => togglePreviewMetadata(item.key)}
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer border ${
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer border active:scale-95 ${
                     isVisible
-                      ? 'bg-blue-600/20 text-blue-300 border-blue-500/40 hover:bg-blue-600/30 shadow-xs'
+                      ? 'bg-blue-600/20 text-blue-300 border-blue-500/40 hover:bg-blue-600/30 shadow-xs ring-1 ring-blue-500/20'
                       : 'bg-[#121216] text-gray-500 border-[#25252D] hover:text-gray-300 hover:border-gray-600 line-through opacity-70'
                   }`}
-                  title={`${isVisible ? 'Cliquer pour masquer' : 'Cliquer pour afficher'} ${item.label} dans l'aperçu (${item.description})`}
+                  title={`${isVisible ? 'Cliquer pour masquer' : 'Cliquer pour afficher'} ${item.label} (sauvegardé automatiquement pour l'aperçu & le mode scène)`}
                 >
                   {item.key === 'language' && <Globe className="w-3 h-3 text-blue-400" />}
                   {item.key === 'duration' && <Clock className="w-3 h-3 text-cyan-400" />}
@@ -1791,9 +1740,6 @@ export const SettingsView: React.FC = () => {
               <Eye className="w-4 h-4 text-green-400" />
               <span className="text-xs font-bold text-white uppercase tracking-wider">
                 Aperçu en Direct
-              </span>
-              <span className="px-1.5 py-0.5 rounded-full bg-blue-950/60 text-blue-300 border border-blue-500/30 font-mono text-[10px] font-bold">
-                {activeMetadataCount}/8 méta
               </span>
             </div>
             <div className="flex items-center gap-2">

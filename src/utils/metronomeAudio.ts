@@ -1,4 +1,5 @@
 // Precision Metronome Engine using Web Audio API Lookahead Scheduler
+// Outil externe autonome indépendant des morceaux et du mode scène
 
 export type MetronomeSound = 'woodblock' | 'digital' | 'mechanical' | 'diapason';
 export type MetronomeSubdivision = 1 | 2 | 3 | 4; // 1: quarter, 2: eighths, 3: triplets, 4: sixteenths
@@ -16,6 +17,32 @@ export interface MetronomeState {
 }
 
 export type BeatCallback = (beat: number, isAccent: boolean, subBeat: number, totalBeats: number) => void;
+
+const STANDALONE_METRONOME_STORAGE_KEY = 'songbook_standalone_metronome_settings';
+
+interface StoredMetronomeSettings {
+  bpm?: number;
+  beatsPerMeasure?: number;
+  subdivision?: MetronomeSubdivision;
+  sound?: MetronomeSound;
+  volume?: number;
+  isMuted?: boolean;
+}
+
+function loadStoredSettings(): StoredMetronomeSettings {
+  try {
+    const raw = localStorage.getItem(STANDALONE_METRONOME_STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return {};
+}
+
+function saveStoredSettings(partial: StoredMetronomeSettings) {
+  try {
+    const current = loadStoredSettings();
+    localStorage.setItem(STANDALONE_METRONOME_STORAGE_KEY, JSON.stringify({ ...current, ...partial }));
+  } catch {}
+}
 
 class MetronomeAudioEngine {
   private audioCtx: AudioContext | null = null;
@@ -38,6 +65,28 @@ class MetronomeAudioEngine {
   // Listeners
   private beatListeners: Set<BeatCallback> = new Set();
   private stateListeners: Set<(state: MetronomeState) => void> = new Set();
+
+  constructor() {
+    const saved = loadStoredSettings();
+    if (typeof saved.bpm === 'number' && saved.bpm >= 30 && saved.bpm <= 300) {
+      this.bpm = saved.bpm;
+    }
+    if (typeof saved.beatsPerMeasure === 'number' && saved.beatsPerMeasure >= 1 && saved.beatsPerMeasure <= 16) {
+      this.beatsPerMeasure = saved.beatsPerMeasure;
+    }
+    if (saved.subdivision && [1, 2, 3, 4].includes(saved.subdivision)) {
+      this.subdivision = saved.subdivision;
+    }
+    if (saved.sound && ['woodblock', 'digital', 'mechanical', 'diapason'].includes(saved.sound)) {
+      this.sound = saved.sound;
+    }
+    if (typeof saved.volume === 'number') {
+      this.volume = Math.max(0, Math.min(1, saved.volume));
+    }
+    if (typeof saved.isMuted === 'boolean') {
+      this.isMuted = saved.isMuted;
+    }
+  }
 
   private initCtx() {
     if (!this.audioCtx) {
@@ -116,6 +165,7 @@ class MetronomeAudioEngine {
 
   public setBpm(newBpm: number) {
     this.bpm = Math.max(30, Math.min(300, Math.round(newBpm)));
+    saveStoredSettings({ bpm: this.bpm });
     this.notifyState();
   }
 
@@ -124,27 +174,32 @@ class MetronomeAudioEngine {
     if (this.currentBeat >= this.beatsPerMeasure) {
       this.currentBeat = 0;
     }
+    saveStoredSettings({ beatsPerMeasure: this.beatsPerMeasure });
     this.notifyState();
   }
 
   public setSubdivision(sub: MetronomeSubdivision) {
     this.subdivision = sub;
     this.currentSubBeat = 0;
+    saveStoredSettings({ subdivision: this.subdivision });
     this.notifyState();
   }
 
   public setSound(sound: MetronomeSound) {
     this.sound = sound;
+    saveStoredSettings({ sound: this.sound });
     this.notifyState();
   }
 
   public setVolume(vol: number) {
     this.volume = Math.max(0, Math.min(1, vol));
+    saveStoredSettings({ volume: this.volume });
     this.notifyState();
   }
 
   public setMuted(muted: boolean) {
     this.isMuted = muted;
+    saveStoredSettings({ isMuted: this.isMuted });
     this.notifyState();
   }
 

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Mic, Plus, X, Check, ChevronDown } from 'lucide-react';
+import { Plus, X, Check, ChevronDown, Trash2 } from 'lucide-react';
 import { getVocalBadgeStyle } from '../../utils/chordUtils';
 
 export const SATB_VOICE_TYPES = [
@@ -119,7 +119,6 @@ export const VocalArrangementSelector: React.FC<VocalArrangementSelectorProps> =
                 }`}
                 title={canEdit ? `Arrangement des voix : ${voc} (Cliquer pour modifier)` : `Voix : ${voc}`}
               >
-                <Mic className={`w-2.5 h-2.5 ${vStyle.icon} shrink-0`} />
                 <span>{voc}</span>
                 {canEdit && (
                   <button
@@ -140,16 +139,30 @@ export const VocalArrangementSelector: React.FC<VocalArrangementSelectorProps> =
           })}
 
           {canEdit && (
-            <button
-              ref={buttonRef}
-              type="button"
-              onClick={() => setIsOpen(!isOpen)}
-              className="p-1 rounded-md text-gray-400 hover:text-purple-300 hover:bg-[#1F1F24] border border-transparent hover:border-[#333] transition-colors cursor-pointer"
-              title="Modifier les voix pour cette section"
-              aria-label="Modifier les voix"
-            >
-              <Plus className="w-3 h-3" />
-            </button>
+            <div className="inline-flex items-center gap-0.5">
+              <button
+                ref={buttonRef}
+                type="button"
+                onClick={() => setIsOpen(!isOpen)}
+                className="p-1 rounded-md text-gray-400 hover:text-purple-300 hover:bg-[#1F1F24] border border-transparent hover:border-[#333] transition-colors cursor-pointer"
+                title="Modifier les voix pour cette section"
+                aria-label="Modifier les voix"
+              >
+                <Plus className="w-3 h-3" />
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleClearAll();
+                }}
+                className="p-1 rounded-md text-gray-400 hover:text-rose-400 hover:bg-rose-500/15 border border-transparent hover:border-rose-500/30 transition-colors cursor-pointer"
+                title="Retirer toutes les voix pour cette section"
+                aria-label="Retirer toutes les voix"
+              >
+                <Trash2 className="w-3 h-3" />
+              </button>
+            </div>
           )}
         </div>
       ) : canEdit ? (
@@ -164,7 +177,6 @@ export const VocalArrangementSelector: React.FC<VocalArrangementSelectorProps> =
           }`}
           title="Ajouter un arrangement des voix (Soprano, Alto, Ténor, Basse...)"
         >
-          <Mic className="w-3 h-3 text-purple-400/80 shrink-0" />
           <span className="text-[10px] sm:text-[11px]">Voix</span>
           <Plus className="w-2.5 h-2.5 text-gray-400" />
         </button>
@@ -178,22 +190,30 @@ export const VocalArrangementSelector: React.FC<VocalArrangementSelectorProps> =
         >
           {/* Header */}
           <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-[#26262E]">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <div className="w-4 h-4 rounded bg-purple-500/20 border border-purple-500/30 flex items-center justify-center shrink-0">
-                <Mic className="w-2.5 h-2.5 text-purple-400" />
-              </div>
-              <span className="font-bold text-gray-200 text-xs truncate">
-                Arrangement des voix
-              </span>
+            <span className="font-bold text-gray-200 text-xs truncate">
+              Arrangement des voix
+            </span>
+            <div className="flex items-center gap-1">
+              {hasVocals && (
+                <button
+                  type="button"
+                  onClick={handleClearAll}
+                  className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold text-rose-400 hover:text-rose-300 hover:bg-rose-500/15 border border-rose-500/30 transition-colors cursor-pointer"
+                  title="Retirer toutes les voix pour cette section"
+                >
+                  <Trash2 className="w-2.5 h-2.5" />
+                  <span>Tout retirer</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                className="p-1 rounded text-gray-400 hover:text-white hover:bg-[#202026] transition-colors cursor-pointer"
+                title="Fermer"
+              >
+                <X className="w-3 h-3" />
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => setIsOpen(false)}
-              className="p-1 rounded text-gray-400 hover:text-white hover:bg-[#202026] transition-colors cursor-pointer"
-              title="Fermer"
-            >
-              <X className="w-3 h-3" />
-            </button>
           </div>
 
           {/* SATB Grid */}
@@ -299,9 +319,11 @@ export const VocalArrangementSelector: React.FC<VocalArrangementSelectorProps> =
               <button
                 type="button"
                 onClick={handleClearAll}
-                className="text-[10px] text-rose-400 hover:text-rose-300 hover:underline cursor-pointer"
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 hover:text-rose-200 text-xs font-semibold transition-colors cursor-pointer"
+                title="Retirer toutes les voix pour cette section"
               >
-                Effacer tout
+                <Trash2 className="w-3 h-3" />
+                <span>Retirer toutes les voix</span>
               </button>
             ) : <div />}
 

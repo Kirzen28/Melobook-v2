@@ -30,6 +30,7 @@ import { MetronomeStageControl } from './MetronomeStageControl';
 import { MidiStatusIndicator } from './MidiStatusIndicator';
 import { useMidi } from '../context/MidiContext';
 import { VocalArrangementSelector } from './editor/VocalArrangementSelector';
+import { metronomeAudio } from '../utils/metronomeAudio';
 import { 
   Play, 
   Pause, 
@@ -54,7 +55,6 @@ import {
   ArrowUpDown,
   Sparkles,
   Tag,
-  Mic,
   FileDown,
   X,
   Check,
@@ -78,6 +78,7 @@ import { SetlistPdfModal } from './SetlistPdfModal';
 import { ChordModal } from './ChordModal';
 import { LanguageVersionModal } from './LanguageVersionModal';
 import { PRESET_LANGUAGES, getLanguageMeta, getLinkedSongVersions } from '../utils/languageUtils';
+import { DEFAULT_SONG_METADATA_VISIBILITY } from '../utils/displayDefaults';
 
 const PRESET_VOCAL_ROLES = [
   'Unisson', 
@@ -147,6 +148,8 @@ export const SongReader: React.FC<SongReaderProps> = ({
     setActiveSetlistIndex,
     canManageSongs
   } = useApp();
+
+  const metaVis = displaySettings.metadataVisibility || DEFAULT_SONG_METADATA_VISIBILITY;
 
   const { registerActionHandler } = useMidi();
 
@@ -830,6 +833,10 @@ export const SongReader: React.FC<SongReaderProps> = ({
     if (metronome.getIsPlaying()) {
       metronome.stop();
     } else {
+      // Arrêter le métronome externe autonome s'il est en cours pour éviter tout mélange sonore
+      if (metronomeAudio.getState().isPlaying) {
+        metronomeAudio.stop();
+      }
       const validBpm = Math.max(30, Math.min(280, effectiveTempo));
       const sigInfo = parseTimeSignatureToBeats(song?.timeSignature || parsedData?.timeSignature || '4/4');
       metronome.start(validBpm, sigInfo.beatsPerMeasure, sigInfo.accents);
@@ -1379,7 +1386,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
           {isHeaderCollapsed ? (
             <div className="no-print border-b border-[#222224] pb-2 mb-2 sm:mb-3">
               <div className="flex items-center justify-between gap-1.5 sm:gap-2 py-1 px-2 sm:px-2.5 rounded-lg bg-[#141418] border border-[#26262E] text-xs">
-                {/* Left: Bouton déplier + Titre + Artiste */}
+                {/* Left: Bouton déplier + Titre */}
                 <div className="flex items-center gap-1.5 min-w-0">
                   <button
                     type="button"
@@ -1393,104 +1400,107 @@ export const SongReader: React.FC<SongReaderProps> = ({
                   <span className="font-bold text-white text-xs sm:text-sm truncate">
                     {stripParentheses(parsedData.title || song.title)}
                   </span>
-                  {song.artist && (
-                    <span className="text-gray-400 hidden md:inline truncate text-[11px]">
-                      • {song.artist}
-                    </span>
-                  )}
                 </div>
 
                 {/* Right: Tonalité + Métronome + Actions */}
                 <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsHeaderCollapsed(false);
-                      setShowKeyMenu(true);
-                    }}
-                    className="px-2 py-0.5 rounded bg-[#1C1C22] border border-[#2E2E36] font-mono font-bold text-blue-400 hover:border-blue-500/50 cursor-pointer text-xs"
-                    title="Tonalité (cliquer pour modifier)"
-                  >
-                    {baseKeyDisplay}
-                    {effectiveTransposeOffset !== 0 && (
-                      <span className="text-amber-400 ml-1 text-[10px]">
-                        ({effectiveTransposeOffset > 0 ? `+${effectiveTransposeOffset}` : effectiveTransposeOffset})
-                      </span>
-                    )}
-                  </button>
+                  {metaVis.controlsBar && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsHeaderCollapsed(false);
+                          setShowKeyMenu(true);
+                        }}
+                        className="px-2 py-0.5 rounded bg-[#1C1C22] border border-[#2E2E36] font-mono font-bold text-blue-400 hover:border-blue-500/50 cursor-pointer text-xs"
+                        title="Tonalité (cliquer pour modifier)"
+                      >
+                        {baseKeyDisplay}
+                        {effectiveTransposeOffset !== 0 && (
+                          <span className="text-amber-400 ml-1 text-[10px]">
+                            ({effectiveTransposeOffset > 0 ? `+${effectiveTransposeOffset}` : effectiveTransposeOffset})
+                          </span>
+                        )}
+                      </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsHeaderCollapsed(false);
-                      setShowTempoMenu(true);
-                    }}
-                    className="px-2 py-0.5 rounded bg-[#1C1C22] border border-[#2E2E36] font-mono font-bold text-emerald-400 hover:border-emerald-500/50 cursor-pointer text-xs flex items-center gap-1"
-                    title="Tempo / BPM (cliquer pour modifier)"
-                  >
-                    <Gauge className="w-3 h-3 text-emerald-400" />
-                    <span>{effectiveTempo}</span>
-                  </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsHeaderCollapsed(false);
+                          setShowTempoMenu(true);
+                        }}
+                        className="px-2 py-0.5 rounded bg-[#1C1C22] border border-[#2E2E36] font-mono font-bold text-emerald-400 hover:border-emerald-500/50 cursor-pointer text-xs flex items-center gap-1"
+                        title="Tempo / BPM (cliquer pour modifier)"
+                      >
+                        <Gauge className="w-3 h-3 text-emerald-400" />
+                        <span>{effectiveTempo}</span>
+                      </button>
+                    </>
+                  )}
 
-                  {/* Plein écran (uniquement en chant individuel hors setlist) */}
-                  {!isInSetlist && (
-                    <button
-                      type="button"
-                      id="btn-song-fullscreen-compact"
-                      onClick={() => toggleFullscreen()}
-                      className={`p-1.5 rounded-lg border text-xs font-medium flex items-center justify-center transition-colors shrink-0 cursor-pointer ${
-                        isFullscreen
-                          ? 'bg-blue-600 border-blue-500 text-white'
-                          : 'bg-[#1C1C1E] hover:bg-[#28282C] text-gray-300 hover:text-white border-[#333]'
-                      }`}
-                      title={isFullscreen ? "Quitter le plein écran" : "Plein écran"}
-                      aria-label={isFullscreen ? "Quitter le plein écran" : "Plein écran"}
-                    >
-                      {isFullscreen ? (
-                        <Minimize2 className="w-3.5 h-3.5" />
-                      ) : (
-                        <Maximize2 className="w-3.5 h-3.5" />
+                  {metaVis.actions && (
+                    <>
+                      {/* Plein écran (uniquement en chant individuel hors setlist) */}
+                      {!isInSetlist && (
+                        <button
+                          type="button"
+                          id="btn-song-fullscreen-compact"
+                          onClick={() => toggleFullscreen()}
+                          className={`p-1.5 rounded-lg border text-xs font-medium flex items-center justify-center transition-colors shrink-0 cursor-pointer ${
+                            isFullscreen
+                              ? 'bg-blue-600 border-blue-500 text-white'
+                              : 'bg-[#1C1C1E] hover:bg-[#28282C] text-gray-300 hover:text-white border-[#333]'
+                          }`}
+                          title={isFullscreen ? "Quitter le plein écran" : "Plein écran"}
+                          aria-label={isFullscreen ? "Quitter le plein écran" : "Plein écran"}
+                        >
+                          {isFullscreen ? (
+                            <Minimize2 className="w-3.5 h-3.5" />
+                          ) : (
+                            <Maximize2 className="w-3.5 h-3.5" />
+                          )}
+                        </button>
                       )}
-                    </button>
+
+                      {canManageSongs && (
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab('editor')}
+                          className="p-1.5 rounded-lg bg-[#1C1C1E] hover:bg-amber-500/15 text-gray-200 hover:text-amber-300 border border-[#333] hover:border-amber-500/50 transition-all shadow-xs cursor-pointer group flex items-center justify-center"
+                          title="Éditer le chant"
+                          aria-label="Éditer le chant"
+                        >
+                          <FileEdit className="w-3.5 h-3.5 text-amber-400 group-hover:scale-110 transition-transform shrink-0" />
+                        </button>
+                      )}
+
+                      {/* Bouton Export PDF */}
+                      <button
+                        type="button"
+                        id="btn-song-pdf-compact"
+                        onClick={() => setShowPdfModal(true)}
+                        className="p-1.5 rounded-lg bg-[#1C1C1E] hover:bg-emerald-500/15 text-gray-200 hover:text-emerald-300 border border-[#333] hover:border-emerald-500/50 transition-all shadow-xs cursor-pointer group flex items-center justify-center"
+                        title="Exporter en PDF"
+                        aria-label="Exporter en PDF"
+                      >
+                        <FileDown className="w-3.5 h-3.5 text-emerald-400 group-hover:scale-110 transition-transform shrink-0" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setShowSettingsDrawer(!showSettingsDrawer)}
+                        className={`p-1.5 rounded-lg border transition-all shadow-xs cursor-pointer flex items-center justify-center ${
+                          showSettingsDrawer
+                            ? 'bg-blue-600 border-blue-500 text-white shadow-blue-500/20'
+                            : 'bg-[#1C1C1E] hover:bg-[#28282C] border-[#333] hover:border-[#444] text-gray-200 hover:text-white'
+                        }`}
+                        title="Ouvrir les options et réglages"
+                        aria-label="Options et réglages du chant"
+                      >
+                        <Settings2 className="w-3.5 h-3.5" />
+                      </button>
+                    </>
                   )}
-
-                  {canManageSongs && (
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab('editor')}
-                      className="p-1.5 rounded-lg bg-[#1C1C1E] hover:bg-amber-500/15 text-gray-200 hover:text-amber-300 border border-[#333] hover:border-amber-500/50 transition-all shadow-xs cursor-pointer group flex items-center justify-center"
-                      title="Éditer le chant"
-                      aria-label="Éditer le chant"
-                    >
-                      <FileEdit className="w-3.5 h-3.5 text-amber-400 group-hover:scale-110 transition-transform shrink-0" />
-                    </button>
-                  )}
-
-                  {/* Bouton Export PDF */}
-                  <button
-                    type="button"
-                    id="btn-song-pdf-compact"
-                    onClick={() => setShowPdfModal(true)}
-                    className="p-1.5 rounded-lg bg-[#1C1C1E] hover:bg-emerald-500/15 text-gray-200 hover:text-emerald-300 border border-[#333] hover:border-emerald-500/50 transition-all shadow-xs cursor-pointer group flex items-center justify-center"
-                    title="Exporter en PDF"
-                    aria-label="Exporter en PDF"
-                  >
-                    <FileDown className="w-3.5 h-3.5 text-emerald-400 group-hover:scale-110 transition-transform shrink-0" />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setShowSettingsDrawer(!showSettingsDrawer)}
-                    className={`p-1.5 rounded-lg border transition-all shadow-xs cursor-pointer flex items-center justify-center ${
-                      showSettingsDrawer
-                        ? 'bg-blue-600 border-blue-500 text-white shadow-blue-500/20'
-                        : 'bg-[#1C1C1E] hover:bg-[#28282C] border-[#333] hover:border-[#444] text-gray-200 hover:text-white'
-                    }`}
-                    title="Ouvrir les options et réglages"
-                    aria-label="Options et réglages du chant"
-                  >
-                    <Settings2 className="w-3.5 h-3.5" />
-                  </button>
                 </div>
               </div>
             </div>
@@ -1508,7 +1518,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                     </h1>
 
                   {/* Liste dépliante : Langue et versions du chant à la suite du titre */}
-                  {(() => {
+                  {metaVis.language && (() => {
                     const lMeta = getLanguageMeta(song.language);
                     const linkedVersions = getLinkedSongVersions(song, songs);
 
@@ -1690,87 +1700,91 @@ export const SongReader: React.FC<SongReaderProps> = ({
                   })()}
 
                   {/* Durée estimée : icône + valeur (sans libellé texte) */}
-                  <div
-                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[#18181C] border border-[#2A2A30] text-gray-300 shadow-xs"
-                    style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
-                    title={`Durée estimée : ${effectiveDuration}`}
-                  >
-                    <Clock className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-                    <span className="text-cyan-300 font-bold font-mono text-xs">
-                      {effectiveDuration}
-                    </span>
-                  </div>
+                  {metaVis.duration && (
+                    <div
+                      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[#18181C] border border-[#2A2A30] text-gray-300 shadow-xs"
+                      style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
+                      title={`Durée estimée : ${effectiveDuration}`}
+                    >
+                      <Clock className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                      <span className="text-cyan-300 font-bold font-mono text-xs">
+                        {effectiveDuration}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
 
               {/* Right: Boutons Plein écran, Édition & Réglages */}
-              <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-                {/* Bouton Plein écran (uniquement en lecture de chant individuel hors setlist) */}
-                {!isInSetlist && (
+              {metaVis.actions && (
+                <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+                  {/* Bouton Plein écran (uniquement en lecture de chant individuel hors setlist) */}
+                  {!isInSetlist && (
+                    <button
+                      type="button"
+                      id="btn-song-fullscreen"
+                      onClick={() => toggleFullscreen()}
+                      className={`p-1.5 sm:p-2 rounded-lg border text-xs font-medium flex items-center justify-center transition-colors shrink-0 cursor-pointer ${
+                        isFullscreen
+                          ? 'bg-blue-600 border-blue-500 text-white'
+                          : 'bg-[#1C1C1E] hover:bg-[#28282C] text-gray-300 hover:text-white border-[#333]'
+                      }`}
+                      title={isFullscreen ? "Quitter le plein écran" : "Plein écran"}
+                      aria-label={isFullscreen ? "Quitter le plein écran" : "Plein écran"}
+                    >
+                      {isFullscreen ? (
+                        <Minimize2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                      ) : (
+                        <Maximize2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                      )}
+                    </button>
+                  )}
+
+                  {canManageSongs && (
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('editor')}
+                      className="p-1.5 sm:p-2 rounded-lg bg-[#1C1C1E] hover:bg-amber-500/15 text-gray-200 hover:text-amber-300 border border-[#333] hover:border-amber-500/50 transition-all shadow-xs cursor-pointer group flex items-center justify-center"
+                      title="Éditer le chant"
+                      aria-label="Éditer le chant"
+                    >
+                      <FileEdit className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400 group-hover:scale-110 transition-transform shrink-0" />
+                    </button>
+                  )}
+
+                  {/* Bouton Export PDF */}
                   <button
                     type="button"
-                    id="btn-song-fullscreen"
-                    onClick={() => toggleFullscreen()}
-                    className={`p-1.5 sm:p-2 rounded-lg border text-xs font-medium flex items-center justify-center transition-colors shrink-0 cursor-pointer ${
-                      isFullscreen
-                        ? 'bg-blue-600 border-blue-500 text-white'
-                        : 'bg-[#1C1C1E] hover:bg-[#28282C] text-gray-300 hover:text-white border-[#333]'
+                    id="btn-song-pdf"
+                    onClick={() => setShowPdfModal(true)}
+                    className="p-1.5 sm:p-2 rounded-lg bg-[#1C1C1E] hover:bg-emerald-500/15 text-gray-200 hover:text-emerald-300 border border-[#333] hover:border-emerald-500/50 transition-all shadow-xs cursor-pointer group flex items-center justify-center"
+                    title="Exporter en PDF"
+                    aria-label="Exporter en PDF"
+                  >
+                    <FileDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400 group-hover:scale-110 transition-transform shrink-0" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowSettingsDrawer(!showSettingsDrawer)}
+                    className={`p-1.5 sm:p-2 rounded-lg border transition-all shadow-xs cursor-pointer flex items-center justify-center ${
+                      showSettingsDrawer
+                        ? 'bg-blue-600 border-blue-500 text-white shadow-blue-500/20'
+                        : 'bg-[#1C1C1E] hover:bg-[#28282C] border-[#333] hover:border-[#444] text-gray-200 hover:text-white'
                     }`}
-                    title={isFullscreen ? "Quitter le plein écran" : "Plein écran"}
-                    aria-label={isFullscreen ? "Quitter le plein écran" : "Plein écran"}
+                    title="Ouvrir les options et réglages du chant"
+                    aria-label="Options et réglages du chant"
                   >
-                    {isFullscreen ? (
-                      <Minimize2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                    ) : (
-                      <Maximize2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                    )}
+                    <Settings2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   </button>
-                )}
-
-                {canManageSongs && (
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('editor')}
-                    className="p-1.5 sm:p-2 rounded-lg bg-[#1C1C1E] hover:bg-amber-500/15 text-gray-200 hover:text-amber-300 border border-[#333] hover:border-amber-500/50 transition-all shadow-xs cursor-pointer group flex items-center justify-center"
-                    title="Éditer le chant"
-                    aria-label="Éditer le chant"
-                  >
-                    <FileEdit className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400 group-hover:scale-110 transition-transform shrink-0" />
-                  </button>
-                )}
-
-                {/* Bouton Export PDF */}
-                <button
-                  type="button"
-                  id="btn-song-pdf"
-                  onClick={() => setShowPdfModal(true)}
-                  className="p-1.5 sm:p-2 rounded-lg bg-[#1C1C1E] hover:bg-emerald-500/15 text-gray-200 hover:text-emerald-300 border border-[#333] hover:border-emerald-500/50 transition-all shadow-xs cursor-pointer group flex items-center justify-center"
-                  title="Exporter en PDF"
-                  aria-label="Exporter en PDF"
-                >
-                  <FileDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400 group-hover:scale-110 transition-transform shrink-0" />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setShowSettingsDrawer(!showSettingsDrawer)}
-                  className={`p-1.5 sm:p-2 rounded-lg border transition-all shadow-xs cursor-pointer flex items-center justify-center ${
-                    showSettingsDrawer
-                      ? 'bg-blue-600 border-blue-500 text-white shadow-blue-500/20'
-                      : 'bg-[#1C1C1E] hover:bg-[#28282C] border-[#333] hover:border-[#444] text-gray-200 hover:text-white'
-                  }`}
-                  title="Ouvrir les options et réglages du chant"
-                  aria-label="Options et réglages du chant"
-                >
-                  <Settings2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                </button>
-              </div>
+                </div>
+              )}
             </div>
 
             {/* Ligne Artiste & Catégories : sur toute la largeur (w-full) au-dessus des métadonnées Tonalité / Transpose */}
-            {(song.artist || (song.tags && song.tags.length > 0)) && (
+            {((metaVis.artist && song.artist) || (metaVis.tags && song.tags && song.tags.length > 0)) && (
               <div className="w-full flex items-center gap-1.5 sm:gap-2 flex-wrap mb-1.5 sm:mb-2 text-xs">
-                {song.artist && (
+                {metaVis.artist && song.artist && (
                   <div 
                     className="text-gray-300 font-medium break-words shrink-0 text-xs sm:text-sm"
                     style={{ fontSize: `clamp(11px, 2.5vw, ${displaySettings.typography.metadataSize}px)` }}
@@ -1779,8 +1793,8 @@ export const SongReader: React.FC<SongReaderProps> = ({
                   </div>
                 )}
 
-                {song.tags && song.tags.length > 0 && (
-                  <div className={`w-full sm:w-auto flex items-center gap-1 sm:gap-1.5 flex-wrap ${song.artist ? 'sm:border-l sm:border-[#2A2A2E] sm:pl-2' : ''}`}>
+                {metaVis.tags && song.tags && song.tags.length > 0 && (
+                  <div className={`w-full sm:w-auto flex items-center gap-1 sm:gap-1.5 flex-wrap ${metaVis.artist && song.artist ? 'sm:border-l sm:border-[#2A2A2E] sm:pl-2' : ''}`}>
                     {song.tags.map((cat, idx) => (
                       <span
                         key={idx}
@@ -1796,8 +1810,9 @@ export const SongReader: React.FC<SongReaderProps> = ({
             )}
 
             {/* Single Line Toolbar: Stylized Inline Controls with Dropdowns for Tonalité, Transposition & BPM */}
-            <div className="flex items-center gap-2 flex-wrap text-xs">
-              {/* Tonalité : Liste déroulante */}
+            {metaVis.controlsBar && (
+              <div className="flex items-center gap-2 flex-wrap text-xs">
+                {/* Tonalité : Liste déroulante */}
               <div className="relative inline-block">
                 <button
                   ref={keyButtonRef}
@@ -2151,10 +2166,10 @@ export const SongReader: React.FC<SongReaderProps> = ({
                       className="absolute top-full mt-1.5 z-50 w-72 max-w-[calc(100vw-24px)] bg-[#16161A] border border-[#2E2E36] rounded-xl shadow-2xl p-3 backdrop-blur-md animate-in fade-in zoom-in-95 duration-100 box-border"
                     >
                       {/* En-tête */}
-                      <div className="text-[11px] font-semibold text-gray-400 pb-2 mb-2.5 border-b border-[#282830] flex items-center justify-between">
+                      <div className="text-[11px] font-semibold text-gray-400 pb-2 mb-2 border-b border-[#282830] flex items-center justify-between">
                         <div className="flex items-center gap-1.5">
                           <Gauge className="w-3.5 h-3.5 text-emerald-400" />
-                          <span>Réglage du tempo</span>
+                          <span>Métronome Scène (Chant)</span>
                         </div>
                         <div className="flex items-center gap-1.5">
                           {isMetronomePlaying && (
@@ -2165,6 +2180,9 @@ export const SongReader: React.FC<SongReaderProps> = ({
                           )}
                           <span className="text-[10px] text-emerald-400 font-mono font-bold">{effectiveTempo} BPM</span>
                         </div>
+                      </div>
+                      <div className="text-[10px] text-gray-400 mb-2.5 leading-tight">
+                        Tempo spécifique à ce chant. Le métronome général indépendant reste accessible via le menu haut.
                       </div>
 
                       {/* Stepper rapide avec Tempo Éditable au clic */}
@@ -2324,9 +2342,10 @@ export const SongReader: React.FC<SongReaderProps> = ({
                 )}
               </div>
             </div>
+            )}
 
             {/* Note / Instructions Section (Lecture seule) */}
-            {effectiveNotes ? (
+            {metaVis.notes && effectiveNotes ? (
               <div 
                 className="mt-2 p-2 rounded-lg bg-[#111112] border border-[#222224] flex items-start gap-2.5 transition-all text-xs"
                 style={{ fontSize: `${Math.max(11, displaySettings.typography.metadataSize)}px` }}
@@ -2356,11 +2375,9 @@ export const SongReader: React.FC<SongReaderProps> = ({
 
               const isCompact = currentSectionSpacing <= 6;
               const isUltraCompact = currentSectionSpacing <= 2;
-              const cardPaddingClass = isUltraCompact 
-                ? 'py-2 px-3 sm:py-2.5 sm:px-3.5'
-                : isCompact 
-                ? 'py-2.5 px-3.5 sm:py-3 sm:px-4' 
-                : 'p-4';
+              const cardPaddingClass = !metaVis.sectionHeaders
+                ? (isUltraCompact ? 'py-1.5 px-3 sm:py-2 sm:px-3.5' : isCompact ? 'py-2 px-3.5 sm:py-2.5 sm:px-4' : 'py-2.5 px-4')
+                : (isUltraCompact ? 'py-2 px-3 sm:py-2.5 sm:px-3.5' : isCompact ? 'py-2.5 px-3.5 sm:py-3 sm:px-4' : 'p-4');
               const headerMarginClass = isUltraCompact 
                 ? 'mb-1.5' 
                 : isCompact 
@@ -2379,51 +2396,55 @@ export const SongReader: React.FC<SongReaderProps> = ({
                   style={getSectionBorderStyles(secColor, displaySettings.sectionBorders)}
                 >
                   {/* Section Title Header & Vocal Arrangement Pastille & Repeat Badge (Lecture seule) */}
-                  <div className={`flex items-center justify-between gap-2 ${headerMarginClass} flex-wrap`}>
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      {section.title ? (
-                        <span
-                          className="inline-block font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border shadow-xs text-left select-none"
-                          style={{
-                            fontSize: `${displaySettings.typography.headerSize}px`,
-                            color: secColor,
-                            borderColor: `${secColor}50`,
-                            backgroundColor: `${secColor}1C`
-                          }}
-                        >
-                          {section.title}
-                        </span>
-                      ) : <div />}
-
-                      {/* Section Repeat Badge (Lecture seule) */}
-                      {sectionRepeat > 1 && (
-                        <span 
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded border bg-emerald-950/40 border-emerald-500/50 text-emerald-300 font-bold font-mono select-none"
-                          style={{ fontSize: `${Math.max(10, Math.round((displaySettings.typography?.headerSize || 12) * 0.9))}px` }}
-                          title={`Répété ${sectionRepeat} fois`}
-                        >
-                          <Repeat 
-                            style={{ 
-                              width: `${Math.max(11, Math.round((displaySettings.typography?.headerSize || 12) * 0.9))}px`,
-                              height: `${Math.max(11, Math.round((displaySettings.typography?.headerSize || 12) * 0.9))}px` 
+                  {metaVis.sectionHeaders && (
+                    <div className={`flex items-center justify-between gap-2 ${headerMarginClass} flex-wrap`}>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {section.title ? (
+                          <span
+                            className="inline-block font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border shadow-xs text-left select-none"
+                            style={{
+                              fontSize: `${displaySettings.typography.headerSize}px`,
+                              color: secColor,
+                              borderColor: `${secColor}50`,
+                              backgroundColor: `${secColor}1C`
                             }}
-                            className="text-emerald-400 shrink-0" 
+                          >
+                            {section.title}
+                          </span>
+                        ) : <div />}
+
+                        {/* Section Repeat Badge (Lecture seule) */}
+                        {sectionRepeat > 1 && (
+                          <span 
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded border bg-emerald-950/40 border-emerald-500/50 text-emerald-300 font-bold font-mono select-none"
+                            style={{ fontSize: `${Math.max(10, Math.round((displaySettings.typography?.headerSize || 12) * 0.9))}px` }}
+                            title={`Répété ${sectionRepeat} fois`}
+                          >
+                            <Repeat 
+                              style={{ 
+                                width: `${Math.max(11, Math.round((displaySettings.typography?.headerSize || 12) * 0.9))}px`,
+                                height: `${Math.max(11, Math.round((displaySettings.typography?.headerSize || 12) * 0.9))}px` 
+                              }}
+                              className="text-emerald-400 shrink-0" 
+                            />
+                            <span>x{sectionRepeat}</span>
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Pastilles Arrangement Vocal dans le coin supérieur droit */}
+                      {metaVis.vocalArrangement && (
+                        <div className="flex items-center gap-1.5 flex-wrap ml-auto">
+                          <VocalArrangementSelector
+                            vocals={section.vocals || (section.vocal ? [section.vocal] : [])}
+                            onChange={(newVocals) => handleUpdateSectionVocals(sIdx, newVocals)}
+                            canEdit={canManageSongs}
+                            discreet={true}
                           />
-                          <span>x{sectionRepeat}</span>
-                        </span>
+                        </div>
                       )}
                     </div>
-
-                    {/* Pastilles Arrangement Vocal dans le coin supérieur droit */}
-                    <div className="flex items-center gap-1.5 flex-wrap ml-auto">
-                      <VocalArrangementSelector
-                        vocals={section.vocals || (section.vocal ? [section.vocal] : [])}
-                        onChange={(newVocals) => handleUpdateSectionVocals(sIdx, newVocals)}
-                        canEdit={canManageSongs}
-                        discreet={true}
-                      />
-                    </div>
-                  </div>
+                  )}
 
                   {/* Section Lines */}
                   <div className={`${linesSpacingClass} font-chord leading-relaxed`}>

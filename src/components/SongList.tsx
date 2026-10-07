@@ -51,7 +51,9 @@ import {
   Users,
   Library,
   KeyRound,
-  Eye
+  Eye,
+  ListMusic,
+  ArrowRight
 } from 'lucide-react';
 
 export const SongList: React.FC = () => {
@@ -64,6 +66,8 @@ export const SongList: React.FC = () => {
     deleteSong, 
     updateSong,
     updateSetlist,
+    selectedSetlist,
+    showNotification,
     createSetlist,
     createSong,
     importSong,
@@ -1506,6 +1510,46 @@ export const SongList: React.FC = () => {
             {/* Buttons in the right corner */}
             {canManageSongs && (
               <div className="flex items-center gap-1 shrink-0">
+                {/* Bouton '+' rapide pour la setlist active */}
+                {selectedSetlist && (
+                  <button
+                    type="button"
+                    onClick={async (e) => {
+                      if (isMultiSelectMode) return;
+                      e.stopPropagation();
+                      const isAlreadyIn = selectedSetlist.songIds.includes(song.id);
+                      const updatedIds = isAlreadyIn
+                        ? selectedSetlist.songIds.filter(id => id !== song.id)
+                        : [...selectedSetlist.songIds, song.id];
+                      await updateSetlist(selectedSetlist.id, { songIds: updatedIds });
+                      showNotification?.({
+                        title: selectedSetlist.name,
+                        message: isAlreadyIn 
+                          ? `« ${song.title} » retiré de la setlist`
+                          : `« ${song.title} » ajouté à la setlist`,
+                        type: isAlreadyIn ? 'info' : 'success'
+                      });
+                    }}
+                    className={`p-1 sm:p-1.5 rounded text-xs font-semibold border transition-all flex items-center justify-center cursor-pointer ${
+                      selectedSetlist.songIds.includes(song.id)
+                        ? 'bg-emerald-600/25 border-emerald-500/50 text-emerald-300 hover:bg-rose-500/20 hover:text-rose-300 hover:border-rose-500/40'
+                        : 'bg-blue-600/20 hover:bg-blue-600/35 text-blue-300 hover:text-white border-blue-500/30 hover:border-blue-500/60'
+                    }`}
+                    title={
+                      selectedSetlist.songIds.includes(song.id)
+                        ? `Présent dans « ${selectedSetlist.name} » (cliquer pour retirer)`
+                        : `Ajouter rapidement à « ${selectedSetlist.name} »`
+                    }
+                    aria-label={`Ajouter à la setlist ${selectedSetlist.name}`}
+                  >
+                    {selectedSetlist.songIds.includes(song.id) ? (
+                      <Check className="w-3.5 h-3.5 text-emerald-400 stroke-[2.5]" />
+                    ) : (
+                      <Plus className="w-3.5 h-3.5 text-blue-400 stroke-[2.5]" />
+                    )}
+                  </button>
+                )}
+
                 <button
                   type="button"
                   onClick={(e) => {

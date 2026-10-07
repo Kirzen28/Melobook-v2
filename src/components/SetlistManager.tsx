@@ -1,9 +1,10 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { Setlist, Song } from '../types';
 import { LiveSetlistPlayer } from './LiveSetlistPlayer';
 import { SetlistPdfModal } from './SetlistPdfModal';
 import { SetlistAddSongsModal } from './SetlistAddSongsModal';
+import { SetlistDatePickerModal } from './SetlistDatePickerModal';
 import { 
   parseDurationToSeconds, 
   formatSetlistDuration, 
@@ -14,8 +15,6 @@ import {
 import { 
   ListMusic, 
   Plus, 
-  PlayCircle,
-  Play,
   Clock, 
   Trash2, 
   ChevronUp, 
@@ -26,12 +25,13 @@ import {
   Check, 
   Layers, 
   Sparkles,
-  Info,
   ArrowRight,
   FileDown,
   Share2,
   GripVertical,
-  Pencil
+  Pencil,
+  Calendar,
+  MoreVertical
 } from 'lucide-react';
 
 export const SetlistManager: React.FC = () => {
@@ -68,12 +68,52 @@ export const SetlistManager: React.FC = () => {
   const [editName, setEditName] = useState('');
   const [editDate, setEditDate] = useState('');
   const [editTargetDuration, setEditTargetDuration] = useState(25);
-  const [editNotes, setEditNotes] = useState('');
 
   // Drag-and-Drop state for song reordering
   const [draggedSongIndex, setDraggedSongIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [datePickerSetlist, setDatePickerSetlist] = useState<Setlist | null>(null);
+  const [activeMenuSetlistId, setActiveMenuSetlistId] = useState<string | null>(null);
   const songsListContainerRef = useRef<HTMLDivElement>(null);
+
+  // Close mobile actions menu on click outside
+  useEffect(() => {
+    if (!activeMenuSetlistId) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('[data-setlist-menu]')) {
+        setActiveMenuSetlistId(null);
+        setConfirmDeleteSetlistId(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [activeMenuSetlistId]);
+
+  // Friendly date formatter
+  const formatFriendlyDate = (dateStr?: string) => {
+    if (!dateStr) return 'Choisir une date';
+    try {
+      const parts = dateStr.split('-');
+      if (parts.length === 3) {
+        const y = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10) - 1;
+        const d = parseInt(parts[2], 10);
+        const dateObj = new Date(y, m, d);
+        return dateObj.toLocaleDateString('fr-FR', {
+          weekday: 'short',
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric'
+        });
+      }
+      return dateStr;
+    } catch {
+      return dateStr;
+    }
+  };
   const touchStartYRef = useRef<number | null>(null);
   const touchStartIndexRef = useRef<number | null>(null);
 
@@ -130,7 +170,6 @@ export const SetlistManager: React.FC = () => {
     setEditName(st.name || '');
     setEditDate(st.date || new Date().toISOString().split('T')[0]);
     setEditTargetDuration(st.targetDuration || 25);
-    setEditNotes(st.notes || '');
   };
 
   // Save edited setlist metadata
@@ -140,13 +179,11 @@ export const SetlistManager: React.FC = () => {
 
     const trimmedName = editName.trim();
     const durationNum = Number(editTargetDuration) || 20;
-    const trimmedNotes = editNotes.trim();
 
     await updateSetlist(editingSetlist.id, {
       name: trimmedName,
       date: editDate,
-      targetDuration: durationNum,
-      notes: trimmedNotes
+      targetDuration: durationNum
     });
 
     if (selectedSetlist?.id === editingSetlist.id) {
@@ -154,8 +191,7 @@ export const SetlistManager: React.FC = () => {
         ...selectedSetlist,
         name: trimmedName,
         date: editDate,
-        targetDuration: durationNum,
-        notes: trimmedNotes
+        targetDuration: durationNum
       });
     }
 
@@ -309,7 +345,7 @@ export const SetlistManager: React.FC = () => {
 
       {/* Header */}
       <div className="flex items-center justify-between gap-3 mb-6">
-        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-wrap">
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-2 sm:gap-2.5">
             <ListMusic className="w-5 h-5 sm:w-6 sm:h-6 text-blue-500 shrink-0" />
             <span>Setlists</span>
@@ -360,7 +396,9 @@ export const SetlistManager: React.FC = () => {
             return (
               <div
                 key={st.id}
-                className={`rounded-xl border transition-all duration-200 overflow-hidden ${
+                className={`rounded-xl border transition-all duration-200 ${
+                  activeMenuSetlistId === st.id ? 'overflow-visible z-20 relative' : 'overflow-hidden'
+                } ${
                   isExpanded
                     ? 'bg-[#111113] border-blue-500/50 shadow-lg shadow-blue-500/5'
                     : 'bg-[#111112] border-[#222224] hover:border-[#333] hover:bg-[#141416]'
@@ -410,82 +448,225 @@ export const SetlistManager: React.FC = () => {
                     </button>
 
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <h3 className={`text-sm sm:text-base font-bold truncate transition-colors group-hover/card:text-blue-300 ${
-                          isExpanded ? 'text-blue-300' : 'text-white'
-                        }`}>
-                          {st.name}
-                        </h3>
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 min-w-0">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <h3 className={`text-sm sm:text-base font-bold truncate transition-colors group-hover/card:text-blue-300 ${
+                            isExpanded ? 'text-blue-300' : 'text-white'
+                          }`}>
+                            {st.name}
+                          </h3>
+                        </div>
 
-                        {st.songIds.length > 0 && (
-                          <span className="opacity-0 group-hover/card:opacity-100 transition-opacity flex items-center gap-1 text-[11px] font-semibold text-blue-400 shrink-0">
-                            <Play className="w-3 h-3 fill-current" />
-                            <span className="hidden sm:inline">Lancer Live</span>
-                          </span>
-                        )}
+                        {/* Durée totale et Date (en dessous du titre sur mobile, à côté sur desktop) */}
+                        <div 
+                          className="flex items-center gap-1.5 sm:gap-2 flex-wrap text-xs"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {/* Durée totale */}
+                          {totalSecs > 0 && (
+                            <span 
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-cyan-950/40 border border-cyan-500/30 text-cyan-300 font-mono font-medium text-[11px] sm:text-xs shadow-xs"
+                              title="Durée totale estimée de la setlist"
+                            >
+                              <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-cyan-400 shrink-0" />
+                              <span>{formatSetlistDuration(totalSecs)}</span>
+                            </span>
+                          )}
+
+                          {/* Sélecteur de date interactif ouvrant directement le calendrier */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setDatePickerSetlist(st);
+                            }}
+                            className="relative inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#1C1C1F] hover:bg-[#25252A] border border-[#2E2E34] hover:border-blue-500/50 text-gray-200 hover:text-white transition-all cursor-pointer group shadow-xs select-none text-[11px] sm:text-xs"
+                            title="Cliquer pour choisir la date dans le calendrier"
+                          >
+                            <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-blue-400 group-hover:scale-110 transition-transform shrink-0" />
+                            <span className="font-semibold capitalize truncate max-w-[140px] sm:max-w-none">
+                              {st.date ? formatFriendlyDate(st.date) : 'Choisir une date'}
+                            </span>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* Right Actions: Edit, PDF, Delete */}
+                  {/* Right Actions: Add Song + Desktop 3 buttons / Mobile 3-dots menu */}
                   <div 
                     className="flex items-center gap-1.5 sm:gap-2 shrink-0"
                     onClick={(e) => e.stopPropagation()}
                   >
+                    {/* Bouton pour ajouter un chant à la setlist */}
                     {canManageSongs && (
                       <button
                         type="button"
-                        onClick={() => handleOpenEditModal(st)}
-                        className="p-2 rounded-lg bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-400 hover:text-blue-400 border border-[#333] hover:border-blue-500/40 text-xs font-medium shadow-sm transition-all active:scale-95 flex items-center justify-center"
-                        title="Modifier les infos de la setlist"
-                        aria-label="Modifier les infos de la setlist"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedSetlist(st);
+                          setIsAddSongModalOpen(true);
+                        }}
+                        className="p-2 sm:px-2.5 sm:py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-sm transition-all active:scale-95 flex items-center gap-1.5 shrink-0"
+                        title="Ajouter des chants à cette setlist"
+                        aria-label="Ajouter un chant"
                       >
-                        <Pencil className="w-3.5 h-3.5" />
+                        <Plus className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+                        <span className="hidden sm:inline">Ajouter chant</span>
                       </button>
                     )}
 
-                    <button
-                      type="button"
-                      onClick={() => setPdfModalSetlist(st)}
-                      className="p-2 rounded-lg bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-400 hover:text-emerald-400 border border-[#333] hover:border-emerald-500/40 text-xs font-medium shadow-sm transition-all active:scale-95 flex items-center justify-center"
-                      title="Exporter en PDF / Partager"
-                      aria-label="Exporter en PDF"
-                    >
-                      <FileDown className="w-3.5 h-3.5 text-emerald-400" />
-                    </button>
+                    {/* Desktop: Les 3 boutons visibles (Modifier, PDF, Supprimer) */}
+                    <div className="hidden sm:flex items-center gap-1.5 sm:gap-2">
+                      {canManageSongs && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditModal(st)}
+                          className="p-2 rounded-lg bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-400 hover:text-blue-400 border border-[#333] hover:border-blue-500/40 text-xs font-medium shadow-sm transition-all active:scale-95 flex items-center justify-center"
+                          title="Modifier les infos de la setlist"
+                          aria-label="Modifier les infos de la setlist"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                      )}
 
-                    {canManageSongs && (
                       <button
                         type="button"
-                        onClick={() => {
-                          if (confirmDeleteSetlistId === st.id) {
-                            deleteSetlist(st.id);
-                            setConfirmDeleteSetlistId(null);
-                            if (selectedSetlist?.id === st.id) {
-                              setSelectedSetlist(null);
+                        onClick={() => setPdfModalSetlist(st)}
+                        className="p-2 rounded-lg bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-400 hover:text-emerald-400 border border-[#333] hover:border-emerald-500/40 text-xs font-medium shadow-sm transition-all active:scale-95 flex items-center justify-center"
+                        title="Exporter en PDF / Partager"
+                        aria-label="Exporter en PDF"
+                      >
+                        <FileDown className="w-3.5 h-3.5 text-emerald-400" />
+                      </button>
+
+                      {canManageSongs && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (confirmDeleteSetlistId === st.id) {
+                              deleteSetlist(st.id);
+                              setConfirmDeleteSetlistId(null);
+                              if (selectedSetlist?.id === st.id) {
+                                setSelectedSetlist(null);
+                              }
+                              if (expandedSetlistId === st.id) {
+                                setExpandedSetlistId(null);
+                              }
+                            } else {
+                              setConfirmDeleteSetlistId(st.id);
                             }
-                            if (expandedSetlistId === st.id) {
-                              setExpandedSetlistId(null);
-                            }
-                          } else {
-                            setConfirmDeleteSetlistId(st.id);
-                          }
+                          }}
+                          className={`p-2 rounded-lg border text-xs font-medium transition-all flex items-center justify-center ${
+                            confirmDeleteSetlistId === st.id
+                              ? 'bg-rose-600 hover:bg-rose-700 text-white border-rose-500 shadow-sm font-bold animate-pulse'
+                              : 'bg-[#1C1C1E] hover:bg-rose-500/20 text-gray-400 hover:text-rose-400 border-[#333] hover:border-rose-500/40'
+                          }`}
+                          title={confirmDeleteSetlistId === st.id ? "Confirmer la suppression" : "Supprimer la setlist"}
+                          aria-label={confirmDeleteSetlistId === st.id ? "Confirmer la suppression" : "Supprimer la setlist"}
+                        >
+                          {confirmDeleteSetlistId === st.id ? (
+                            <Check className="w-3.5 h-3.5 text-white" />
+                          ) : (
+                            <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                          )}
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Mobile: Bouton 3 petits points avec menu déroulant */}
+                    <div className="relative sm:hidden" data-setlist-menu>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveMenuSetlistId(prev => (prev === st.id ? null : st.id));
                         }}
                         className={`p-2 rounded-lg border text-xs font-medium transition-all flex items-center justify-center ${
-                          confirmDeleteSetlistId === st.id
-                            ? 'bg-rose-600 hover:bg-rose-700 text-white border-rose-500 shadow-sm font-bold animate-pulse'
-                            : 'bg-[#1C1C1E] hover:bg-rose-500/20 text-gray-400 hover:text-rose-400 border-[#333] hover:border-rose-500/40'
+                          activeMenuSetlistId === st.id
+                            ? 'bg-blue-600/20 border-blue-500/50 text-blue-400'
+                            : 'bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-400 hover:text-white border-[#333]'
                         }`}
-                        title={confirmDeleteSetlistId === st.id ? "Confirmer la suppression" : "Supprimer la setlist"}
-                        aria-label={confirmDeleteSetlistId === st.id ? "Confirmer la suppression" : "Supprimer la setlist"}
+                        title="Plus d'actions"
+                        aria-label="Plus d'actions"
                       >
-                        {confirmDeleteSetlistId === st.id ? (
-                          <Check className="w-3.5 h-3.5 text-white" />
-                        ) : (
-                          <Trash2 className="w-3.5 h-3.5 text-rose-400" />
-                        )}
+                        <MoreVertical className="w-4 h-4" />
                       </button>
-                    )}
+
+                      {/* Menu déroulant mobile */}
+                      {activeMenuSetlistId === st.id && (
+                        <div 
+                          className="absolute right-0 top-full mt-1.5 w-52 bg-[#161619] border border-[#2E2E34] rounded-xl shadow-2xl py-1.5 z-40 animate-in fade-in zoom-in-95 duration-100"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {canManageSongs && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveMenuSetlistId(null);
+                                handleOpenEditModal(st);
+                              }}
+                              className="w-full px-3 py-2 text-left text-xs font-medium text-gray-300 hover:text-white hover:bg-[#222228] flex items-center gap-2.5 transition-colors"
+                            >
+                              <Pencil className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                              <span>Modifier la setlist</span>
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveMenuSetlistId(null);
+                              setPdfModalSetlist(st);
+                            }}
+                            className="w-full px-3 py-2 text-left text-xs font-medium text-gray-300 hover:text-white hover:bg-[#222228] flex items-center gap-2.5 transition-colors"
+                          >
+                            <FileDown className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                            <span>Exporter en PDF</span>
+                          </button>
+
+                          {canManageSongs && (
+                            <div className="border-t border-[#25252B] my-1 pt-1">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (confirmDeleteSetlistId === st.id) {
+                                    deleteSetlist(st.id);
+                                    setConfirmDeleteSetlistId(null);
+                                    setActiveMenuSetlistId(null);
+                                    if (selectedSetlist?.id === st.id) {
+                                      setSelectedSetlist(null);
+                                    }
+                                    if (expandedSetlistId === st.id) {
+                                      setExpandedSetlistId(null);
+                                    }
+                                  } else {
+                                    setConfirmDeleteSetlistId(st.id);
+                                  }
+                                }}
+                                className={`w-full px-3 py-2 text-left text-xs font-medium flex items-center gap-2.5 transition-colors ${
+                                  confirmDeleteSetlistId === st.id
+                                    ? 'bg-rose-600/20 text-rose-300 font-bold'
+                                    : 'text-rose-400 hover:bg-rose-950/20 hover:text-rose-300'
+                                }`}
+                              >
+                                {confirmDeleteSetlistId === st.id ? (
+                                  <Check className="w-3.5 h-3.5 text-rose-300 shrink-0" />
+                                ) : (
+                                  <Trash2 className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                                )}
+                                <span>
+                                  {confirmDeleteSetlistId === st.id
+                                    ? 'Confirmer la suppression'
+                                    : 'Supprimer la setlist'}
+                                </span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -494,58 +675,6 @@ export const SetlistManager: React.FC = () => {
                   <div className="px-4 sm:px-6 pb-6 pt-2 border-t border-[#1F1F24] bg-[#0C0C0E]/70 space-y-4">
                     {/* Songs Sequence Management */}
                     <div>
-                      {/* Notes and metadata block */}
-                      <div className="mb-3.5 p-3.5 bg-[#121215] border border-[#222226] rounded-lg text-xs text-gray-300">
-                        <div className="flex items-center justify-between gap-2 flex-wrap">
-                          <div className="text-[11px] font-bold text-gray-400 flex items-center gap-1.5">
-                            <Info className="w-3.5 h-3.5 text-blue-400" />
-                            <span>Notes</span>
-                          </div>
-                          <div className="flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs text-gray-400 font-medium">
-                            <span className="text-blue-400 font-semibold shrink-0">
-                              {st.songIds.length} chant{st.songIds.length > 1 ? 's' : ''}
-                            </span>
-                            {totalSecs > 0 && (
-                              <>
-                                <span className="text-gray-600 shrink-0">•</span>
-                                <span className="inline-flex items-center gap-1 text-cyan-300 font-mono font-medium shrink-0">
-                                  <Clock className="w-3 h-3 text-cyan-400 shrink-0" />
-                                  <span>{formatSetlistDuration(totalSecs)}</span>
-                                </span>
-                              </>
-                            )}
-                            {st.date && (
-                              <>
-                                <span className="text-gray-600 shrink-0">•</span>
-                                <span className="text-gray-300 truncate shrink-0">
-                                  {st.date}
-                                </span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                        {st.notes && (
-                          <div className="whitespace-pre-wrap font-sans text-gray-300 leading-relaxed border-t border-[#1E1E22] pt-2.5 mt-2.5 text-xs">
-                            {st.notes}
-                          </div>
-                        )}
-                      </div>
-
-                      {canManageSongs && (
-                        <div className="flex items-center justify-end mb-3">
-                          <button
-                            onClick={() => {
-                              setSelectedSetlist(st);
-                              setIsAddSongModalOpen(true);
-                            }}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold transition-all shadow-sm active:scale-95"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>Ajouter un chant</span>
-                          </button>
-                        </div>
-                      )}
-
                       {st.songIds.length === 0 ? (
                         <div className="text-center py-10 bg-[#0E0E10] rounded-xl border border-dashed border-[#2A2A2E] p-4">
                           <Music className="w-8 h-8 text-gray-600 mx-auto mb-2" />
@@ -808,19 +937,6 @@ export const SetlistManager: React.FC = () => {
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-medium text-gray-300 mb-1">
-                  Notes et indications pour l'équipe / musiciens
-                </label>
-                <textarea
-                  rows={3}
-                  placeholder="Ordre particulier, conducteur, transitions..."
-                  value={editNotes}
-                  onChange={(e) => setEditNotes(e.target.value)}
-                  className="w-full bg-[#1C1C1E] border border-[#333] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 transition-colors resize-none"
-                />
-              </div>
-
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#222224]">
                 <button
                   type="button"
@@ -844,6 +960,30 @@ export const SetlistManager: React.FC = () => {
       )}
 
 
+
+      {/* Modal: Setlist Date Picker */}
+      {datePickerSetlist && (
+        <SetlistDatePickerModal
+          isOpen={!!datePickerSetlist}
+          currentDate={datePickerSetlist.date}
+          setlistTitle={datePickerSetlist.name}
+          onSaveDate={async (newDate: string) => {
+            await updateSetlist(datePickerSetlist.id, { date: newDate });
+            if (selectedSetlist?.id === datePickerSetlist.id) {
+              setSelectedSetlist({ ...selectedSetlist, date: newDate });
+            }
+            showNotification?.({
+              title: datePickerSetlist.name,
+              message: newDate 
+                ? `Date mise à jour : ${formatFriendlyDate(newDate)}`
+                : 'Date supprimée de la setlist',
+              type: 'success'
+            });
+            setDatePickerSetlist(null);
+          }}
+          onClose={() => setDatePickerSetlist(null)}
+        />
+      )}
 
     </div>
   );

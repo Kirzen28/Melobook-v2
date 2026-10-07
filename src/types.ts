@@ -143,6 +143,7 @@ export interface SectionBorders {
 }
 
 export interface SongMetadataVisibility {
+  title?: boolean;
   artist: boolean;
   language: boolean;
   duration: boolean;
@@ -151,7 +152,7 @@ export interface SongMetadataVisibility {
   notes: boolean;
   actions: boolean;
   vocalArrangement: boolean;
-  sectionHeaders?: boolean;
+  sectionHeaders: boolean;
 }
 
 export type PreviewMetadataVisibility = SongMetadataVisibility;

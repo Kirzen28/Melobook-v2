@@ -11,6 +11,7 @@ export const DEFAULT_SECTION_BORDERS: SectionBorders = {
 export const DEFAULT_CHORD_COLOR = '#60a5fa';
 
 export const DEFAULT_SONG_METADATA_VISIBILITY: SongMetadataVisibility = {
+  title: true,
   artist: true,
   language: true,
   duration: true,
@@ -19,7 +20,7 @@ export const DEFAULT_SONG_METADATA_VISIBILITY: SongMetadataVisibility = {
   notes: true,
   actions: true,
   vocalArrangement: true,
-  sectionHeaders: false,
+  sectionHeaders: true,
 };
 
 export const DEFAULT_PREVIEW_METADATA = DEFAULT_SONG_METADATA_VISIBILITY;

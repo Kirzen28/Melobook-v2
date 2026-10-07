@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useApp } from '../context/AppContext';
 import { cacheSetlistInWorker } from '../utils/pwaCache';
 import { SongReader } from './SongReader';
+import { SetlistAddSongsModal } from './SetlistAddSongsModal';
 import { useMidi } from '../context/MidiContext';
 import { 
   requestFullscreenSafe, 
@@ -17,7 +18,8 @@ import {
   Music,
   CheckCircle2,
   Maximize2,
-  Minimize2
+  Minimize2,
+  Plus
 } from 'lucide-react';
 
 interface LiveSetlistPlayerProps {
@@ -47,16 +49,48 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
     setActiveSetlistIndex,
     updateStageSettings,
     stageSettings,
-    currentGroup
+    currentGroup,
+    canManageSongs,
+    updateSetlist
   } = useApp();
 
   const { registerActionHandler } = useMidi();
 
   const [direction, setDirection] = useState<number>(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isAddSongModalOpen, setIsAddSongModalOpen] = useState(false);
   const prevIndexRef = useRef<number>(activeSetlistIndex);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
+
+  const handleToggleSongInSetlist = async (songId: string) => {
+    if (!selectedSetlist) return;
+    const isPresent = selectedSetlist.songIds.includes(songId);
+    const newSongIds = isPresent
+      ? selectedSetlist.songIds.filter(id => id !== songId)
+      : [...selectedSetlist.songIds, songId];
+    await updateSetlist(selectedSetlist.id, { songIds: newSongIds });
+  };
+
+  const handleAddMultipleSongs = async (songIdsToAdd: string[]) => {
+    if (!selectedSetlist) return;
+    const existing = new Set(selectedSetlist.songIds);
+    const newIds = [...selectedSetlist.songIds];
+    songIdsToAdd.forEach(id => {
+      if (!existing.has(id)) {
+        newIds.push(id);
+        existing.add(id);
+      }
+    });
+    await updateSetlist(selectedSetlist.id, { songIds: newIds });
+  };
+
+  const handleRemoveMultipleSongs = async (songIdsToRemove: string[]) => {
+    if (!selectedSetlist) return;
+    const toRemove = new Set(songIdsToRemove);
+    const newSongIds = selectedSetlist.songIds.filter(id => !toRemove.has(id));
+    await updateSetlist(selectedSetlist.id, { songIds: newSongIds });
+  };
 
   useEffect(() => {
     return addFullscreenChangeListener((isFs) => {
@@ -228,6 +262,17 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
               >
                 {activeSetlistIndex + 1}/{setlistSongs.length}
               </span>
+              {canManageSongs && (
+                <button
+                  type="button"
+                  onClick={() => setIsAddSongModalOpen(true)}
+                  className="p-1 rounded bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 hover:text-blue-300 border border-blue-500/30 text-xs flex items-center justify-center cursor-pointer transition-colors shrink-0"
+                  title="Ajouter rapidement une chanson à cette setlist"
+                  aria-label="Ajouter une chanson"
+                >
+                  <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -305,6 +350,19 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
           )}
         </AnimatePresence>
       </div>
+
+      {/* Modal d'ajout rapide de chants pendant le mode Live */}
+      {isAddSongModalOpen && selectedSetlist && (
+        <SetlistAddSongsModal
+          isOpen={isAddSongModalOpen}
+          onClose={() => setIsAddSongModalOpen(false)}
+          setlist={selectedSetlist}
+          songs={songs}
+          onToggleSong={handleToggleSongInSetlist}
+          onAddMultipleSongs={handleAddMultipleSongs}
+          onRemoveMultipleSongs={handleRemoveMultipleSongs}
+        />
+      )}
     </div>
   );
 };

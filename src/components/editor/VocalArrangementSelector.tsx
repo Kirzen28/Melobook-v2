@@ -13,11 +13,63 @@ export const OTHER_VOCAL_ARRANGEMENTS = [
   { key: 'Lead', label: 'Lead / Solo' },
   { key: 'Unisson', label: 'Unisson' },
   { key: 'Chœur', label: 'Chœur / Tous' },
+  { key: 'Harmonie', label: 'Harmonie' },
+  { key: 'Duo', label: 'Duo' },
   { key: '2 Voix', label: '2 Voix' },
   { key: '3 Voix', label: '3 Voix' },
   { key: 'Femmes', label: 'Femmes' },
   { key: 'Hommes', label: 'Hommes' },
+  { key: 'A cappella', label: 'A cappella' },
 ];
+
+export const CUSTOM_VOCALS_STORAGE_KEY = 'melobook_custom_vocal_arrangements';
+const CUSTOM_VOCALS_EVENT = 'melobook_custom_vocal_arrangements_updated';
+
+export const getSavedCustomVocals = (): string[] => {
+  try {
+    const raw = localStorage.getItem(CUSTOM_VOCALS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+export const saveCustomVocalChoice = (vocal: string): string[] => {
+  const trimmed = vocal.trim();
+  if (!trimmed) return getSavedCustomVocals();
+
+  const isSATB = SATB_VOICE_TYPES.some(s => s.key.toLowerCase() === trimmed.toLowerCase());
+  const isOther = OTHER_VOCAL_ARRANGEMENTS.some(o => o.key.toLowerCase() === trimmed.toLowerCase());
+
+  const current = getSavedCustomVocals();
+  const exists = current.some(c => c.toLowerCase() === trimmed.toLowerCase());
+
+  let updated = current;
+  if (!isSATB && !isOther && !exists) {
+    updated = [...current, trimmed];
+    try {
+      localStorage.setItem(CUSTOM_VOCALS_STORAGE_KEY, JSON.stringify(updated));
+      window.dispatchEvent(new CustomEvent(CUSTOM_VOCALS_EVENT, { detail: updated }));
+    } catch (e) {
+      console.error('Failed to save custom vocal choice:', e);
+    }
+  }
+  return updated;
+};
+
+export const deleteCustomVocalChoice = (vocal: string): string[] => {
+  const current = getSavedCustomVocals();
+  const updated = current.filter(c => c.toLowerCase() !== vocal.toLowerCase().trim());
+  try {
+    localStorage.setItem(CUSTOM_VOCALS_STORAGE_KEY, JSON.stringify(updated));
+    window.dispatchEvent(new CustomEvent(CUSTOM_VOCALS_EVENT, { detail: updated }));
+  } catch (e) {
+    console.error('Failed to delete custom vocal choice:', e);
+  }
+  return updated;
+};
 
 interface VocalArrangementSelectorProps {
   vocals: string[];
@@ -36,8 +88,22 @@ export const VocalArrangementSelector: React.FC<VocalArrangementSelectorProps> =
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [customInput, setCustomInput] = useState('');
+  const [customVocals, setCustomVocals] = useState<string[]>(() => getSavedCustomVocals());
   const popoverRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+
+  // Synchroniser la liste des choix personnalisés
+  useEffect(() => {
+    const handleUpdate = () => {
+      setCustomVocals(getSavedCustomVocals());
+    };
+    window.addEventListener(CUSTOM_VOCALS_EVENT, handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+    return () => {
+      window.removeEventListener(CUSTOM_VOCALS_EVENT, handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
+  }, []);
 
   // Close on click outside
   useEffect(() => {
@@ -89,6 +155,12 @@ export const VocalArrangementSelector: React.FC<VocalArrangementSelectorProps> =
   const handleAddCustom = () => {
     const trimmed = customInput.trim();
     if (!trimmed || !canEdit) return;
+
+    // Enregistrement permanent dans la liste des choix
+    saveCustomVocalChoice(trimmed);
+    setCustomVocals(getSavedCustomVocals());
+
+    // Sélection pour la section actuelle
     if (!vocals.some(v => v.toLowerCase() === trimmed.toLowerCase())) {
       onChange([...vocals, trimmed]);
     }
@@ -257,7 +329,7 @@ export const VocalArrangementSelector: React.FC<VocalArrangementSelectorProps> =
           {/* Common Vocal Presets */}
           <div className="mb-2.5">
             <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
-              Autres arrangements
+              Arrangements courants
             </div>
             <div className="flex items-center gap-1 flex-wrap">
               {OTHER_VOCAL_ARRANGEMENTS.map((v) => {
@@ -283,10 +355,67 @@ export const VocalArrangementSelector: React.FC<VocalArrangementSelectorProps> =
             </div>
           </div>
 
+          {/* Custom saved choices (enregistrées dans la liste des choix) */}
+          {customVocals.length > 0 && (
+            <div className="mb-2.5">
+              <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                <span>Voix enregistrées</span>
+                <span className="text-[9px] text-purple-400 font-mono font-bold">
+                  {customVocals.length} enregistrée{customVocals.length > 1 ? 's' : ''}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {customVocals.map((v) => {
+                  const isSelected = vocals.some(
+                    voc => voc.toLowerCase().trim() === v.toLowerCase().trim()
+                  );
+                  const vStyle = getVocalBadgeStyle(v);
+                  return (
+                    <div
+                      key={v}
+                      className={`inline-flex items-center rounded-full border transition-all ${
+                        isSelected
+                          ? `${vStyle.border} shadow-xs`
+                          : 'border-[#2A2A30] hover:border-[#383840]'
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => toggleVoice(v)}
+                        className={`pl-2.5 pr-1.5 py-0.5 rounded-l-full text-[10px] font-medium transition-all cursor-pointer ${
+                          isSelected
+                            ? `${vStyle.bg} ${vStyle.text} font-semibold`
+                            : 'bg-[#1A1A1E] text-gray-300 hover:text-white hover:bg-[#25252D]'
+                        }`}
+                        title={`Cliquer pour sélectionner / désélectionner « ${v} »`}
+                      >
+                        {isSelected ? '✓ ' : ''}{v}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteCustomVocalChoice(v);
+                          setCustomVocals(getSavedCustomVocals());
+                        }}
+                        className="pl-1 pr-2 py-0.5 rounded-r-full bg-[#1A1A1E] hover:bg-rose-500/20 text-gray-500 hover:text-rose-400 text-[10px] transition-colors cursor-pointer"
+                        title={`Supprimer « ${v} » de la liste des choix enregistrés`}
+                        aria-label={`Supprimer ${v} de la liste`}
+                      >
+                        <X className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Custom voice input */}
           <div className="pt-2 border-t border-[#26262E] mb-2">
-            <div className="text-[10px] font-semibold text-gray-400 mb-1">
-              Personnalisé (ex: Femmes & Hommes, Solo...)
+            <div className="text-[10px] font-semibold text-gray-400 mb-1 flex items-center justify-between">
+              <span>Ajouter une nouvelle voix</span>
+              <span className="text-[9px] text-gray-500">Enregistrée dans la liste</span>
             </div>
             <div className="flex items-center gap-1">
               <input
@@ -299,16 +428,18 @@ export const VocalArrangementSelector: React.FC<VocalArrangementSelectorProps> =
                     handleAddCustom();
                   }
                 }}
-                placeholder="Nouvelle voix..."
-                className="flex-1 bg-[#1A1A1E] border border-[#2E2E36] rounded-lg px-2 py-1 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/60"
+                placeholder="Ex: Lead 2, Baryton, Harmonie..."
+                className="flex-1 bg-[#1A1A1E] border border-[#2E2E36] rounded-lg px-2.5 py-1 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/60 transition-colors"
               />
               <button
                 type="button"
                 onClick={handleAddCustom}
                 disabled={!customInput.trim()}
-                className="px-2 py-1 rounded-lg bg-purple-600 hover:bg-purple-500 disabled:opacity-30 text-white font-semibold text-xs transition-colors cursor-pointer shrink-0"
+                className="px-2.5 py-1 rounded-lg bg-purple-600 hover:bg-purple-500 disabled:opacity-30 text-white font-semibold text-xs transition-all cursor-pointer shrink-0 flex items-center gap-1 active:scale-95"
+                title="Ajouter et enregistrer dans la liste des choix"
               >
-                +
+                <Plus className="w-3 h-3" />
+                <span>Ajouter</span>
               </button>
             </div>
           </div>

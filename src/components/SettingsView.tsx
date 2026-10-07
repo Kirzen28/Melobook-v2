@@ -69,6 +69,8 @@ const METADATA_TOGGLE_ITEMS: Array<{
   iconName: string;
   description: string;
 }> = [
+  { key: 'sectionHeaders', label: 'Noms des sections', iconName: 'Layers', description: 'Titres des sections (Couplet, Refrain, Pont...)' },
+  { key: 'title', label: 'Titre du chant', iconName: 'Heading1', description: 'Nom et titre principal du chant' },
   { key: 'language', label: 'Langue', iconName: 'Globe', description: 'Badge langue (ex: FR, EN)' },
   { key: 'duration', label: 'Durée', iconName: 'Clock', description: 'Badge durée (ex: 04:30)' },
   { key: 'artist', label: 'Artiste', iconName: 'Type', description: 'Nom de l\'artiste ou groupe' },
@@ -702,6 +704,7 @@ export const SettingsView: React.FC = () => {
 
   const handleShowAllPreviewMetadata = () => {
     const allOn: SongMetadataVisibility = {
+      title: true,
       artist: true,
       language: true,
       duration: true,
@@ -710,6 +713,7 @@ export const SettingsView: React.FC = () => {
       notes: true,
       actions: true,
       vocalArrangement: true,
+      sectionHeaders: true,
     };
     updateDisplaySettings({ metadataVisibility: allOn });
     notify('Toutes les métadonnées sont affichées (aperçu & mode scène)');
@@ -717,6 +721,7 @@ export const SettingsView: React.FC = () => {
 
   const handleHideAllPreviewMetadata = () => {
     const allOff: SongMetadataVisibility = {
+      title: false,
       artist: false,
       language: false,
       duration: false,
@@ -725,6 +730,7 @@ export const SettingsView: React.FC = () => {
       notes: false,
       actions: false,
       vocalArrangement: false,
+      sectionHeaders: false,
     };
     updateDisplaySettings({ metadataVisibility: allOff });
     notify('Toutes les métadonnées sont masquées (aperçu & mode scène)');
@@ -860,7 +866,7 @@ export const SettingsView: React.FC = () => {
                   Métadonnées affichées (Aperçu & Mode Scène) :
                 </span>
                 <span className="px-1.5 py-0.5 rounded-full bg-blue-950/70 text-blue-300 border border-blue-500/30 font-mono text-[10px] font-bold">
-                  {activeMetadataCount}/8
+                  {activeMetadataCount}/{METADATA_TOGGLE_ITEMS.length}
                 </span>
                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-950/60 text-emerald-300 border border-emerald-500/30 text-[10px] font-medium" title="Tout changement est sauvegardé automatiquement et appliqué immédiatement dans le lecteur de chants / mode scène">
                   <Check className="w-2.5 h-2.5 text-emerald-400" />
@@ -912,7 +918,7 @@ export const SettingsView: React.FC = () => {
           {/* Boutons Pills de filtre métadonnées */}
           <div className="flex items-center gap-1.5 flex-wrap">
             {METADATA_TOGGLE_ITEMS.map((item) => {
-              const isVisible = previewMetadata[item.key];
+              const isVisible = previewMetadata[item.key] !== false;
               return (
                 <button
                   key={item.key}
@@ -925,6 +931,8 @@ export const SettingsView: React.FC = () => {
                   }`}
                   title={`${isVisible ? 'Cliquer pour masquer' : 'Cliquer pour afficher'} ${item.label} (sauvegardé automatiquement pour l'aperçu & le mode scène)`}
                 >
+                  {item.key === 'sectionHeaders' && <Layers className="w-3 h-3 text-blue-400" />}
+                  {item.key === 'title' && <Heading1 className="w-3 h-3 text-blue-400" />}
                   {item.key === 'language' && <Globe className="w-3 h-3 text-blue-400" />}
                   {item.key === 'duration' && <Clock className="w-3 h-3 text-cyan-400" />}
                   {item.key === 'artist' && <Type className="w-3 h-3 text-gray-300" />}
@@ -951,23 +959,25 @@ export const SettingsView: React.FC = () => {
           <div className="flex items-start justify-between gap-2 sm:gap-3 mb-0.5">
             <div className="flex-1 min-w-0 pr-1 sm:pr-2">
               <div className="flex items-center flex-wrap gap-1.5 sm:gap-2 mb-0.5">
-                <h3 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedPreviewElement({ type: 'title', label: 'Titre du chant' });
-                  }}
-                  className={`font-bold tracking-tight leading-tight break-words cursor-pointer transition-all rounded px-1.5 py-0.5 -mx-1.5 ${
-                    selectedPreviewElement?.type === 'title'
-                      ? 'ring-2 ring-blue-500 bg-blue-500/20 text-white'
-                      : 'hover:ring-1 hover:ring-blue-400/50 hover:bg-blue-500/5'
-                  } ${
-                    effectivePreviewTheme === 'light' ? 'text-[#18181B]' : 'text-white'
-                  }`}
-                  style={{ fontSize: `clamp(17px, 3.8vw, ${typography.titleSize}px)` }}
-                  title="Cliquer pour modifier la taille du titre"
-                >
-                  {stripParentheses(activeSongData.title)}
-                </h3>
+                {previewMetadata.title !== false && (
+                  <h3 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedPreviewElement({ type: 'title', label: 'Titre du chant' });
+                    }}
+                    className={`font-bold tracking-tight leading-tight break-words cursor-pointer transition-all rounded px-1.5 py-0.5 -mx-1.5 ${
+                      selectedPreviewElement?.type === 'title'
+                        ? 'ring-2 ring-blue-500 bg-blue-500/20 text-white'
+                        : 'hover:ring-1 hover:ring-blue-400/50 hover:bg-blue-500/5'
+                    } ${
+                      effectivePreviewTheme === 'light' ? 'text-[#18181B]' : 'text-white'
+                    }`}
+                    style={{ fontSize: `clamp(17px, 3.8vw, ${typography.titleSize}px)` }}
+                    title="Cliquer pour modifier la taille du titre"
+                  >
+                    {stripParentheses(activeSongData.title)}
+                  </h3>
+                )}
 
                 {/* Badge Langue */}
                 {previewMetadata.language && (
@@ -1230,50 +1240,54 @@ export const SettingsView: React.FC = () => {
             style={getSectionBorderStyles(sectionColors.verse, sectionBorders)}
             title="Cliquer pour modifier l'espacement et les bordures de cette section"
           >
-            <div className={`${previewHeaderMb} flex items-center justify-between gap-2 flex-wrap`}>
-              <span 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedPreviewElement({
-                    type: 'sectionHeader',
-                    sectionType: 'verse',
-                    label: `Badge : ${activeSongData.verseTitle}`
-                  });
-                }}
-                className={`inline-block font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border shadow-xs select-none cursor-pointer transition-all ${
-                  selectedPreviewElement?.type === 'sectionHeader' && selectedPreviewElement.sectionType === 'verse'
-                    ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-[#0E0E10]'
-                    : 'hover:scale-105 hover:ring-1 hover:ring-blue-400/60'
-                }`}
-                style={{
-                  fontSize: `${typography.headerSize}px`,
-                  color: sectionColors.verse,
-                  borderColor: `${sectionColors.verse}50`,
-                  backgroundColor: `${sectionColors.verse}1C`
-                }}
-                title={`Cliquer pour modifier la taille et la couleur du badge ${activeSongData.verseTitle}`}
-              >
-                {activeSongData.verseTitle}
-              </span>
+            {(previewMetadata.sectionHeaders !== false || previewMetadata.vocalArrangement) && (
+              <div className={`${previewHeaderMb} flex items-center justify-between gap-2 flex-wrap`}>
+                {previewMetadata.sectionHeaders !== false && (
+                  <span 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedPreviewElement({
+                        type: 'sectionHeader',
+                        sectionType: 'verse',
+                        label: `Badge : ${activeSongData.verseTitle}`
+                      });
+                    }}
+                    className={`inline-block font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border shadow-xs select-none cursor-pointer transition-all ${
+                      selectedPreviewElement?.type === 'sectionHeader' && selectedPreviewElement.sectionType === 'verse'
+                        ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-[#0E0E10]'
+                        : 'hover:scale-105 hover:ring-1 hover:ring-blue-400/60'
+                    }`}
+                    style={{
+                      fontSize: `${typography.headerSize}px`,
+                      color: sectionColors.verse,
+                      borderColor: `${sectionColors.verse}50`,
+                      backgroundColor: `${sectionColors.verse}1C`
+                    }}
+                    title={`Cliquer pour modifier la taille et la couleur du badge ${activeSongData.verseTitle}`}
+                  >
+                    {activeSongData.verseTitle}
+                  </span>
+                )}
 
-              {/* Badge d'arrangement vocal (Voix +) */}
-              {previewMetadata.vocalArrangement && (
-                <div
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedPreviewElement({
-                      type: 'metadata',
-                      label: 'Arrangement vocal (Voix +)'
-                    });
-                  }}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#1B1626] border border-purple-500/30 text-purple-300 text-[11px] font-medium shadow-xs hover:bg-purple-950/60 transition-colors"
-                  title="Arrangement vocal de la section (Voix +)"
-                >
-                  <Mic className="w-3 h-3 text-purple-400 shrink-0" />
-                  <span>Voix +</span>
-                </div>
-              )}
-            </div>
+                {/* Badge d'arrangement vocal (Voix +) */}
+                {previewMetadata.vocalArrangement && (
+                  <div
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedPreviewElement({
+                        type: 'metadata',
+                        label: 'Arrangement vocal (Voix +)'
+                      });
+                    }}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#1B1626] border border-purple-500/30 text-purple-300 text-[11px] font-medium shadow-xs hover:bg-purple-950/60 transition-colors"
+                    title="Arrangement vocal de la section (Voix +)"
+                  >
+                    <Mic className="w-3 h-3 text-purple-400 shrink-0" />
+                    <span>Voix +</span>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="space-y-1 font-mono">
               <div className="inline-flex flex-col mr-2">
@@ -1369,50 +1383,54 @@ export const SettingsView: React.FC = () => {
             style={getSectionBorderStyles(sectionColors.chorus, sectionBorders)}
             title="Cliquer pour modifier l'espacement et les bordures de cette section"
           >
-            <div className={`${previewHeaderMb} flex items-center justify-between gap-2 flex-wrap`}>
-              <span 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedPreviewElement({
-                    type: 'sectionHeader',
-                    sectionType: 'chorus',
-                    label: `Badge : ${activeSongData.chorusTitle}`
-                  });
-                }}
-                className={`inline-block font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border shadow-xs select-none cursor-pointer transition-all ${
-                  selectedPreviewElement?.type === 'sectionHeader' && selectedPreviewElement.sectionType === 'chorus'
-                    ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-[#0E0E10]'
-                    : 'hover:scale-105 hover:ring-1 hover:ring-blue-400/60'
-                }`}
-                style={{
-                  fontSize: `${typography.headerSize}px`,
-                  color: sectionColors.chorus,
-                  borderColor: `${sectionColors.chorus}50`,
-                  backgroundColor: `${sectionColors.chorus}1C`
-                }}
-                title={`Cliquer pour modifier la taille et la couleur du badge ${activeSongData.chorusTitle}`}
-              >
-                {activeSongData.chorusTitle}
-              </span>
+            {(previewMetadata.sectionHeaders !== false || previewMetadata.vocalArrangement) && (
+              <div className={`${previewHeaderMb} flex items-center justify-between gap-2 flex-wrap`}>
+                {previewMetadata.sectionHeaders !== false && (
+                  <span 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedPreviewElement({
+                        type: 'sectionHeader',
+                        sectionType: 'chorus',
+                        label: `Badge : ${activeSongData.chorusTitle}`
+                      });
+                    }}
+                    className={`inline-block font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border shadow-xs select-none cursor-pointer transition-all ${
+                      selectedPreviewElement?.type === 'sectionHeader' && selectedPreviewElement.sectionType === 'chorus'
+                        ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-[#0E0E10]'
+                        : 'hover:scale-105 hover:ring-1 hover:ring-blue-400/60'
+                    }`}
+                    style={{
+                      fontSize: `${typography.headerSize}px`,
+                      color: sectionColors.chorus,
+                      borderColor: `${sectionColors.chorus}50`,
+                      backgroundColor: `${sectionColors.chorus}1C`
+                    }}
+                    title={`Cliquer pour modifier la taille et la couleur du badge ${activeSongData.chorusTitle}`}
+                  >
+                    {activeSongData.chorusTitle}
+                  </span>
+                )}
 
-              {/* Badge d'arrangement vocal (Voix +) */}
-              {previewMetadata.vocalArrangement && (
-                <div
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedPreviewElement({
-                      type: 'metadata',
-                      label: 'Arrangement vocal (Voix +)'
-                    });
-                  }}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#1B1626] border border-purple-500/30 text-purple-300 text-[11px] font-medium shadow-xs hover:bg-purple-950/60 transition-colors"
-                  title="Arrangement vocal de la section (Voix +)"
-                >
-                  <Mic className="w-3 h-3 text-purple-400 shrink-0" />
-                  <span>Voix +</span>
-                </div>
-              )}
-            </div>
+                {/* Badge d'arrangement vocal (Voix +) */}
+                {previewMetadata.vocalArrangement && (
+                  <div
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedPreviewElement({
+                        type: 'metadata',
+                        label: 'Arrangement vocal (Voix +)'
+                      });
+                    }}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#1B1626] border border-purple-500/30 text-purple-300 text-[11px] font-medium shadow-xs hover:bg-purple-950/60 transition-colors"
+                    title="Arrangement vocal de la section (Voix +)"
+                  >
+                    <Mic className="w-3 h-3 text-purple-400 shrink-0" />
+                    <span>Voix +</span>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="space-y-1 font-mono">
               <div className="inline-flex flex-col mr-2">
@@ -1473,50 +1491,54 @@ export const SettingsView: React.FC = () => {
             style={getSectionBorderStyles(sectionColors.bridge, sectionBorders)}
             title="Cliquer pour modifier l'espacement et les bordures de cette section"
           >
-            <div className={`${previewHeaderMb} flex items-center justify-between gap-2 flex-wrap`}>
-              <span 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedPreviewElement({
-                    type: 'sectionHeader',
-                    sectionType: 'bridge',
-                    label: `Badge : ${activeSongData.bridgeTitle}`
-                  });
-                }}
-                className={`inline-block font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border shadow-xs select-none cursor-pointer transition-all ${
-                  selectedPreviewElement?.type === 'sectionHeader' && selectedPreviewElement.sectionType === 'bridge'
-                    ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-[#0E0E10]'
-                    : 'hover:scale-105 hover:ring-1 hover:ring-blue-400/60'
-                }`}
-                style={{
-                  fontSize: `${typography.headerSize}px`,
-                  color: sectionColors.bridge,
-                  borderColor: `${sectionColors.bridge}50`,
-                  backgroundColor: `${sectionColors.bridge}1C`
-                }}
-                title={`Cliquer pour modifier la taille et la couleur du badge ${activeSongData.bridgeTitle}`}
-              >
-                {activeSongData.bridgeTitle}
-              </span>
+            {(previewMetadata.sectionHeaders !== false || previewMetadata.vocalArrangement) && (
+              <div className={`${previewHeaderMb} flex items-center justify-between gap-2 flex-wrap`}>
+                {previewMetadata.sectionHeaders !== false && (
+                  <span 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedPreviewElement({
+                        type: 'sectionHeader',
+                        sectionType: 'bridge',
+                        label: `Badge : ${activeSongData.bridgeTitle}`
+                      });
+                    }}
+                    className={`inline-block font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border shadow-xs select-none cursor-pointer transition-all ${
+                      selectedPreviewElement?.type === 'sectionHeader' && selectedPreviewElement.sectionType === 'bridge'
+                        ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-[#0E0E10]'
+                        : 'hover:scale-105 hover:ring-1 hover:ring-blue-400/60'
+                    }`}
+                    style={{
+                      fontSize: `${typography.headerSize}px`,
+                      color: sectionColors.bridge,
+                      borderColor: `${sectionColors.bridge}50`,
+                      backgroundColor: `${sectionColors.bridge}1C`
+                    }}
+                    title={`Cliquer pour modifier la taille et la couleur du badge ${activeSongData.bridgeTitle}`}
+                  >
+                    {activeSongData.bridgeTitle}
+                  </span>
+                )}
 
-              {/* Badge d'arrangement vocal (Voix +) */}
-              {previewMetadata.vocalArrangement && (
-                <div
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedPreviewElement({
-                      type: 'metadata',
-                      label: 'Arrangement vocal (Voix +)'
-                    });
-                  }}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#1B1626] border border-purple-500/30 text-purple-300 text-[11px] font-medium shadow-xs hover:bg-purple-950/60 transition-colors"
-                  title="Arrangement vocal de la section (Voix +)"
-                >
-                  <Mic className="w-3 h-3 text-purple-400 shrink-0" />
-                  <span>Voix +</span>
-                </div>
-              )}
-            </div>
+                {/* Badge d'arrangement vocal (Voix +) */}
+                {previewMetadata.vocalArrangement && (
+                  <div
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedPreviewElement({
+                        type: 'metadata',
+                        label: 'Arrangement vocal (Voix +)'
+                      });
+                    }}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#1B1626] border border-purple-500/30 text-purple-300 text-[11px] font-medium shadow-xs hover:bg-purple-950/60 transition-colors"
+                    title="Arrangement vocal de la section (Voix +)"
+                  >
+                    <Mic className="w-3 h-3 text-purple-400 shrink-0" />
+                    <span>Voix +</span>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="space-y-1 font-mono">
               <div className="inline-flex flex-col">
@@ -1949,92 +1971,6 @@ export const SettingsView: React.FC = () => {
                     <Monitor className="w-3.5 h-3.5 shrink-0" />
                     <span>Système</span>
                   </button>
-                </div>
-              </div>
-
-              {/* Visibilité des Métadonnées dans l'Aperçu du Chant */}
-              <div className="p-3.5 sm:p-4 rounded-xl bg-[#141418] border border-[#26262E] space-y-3 sm:col-span-2 lg:col-span-3">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-[#25252E]">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <SlidersHorizontal className="w-4 h-4 text-blue-400" />
-                      <span className="text-xs font-bold text-white">
-                        Métadonnées dans l'Aperçu du Chant
-                      </span>
-                      <span className="px-1.5 py-0.5 rounded-full bg-blue-950/60 text-blue-300 border border-blue-500/30 font-mono text-[10px] font-bold">
-                        {activeMetadataCount}/8 actives
-                      </span>
-                    </div>
-                    <span className="text-[11px] text-gray-400 block mt-0.5">
-                      Choisissez quelles métadonnées afficher ou masquer dans l'aperçu du chant
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2 text-xs">
-                    <button
-                      type="button"
-                      onClick={handleShowAllPreviewMetadata}
-                      className="px-2.5 py-1 rounded-md bg-[#1C1C22] hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 text-[11px] font-semibold transition-colors cursor-pointer"
-                    >
-                      Tout afficher
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleHideAllPreviewMetadata}
-                      className="px-2.5 py-1 rounded-md bg-[#1C1C22] hover:bg-[#2A2A34] text-gray-400 hover:text-white border border-[#333] text-[11px] font-semibold transition-colors cursor-pointer"
-                    >
-                      Tout masquer
-                    </button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
-                  {METADATA_TOGGLE_ITEMS.map((item) => {
-                    const isVisible = previewMetadata[item.key];
-                    return (
-                      <div
-                        key={item.key}
-                        onClick={() => togglePreviewMetadata(item.key)}
-                        className={`p-2.5 rounded-lg border transition-all cursor-pointer flex items-center justify-between gap-2 select-none ${
-                          isVisible
-                            ? 'bg-[#161622] border-blue-500/40 hover:border-blue-500/70 shadow-xs'
-                            : 'bg-[#121215] border-[#222228] hover:border-[#383842] opacity-75'
-                        }`}
-                        title={`${isVisible ? 'Cliquer pour masquer' : 'Cliquer pour afficher'} ${item.label}`}
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 ${
-                            isVisible ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'bg-[#1C1C20] text-gray-500 border border-[#2B2B30]'
-                          }`}>
-                            {item.key === 'language' && <Globe className="w-3.5 h-3.5" />}
-                            {item.key === 'duration' && <Clock className="w-3.5 h-3.5 text-cyan-400" />}
-                            {item.key === 'artist' && <Type className="w-3.5 h-3.5" />}
-                            {item.key === 'tags' && <Tag className="w-3.5 h-3.5 text-blue-400" />}
-                            {item.key === 'controlsBar' && <Music className="w-3.5 h-3.5 text-amber-400" />}
-                            {item.key === 'notes' && <Bookmark className="w-3.5 h-3.5 text-emerald-400" />}
-                            {item.key === 'actions' && <Maximize2 className="w-3.5 h-3.5 text-purple-400" />}
-                            {item.key === 'vocalArrangement' && <Mic className="w-3.5 h-3.5 text-purple-400" />}
-                          </div>
-                          <div className="min-w-0">
-                            <span className={`text-xs font-bold block truncate ${isVisible ? 'text-white' : 'text-gray-400 line-through'}`}>
-                              {item.label}
-                            </span>
-                            <span className="text-[10px] text-gray-500 block truncate">
-                              {item.description}
-                            </span>
-                          </div>
-                        </div>
-
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold shrink-0 border ${
-                          isVisible
-                            ? 'bg-blue-600 text-white border-blue-500'
-                            : 'bg-[#18181C] text-gray-400 border-[#2E2E36]'
-                        }`}>
-                          {isVisible ? 'Visible' : 'Masqué'}
-                        </span>
-                      </div>
-                    );
-                  })}
                 </div>
               </div>
 

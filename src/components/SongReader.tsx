@@ -1397,9 +1397,11 @@ export const SongReader: React.FC<SongReaderProps> = ({
                   >
                     <ChevronDown className="w-3.5 h-3.5" />
                   </button>
-                  <span className="font-bold text-white text-xs sm:text-sm truncate">
-                    {stripParentheses(parsedData.title || song.title)}
-                  </span>
+                  {metaVis.title !== false && (
+                    <span className="font-bold text-white text-xs sm:text-sm truncate">
+                      {stripParentheses(parsedData.title || song.title)}
+                    </span>
+                  )}
                 </div>
 
                 {/* Right: Tonalité + Métronome + Actions */}
@@ -1510,12 +1512,14 @@ export const SongReader: React.FC<SongReaderProps> = ({
                 {/* Left: Title & Artist */}
                 <div className="flex-1 min-w-0 pr-1 sm:pr-2">
                   <div className="flex items-center flex-wrap gap-1.5 sm:gap-2 mb-0.5">
-                    <h1 
-                      className="font-bold tracking-tight text-white leading-tight break-words"
-                      style={{ fontSize: `clamp(17px, 3.8vw, ${displaySettings.typography.titleSize}px)` }}
-                    >
-                      {stripParentheses(parsedData.title || song.title)}
-                    </h1>
+                    {metaVis.title !== false && (
+                      <h1 
+                        className="font-bold tracking-tight text-white leading-tight break-words"
+                        style={{ fontSize: `clamp(17px, 3.8vw, ${displaySettings.typography.titleSize}px)` }}
+                      >
+                        {stripParentheses(parsedData.title || song.title)}
+                      </h1>
+                    )}
 
                   {/* Liste dépliante : Langue et versions du chant à la suite du titre */}
                   {metaVis.language && (() => {
@@ -2373,9 +2377,33 @@ export const SongReader: React.FC<SongReaderProps> = ({
                 ? setlistOverride.sectionRepeats[sIdx]
                 : (section.repeat || 1);
 
+              // Résolution robuste du nom de la section (ex: "Intro", "Couplet 1", "Refrain", "Pont", etc.)
+              const sectionTitle = (section.title && section.title.trim()) || (
+                section.type === 'verse' ? `Couplet ${sIdx + 1}` :
+                section.type === 'chorus' ? 'Refrain' :
+                section.type === 'bridge' ? 'Pont' :
+                section.type === 'pre_chorus' ? 'Pré-refrain' :
+                section.type === 'intro' ? 'Intro' :
+                section.type === 'outro' ? 'Outro' :
+                section.type === 'solo' ? 'Solo' :
+                section.type === 'interlude' ? 'Interlude' :
+                section.type === 'instrumental' ? 'Instrumental' :
+                section.type === 'tag' ? 'Tag' :
+                section.type === 'finale' ? 'Finale' :
+                section.type && section.type !== 'general' ? section.type : ''
+              );
+
+              // Le nom des sections doit être visible
+              const isSectionHeaderVisible = metaVis.sectionHeaders !== false;
+              const hasVisibleHeader = Boolean(
+                (isSectionHeaderVisible && sectionTitle) ||
+                sectionRepeat > 1 || 
+                (metaVis.vocalArrangement && (section.vocals?.length || section.vocal))
+              );
+
               const isCompact = currentSectionSpacing <= 6;
               const isUltraCompact = currentSectionSpacing <= 2;
-              const cardPaddingClass = !metaVis.sectionHeaders
+              const cardPaddingClass = !hasVisibleHeader
                 ? (isUltraCompact ? 'py-1.5 px-3 sm:py-2 sm:px-3.5' : isCompact ? 'py-2 px-3.5 sm:py-2.5 sm:px-4' : 'py-2.5 px-4')
                 : (isUltraCompact ? 'py-2 px-3 sm:py-2.5 sm:px-3.5' : isCompact ? 'py-2.5 px-3.5 sm:py-3 sm:px-4' : 'p-4');
               const headerMarginClass = isUltraCompact 
@@ -2396,10 +2424,10 @@ export const SongReader: React.FC<SongReaderProps> = ({
                   style={getSectionBorderStyles(secColor, displaySettings.sectionBorders)}
                 >
                   {/* Section Title Header & Vocal Arrangement Pastille & Repeat Badge (Lecture seule) */}
-                  {metaVis.sectionHeaders && (
+                  {hasVisibleHeader && (
                     <div className={`flex items-center justify-between gap-2 ${headerMarginClass} flex-wrap`}>
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        {section.title ? (
+                        {isSectionHeaderVisible && sectionTitle ? (
                           <span
                             className="inline-block font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border shadow-xs text-left select-none"
                             style={{
@@ -2409,9 +2437,9 @@ export const SongReader: React.FC<SongReaderProps> = ({
                               backgroundColor: `${secColor}1C`
                             }}
                           >
-                            {section.title}
+                            {sectionTitle}
                           </span>
-                        ) : <div />}
+                        ) : null}
 
                         {/* Section Repeat Badge (Lecture seule) */}
                         {sectionRepeat > 1 && (

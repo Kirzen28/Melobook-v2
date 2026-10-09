@@ -192,6 +192,116 @@ const ROLE_CONFIGS: Record<UserRole, {
 };
 
 // Sélecteur de rôle personnalisé intégré à l'application (non natif OS)
+const RoleFilterDropdown: React.FC<{
+  value: string;
+  onChange: (role: string) => void;
+}> = ({ value, onChange }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsOpen(false);
+    };
+    if (isOpen) {
+      document.addEventListener('mousedown', handleOutsideClick);
+      window.addEventListener('keydown', handleKeyDown);
+      return () => {
+        document.removeEventListener('mousedown', handleOutsideClick);
+        window.removeEventListener('keydown', handleKeyDown);
+      };
+    }
+  }, [isOpen]);
+
+  const allOption = { key: 'all', label: 'Tous les rôles', emoji: '👥', icon: Users };
+  const roleOptions = [
+    allOption,
+    ...(['admin', 'leader', 'editor', 'member', 'viewer'] as UserRole[]).map(r => ({
+      key: r,
+      label: ROLE_CONFIGS[r].label,
+      emoji: ROLE_CONFIGS[r].emoji,
+      icon: ROLE_CONFIGS[r].icon,
+      badgeStyle: ROLE_CONFIGS[r].badgeStyle,
+      tagStyle: ROLE_CONFIGS[r].tagStyle,
+      iconBoxStyle: ROLE_CONFIGS[r].iconBoxStyle,
+    }))
+  ];
+  const current = roleOptions.find(o => o.key === value) || allOption;
+  const CurrentIcon = current.icon;
+
+  return (
+    <div ref={containerRef} className="relative inline-block text-left">
+      <button
+        type="button"
+        onClick={() => setIsOpen(prev => !prev)}
+        className={`px-2.5 py-1 rounded-lg border text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer shadow-xs min-w-[140px] justify-between ${
+          isOpen
+            ? 'bg-[#1C1C24] border-blue-500 ring-2 ring-blue-500/30 text-white'
+            : value === 'all'
+            ? 'bg-[#16161C] border-[#262632] text-gray-300 hover:border-[#383846] hover:text-white'
+            : (current as any).badgeStyle + ' hover:brightness-110 hover:border-gray-500'
+        }`}
+        aria-expanded={isOpen}
+      >
+        <span className="flex items-center gap-1.5 truncate">
+          <CurrentIcon className="w-3.5 h-3.5 shrink-0" />
+          <span>{current.label}</span>
+          {value !== 'all' && <span className="text-[11px]">{current.emoji}</span>}
+        </span>
+        <ChevronDown className={`w-3.5 h-3.5 opacity-70 transition-transform duration-200 shrink-0 ${
+          isOpen ? 'rotate-180 opacity-100 text-blue-400' : ''
+        }`} />
+      </button>
+
+      {isOpen && (
+        <div className="absolute left-0 top-full mt-1.5 w-56 bg-[#121217] border border-[#2E2E38] rounded-xl shadow-2xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+          <div className="px-2 py-1 mb-1 border-b border-[#24242C]">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Filtrer par rôle</span>
+          </div>
+          <div className="space-y-0.5">
+            {roleOptions.map((opt) => {
+              const Icon = opt.icon;
+              const isSelected = value === opt.key;
+              const roleConfig = opt.key !== 'all' ? ROLE_CONFIGS[opt.key as UserRole] : null;
+              return (
+                <button
+                  key={opt.key}
+                  type="button"
+                  onClick={() => { onChange(opt.key); setIsOpen(false); }}
+                  className={`w-full px-2.5 py-1.5 rounded-lg text-xs font-medium flex items-center gap-2 transition-all cursor-pointer text-left ${
+                    isSelected
+                      ? 'bg-blue-600/20 text-blue-300 border border-blue-500/40'
+                      : 'text-gray-300 hover:bg-[#1E1E26] hover:text-white border border-transparent'
+                  }`}
+                >
+                  <span className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 text-[10px] ${
+                    roleConfig ? roleConfig.iconBoxStyle : 'bg-[#26262E] text-gray-400 border border-[#333]'
+                  }`}>
+                    <Icon className="w-3 h-3" />
+                  </span>
+                  <span className="flex-1 truncate">{opt.label}</span>
+                  {opt.key !== 'all' && <span className="text-[12px]">{opt.emoji}</span>}
+                  {isSelected && (
+                    <span className="w-3.5 h-3.5 rounded-full bg-blue-500 text-white flex items-center justify-center shrink-0">
+                      <Check className="w-2 h-2 stroke-[3]" />
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Sélecteur de rôle personnalisé intégré à l'application (non natif OS)
 const RoleDropdown: React.FC<{
   value: UserRole;
   onChange: (newRole: UserRole) => void;
@@ -1013,25 +1123,10 @@ export const GroupManager: React.FC = () => {
                 </button>
               </div>
 
-              <div className="relative">
-                <select
-                  value={memberRoleFilter}
-                  onChange={(e) => setMemberRoleFilter(e.target.value)}
-                  className="bg-[#16161C] border border-[#262632] rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-blue-500 cursor-pointer w-full sm:w-48 appearance-none"
-                >
-                  <option value="all">Tous les rôles</option>
-                  <option value="admin">Administrateur</option>
-                  <option value="leader">Responsable</option>
-                  <option value="editor">Éditeur</option>
-                  <option value="member">Membre</option>
-                  <option value="viewer">Régie (Vue)</option>
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
-                  <svg className="h-3.5 w-3.5 fill-current" viewBox="0 0 20 20">
-                    <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" fillRule="evenodd"></path>
-                  </svg>
-                </div>
-              </div>
+              <RoleFilterDropdown
+                value={memberRoleFilter}
+                onChange={setMemberRoleFilter}
+              />
             </div>
 
             {/* Liste des utilisateurs inscrits avec gestion de rôle et assignation */}

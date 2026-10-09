@@ -370,9 +370,8 @@ export const GroupManager: React.FC = () => {
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [assignModalTargetGroupId, setAssignModalTargetGroupId] = useState<string | undefined>(undefined);
   const [memberFilterTab, setMemberFilterTab] = useState<'all' | 'libraryOnly'>('all');
-  const [memberSearchTerm, setMemberSearchTerm] = useState('');
+  const [memberRoleFilter, setMemberRoleFilter] = useState<string>('all');
   const [isRoleMatrixOpen, setIsRoleMatrixOpen] = useState(false);
-  const [roleSectionTab, setRoleSectionTab] = useState<'members' | 'hierarchy'>('members');
 
   const openAssignModal = (groupId?: string) => {
     setAssignModalTargetGroupId(groupId || currentGroup?.id);
@@ -426,16 +425,14 @@ export const GroupManager: React.FC = () => {
 
   const filteredUsers = useMemo(() => {
     return allUsers.filter(u => {
-      const matchesSearch = !memberSearchTerm.trim() || 
-        (u.displayName || '').toLowerCase().includes(memberSearchTerm.toLowerCase()) ||
-        (u.email || '').toLowerCase().includes(memberSearchTerm.toLowerCase());
-      if (!matchesSearch) return false;
+      const matchesRole = memberRoleFilter === 'all' || u.role === memberRoleFilter;
+      if (!matchesRole) return false;
       if (memberFilterTab === 'libraryOnly') {
         return (currentGroup?.members || []).includes(u.uid);
       }
       return true;
     });
-  }, [allUsers, memberSearchTerm, memberFilterTab, currentGroup?.members]);
+  }, [allUsers, memberRoleFilter, memberFilterTab, currentGroup?.members]);
 
   const isAllSelected = filteredUsers.length > 0 && filteredUsers.every(u => selectedUserUids.includes(u.uid));
   const isSomeSelected = filteredUsers.some(u => selectedUserUids.includes(u.uid)) && !isAllSelected;
@@ -919,26 +916,12 @@ export const GroupManager: React.FC = () => {
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="text-xs sm:text-sm font-bold text-white">Rôles & Membres</h3>
-                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#1C1C1E] text-gray-400 font-medium border border-[#2A2A32]">
-                    {allUsers.length} compte{allUsers.length > 1 ? 's' : ''} au total
-                  </span>
+
                   <InfoTooltip 
                     label="Permissions des rôles" 
                     content="Admin : gestion totale, bibliothèques, rôles. Responsable : direction musicale, setlists, tonalités. Éditeur : chants et accords. Membre : pupitre & transposition perso. Régie : projection." 
                   />
-                  <button
-                    type="button"
-                    onClick={() => setRoleSectionTab(prev => prev === 'hierarchy' ? 'members' : 'hierarchy')}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95 ${
-                      roleSectionTab === 'hierarchy'
-                        ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs'
-                        : 'bg-indigo-600/15 hover:bg-indigo-600/25 text-indigo-300 hover:text-white border border-indigo-500/30'
-                    }`}
-                    title="Afficher l'arborescence et le diagramme interactif de la hiérarchie des rôles"
-                  >
-                    <Layers className="w-3.5 h-3.5" />
-                    <span>{roleSectionTab === 'hierarchy' ? 'Liste des membres' : 'Hiérarchie visuelle'}</span>
-                  </button>
+
                   <button
                     type="button"
                     onClick={() => setIsRoleMatrixOpen(true)}
@@ -969,35 +952,11 @@ export const GroupManager: React.FC = () => {
                     className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition-all active:scale-98 flex items-center gap-1.5 shadow-xs cursor-pointer"
                   >
                     <UserPlus className="w-3.5 h-3.5" />
-                    <span>Multiselect : Assigner des membres</span>
+                    <span>Ajouter</span>
                   </button>
                 )}
 
-                {/* Formulaire d'attribution par e-mail ou statut invité */}
-                {canManageGroups ? (
-                  <form onSubmit={handlePromoteAdminEmail} className="flex items-center gap-1.5 flex-wrap">
-                    <input
-                      type="email"
-                      placeholder="email@utilisateur.com"
-                      value={adminEmailInput}
-                      onChange={(e) => setAdminEmailInput(e.target.value)}
-                      className="bg-[#1C1C1E] border border-[#333] rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 w-36 sm:w-44"
-                      required
-                    />
-                    <RoleDropdown
-                      value={promoteRole}
-                      onChange={setPromoteRole}
-                      align="left"
-                    />
-                    <button
-                      type="submit"
-                      disabled={isPromoting || !adminEmailInput.trim()}
-                      className="px-3 py-1.5 rounded-lg bg-[#22222A] hover:bg-[#2C2C36] text-white font-semibold text-xs border border-[#383846] transition-colors disabled:opacity-50 whitespace-nowrap cursor-pointer"
-                    >
-                      {isPromoting ? '...' : 'Rôle'}
-                    </button>
-                  </form>
-                ) : !currentUser ? (
+                {!canManageGroups && !currentUser ? (
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-gray-400">Mode invité</span>
                     <button
@@ -1024,67 +983,9 @@ export const GroupManager: React.FC = () => {
               </div>
             )}
 
-            {/* Onglets principaux de la section Rôles & Membres */}
-            <div className="flex items-center justify-between gap-3 mb-4 pb-3 border-b border-[#22222E]/80 flex-wrap">
-              <div className="flex items-center gap-1.5 bg-[#16161C] p-1 rounded-xl border border-[#262632]">
-                <button
-                  type="button"
-                  onClick={() => setRoleSectionTab('members')}
-                  className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
-                    roleSectionTab === 'members'
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  <Users className="w-3.5 h-3.5" />
-                  <span>Comptes & Membres ({allUsers.length})</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRoleSectionTab('hierarchy')}
-                  className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
-                    roleSectionTab === 'hierarchy'
-                      ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs'
-                      : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  <Layers className="w-3.5 h-3.5 text-blue-400" />
-                  <span>Arborescence & Hiérarchie des Rôles</span>
-                  <span className="text-[9px] px-1.5 py-0.2 rounded bg-blue-500/25 text-blue-200 border border-blue-400/30 font-bold">
-                    Interactif
-                  </span>
-                </button>
-              </div>
 
-              {roleSectionTab === 'members' ? (
-                <button
-                  type="button"
-                  onClick={() => setRoleSectionTab('hierarchy')}
-                  className="text-xs text-blue-400 hover:text-blue-300 hover:underline flex items-center gap-1.5 cursor-pointer font-medium"
-                >
-                  <Layers className="w-3.5 h-3.5" />
-                  <span>Voir le diagramme hiérarchique des 5 rôles →</span>
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setRoleSectionTab('members')}
-                  className="text-xs text-gray-400 hover:text-white hover:underline flex items-center gap-1.5 cursor-pointer font-medium"
-                >
-                  <Users className="w-3.5 h-3.5" />
-                  <span>← Revenir à la liste des comptes</span>
-                </button>
-              )}
-            </div>
 
-            {roleSectionTab === 'hierarchy' ? (
-              <RoleHierarchyChart
-                allUsers={allUsers}
-                currentRole={currentUser?.role}
-                onOpenMatrixModal={() => setIsRoleMatrixOpen(true)}
-              />
-            ) : (
-              <>
+            <>
             {/* Filtrage des membres de la bibliothèque active */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 mb-3">
               <div className="flex items-center gap-1 bg-[#16161C] p-1 rounded-lg border border-[#262632] w-fit">
@@ -1113,14 +1014,23 @@ export const GroupManager: React.FC = () => {
               </div>
 
               <div className="relative">
-                <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Filtrer les membres..."
-                  value={memberSearchTerm}
-                  onChange={(e) => setMemberSearchTerm(e.target.value)}
-                  className="bg-[#16161C] border border-[#262632] rounded-lg pl-8 pr-2.5 py-1 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 w-full sm:w-48"
-                />
+                <select
+                  value={memberRoleFilter}
+                  onChange={(e) => setMemberRoleFilter(e.target.value)}
+                  className="bg-[#16161C] border border-[#262632] rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-blue-500 cursor-pointer w-full sm:w-48 appearance-none"
+                >
+                  <option value="all">Tous les rôles</option>
+                  <option value="admin">Administrateur</option>
+                  <option value="leader">Responsable</option>
+                  <option value="editor">Éditeur</option>
+                  <option value="member">Membre</option>
+                  <option value="viewer">Régie (Vue)</option>
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
+                  <svg className="h-3.5 w-3.5 fill-current" viewBox="0 0 20 20">
+                    <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" fillRule="evenodd"></path>
+                  </svg>
+                </div>
               </div>
             </div>
 
@@ -1292,7 +1202,6 @@ export const GroupManager: React.FC = () => {
               </div>
             )}
           </>
-        )}
           </div>
         </div>
 

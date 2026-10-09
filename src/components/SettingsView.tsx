@@ -924,13 +924,16 @@ export const SettingsView: React.FC = () => {
 
         {/* Panneau de sélection interactive des métadonnées de l'aperçu */}
         <div className="p-2.5 sm:p-3 rounded-xl bg-[#16161B]/95 border border-[#282834] space-y-2.5 shadow-md">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-1.5 whitespace-nowrap">
+              <SlidersHorizontal className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+              <span className="text-xs font-bold text-white">
+                Métadonnées affichées (Aperçu & Mode Scène) :
+              </span>
+            </div>
+            
             <div className="flex items-center gap-2 flex-wrap">
               <div className="flex items-center gap-1.5 flex-wrap">
-                <SlidersHorizontal className="w-3.5 h-3.5 text-blue-400" />
-                <span className="text-xs font-bold text-white">
-                  Métadonnées affichées (Aperçu & Mode Scène) :
-                </span>
                 <span className="px-1.5 py-0.5 rounded-full bg-blue-950/70 text-blue-300 border border-blue-500/30 font-mono text-[10px] font-bold">
                   {activeMetadataCount}/{METADATA_TOGGLE_ITEMS.length}
                 </span>
@@ -1002,11 +1005,10 @@ export const SettingsView: React.FC = () => {
           </div>
 
           {/* Palette d'accès direct aux couleurs des 9 sections */}
-          <div className="pt-2 border-t border-[#252530] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 text-xs text-gray-300 font-medium">
-              <Palette className="w-3.5 h-3.5 text-blue-400" />
-              <span>Couleurs des sections :</span>
-              <span className="text-[10px] text-gray-500 hidden sm:inline">(cliquer pour modifier la couleur)</span>
+          <div className="pt-2 border-t border-[#252530] flex flex-col gap-2">
+            <div className="flex items-center gap-1.5 whitespace-nowrap">
+              <Palette className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+              <span className="text-xs font-bold text-white">Couleurs des sections :</span>
             </div>
             <div className="flex items-center gap-1.5 flex-wrap">
               {SECTION_TYPES_LIST.map((secMeta) => {
@@ -1671,7 +1673,6 @@ export const SettingsView: React.FC = () => {
               <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex flex-col justify-between gap-2.5">
                 <div>
                   <span className="text-xs font-bold text-gray-200 block">Notation</span>
-                  <span className="text-[11px] text-gray-400">Accords latins ou internationaux</span>
                 </div>
                 <div className="theme-toggle-group flex items-center gap-1 bg-[#121214] p-0.5 rounded-lg border border-[#2B2B30]">
                   <button
@@ -1701,14 +1702,8 @@ export const SettingsView: React.FC = () => {
 
               {/* Columns Toggle */}
               <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex flex-col justify-between gap-2.5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="text-xs font-bold text-gray-200 block">Disposition</span>
-                    <span className="text-[11px] text-gray-400">Colonnes d'affichage du chant (1 à 5)</span>
-                  </div>
-                  <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-[#121214] text-blue-400 border border-[#2B2B30]">
-                    {(typeof stageSettings.columns === 'number' && stageSettings.columns >= 1 && stageSettings.columns <= 5 ? stageSettings.columns : 1)} {stageSettings.columns === 1 ? 'colonne' : 'colonnes'}
-                  </span>
+                <div>
+                  <span className="text-xs font-bold text-gray-200 block">Disposition</span>
                 </div>
                 <div className="theme-toggle-group flex items-center gap-1 bg-[#121214] p-0.5 rounded-lg border border-[#2B2B30]">
                   {([1, 2, 3, 4, 5] as const).map((cols) => {
@@ -1738,7 +1733,6 @@ export const SettingsView: React.FC = () => {
               <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex flex-col justify-between gap-2.5">
                 <div>
                   <span className="text-xs font-bold text-gray-200 block">Thème</span>
-                  <span className="text-[11px] text-gray-400">Sombre, clair ou système</span>
                 </div>
                 <div className="theme-toggle-group flex items-center gap-1 bg-[#121214] p-0.5 rounded-lg border border-[#2B2B30]">
                   <button

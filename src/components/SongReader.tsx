@@ -72,7 +72,9 @@ import {
   SlidersHorizontal,
   RefreshCw,
   ArrowRight,
-  Zap
+  Zap,
+  Shield,
+  Copyright
 } from 'lucide-react';
 import { SetlistPdfModal } from './SetlistPdfModal';
 import { ChordModal } from './ChordModal';
@@ -146,7 +148,8 @@ export const SongReader: React.FC<SongReaderProps> = ({
     currentUser,
     currentGroup,
     setActiveSetlistIndex,
-    canManageSongs
+    canManageSongs,
+    canManageSetlists
   } = useApp();
 
   const metaVis = displaySettings.metadataVisibility || DEFAULT_SONG_METADATA_VISIBILITY;
@@ -319,10 +322,14 @@ export const SongReader: React.FC<SongReaderProps> = ({
   // Base parameters
   const catalogBaseKey = (parsedData?.hasExplicitKey && parsedData.key) || song?.key || parsedData?.key || 'C';
   const effectiveBaseKey = setlistOverride?.key || catalogBaseKey;
-  const effectiveTransposeOffset = setlistOverride?.transposeOffset !== undefined ? setlistOverride.transposeOffset : stageSettings.transposeOffset;
+  const effectiveTransposeOffset = stageSettings.transposeOffset !== 0
+    ? stageSettings.transposeOffset
+    : (setlistOverride?.transposeOffset !== undefined ? setlistOverride.transposeOffset : 0);
   const effectiveTempo = setlistOverride?.tempo || song?.tempo || parsedData?.tempo || 120;
   const rawDuration = setlistOverride?.duration || song?.duration || parsedData?.duration || '03:30';
   const effectiveDuration = useMemo(() => formatDurationToMMSS(rawDuration), [rawDuration]);
+  const effectiveCcli = (song?.ccli || parsedData?.ccli || '').trim();
+  const effectiveCopyright = (song?.copyright || parsedData?.copyright || '').trim();
 
   // Durée du chant en secondes pour le calcul du défilement automatique
   const songDurationSeconds = useMemo(() => {
@@ -349,7 +356,10 @@ export const SongReader: React.FC<SongReaderProps> = ({
     updateStageSettings({ isAutoScrolling: !stageSettings.isAutoScrolling });
   }, [stageSettings.isAutoScrolling, updateStageSettings]);
   const effectiveNotes = setlistOverride?.notes !== undefined ? setlistOverride.notes : (song?.notes || '');
-  const effectiveCapo = setlistOverride?.capo !== undefined ? setlistOverride.capo : (song?.capo || 0);
+  const personalCapo = stageSettings.capo || 0;
+  const effectiveCapo = personalCapo > 0 
+    ? personalCapo 
+    : (setlistOverride?.capo !== undefined ? setlistOverride.capo : (song?.capo || 0));
 
   // Semitone difference for song base key
   const baseKeySemitones = useMemo(() => {
@@ -386,6 +396,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
   const [inlineTempoValue, setInlineTempoValue] = useState<string>('120');
   const [showKeyMenu, setShowKeyMenu] = useState(false);
   const [showTransposeMenu, setShowTransposeMenu] = useState(false);
+  const [showCapoMenu, setShowCapoMenu] = useState(false);
   const [showTempoMenu, setShowTempoMenu] = useState(false);
   const [showZoomMenu, setShowZoomMenu] = useState(false);
 
@@ -410,6 +421,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
   // Refs for toolbar buttons to calculate viewport-safe placement
   const keyButtonRef = useRef<HTMLButtonElement>(null);
   const transposeButtonRef = useRef<HTMLButtonElement>(null);
+  const capoButtonRef = useRef<HTMLButtonElement>(null);
   const tempoButtonRef = useRef<HTMLButtonElement>(null);
   const zoomButtonRef = useRef<HTMLButtonElement>(null);
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
@@ -437,6 +449,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
 
   const [tempoPopoverStyle, setTempoPopoverStyle] = useState<React.CSSProperties>({ right: 0 });
   const [transposePopoverStyle, setTransposePopoverStyle] = useState<React.CSSProperties>({ left: 0 });
+  const [capoPopoverStyle, setCapoPopoverStyle] = useState<React.CSSProperties>({ left: 0 });
   const [keyPopoverStyle, setKeyPopoverStyle] = useState<React.CSSProperties>({ left: 0 });
   const [zoomPopoverStyle, setZoomPopoverStyle] = useState<React.CSSProperties>({ left: 0 });
   const [settingsPopoverStyle, setSettingsPopoverStyle] = useState<React.CSSProperties>({ right: 0 });
@@ -466,6 +479,19 @@ export const SongReader: React.FC<SongReaderProps> = ({
       };
     }
   }, [showTransposeMenu]);
+
+  useEffect(() => {
+    if (showCapoMenu) {
+      const update = () => setCapoPopoverStyle(calculatePopoverPos(capoButtonRef.current));
+      update();
+      window.addEventListener('resize', update);
+      window.addEventListener('scroll', update, true);
+      return () => {
+        window.removeEventListener('resize', update);
+        window.removeEventListener('scroll', update, true);
+      };
+    }
+  }, [showCapoMenu]);
 
   useEffect(() => {
     if (showKeyMenu) {
@@ -599,35 +625,39 @@ export const SongReader: React.FC<SongReaderProps> = ({
   // Key & Transposition Handlers
   const handleTransposeDelta = async (delta: number) => {
     const newOffset = (effectiveTransposeOffset + delta) % 12;
-    if (isSetlistMode && currentSetlist && song && canManageSongs) {
+    if (isSetlistMode && currentSetlist && song && canManageSetlists) {
       await updateSetlistSongOverride(currentSetlist.id, song.id, { transposeOffset: newOffset });
     } else {
       updateStageSettings({ transposeOffset: newOffset });
+      showFeedbackToast(`Transposition : ${newOffset > 0 ? `+${newOffset}` : newOffset} (personnel)`);
     }
   };
 
   const handleResetTranspose = async () => {
-    if (isSetlistMode && currentSetlist && song && canManageSongs) {
+    if (isSetlistMode && currentSetlist && song && canManageSetlists) {
       await updateSetlistSongOverride(currentSetlist.id, song.id, { transposeOffset: 0 });
     } else {
       updateStageSettings({ transposeOffset: 0 });
+      showFeedbackToast('Transposition remise à zéro (personnel)');
     }
   };
 
   const handleSetTransposeOffset = async (newOffset: number) => {
-    if (isSetlistMode && currentSetlist && song && canManageSongs) {
+    if (isSetlistMode && currentSetlist && song && canManageSetlists) {
       await updateSetlistSongOverride(currentSetlist.id, song.id, { transposeOffset: newOffset });
     } else {
       updateStageSettings({ transposeOffset: newOffset });
+      showFeedbackToast(`Transposition : ${newOffset > 0 ? `+${newOffset}` : newOffset} (personnel)`);
     }
   };
 
   const handleSetBaseKey = async (targetKey: string) => {
     if (!song) return;
 
-    if (isSetlistMode && currentSetlist && canManageSongs) {
+    if (isSetlistMode && currentSetlist && canManageSetlists) {
       await updateSetlistSongOverride(currentSetlist.id, song.id, { key: targetKey, transposeOffset: 0 });
-    } else if (canManageSongs) {
+      showFeedbackToast(`Tonalité par défaut de la setlist définie sur ${targetKey}`);
+    } else if (canManageSongs && !isSetlistMode) {
       const currentBaseKey = (parsedData?.hasExplicitKey && parsedData.key)
         ? parsedData.key
         : (song.key || parsedData?.key || 'C');
@@ -640,22 +670,30 @@ export const SongReader: React.FC<SongReaderProps> = ({
       if (selectedSong && selectedSong.id === song.id) {
         setSelectedSong({ ...selectedSong, key: targetKey, contentChordPro: updatedContent });
       }
+      showFeedbackToast(`Tonalité enregistrée dans le répertoire : ${targetKey}`);
     } else {
-      // Pour une personne non connectée ou membre invité :
-      // On transpose la chanson en mémoire pour sa propre consultation et jeu, sans modifier le répertoire de la bibliothèque
+      // Pour un membre, régie ou mode lecture seule :
+      // On calcule le décalage de transposition pour son jeu personnel
       const currentBaseKey = (parsedData?.hasExplicitKey && parsedData.key)
         ? parsedData.key
         : (song.key || parsedData?.key || 'C');
 
       const semitones = getSemitoneDifference(currentBaseKey, targetKey);
-      const updatedContent = transposeChordProText(song.contentChordPro, semitones, 'standard', targetKey);
-
-      updateStageSettings({ transposeOffset: 0 });
-      if (selectedSong && selectedSong.id === song.id) {
-        setSelectedSong({ ...selectedSong, key: targetKey, contentChordPro: updatedContent });
-      }
-      showFeedbackToast(`Tonalité changée en ${targetKey} (lecture en cours)`);
+      updateStageSettings({ transposeOffset: semitones });
+      showFeedbackToast(`Tonalité ${targetKey} appliquée (votre affichage personnel)`);
     }
+  };
+
+  const handleSetCapo = async (fret: number) => {
+    if (!song) return;
+    if (isSetlistMode && currentSetlist && canManageSetlists) {
+      await updateSetlistSongOverride(currentSetlist.id, song.id, { capo: fret });
+      showFeedbackToast(fret > 0 ? `Capo ${fret} fixé pour la setlist` : 'Capo retiré de la setlist');
+    } else {
+      updateStageSettings({ capo: fret });
+      showFeedbackToast(fret > 0 ? `Capo ${fret} (votre réglage personnel 🎵)` : 'Capodastre retiré');
+    }
+    setShowCapoMenu(false);
   };
 
   // Section Repeat Handler
@@ -1366,6 +1404,43 @@ export const SongReader: React.FC<SongReaderProps> = ({
                 )}
               </button>
             </div>
+
+            {/* Actions du chant : Éditer & Exporter en PDF (particulièrement en mode mobile) */}
+            <div className="border-t border-[#282830] mt-3 pt-2.5 flex flex-col gap-1.5">
+              {canManageSongs && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSettingsDrawer(false);
+                    setActiveTab('editor');
+                  }}
+                  className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-[#1C1C22] hover:bg-amber-500/15 border border-[#2E2E36] hover:border-amber-500/50 text-gray-200 hover:text-amber-300 transition-all cursor-pointer group"
+                  title="Éditer le chant"
+                >
+                  <span className="flex items-center gap-2">
+                    <FileEdit className="w-3.5 h-3.5 text-amber-400 group-hover:scale-110 transition-transform" />
+                    <span className="font-medium text-xs">Éditer le chant</span>
+                  </span>
+                  <span className="text-[10px] text-gray-500 group-hover:text-amber-400/80">Ouvrir</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSettingsDrawer(false);
+                  setShowPdfModal(true);
+                }}
+                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-[#1C1C22] hover:bg-emerald-500/15 border border-[#2E2E36] hover:border-emerald-500/50 text-gray-200 hover:text-emerald-300 transition-all cursor-pointer group"
+                title="Exporter en PDF"
+              >
+                <span className="flex items-center gap-2">
+                  <FileDown className="w-3.5 h-3.5 text-emerald-400 group-hover:scale-110 transition-transform" />
+                  <span className="font-medium text-xs">Exporter en PDF</span>
+                </span>
+                <span className="text-[10px] text-gray-500 group-hover:text-emerald-400/80">PDF</span>
+              </button>
+            </div>
           </div>
         </>
       )}
@@ -1463,30 +1538,6 @@ export const SongReader: React.FC<SongReaderProps> = ({
                           )}
                         </button>
                       )}
-
-                      {canManageSongs && (
-                        <button
-                          type="button"
-                          onClick={() => setActiveTab('editor')}
-                          className="p-1.5 rounded-lg bg-[#1C1C1E] hover:bg-amber-500/15 text-gray-200 hover:text-amber-300 border border-[#333] hover:border-amber-500/50 transition-all shadow-xs cursor-pointer group flex items-center justify-center"
-                          title="Éditer le chant"
-                          aria-label="Éditer le chant"
-                        >
-                          <FileEdit className="w-3.5 h-3.5 text-amber-400 group-hover:scale-110 transition-transform shrink-0" />
-                        </button>
-                      )}
-
-                      {/* Bouton Export PDF */}
-                      <button
-                        type="button"
-                        id="btn-song-pdf-compact"
-                        onClick={() => setShowPdfModal(true)}
-                        className="p-1.5 rounded-lg bg-[#1C1C1E] hover:bg-emerald-500/15 text-gray-200 hover:text-emerald-300 border border-[#333] hover:border-emerald-500/50 transition-all shadow-xs cursor-pointer group flex items-center justify-center"
-                        title="Exporter en PDF"
-                        aria-label="Exporter en PDF"
-                      >
-                        <FileDown className="w-3.5 h-3.5 text-emerald-400 group-hover:scale-110 transition-transform shrink-0" />
-                      </button>
 
                       <button
                         type="button"
@@ -1744,30 +1795,6 @@ export const SongReader: React.FC<SongReaderProps> = ({
                     </button>
                   )}
 
-                  {canManageSongs && (
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab('editor')}
-                      className="p-1.5 sm:p-2 rounded-lg bg-[#1C1C1E] hover:bg-amber-500/15 text-gray-200 hover:text-amber-300 border border-[#333] hover:border-amber-500/50 transition-all shadow-xs cursor-pointer group flex items-center justify-center"
-                      title="Éditer le chant"
-                      aria-label="Éditer le chant"
-                    >
-                      <FileEdit className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400 group-hover:scale-110 transition-transform shrink-0" />
-                    </button>
-                  )}
-
-                  {/* Bouton Export PDF */}
-                  <button
-                    type="button"
-                    id="btn-song-pdf"
-                    onClick={() => setShowPdfModal(true)}
-                    className="p-1.5 sm:p-2 rounded-lg bg-[#1C1C1E] hover:bg-emerald-500/15 text-gray-200 hover:text-emerald-300 border border-[#333] hover:border-emerald-500/50 transition-all shadow-xs cursor-pointer group flex items-center justify-center"
-                    title="Exporter en PDF"
-                    aria-label="Exporter en PDF"
-                  >
-                    <FileDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400 group-hover:scale-110 transition-transform shrink-0" />
-                  </button>
-
                   <button
                     type="button"
                     onClick={() => setShowSettingsDrawer(!showSettingsDrawer)}
@@ -1785,8 +1812,8 @@ export const SongReader: React.FC<SongReaderProps> = ({
               )}
             </div>
 
-            {/* Ligne Artiste & Catégories : sur toute la largeur (w-full) au-dessus des métadonnées Tonalité / Transpose */}
-            {((metaVis.artist && song.artist) || (metaVis.tags && song.tags && song.tags.length > 0)) && (
+            {/* Ligne Artiste, Catégories, CCLI & Copyright */}
+            {((metaVis.artist && song.artist) || (metaVis.tags && song.tags && song.tags.length > 0) || (metaVis.ccli && effectiveCcli) || (metaVis.copyright && effectiveCopyright)) && (
               <div className="w-full flex items-center gap-1.5 sm:gap-2 flex-wrap mb-1.5 sm:mb-2 text-xs">
                 {metaVis.artist && song.artist && (
                   <div 
@@ -1810,6 +1837,33 @@ export const SongReader: React.FC<SongReaderProps> = ({
                     ))}
                   </div>
                 )}
+
+                {metaVis.ccli && effectiveCcli && (
+                  <div className={`flex items-center gap-1 ${(metaVis.artist && song.artist) || (metaVis.tags && song.tags && song.tags.length > 0) ? 'sm:border-l sm:border-[#2A2A2E] sm:pl-2' : ''}`}>
+                    <a
+                      href={`https://songselect.ccli.com/Songs/${effectiveCcli.replace(/\D/g, '') || effectiveCcli}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-[#18181C] hover:bg-[#222228] border border-[#2A2A30] hover:border-blue-500/50 text-gray-300 transition-colors group cursor-pointer shadow-xs"
+                      title={`Numéro CCLI : #${effectiveCcli} (Cliquer pour ouvrir sur SongSelect)`}
+                    >
+                      <Shield className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-blue-400 group-hover:scale-110 transition-transform" />
+                      <span className="text-blue-300 font-mono text-[10px] sm:text-xs font-semibold">CCLI #{effectiveCcli}</span>
+                    </a>
+                  </div>
+                )}
+
+                {metaVis.copyright && effectiveCopyright && (
+                  <div className={`flex items-center gap-1 ${((metaVis.artist && song.artist) || (metaVis.tags && song.tags && song.tags.length > 0) || (metaVis.ccli && effectiveCcli)) ? 'sm:border-l sm:border-[#2A2A2E] sm:pl-2' : ''}`}>
+                    <span
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-[#18181C] border border-[#2A2A30] text-gray-400 text-[10px] sm:text-xs max-w-[260px] sm:max-w-md truncate shadow-xs"
+                      title={`Copyright : ${effectiveCopyright}`}
+                    >
+                      <Copyright className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-gray-500 shrink-0" />
+                      <span className="truncate">{effectiveCopyright}</span>
+                    </span>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1825,6 +1879,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                     const next = !showKeyMenu;
                     setShowKeyMenu(next);
                     setShowTransposeMenu(false);
+                    setShowCapoMenu(false);
                     setShowTempoMenu(false);
                     setShowZoomMenu(false);
                     if (next) {
@@ -1944,6 +1999,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                     const next = !showTransposeMenu;
                     setShowTransposeMenu(next);
                     setShowKeyMenu(false);
+                    setShowCapoMenu(false);
                     setShowTempoMenu(false);
                     setShowZoomMenu(false);
                     if (next) {
@@ -2120,6 +2176,95 @@ export const SongReader: React.FC<SongReaderProps> = ({
                 )}
               </div>
 
+              {/* Capodastre : Module stylisé avec affichage et sélection */}
+              <div className="relative inline-block">
+                <button
+                  ref={capoButtonRef}
+                  id="btn-song-capo"
+                  type="button"
+                  onClick={() => {
+                    const next = !showCapoMenu;
+                    setShowCapoMenu(next);
+                    setShowKeyMenu(false);
+                    setShowTransposeMenu(false);
+                    setShowTempoMenu(false);
+                    setShowZoomMenu(false);
+                    if (next) {
+                      setCapoPopoverStyle(calculatePopoverPos(capoButtonRef.current));
+                    }
+                  }}
+                  className={`h-8 inline-flex items-center gap-1.5 px-2.5 rounded-lg border font-mono shadow-xs transition-all cursor-pointer ${
+                    showCapoMenu
+                      ? 'bg-purple-950/40 border-purple-500 text-purple-300 ring-1 ring-purple-500/40'
+                      : effectiveCapo > 0
+                      ? 'bg-purple-950/30 border-purple-500/50 text-purple-300'
+                      : 'bg-[#141416] hover:bg-[#1A1A1E] border-[#242428] hover:border-purple-500/40 text-gray-300'
+                  }`}
+                  style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
+                  title="Cliquer pour afficher et régler le capodastre"
+                >
+                  <SlidersHorizontal className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                  <span className="text-gray-400 font-sans text-xs hidden sm:inline">Capo :</span>
+                  <span className="text-purple-400 font-bold font-mono text-xs">
+                    {effectiveCapo > 0 ? effectiveCapo : '0'}
+                  </span>
+                  {personalCapo > 0 && (
+                    <span className="text-[9px] px-1 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 font-sans hidden sm:inline">
+                      Perso
+                    </span>
+                  )}
+                  <ChevronDown className={`w-3 h-3 text-purple-400/80 transition-transform ${showCapoMenu ? 'rotate-180' : ''}`} />
+                </button>
+
+                {showCapoMenu && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-40" 
+                      onClick={() => setShowCapoMenu(false)} 
+                    />
+                    <div 
+                      style={capoPopoverStyle}
+                      className="absolute top-full mt-1.5 z-50 w-72 max-w-[calc(100vw-24px)] bg-[#16161A] border border-[#2E2E36] rounded-xl shadow-2xl p-2.5 backdrop-blur-md animate-in fade-in zoom-in-95 duration-100 box-border"
+                    >
+                      <div className="text-[11px] font-semibold text-gray-400 pb-2 mb-2 border-b border-[#282830] flex items-center justify-between">
+                        <span className="flex items-center gap-1.5 text-purple-300">
+                          <SlidersHorizontal className="w-3.5 h-3.5" />
+                          <span>Capodastre ({isSetlistMode && canManageSetlists ? 'Défaut Setlist' : 'Personnel'})</span>
+                        </span>
+                        <span className="text-[10px] text-purple-400 font-mono">Actuel : {effectiveCapo > 0 ? `Case ${effectiveCapo}` : 'Aucun'}</span>
+                      </div>
+
+                      <div className="grid grid-cols-4 gap-1.5 text-xs mb-2">
+                        {[0, 1, 2, 3, 4, 5, 6, 7].map((fret) => {
+                          const isSelected = effectiveCapo === fret;
+                          return (
+                            <button
+                              key={fret}
+                              type="button"
+                              onClick={() => handleSetCapo(fret)}
+                              className={`py-1.5 px-2 rounded-lg font-mono text-xs transition-colors cursor-pointer flex flex-col items-center justify-center ${
+                                isSelected
+                                  ? 'bg-purple-600 text-white font-bold shadow-xs'
+                                  : 'bg-[#1C1C22] text-gray-300 hover:bg-[#25252D] hover:text-white border border-[#2E2E36]'
+                              }`}
+                            >
+                              <span className="text-xs font-bold">{fret === 0 ? 'Sans' : fret}</span>
+                              <span className="text-[9px] text-gray-400">{fret === 0 ? 'Capo' : `Case ${fret}`}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <p className="text-[10px] text-gray-400 bg-[#101014] p-1.5 rounded border border-[#222228] leading-tight">
+                        🎸 {isSetlistMode && canManageSetlists 
+                          ? "En tant que responsable, vous fixez le capodastre par défaut pour cette setlist." 
+                          : "Ce réglage est mémorisé sur votre appareil et n'affecte pas les autres musiciens."}
+                      </p>
+                    </div>
+                  </>
+                )}
+              </div>
+
               {/* Tempo / BPM : Module stylisé avec affichage et réglage rapide */}
               <div className="relative inline-block">
                 <button
@@ -2131,6 +2276,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                     setShowTempoMenu(next);
                     setShowKeyMenu(false);
                     setShowTransposeMenu(false);
+                    setShowCapoMenu(false);
                     setShowZoomMenu(false);
                     if (next) {
                       setTempoPopoverStyle(calculatePopoverPos(tempoButtonRef.current));
@@ -2538,6 +2684,34 @@ export const SongReader: React.FC<SongReaderProps> = ({
               );
             })}
           </div>
+
+          {/* Song Sheet Legal Footer: CCLI & Copyright */}
+          {((metaVis.ccli && effectiveCcli) || (metaVis.copyright && effectiveCopyright)) && (
+            <div className="mt-8 pt-4 border-t border-[#222226] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs text-gray-400 print:text-gray-700">
+              {metaVis.copyright && effectiveCopyright && (
+                <div className="flex items-center gap-2 text-gray-400 min-w-0">
+                  <Copyright className="w-3.5 h-3.5 text-gray-500 shrink-0" />
+                  <span className="truncate">{effectiveCopyright}</span>
+                </div>
+              )}
+              {metaVis.ccli && effectiveCcli && (
+                <div className="flex items-center gap-2 shrink-0 sm:ml-auto">
+                  <Shield className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                  <span>
+                    Chant CCLI N°{' '}
+                    <a
+                      href={`https://songselect.ccli.com/Songs/${effectiveCcli.replace(/\D/g, '') || effectiveCcli}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-mono font-bold text-blue-400 hover:underline"
+                    >
+                      {effectiveCcli}
+                    </a>
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
 
         </div>
       </div>

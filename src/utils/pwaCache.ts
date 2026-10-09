@@ -12,19 +12,122 @@ import {
   clearIndexedDB
 } from './indexedDB';
 
-const DATA_CACHE_NAME = 'melobook-data-v2';
+const DATA_CACHE_NAME = 'melobook-data-v5';
+export const APP_CACHE_VERSION = '20261008-02';
+const CACHE_VERSION_KEY = 'melobook_app_cache_version';
+
+/**
+ * Vérifie et force une purge sévère du cache en cas de nouvelle version de l'application.
+ * Cela résout définitivement les contenus figés sur Chrome, Brave et Edge.
+ */
+export function runHardCacheCheck(): void {
+  if (typeof window === 'undefined') return;
+
+  try {
+    const storedVersion = localStorage.getItem(CACHE_VERSION_KEY);
+    if (storedVersion !== APP_CACHE_VERSION) {
+      // 1. Purger les anciens caches statiques et d'exécution dans CacheStorage
+      if ('caches' in window) {
+        caches.keys().then((names) => {
+          names.forEach((name) => {
+            // Supprimer tous les caches précédents sauf les données v5
+            if (name !== DATA_CACHE_NAME && !name.includes('v5')) {
+              caches.delete(name);
+            }
+          });
+        });
+      }
+
+      // 2. Envoyer un ordre de purge immédiate au Service Worker en place et forcer update
+      if ('serviceWorker' in navigator) {
+        if (navigator.serviceWorker.controller) {
+          navigator.serviceWorker.controller.postMessage({ type: 'PURGE_ALL_CACHES' });
+          navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });
+        }
+        navigator.serviceWorker.getRegistrations().then((regs) => {
+          regs.forEach((r) => r.update().catch(() => {}));
+        });
+      }
+
+      localStorage.setItem(CACHE_VERSION_KEY, APP_CACHE_VERSION);
+    }
+  } catch (err) {
+    console.warn('Vérification version cache PWA note:', err);
+  }
+}
+
+/**
+ * Force une purge complète manuelle de tous les caches et désenregistre les Service Workers,
+ * puis recharge la page.
+ */
+export async function forceHardCacheRefresh(): Promise<void> {
+  if (typeof window === 'undefined') return;
+
+  try {
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((k) => caches.delete(k)));
+    }
+    if ('serviceWorker' in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map((r) => r.unregister()));
+    }
+    localStorage.removeItem(CACHE_VERSION_KEY);
+  } catch (e) {
+    console.warn('Erreur lors du nettoyage forcé du cache:', e);
+  }
+  window.location.reload();
+}
 
 export function registerServiceWorker(onSuccess?: () => void, onUpdate?: () => void): void {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
     return;
   }
 
+  // Vérifier et forcer la purge du cache si la version a changé
+  runHardCacheCheck();
+
+  // En environnement de développement (Vite dev server) ou preview dev, désactiver et purger le Service Worker
+  // pour éviter tout gel du cache des modules JS et toujours afficher la dernière version
+  const isDev = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV);
+  const isDevHost = typeof window !== 'undefined' && (
+    isDev ||
+    window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1' ||
+    window.location.hostname.includes('ais-dev-') ||
+    window.location.port === '3000'
+  );
+
+  if (isDevHost) {
+    navigator.serviceWorker.getRegistrations().then((registrations) => {
+      for (const registration of registrations) {
+        registration.unregister();
+      }
+    });
+    if ('caches' in window) {
+      caches.keys().then((keys) => {
+        for (const key of keys) {
+          if (key.startsWith('melobook-static') || key.startsWith('melobook-runtime')) {
+            caches.delete(key);
+          }
+        }
+      });
+    }
+    return;
+  }
+
   window.addEventListener('load', () => {
+    // updateViaCache: 'none' force Chrome à toujours vérifier le Service Worker sur le réseau
     navigator.serviceWorker
-      .register('/sw.js')
+      .register(`/sw.js?v=${APP_CACHE_VERSION}`, { updateViaCache: 'none' })
       .then((registration) => {
-        if (registration.waiting && onUpdate) {
-          onUpdate();
+        // Déclencher une recherche de mise à jour immédiate
+        registration.update();
+
+        // Si un nouveau worker attend déjà, le forcer à s'activer sans attendre la fermeture des onglets
+        if (registration.waiting) {
+          registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+          if (onUpdate) onUpdate();
         }
 
         registration.addEventListener('updatefound', () => {
@@ -33,6 +136,7 @@ export function registerServiceWorker(onSuccess?: () => void, onUpdate?: () => v
             installingWorker.addEventListener('statechange', () => {
               if (installingWorker.state === 'installed') {
                 if (navigator.serviceWorker.controller) {
+                  installingWorker.postMessage({ type: 'SKIP_WAITING' });
                   if (onUpdate) onUpdate();
                 } else {
                   if (onSuccess) onSuccess();
@@ -45,6 +149,15 @@ export function registerServiceWorker(onSuccess?: () => void, onUpdate?: () => v
       .catch((err) => {
         console.warn('Enregistrement Service Worker note:', err);
       });
+
+    // Quand le nouveau Service Worker prend la main, rafraîchir en douceur une seule fois
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!refreshing) {
+        refreshing = true;
+        window.location.reload();
+      }
+    });
   });
 }
 

@@ -9,6 +9,8 @@ export interface ExternalSongItem {
   tags: string[];
   snippet: string;
   contentChordPro: string;
+  ccli?: string;
+  copyright?: string;
   url?: string;
   tabUrl?: string;
   pageTitle?: string;

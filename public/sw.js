@@ -1,6 +1,6 @@
-const CACHE_STATIC_NAME = 'melobook-static-v3';
-const CACHE_RUNTIME_NAME = 'melobook-runtime-v3';
-const CACHE_DATA_NAME = 'melobook-data-v3';
+const CACHE_STATIC_NAME = 'melobook-static-v4';
+const CACHE_RUNTIME_NAME = 'melobook-runtime-v4';
+const CACHE_DATA_NAME = 'melobook-data-v4';
 
 const STATIC_ASSETS = [
   '/',
@@ -9,8 +9,9 @@ const STATIC_ASSETS = [
   '/icon.svg'
 ];
 
-// Installation du Service Worker : mise en cache sécurisée des assets critiques
+// Installation du Service Worker : activation immédiate sans attendre
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_STATIC_NAME).then(async (cache) => {
       // Met en cache chaque ressource de manière tolérante aux pannes
@@ -20,11 +21,11 @@ self.addEventListener('install', (event) => {
         })
       );
       await Promise.all(promises);
-    }).then(() => self.skipWaiting())
+    })
   );
 });
 
-// Activation du Service Worker : nettoyage des anciens caches obsolètes
+// Activation du Service Worker : nettoyage des anciens caches obsolètes et prise de contrôle immédiate
 self.addEventListener('activate', (event) => {
   const allowedCaches = [CACHE_STATIC_NAME, CACHE_RUNTIME_NAME, CACHE_DATA_NAME];
   event.waitUntil(
@@ -32,9 +33,18 @@ self.addEventListener('activate', (event) => {
       return Promise.all(
         keys
           .filter((key) => !allowedCaches.includes(key))
-          .map((key) => caches.delete(key))
+          .map((key) => {
+            console.log('[SW] Suppression du cache obsolète :', key);
+            return caches.delete(key);
+          })
       );
-    }).then(() => self.clients.claim())
+    }).then(() => self.clients.claim()).then(() => {
+      return self.clients.matchAll({ type: 'window' }).then((clients) => {
+        for (const client of clients) {
+          client.postMessage({ type: 'SW_VERSION_UPDATED', version: CACHE_STATIC_NAME });
+        }
+      });
+    })
   );
 });
 
@@ -181,6 +191,17 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(event.request.url);
 
+  // Ignorer complètement les modules en développement, Vite et HMR
+  if (
+    url.pathname.startsWith('/@') ||
+    url.pathname.startsWith('/src/') ||
+    url.pathname.includes('hot-update') ||
+    url.pathname.includes('vite') ||
+    url.searchParams.has('t')
+  ) {
+    return;
+  }
+
   // Ignorer les requêtes d'authentification et de flux Firestore distants
   if (
     url.origin.includes('firestore') ||
@@ -206,7 +227,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 2. Polices Google Fonts (CacheFirst avec mise en cache runtime)
+  // 2. Polices Google Fonts (StaleWhileRevalidate avec mise en cache runtime)
   if (url.origin.includes('fonts.googleapis.com') || url.origin.includes('fonts.gstatic.com')) {
     event.respondWith(
       caches.open(CACHE_RUNTIME_NAME).then((cache) => {
@@ -248,7 +269,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 4. Assets statiques (JS, CSS, SVGs, images, fonts)
+  // 4. Assets statiques (JS, CSS, SVGs, images, fonts) : Network-First pour toujours avoir le dernier code, fallback cache hors-ligne
   const isStaticAsset =
     url.pathname.startsWith('/assets/') ||
     url.pathname.endsWith('.js') ||
@@ -261,46 +282,40 @@ self.addEventListener('fetch', (event) => {
 
   if (isStaticAsset) {
     event.respondWith(
-      caches.match(event.request).then((cachedResponse) => {
-        const fetchPromise = fetch(event.request)
-          .then((networkResponse) => {
-            if (networkResponse && networkResponse.status === 200) {
-              const clone = networkResponse.clone();
-              caches.open(CACHE_RUNTIME_NAME).then((cache) => cache.put(event.request, clone));
-            }
-            return networkResponse;
-          })
-          .catch(() => cachedResponse);
-
-        return cachedResponse || fetchPromise;
-      })
+      fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const clone = networkResponse.clone();
+            caches.open(CACHE_RUNTIME_NAME).then((cache) => cache.put(event.request, clone));
+          }
+          return networkResponse;
+        })
+        .catch(() => caches.match(event.request))
     );
     return;
   }
 
-  // 5. Fallback par défaut : Cache puis réseau
+  // 5. Fallback par défaut : Réseau d'abord, puis cache
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      return (
-        cachedResponse ||
-        fetch(event.request)
-          .then((networkResponse) => {
-            if (
-              networkResponse &&
-              networkResponse.status === 200 &&
-              networkResponse.type === 'basic'
-            ) {
-              const clone = networkResponse.clone();
-              caches.open(CACHE_RUNTIME_NAME).then((cache) => cache.put(event.request, clone));
-            }
-            return networkResponse;
-          })
-          .catch(() => {
-            if (event.request.destination === 'image') {
-              return caches.match('/icon.svg');
-            }
-          })
-      );
-    })
+    fetch(event.request)
+      .then((networkResponse) => {
+        if (
+          networkResponse &&
+          networkResponse.status === 200 &&
+          networkResponse.type === 'basic'
+        ) {
+          const clone = networkResponse.clone();
+          caches.open(CACHE_RUNTIME_NAME).then((cache) => cache.put(event.request, clone));
+        }
+        return networkResponse;
+      })
+      .catch(() => {
+        return caches.match(event.request).then((cachedResponse) => {
+          if (cachedResponse) return cachedResponse;
+          if (event.request.destination === 'image') {
+            return caches.match('/icon.svg');
+          }
+        });
+      })
   );
 });

@@ -5,6 +5,7 @@ import { LiveSetlistPlayer } from './LiveSetlistPlayer';
 import { SetlistPdfModal } from './SetlistPdfModal';
 import { SetlistAddSongsModal } from './SetlistAddSongsModal';
 import { SetlistDatePickerModal } from './SetlistDatePickerModal';
+import { SetlistCalendarView } from './SetlistCalendarView';
 import { 
   parseDurationToSeconds, 
   formatSetlistDuration, 
@@ -48,7 +49,7 @@ export const SetlistManager: React.FC = () => {
     setActiveTab,
     setActiveSetlistIndex,
     showNotification,
-    canManageSongs
+    canManageSetlists
   } = useApp();
 
   const [expandedSetlistId, setExpandedSetlistId] = useState<string | null>(null);
@@ -75,6 +76,28 @@ export const SetlistManager: React.FC = () => {
   const [datePickerSetlist, setDatePickerSetlist] = useState<Setlist | null>(null);
   const [activeMenuSetlistId, setActiveMenuSetlistId] = useState<string | null>(null);
   const songsListContainerRef = useRef<HTMLDivElement>(null);
+
+  // View mode toggle: List vs Calendar
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>(() => {
+    try {
+      return (localStorage.getItem('melobook_setlist_view_mode') as 'list' | 'calendar') || 'list';
+    } catch {
+      return 'list';
+    }
+  });
+
+  const handleSetViewMode = (mode: 'list' | 'calendar') => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem('melobook_setlist_view_mode', mode);
+    } catch {}
+  };
+
+  const handleCreateForDate = (dateStr: string) => {
+    setNewSetDate(dateStr);
+    setNewSetName('');
+    setIsCreateModalOpen(true);
+  };
 
   // Close mobile actions menu on click outside
   useEffect(() => {
@@ -344,7 +367,7 @@ export const SetlistManager: React.FC = () => {
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between gap-3 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-wrap">
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-2 sm:gap-2.5">
             <ListMusic className="w-5 h-5 sm:w-6 sm:h-6 text-blue-500 shrink-0" />
@@ -353,12 +376,45 @@ export const SetlistManager: React.FC = () => {
               {setlists.length}
             </span>
           </h1>
+
+          {/* Mode Switch: Liste vs Calendrier */}
+          <div className="flex items-center bg-[#151518] p-1 rounded-xl border border-[#27272D] shadow-inner ml-0 sm:ml-2">
+            <button
+              type="button"
+              onClick={() => handleSetViewMode('list')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                viewMode === 'list'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-gray-400 hover:text-white hover:bg-[#1E1E24]'
+              }`}
+              title="Afficher la vue liste"
+            >
+              <ListMusic className="w-3.5 h-3.5" />
+              <span>Liste</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSetViewMode('calendar')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                viewMode === 'calendar'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-gray-400 hover:text-white hover:bg-[#1E1E24]'
+              }`}
+              title="Afficher la vue calendrier"
+            >
+              <Calendar className="w-3.5 h-3.5" />
+              <span>Calendrier</span>
+            </button>
+          </div>
         </div>
 
-        {canManageSongs && (
+        {canManageSetlists && (
           <div className="flex items-center gap-2 shrink-0">
             <button
-              onClick={() => setIsCreateModalOpen(true)}
+              onClick={() => {
+                setNewSetDate(new Date().toISOString().split('T')[0]);
+                setIsCreateModalOpen(true);
+              }}
               className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-md bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-sm transition-all active:scale-95 whitespace-nowrap"
             >
               <Plus className="w-3.5 h-3.5" />
@@ -367,6 +423,32 @@ export const SetlistManager: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Main Content: Calendar View vs Accordion List */}
+      {viewMode === 'calendar' ? (
+        <SetlistCalendarView
+          setlists={setlists}
+          songs={songs}
+          canManageSetlists={canManageSetlists}
+          onLaunchLive={handleLaunchLive}
+          onOpenAddSongs={(st) => {
+            setSelectedSetlist(st);
+            setIsAddSongModalOpen(true);
+          }}
+          onOpenPdf={(st) => setPdfModalSetlist(st)}
+          onOpenEdit={(st) => handleOpenEditModal(st)}
+          onChangeDate={(st) => setDatePickerSetlist(st)}
+          onDeleteSetlist={async (stId) => {
+            await deleteSetlist(stId);
+            if (selectedSetlist?.id === stId) setSelectedSetlist(null);
+            if (expandedSetlistId === stId) setExpandedSetlistId(null);
+          }}
+          onCreateForDate={handleCreateForDate}
+          formatFriendlyDate={formatFriendlyDate}
+          getSetlistTotalDurationSeconds={getSetlistTotalDurationSeconds}
+        />
+      ) : (
+        <>
           {/* Setlists Accordion List */}
           {setlists.length === 0 ? (
             <div className="text-center py-16 bg-[#111112] rounded-xl border border-[#222224] p-6 max-w-2xl mx-auto">
@@ -377,7 +459,7 @@ export const SetlistManager: React.FC = () => {
               <p className="text-xs text-gray-500 mt-1 max-w-sm mx-auto mb-4">
                 Créez votre première liste de chants pour organiser votre prochain événement.
               </p>
-              {canManageSongs && (
+              {canManageSetlists && (
                 <button
                   onClick={() => setIsCreateModalOpen(true)}
                   className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition-colors shadow-sm inline-flex items-center gap-1.5"
@@ -500,7 +582,7 @@ export const SetlistManager: React.FC = () => {
                     onClick={(e) => e.stopPropagation()}
                   >
                     {/* Bouton pour ajouter un chant à la setlist */}
-                    {canManageSongs && (
+                    {canManageSetlists && (
                       <button
                         type="button"
                         onClick={(e) => {
@@ -519,7 +601,7 @@ export const SetlistManager: React.FC = () => {
 
                     {/* Desktop: Les 3 boutons visibles (Modifier, PDF, Supprimer) */}
                     <div className="hidden sm:flex items-center gap-1.5 sm:gap-2">
-                      {canManageSongs && (
+                      {canManageSetlists && (
                         <button
                           type="button"
                           onClick={() => handleOpenEditModal(st)}
@@ -541,7 +623,7 @@ export const SetlistManager: React.FC = () => {
                         <FileDown className="w-3.5 h-3.5 text-emerald-400" />
                       </button>
 
-                      {canManageSongs && (
+                      {canManageSetlists && (
                         <button
                           type="button"
                           onClick={() => {
@@ -600,7 +682,7 @@ export const SetlistManager: React.FC = () => {
                           className="absolute right-0 top-full mt-1.5 w-52 bg-[#161619] border border-[#2E2E34] rounded-xl shadow-2xl py-1.5 z-40 animate-in fade-in zoom-in-95 duration-100"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          {canManageSongs && (
+                          {canManageSetlists && (
                             <button
                               type="button"
                               onClick={() => {
@@ -626,7 +708,7 @@ export const SetlistManager: React.FC = () => {
                             <span>Exporter en PDF</span>
                           </button>
 
-                          {canManageSongs && (
+                          {canManageSetlists && (
                             <div className="border-t border-[#25252B] my-1 pt-1">
                               <button
                                 type="button"
@@ -679,7 +761,7 @@ export const SetlistManager: React.FC = () => {
                         <div className="text-center py-10 bg-[#0E0E10] rounded-xl border border-dashed border-[#2A2A2E] p-4">
                           <Music className="w-8 h-8 text-gray-600 mx-auto mb-2" />
                           <p className="text-xs text-gray-400">Aucun chant dans cette setlist pour l'instant.</p>
-                          {canManageSongs && (
+                          {canManageSetlists && (
                             <button
                               onClick={() => {
                                 setSelectedSetlist(st);
@@ -707,7 +789,7 @@ export const SetlistManager: React.FC = () => {
                             return (
                               <div
                                 key={`${song.id}-${index}`}
-                                draggable={canManageSongs}
+                                draggable={canManageSetlists}
                                 onDragStart={(e) => handleDragStart(e, index)}
                                 onDragOver={(e) => handleDragOver(e, index)}
                                 onDragLeave={() => handleDragLeave(index)}
@@ -722,7 +804,7 @@ export const SetlistManager: React.FC = () => {
                                 }`}
                               >
                                 <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                                  {canManageSongs && (
+                                  {canManageSetlists && (
                                     <div
                                       onClick={(e) => e.stopPropagation()}
                                       onTouchStart={(e) => handleTouchStartHandle(e, index)}
@@ -774,7 +856,7 @@ export const SetlistManager: React.FC = () => {
                                 </div>
 
                                 {/* Actions: Remove button */}
-                                {canManageSongs && (
+                                {canManageSetlists && (
                                   <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
                                     <button
                                       onClick={(e) => {
@@ -802,6 +884,8 @@ export const SetlistManager: React.FC = () => {
             );
           })}
         </div>
+      )}
+        </>
       )}
 
       {/* Modal: Create Setlist */}

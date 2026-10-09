@@ -175,6 +175,8 @@ export function visualSectionsToChordPro(
     timeSignature?: string;
     duration?: string;
     capo?: number;
+    ccli?: string;
+    copyright?: string;
   }
 ): string {
   const lines: string[] = [];
@@ -187,6 +189,8 @@ export function visualSectionsToChordPro(
   if (metadata?.timeSignature) lines.push(`{time: ${metadata.timeSignature}}`);
   if (metadata?.duration) lines.push(`{duration: ${metadata.duration}}`);
   if (metadata?.capo && metadata.capo > 0) lines.push(`{capo: ${metadata.capo}}`);
+  if (metadata?.ccli) lines.push(`{ccli: ${metadata.ccli}}`);
+  if (metadata?.copyright) lines.push(`{copyright: ${metadata.copyright}}`);
 
   if (lines.length > 0) {
     lines.push('');

@@ -66,7 +66,9 @@ import {
   Search,
   Users,
   User,
-  Loader2
+  Loader2,
+  Shield,
+  Copyright
 } from 'lucide-react';
 
 const SAMPLE_TEMPLATE = `{title: Mon Nouveau Chant}
@@ -148,6 +150,8 @@ export const SongEditor: React.FC = () => {
   const [linkedSongIds, setLinkedSongIds] = useState<string[]>(selectedSong?.linkedSongIds || []);
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
   const [categories, setCategories] = useState<string[]>(selectedSong?.tags || []);
+  const [ccli, setCcli] = useState(selectedSong?.ccli || '');
+  const [copyright, setCopyright] = useState(selectedSong?.copyright || '');
   const [notes, setNotes] = useState(selectedSong?.notes || '');
   const [contentChordPro, setContentChordPro] = useState(selectedSong?.contentChordPro || SAMPLE_TEMPLATE);
   const [showPreviewPane, setShowPreviewPane] = useState(true);
@@ -382,6 +386,10 @@ export const SongEditor: React.FC = () => {
       setIsLanguageManual(Boolean(selectedSong.language && selectedSong.language.trim()));
       setDetectedLangInfo(detected);
 
+      const parsedMeta = parseChordPro(selectedSong.contentChordPro || selectedSong.content || '');
+      setCcli(selectedSong.ccli || parsedMeta.ccli || '');
+      setCopyright(selectedSong.copyright || parsedMeta.copyright || '');
+
       setLinkedSongIds(selectedSong.linkedSongIds || []);
       setCategories(selectedSong.tags || []);
       setNotes(selectedSong.notes || '');
@@ -396,6 +404,8 @@ export const SongEditor: React.FC = () => {
       setTimeSignature('4/4');
       setDuration('3:30');
       setCapo(0);
+      setCcli('');
+      setCopyright('');
       
       const initialDetected = detectSongLanguageWithConfidence('', SAMPLE_TEMPLATE);
       setLanguage(initialDetected.language);
@@ -678,7 +688,9 @@ export const SongEditor: React.FC = () => {
       tempo: Number(tempo) || 100,
       timeSignature,
       duration: resolvedDuration,
-      capo: Number(capo) || 0
+      capo: Number(capo) || 0,
+      ccli: ccli.trim(),
+      copyright: copyright.trim()
     });
 
     const songData: Partial<Song> = {
@@ -690,6 +702,8 @@ export const SongEditor: React.FC = () => {
       duration: resolvedDuration,
       durationMode: 'custom',
       capo: Number(capo) || 0,
+      ccli: ccli.trim(),
+      copyright: copyright.trim(),
       language: language || detectSongLanguage(title.trim(), finalChordPro),
       linkedSongIds: linkedSongIds || [],
       tags: categories,
@@ -715,7 +729,7 @@ export const SongEditor: React.FC = () => {
 
   // Live parsed preview
   const livePreviewData = parseChordPro(
-    visualSectionsToChordPro(visualSections, { title, artist, key, tempo, timeSignature, duration, capo })
+    visualSectionsToChordPro(visualSections, { title, artist, key, tempo, timeSignature, duration, capo, ccli, copyright })
   );
 
   if (!canManageSongs) {
@@ -1236,6 +1250,54 @@ export const SongEditor: React.FC = () => {
           </div>
 
         </div>
+
+        {/* Row 3: Métadonnées CCLI & Copyright */}
+        <div className="grid grid-cols-12 gap-2.5 items-start pt-2 border-t border-[#1F1F23]">
+          {/* CCLI */}
+          <div className="col-span-12 sm:col-span-5 lg:col-span-4">
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-[11px] font-semibold text-gray-400 flex items-center gap-1.5">
+                <Shield className="w-3 h-3 text-blue-400" />
+                <span>N° CCLI (SongSelect)</span>
+              </label>
+              {ccli.trim() && (
+                <a
+                  href={`https://songselect.ccli.com/Songs/${ccli.trim().replace(/\D/g, '') || ccli.trim()}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[10px] text-blue-400 hover:text-blue-300 font-medium hover:underline flex items-center gap-0.5"
+                  title="Consulter sur CCLI SongSelect"
+                >
+                  <span>SongSelect ↗</span>
+                </a>
+              )}
+            </div>
+            <input
+              type="text"
+              placeholder="ex: 7117726"
+              value={ccli}
+              onChange={(e) => setCcli(e.target.value)}
+              className="w-full h-8 bg-[#1C1C1E] border border-[#333] hover:border-[#444] rounded-lg px-2.5 text-xs text-blue-300 font-mono font-medium focus:outline-none focus:border-blue-500 transition-colors"
+            />
+          </div>
+
+          {/* Copyright */}
+          <div className="col-span-12 sm:col-span-7 lg:col-span-8">
+            <div className="flex items-center gap-1 mb-1">
+              <label className="text-[11px] font-semibold text-gray-400 flex items-center gap-1.5">
+                <Copyright className="w-3 h-3 text-emerald-400" />
+                <span>Mentions Copyright & Droits d'auteur</span>
+              </label>
+            </div>
+            <input
+              type="text"
+              placeholder="ex: © 2018 Bethel Music Publishing / Fellow Ships Music"
+              value={copyright}
+              onChange={(e) => setCopyright(e.target.value)}
+              className="w-full h-8 bg-[#1C1C1E] border border-[#333] hover:border-[#444] rounded-lg px-2.5 text-xs text-gray-200 focus:outline-none focus:border-blue-500 transition-colors"
+            />
+          </div>
+        </div>
       </div>
 
       {/* Main Workspace: Visual Editor / ChordPro Code + Live Preview */}
@@ -1433,9 +1495,25 @@ export const SongEditor: React.FC = () => {
 
             {/* Stage Preview Content */}
             <div className="p-4 overflow-y-auto space-y-4 flex-1">
-              <div className="border-b border-[#222225] pb-3 mb-2">
+              <div className="border-b border-[#222225] pb-3 mb-2 space-y-1">
                 <h2 className="text-lg font-bold text-white">{title || 'Titre du chant'}</h2>
                 {artist && <p className="text-xs text-gray-400">{artist}</p>}
+                {(ccli || copyright) && (
+                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                    {ccli && (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-950/40 border border-blue-500/30 text-blue-300 font-mono text-[10px] font-semibold">
+                        <Shield className="w-2.5 h-2.5 text-blue-400" />
+                        <span>CCLI #{ccli}</span>
+                      </span>
+                    )}
+                    {copyright && (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#18181C] border border-[#2A2A30] text-gray-400 text-[10px] truncate max-w-full">
+                        <Copyright className="w-2.5 h-2.5 text-gray-500 shrink-0" />
+                        <span className="truncate">{copyright}</span>
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
 
               {livePreviewData.sections.length === 0 ? (

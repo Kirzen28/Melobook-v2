@@ -1249,32 +1249,6 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
                             <span>{songDur}</span>
                           </span>
                         )}
-
-                        {/* Quick '+' / 'Check' button matching SongList style */}
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onToggleSong(song.id);
-                          }}
-                          className={`p-1 sm:p-1.5 rounded text-xs font-semibold border transition-all flex items-center justify-center cursor-pointer ${
-                            isInSetlist
-                              ? 'bg-emerald-600/25 border-emerald-500/50 text-emerald-300 hover:bg-rose-500/20 hover:text-rose-300 hover:border-rose-500/40'
-                              : 'bg-blue-600/20 hover:bg-blue-600/35 text-blue-300 hover:text-white border-blue-500/30 hover:border-blue-500/60'
-                          }`}
-                          title={
-                            isInSetlist
-                              ? `Présent dans « ${setlist.name} » (cliquer pour retirer)`
-                              : `Ajouter à « ${setlist.name} »`
-                          }
-                          aria-label={isInSetlist ? "Retirer de la setlist" : "Ajouter à la setlist"}
-                        >
-                          {isInSetlist ? (
-                            <Check className="w-3.5 h-3.5 text-emerald-400 stroke-[2.5]" />
-                          ) : (
-                            <Plus className="w-3.5 h-3.5 text-blue-400 stroke-[2.5]" />
-                          )}
-                        </button>
                       </div>
 
                     </div>

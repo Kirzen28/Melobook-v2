@@ -43,14 +43,16 @@ import {
   FileDown,
   Settings2,
   ArrowUpDown,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Shield,
+  Copyright
 } from 'lucide-react';
 import { useMidi } from '../context/MidiContext';
 import { MidiSettingsModal } from './MidiSettingsModal';
 import { 
   COLOR_PRESETS, 
   SECTION_TYPES_LIST, 
-  DEFAULT_DISPLAY_SETTINGS,
+  DEFAULT_DISPLAY_SETTINGS, 
   DEFAULT_SECTION_BORDERS,
   DEFAULT_CHORD_COLOR,
   DEFAULT_SONG_METADATA_VISIBILITY,
@@ -75,6 +77,8 @@ const METADATA_TOGGLE_ITEMS: Array<{
   { key: 'duration', label: 'Durée', iconName: 'Clock', description: 'Badge durée (ex: 04:30)' },
   { key: 'artist', label: 'Artiste', iconName: 'Type', description: 'Nom de l\'artiste ou groupe' },
   { key: 'tags', label: 'Catégories', iconName: 'Tag', description: 'Badges de catégories et thèmes' },
+  { key: 'ccli', label: 'CCLI', iconName: 'Shield', description: 'Numéro CCLI SongSelect' },
+  { key: 'copyright', label: 'Copyright', iconName: 'Copyright', description: 'Droits d\'auteur et mentions légales' },
   { key: 'controlsBar', label: 'Tonalité & Tempo', iconName: 'Music', description: 'Barre de contrôles (Tonalité, Transpose, BPM)' },
   { key: 'notes', label: 'Note du chant', iconName: 'Bookmark', description: 'Bannière d\'instructions et directives' },
   { key: 'actions', label: 'Actions rapides', iconName: 'Maximize2', description: 'Boutons plein écran, éditer, PDF, options' },
@@ -709,6 +713,8 @@ export const SettingsView: React.FC = () => {
       language: true,
       duration: true,
       tags: true,
+      ccli: true,
+      copyright: true,
       controlsBar: true,
       notes: true,
       actions: true,
@@ -726,6 +732,8 @@ export const SettingsView: React.FC = () => {
       language: false,
       duration: false,
       tags: false,
+      ccli: false,
+      copyright: false,
       controlsBar: false,
       notes: false,
       actions: false,
@@ -738,94 +746,152 @@ export const SettingsView: React.FC = () => {
 
   const activeMetadataCount = Object.values(previewMetadata).filter(Boolean).length;
 
-  // Choix du chant prévisualisé (exemples riches ou chant de la bibliothèque)
-  const [previewSongId, setPreviewSongId] = useState<string>(() => {
-    if (selectedSong?.id) return selectedSong.id;
-    return 'demo-amazing-grace';
-  });
-
-  // Calcul des données du chant actif dans l'aperçu
+  // Données du chant témoin Lorem Ipsum enrichi avec métadonnées variées et complètes
   const activeSongData = useMemo(() => {
-    if (previewSongId === 'demo-amazing-grace') {
-      return {
-        title: 'Amazing Grace',
-        artist: 'John Newton / Chris Tomlin',
-        language: 'Anglais',
-        duration: '04:30',
-        tags: ['Classique', 'Hymne', 'Grâce'],
-        key: 'E',
-        tempo: 75,
-        notes: 'English version of Grâce Infinie.',
-        verseTitle: 'VERSE 1',
-        verseLyrics1: 'Amazing grace how sweet the sound',
-        verseLyrics2: 'That saved a wretch like me',
-        chorusTitle: 'CHORUS',
-        chorusLyrics: "My chains are gone, I've been set free",
-        bridgeTitle: 'BRIDGE',
-        bridgeLyrics: 'The earth shall soon dissolve like snow'
-      };
-    }
-    if (previewSongId === 'demo-jesus-tu-es-bon') {
-      return {
-        title: 'Jésus tu es bon',
-        artist: 'Bethel Music / Jenn Johnson',
-        language: 'Français',
-        duration: '05:10',
-        tags: ['Adoration', 'Grâce', 'Fidélité'],
-        key: 'G',
-        tempo: 72,
-        notes: 'Intro douce à la guitare acoustique. Monter en puissance au Pont.',
-        verseTitle: 'COUPLET 1',
-        verseLyrics1: 'Grâce infinie, au son si doux',
-        verseLyrics2: 'qui sauva un rebelle comme moi !',
-        chorusTitle: 'REFRAIN',
-        chorusLyrics: "J'étais perdu mais je suis retrouvé,\nAveugle et maintenant je vois.",
-        bridgeTitle: 'PONT',
-        bridgeLyrics: 'Quand nous serons là-haut depuis dix mille ans,'
-      };
-    }
-
-    const matched = songs.find(s => s.id === previewSongId) || selectedSong;
-    if (matched) {
-      return {
-        title: matched.title || 'Chant sélectionné',
-        artist: matched.artist || 'Artiste / Groupe',
-        language: matched.language || 'Français',
-        duration: matched.duration || '04:30',
-        tags: (matched.tags && matched.tags.length > 0) ? matched.tags : ['Louange', 'Adoration'],
-        key: matched.key || 'G',
-        tempo: matched.tempo || 72,
-        notes: matched.notes || 'Note : Version préparée pour le culte.',
-        verseTitle: 'COUPLET 1',
-        verseLyrics1: 'Grâce infinie, au son si doux',
-        verseLyrics2: 'qui sauva un rebelle comme moi !',
-        chorusTitle: 'REFRAIN',
-        chorusLyrics: "J'étais perdu mais je suis retrouvé,\nAveugle et maintenant je vois.",
-        bridgeTitle: 'PONT',
-        bridgeLyrics: 'Quand nous serons là-haut depuis dix mille ans,'
-      };
-    }
-
     return {
-      title: 'Amazing Grace',
-      artist: 'John Newton / Chris Tomlin',
-      language: 'Anglais',
-      duration: '04:30',
-      tags: ['Classique', 'Hymne', 'Grâce'],
-      key: 'E',
-      tempo: 75,
-      notes: 'English version of Grâce Infinie.',
-      verseTitle: 'VERSE 1',
-      verseLyrics1: 'Amazing grace how sweet the sound',
-      verseLyrics2: 'That saved a wretch like me',
-      chorusTitle: 'CHORUS',
-      chorusLyrics: "My chains are gone, I've been set free",
-      bridgeTitle: 'BRIDGE',
-      bridgeLyrics: 'The earth shall soon dissolve like snow'
+      title: 'Lorem Ipsum Dolor Sit Amet',
+      artist: 'Consectetur Adipiscing & Band',
+      language: 'Latin',
+      duration: '04:45',
+      tags: ['Lorem Ipsum', 'Adoration', 'Praise & Worship', 'Exemple Multisection'],
+      key: 'G',
+      tempo: 118,
+      ccli: '4829105',
+      copyright: '© 2026 Lorem Ipsum Publishing / Dolor Sit Records (Admin. Praise Rights)',
+      notes: 'Intro douce au piano arpégé. Montée en puissance sur le Pré-refrain, tutti puissant au Refrain, envolée sur l\'Instrumental et fin délicate sur le Tag.',
     };
-  }, [previewSongId, songs, selectedSong]);
+  }, []);
 
   const langMeta = getLanguageMeta(activeSongData.language);
+
+  // Définition complète des 9 sections du chant témoin Lorem Ipsum (Intro, Couplet, Pré-refrain, Refrain, Pont, Instrumental, Tag, Outro, Spécial)
+  interface LoremSection {
+    key: keyof SectionColors;
+    badge: string;
+    vocalArrangement?: string;
+    items: Array<{
+      chords?: string;
+      lyrics: string;
+    }>;
+  }
+
+  const LOREM_SECTIONS: LoremSection[] = [
+    {
+      key: 'intro',
+      badge: 'INTRO',
+      vocalArrangement: 'Piano seul',
+      items: [
+        {
+          chords: 'G                 C/G               G                 D/F#',
+          lyrics: '(Arpège doux au piano et nappe atmosphérique de synthétiseur)'
+        }
+      ]
+    },
+    {
+      key: 'verse',
+      badge: 'COUPLET 1',
+      vocalArrangement: 'Voix unisson',
+      items: [
+        {
+          chords: 'G                             Em7',
+          lyrics: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit,'
+        },
+        {
+          chords: 'Cadd9                         D',
+          lyrics: 'Sed do eiusmod tempor incididunt ut labore et dolore magna.'
+        }
+      ]
+    },
+    {
+      key: 'preChorus',
+      badge: 'PRÉ-REFRAIN',
+      vocalArrangement: 'Harmonies',
+      items: [
+        {
+          chords: 'Am7                           C',
+          lyrics: 'Quis autem vel eum iure reprehenderit in ea voluptate,'
+        },
+        {
+          chords: 'Em7                           Dsus4           D',
+          lyrics: 'Velit esse quam nihil molestiae consequatur!'
+        }
+      ]
+    },
+    {
+      key: 'chorus',
+      badge: 'REFRAIN',
+      vocalArrangement: 'Tutti (Chœur)',
+      items: [
+        {
+          chords: 'G                             D/F#',
+          lyrics: 'Duis aute irure dolor in reprehenderit in voluptate,'
+        },
+        {
+          chords: 'Em7                           Cadd9',
+          lyrics: 'Cillum dolore eu fugiat nulla pariatur excepteur sint!'
+        }
+      ]
+    },
+    {
+      key: 'bridge',
+      badge: 'PONT',
+      vocalArrangement: 'Lead + Écho',
+      items: [
+        {
+          chords: 'Em                            C',
+          lyrics: 'Nemo enim ipsam voluptatem quia voluptas sit aspernatur,'
+        },
+        {
+          chords: 'G                             D/F#',
+          lyrics: 'Neque porro quisquam est qui dolorem ipsum quia dolor.'
+        }
+      ]
+    },
+    {
+      key: 'instrumental',
+      badge: 'INSTRUMENTAL',
+      vocalArrangement: 'Solo Guitare',
+      items: [
+        {
+          chords: 'Cadd9             Em7             Dsus4             G',
+          lyrics: '(Solo de guitare électrique ou envolée orchestrale tutti)'
+        }
+      ]
+    },
+    {
+      key: 'tag',
+      badge: 'TAG / CODA',
+      vocalArrangement: 'A cappella',
+      items: [
+        {
+          chords: 'C                             D                             G',
+          lyrics: 'In aeternum et in saecula saeculorum, amen.'
+        }
+      ]
+    },
+    {
+      key: 'outro',
+      badge: 'OUTRO',
+      vocalArrangement: 'Tenu',
+      items: [
+        {
+          chords: 'G                 C                 G/B               D                 G',
+          lyrics: 'Pellentesque habitant morbi tristique senectus, decrescendo pianissimo.'
+        }
+      ]
+    },
+    {
+      key: 'general',
+      badge: 'SPÉCIAL / INTERLUDE',
+      vocalArrangement: 'Spontané',
+      items: [
+        {
+          chords: 'Em7               D/F#              G                 C',
+          lyrics: 'Ad libitum — transition libre et prière spontanée.'
+        }
+      ]
+    }
+  ];
 
   const renderSongPreviewBody = (isFullscreen = false) => {
     const currentSpacing = typography.sectionSpacing !== undefined ? typography.sectionSpacing : 4;
@@ -894,25 +960,6 @@ export const SettingsView: React.FC = () => {
                 </button>
               </div>
             </div>
-
-            {/* Sélecteur du chant affiché en aperçu */}
-            <div className="flex items-center gap-1.5 shrink-0">
-              <span className="text-[11px] text-gray-400 hidden sm:inline">Chant :</span>
-              <select
-                value={previewSongId}
-                onChange={(e) => setPreviewSongId(e.target.value)}
-                className="bg-[#101014] border border-[#2C2C38] hover:border-blue-500/50 text-[11px] text-white rounded-lg px-2 py-1 cursor-pointer focus:outline-none focus:border-blue-500 max-w-[210px] truncate"
-                title="Choisir le chant affiché dans l'aperçu"
-              >
-                <option value="demo-amazing-grace">Amazing Grace (Exemple EN avec tags)</option>
-                <option value="demo-jesus-tu-es-bon">Jésus tu es bon (Exemple FR avec tags)</option>
-                {songs.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.title} {s.artist ? `(${s.artist})` : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
           </div>
 
           {/* Boutons Pills de filtre métadonnées */}
@@ -937,6 +984,8 @@ export const SettingsView: React.FC = () => {
                   {item.key === 'duration' && <Clock className="w-3 h-3 text-cyan-400" />}
                   {item.key === 'artist' && <Type className="w-3 h-3 text-gray-300" />}
                   {item.key === 'tags' && <Tag className="w-3 h-3 text-blue-400" />}
+                  {item.key === 'ccli' && <Shield className="w-3 h-3 text-blue-400" />}
+                  {item.key === 'copyright' && <Copyright className="w-3 h-3 text-emerald-400" />}
                   {item.key === 'controlsBar' && <Music className="w-3 h-3 text-amber-400" />}
                   {item.key === 'notes' && <Bookmark className="w-3 h-3 text-emerald-400" />}
                   {item.key === 'actions' && <Maximize2 className="w-3 h-3 text-purple-400" />}
@@ -950,6 +999,48 @@ export const SettingsView: React.FC = () => {
                 </button>
               );
             })}
+          </div>
+
+          {/* Palette d'accès direct aux couleurs des 9 sections */}
+          <div className="pt-2 border-t border-[#252530] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 text-xs text-gray-300 font-medium">
+              <Palette className="w-3.5 h-3.5 text-blue-400" />
+              <span>Couleurs des sections :</span>
+              <span className="text-[10px] text-gray-500 hidden sm:inline">(cliquer pour modifier la couleur)</span>
+            </div>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {SECTION_TYPES_LIST.map((secMeta) => {
+                const color = sectionColors[secMeta.key] || '#3b82f6';
+                const isSelected = selectedPreviewElement?.type === 'sectionHeader' && selectedPreviewElement.sectionType === secMeta.key;
+                return (
+                  <button
+                    key={secMeta.key}
+                    type="button"
+                    onClick={() => {
+                      setSelectedPreviewElement({
+                        type: 'sectionHeader',
+                        sectionType: secMeta.key,
+                        label: `Badge : ${secMeta.label}`
+                      });
+                    }}
+                    className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-semibold transition-all border cursor-pointer ${
+                      isSelected
+                        ? 'ring-2 ring-blue-500 scale-105 shadow-md'
+                        : 'hover:scale-105 hover:border-gray-500'
+                    }`}
+                    style={{
+                      color: color,
+                      borderColor: `${color}60`,
+                      backgroundColor: `${color}18`
+                    }}
+                    title={`Personnaliser la couleur de : ${secMeta.label} (${color})`}
+                  >
+                    <span className="w-2 h-2 rounded-full shrink-0 shadow-xs" style={{ backgroundColor: color }} />
+                    <span>{secMeta.label}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 
@@ -1039,12 +1130,6 @@ export const SettingsView: React.FC = () => {
                 <div className="p-1.5 rounded-lg border text-xs font-medium flex items-center justify-center bg-[#1C1C1E] text-gray-300 border-[#333]">
                   <Maximize2 className="w-3.5 h-3.5" />
                 </div>
-                <div className="p-1.5 rounded-lg bg-[#1C1C1E] text-gray-200 border border-[#333] flex items-center justify-center">
-                  <FileEdit className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                </div>
-                <div className="p-1.5 rounded-lg bg-[#1C1C1E] text-gray-200 border border-[#333] flex items-center justify-center">
-                  <FileDown className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                </div>
                 <div className="p-1.5 rounded-lg bg-[#1C1C1E] border border-[#333] text-gray-200 flex items-center justify-center">
                   <Settings2 className="w-3.5 h-3.5" />
                 </div>
@@ -1052,8 +1137,8 @@ export const SettingsView: React.FC = () => {
             )}
           </div>
 
-          {/* Ligne 2: Artiste & Catégories / Tags */}
-          {(previewMetadata.artist || (previewMetadata.tags && activeSongData.tags.length > 0)) && (
+          {/* Ligne 2: Artiste, Catégories, CCLI & Copyright */}
+          {(previewMetadata.artist || (previewMetadata.tags && activeSongData.tags.length > 0) || (previewMetadata.ccli && activeSongData.ccli) || (previewMetadata.copyright && activeSongData.copyright)) && (
             <div className="w-full flex items-center gap-1.5 sm:gap-2 flex-wrap mb-1 text-xs">
               {previewMetadata.artist && (
                 <div 
@@ -1101,6 +1186,54 @@ export const SettingsView: React.FC = () => {
                       <span>{cat}</span>
                     </span>
                   ))}
+                </div>
+              )}
+
+              {previewMetadata.ccli && activeSongData.ccli && (
+                <div 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedPreviewElement({ type: 'metadata', label: 'CCLI' });
+                  }}
+                  className={`flex items-center gap-1 cursor-pointer ${
+                    (previewMetadata.artist || (previewMetadata.tags && activeSongData.tags.length > 0)) ? 'sm:border-l sm:border-[#2A2A2E] sm:pl-2' : ''
+                  }`}
+                  title="Numéro CCLI SongSelect"
+                >
+                  <span
+                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[10px] sm:text-xs font-semibold shadow-xs ${
+                      effectivePreviewTheme === 'light'
+                        ? 'bg-blue-50 border-blue-200 text-blue-700'
+                        : 'bg-[#18181C] border-[#2A2A30] text-blue-300 font-mono'
+                    }`}
+                  >
+                    <Shield className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-blue-400 shrink-0" />
+                    <span>CCLI #{activeSongData.ccli}</span>
+                  </span>
+                </div>
+              )}
+
+              {previewMetadata.copyright && activeSongData.copyright && (
+                <div 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedPreviewElement({ type: 'metadata', label: 'Copyright' });
+                  }}
+                  className={`flex items-center gap-1 cursor-pointer ${
+                    ((previewMetadata.artist || (previewMetadata.tags && activeSongData.tags.length > 0) || (previewMetadata.ccli && activeSongData.ccli))) ? 'sm:border-l sm:border-[#2A2A2E] sm:pl-2' : ''
+                  }`}
+                  title={`Copyright : ${activeSongData.copyright}`}
+                >
+                  <span
+                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[10px] sm:text-xs shadow-xs max-w-[220px] truncate ${
+                      effectivePreviewTheme === 'light'
+                        ? 'bg-gray-100 border-gray-300 text-gray-700'
+                        : 'bg-[#18181C] border-[#2A2A30] text-gray-400'
+                    }`}
+                  >
+                    <Copyright className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-gray-500 shrink-0" />
+                    <span className="truncate">{activeSongData.copyright}</span>
+                  </span>
                 </div>
               )}
             </div>
@@ -1223,469 +1356,145 @@ export const SettingsView: React.FC = () => {
             rowGap: `${currentSpacing}px`,
           }}
         >
-          {/* Section 1: Couplet / Verse */}
-          <div 
-            onClick={() => {
-              setSelectedPreviewElement({
-                type: 'sectionCard',
-                sectionType: 'verse',
-                label: `Cadre & Espacement : ${activeSongData.verseTitle}`
-              });
-            }}
-            className={`rounded-lg ${previewPadding} transition-all cursor-pointer ${
-              selectedPreviewElement?.type === 'sectionCard' && selectedPreviewElement.sectionType === 'verse'
-                ? 'ring-2 ring-blue-500 bg-blue-500/10 shadow-sm'
-                : 'hover:ring-2 hover:ring-blue-400/50 hover:bg-blue-500/5'
-            }`}
-            style={getSectionBorderStyles(sectionColors.verse, sectionBorders)}
-            title="Cliquer pour modifier l'espacement et les bordures de cette section"
-          >
-            {(previewMetadata.sectionHeaders !== false || previewMetadata.vocalArrangement) && (
-              <div className={`${previewHeaderMb} flex items-center justify-between gap-2 flex-wrap`}>
-                {previewMetadata.sectionHeaders !== false && (
-                  <span 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedPreviewElement({
-                        type: 'sectionHeader',
-                        sectionType: 'verse',
-                        label: `Badge : ${activeSongData.verseTitle}`
-                      });
-                    }}
-                    className={`inline-block font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border shadow-xs select-none cursor-pointer transition-all ${
-                      selectedPreviewElement?.type === 'sectionHeader' && selectedPreviewElement.sectionType === 'verse'
-                        ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-[#0E0E10]'
-                        : 'hover:scale-105 hover:ring-1 hover:ring-blue-400/60'
-                    }`}
-                    style={{
-                      fontSize: `${typography.headerSize}px`,
-                      color: sectionColors.verse,
-                      borderColor: `${sectionColors.verse}50`,
-                      backgroundColor: `${sectionColors.verse}1C`
-                    }}
-                    title={`Cliquer pour modifier la taille et la couleur du badge ${activeSongData.verseTitle}`}
-                  >
-                    {activeSongData.verseTitle}
-                  </span>
-                )}
+          {LOREM_SECTIONS.map((sec) => {
+            const isCardSelected = selectedPreviewElement?.type === 'sectionCard' && selectedPreviewElement.sectionType === sec.key;
+            const isHeaderSelected = selectedPreviewElement?.type === 'sectionHeader' && selectedPreviewElement.sectionType === sec.key;
+            const currentSecColor = sectionColors[sec.key] || '#3b82f6';
 
-                {/* Badge d'arrangement vocal (Voix +) */}
-                {previewMetadata.vocalArrangement && (
-                  <div
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedPreviewElement({
-                        type: 'metadata',
-                        label: 'Arrangement vocal (Voix +)'
-                      });
-                    }}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#1B1626] border border-purple-500/30 text-purple-300 text-[11px] font-medium shadow-xs hover:bg-purple-950/60 transition-colors"
-                    title="Arrangement vocal de la section (Voix +)"
-                  >
-                    <Mic className="w-3 h-3 text-purple-400 shrink-0" />
-                    <span>Voix +</span>
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div className="space-y-1 font-mono">
-              <div className="inline-flex flex-col mr-2">
-                {stageSettings.showChords && (
-                  <span 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedPreviewElement({ type: 'chord', label: 'Accords' });
-                    }}
-                    className={`font-mono font-bold leading-none mb-1 cursor-pointer transition-all rounded px-1 -mx-1 select-none ${
-                      selectedPreviewElement?.type === 'chord'
-                        ? 'ring-2 ring-blue-500 bg-blue-500/20'
-                        : 'hover:ring-1 hover:ring-blue-400/60 hover:bg-blue-500/10'
-                    }`}
-                    style={{ fontSize: `${typography.chordSize}px`, color: chordColor }}
-                    title="Cliquer pour modifier la taille et la couleur des accords"
-                  >
-                    {transposeChord(activeSongData.key === 'E' ? 'E' : 'G', stageSettings.transposeOffset, stageSettings.notation)}
-                  </span>
-                )}
-                <span 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedPreviewElement({ type: 'lyrics', label: 'Paroles' });
-                  }}
-                  className={`font-sans cursor-pointer transition-all rounded px-1 -mx-1 ${
-                    selectedPreviewElement?.type === 'lyrics'
-                      ? 'ring-2 ring-blue-500 bg-blue-500/15'
-                      : 'hover:ring-1 hover:ring-blue-400/50 hover:bg-blue-500/5'
-                  } ${effectivePreviewTheme === 'light' ? 'text-[#18181B]' : 'text-[#E0E0E0]'}`}
-                  style={{ fontSize: `${typography.lyricsSize}px` }}
-                  title="Cliquer pour modifier la taille et l'interligne des paroles"
-                >
-                  {activeSongData.verseLyrics1}
-                </span>
-              </div>
-
-              <div className="inline-flex flex-col">
-                {stageSettings.showChords && (
-                  <span 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedPreviewElement({ type: 'chord', label: 'Accords' });
-                    }}
-                    className={`font-mono font-bold leading-none mb-1 cursor-pointer transition-all rounded px-1 -mx-1 select-none ${
-                      selectedPreviewElement?.type === 'chord'
-                        ? 'ring-2 ring-blue-500 bg-blue-500/20'
-                        : 'hover:ring-1 hover:ring-blue-400/60 hover:bg-blue-500/10'
-                    }`}
-                    style={{ fontSize: `${typography.chordSize}px`, color: chordColor }}
-                    title="Cliquer pour modifier la taille et la couleur des accords"
-                  >
-                    {activeSongData.key === 'E' ? (
-                      <>{transposeChord('A', stageSettings.transposeOffset, stageSettings.notation)}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{transposeChord('E', stageSettings.transposeOffset, stageSettings.notation)}</>
-                    ) : (
-                      <>{transposeChord('C', stageSettings.transposeOffset, stageSettings.notation)}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{transposeChord('G', stageSettings.transposeOffset, stageSettings.notation)}</>
-                    )}
-                  </span>
-                )}
-                <span 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedPreviewElement({ type: 'lyrics', label: 'Paroles' });
-                  }}
-                  className={`font-sans cursor-pointer transition-all rounded px-1 -mx-1 ${
-                    selectedPreviewElement?.type === 'lyrics'
-                      ? 'ring-2 ring-blue-500 bg-blue-500/15'
-                      : 'hover:ring-1 hover:ring-blue-400/50 hover:bg-blue-500/5'
-                  } ${effectivePreviewTheme === 'light' ? 'text-[#18181B]' : 'text-[#E0E0E0]'}`}
-                  style={{ fontSize: `${typography.lyricsSize}px` }}
-                  title="Cliquer pour modifier la taille et l'interligne des paroles"
-                >
-                  {activeSongData.verseLyrics2}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Section 2: Refrain / Chorus */}
-          <div 
-            onClick={() => {
-              setSelectedPreviewElement({
-                type: 'sectionCard',
-                sectionType: 'chorus',
-                label: `Cadre & Espacement : ${activeSongData.chorusTitle}`
-              });
-            }}
-            className={`rounded-lg ${previewPadding} transition-all cursor-pointer ${
-              selectedPreviewElement?.type === 'sectionCard' && selectedPreviewElement.sectionType === 'chorus'
-                ? 'ring-2 ring-blue-500 bg-blue-500/10 shadow-sm'
-                : 'hover:ring-2 hover:ring-blue-400/50 hover:bg-blue-500/5'
-            }`}
-            style={getSectionBorderStyles(sectionColors.chorus, sectionBorders)}
-            title="Cliquer pour modifier l'espacement et les bordures de cette section"
-          >
-            {(previewMetadata.sectionHeaders !== false || previewMetadata.vocalArrangement) && (
-              <div className={`${previewHeaderMb} flex items-center justify-between gap-2 flex-wrap`}>
-                {previewMetadata.sectionHeaders !== false && (
-                  <span 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedPreviewElement({
-                        type: 'sectionHeader',
-                        sectionType: 'chorus',
-                        label: `Badge : ${activeSongData.chorusTitle}`
-                      });
-                    }}
-                    className={`inline-block font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border shadow-xs select-none cursor-pointer transition-all ${
-                      selectedPreviewElement?.type === 'sectionHeader' && selectedPreviewElement.sectionType === 'chorus'
-                        ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-[#0E0E10]'
-                        : 'hover:scale-105 hover:ring-1 hover:ring-blue-400/60'
-                    }`}
-                    style={{
-                      fontSize: `${typography.headerSize}px`,
-                      color: sectionColors.chorus,
-                      borderColor: `${sectionColors.chorus}50`,
-                      backgroundColor: `${sectionColors.chorus}1C`
-                    }}
-                    title={`Cliquer pour modifier la taille et la couleur du badge ${activeSongData.chorusTitle}`}
-                  >
-                    {activeSongData.chorusTitle}
-                  </span>
-                )}
-
-                {/* Badge d'arrangement vocal (Voix +) */}
-                {previewMetadata.vocalArrangement && (
-                  <div
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedPreviewElement({
-                        type: 'metadata',
-                        label: 'Arrangement vocal (Voix +)'
-                      });
-                    }}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#1B1626] border border-purple-500/30 text-purple-300 text-[11px] font-medium shadow-xs hover:bg-purple-950/60 transition-colors"
-                    title="Arrangement vocal de la section (Voix +)"
-                  >
-                    <Mic className="w-3 h-3 text-purple-400 shrink-0" />
-                    <span>Voix +</span>
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div className="space-y-1 font-mono">
-              <div className="inline-flex flex-col mr-2">
-                {stageSettings.showChords && (
-                  <span 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedPreviewElement({ type: 'chord', label: 'Accords' });
-                    }}
-                    className={`font-mono font-bold leading-none mb-1 cursor-pointer transition-all rounded px-1 -mx-1 select-none ${
-                      selectedPreviewElement?.type === 'chord'
-                        ? 'ring-2 ring-blue-500 bg-blue-500/20'
-                        : 'hover:ring-1 hover:ring-blue-400/60 hover:bg-blue-500/10'
-                    }`}
-                    style={{ fontSize: `${typography.chordSize}px`, color: chordColor }}
-                    title="Cliquer pour modifier la taille et la couleur des accords"
-                  >
-                    {activeSongData.key === 'E' ? (
-                      <>{transposeChord('A', stageSettings.transposeOffset, stageSettings.notation)}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{transposeChord('E', stageSettings.transposeOffset, stageSettings.notation)}</>
-                    ) : (
-                      <>{transposeChord('Em', stageSettings.transposeOffset, stageSettings.notation)}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{transposeChord('D', stageSettings.transposeOffset, stageSettings.notation)}</>
-                    )}
-                  </span>
-                )}
-                <span 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedPreviewElement({ type: 'lyrics', label: 'Paroles' });
-                  }}
-                  className={`font-sans cursor-pointer transition-all rounded px-1 -mx-1 ${
-                    selectedPreviewElement?.type === 'lyrics'
-                      ? 'ring-2 ring-blue-500 bg-blue-500/15'
-                      : 'hover:ring-1 hover:ring-blue-400/50 hover:bg-blue-500/5'
-                  } ${effectivePreviewTheme === 'light' ? 'text-[#18181B]' : 'text-[#E0E0E0]'}`}
-                  style={{ fontSize: `${typography.lyricsSize}px` }}
-                  title="Cliquer pour modifier la taille et l'interligne des paroles"
-                >
-                  {activeSongData.chorusLyrics}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Section 3: Pont / Bridge */}
-          <div 
-            onClick={() => {
-              setSelectedPreviewElement({
-                type: 'sectionCard',
-                sectionType: 'bridge',
-                label: `Cadre & Espacement : ${activeSongData.bridgeTitle}`
-              });
-            }}
-            className={`rounded-lg ${previewPadding} transition-all cursor-pointer ${
-              selectedPreviewElement?.type === 'sectionCard' && selectedPreviewElement.sectionType === 'bridge'
-                ? 'ring-2 ring-blue-500 bg-blue-500/10 shadow-sm'
-                : 'hover:ring-2 hover:ring-blue-400/50 hover:bg-blue-500/5'
-            }`}
-            style={getSectionBorderStyles(sectionColors.bridge, sectionBorders)}
-            title="Cliquer pour modifier l'espacement et les bordures de cette section"
-          >
-            {(previewMetadata.sectionHeaders !== false || previewMetadata.vocalArrangement) && (
-              <div className={`${previewHeaderMb} flex items-center justify-between gap-2 flex-wrap`}>
-                {previewMetadata.sectionHeaders !== false && (
-                  <span 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedPreviewElement({
-                        type: 'sectionHeader',
-                        sectionType: 'bridge',
-                        label: `Badge : ${activeSongData.bridgeTitle}`
-                      });
-                    }}
-                    className={`inline-block font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border shadow-xs select-none cursor-pointer transition-all ${
-                      selectedPreviewElement?.type === 'sectionHeader' && selectedPreviewElement.sectionType === 'bridge'
-                        ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-[#0E0E10]'
-                        : 'hover:scale-105 hover:ring-1 hover:ring-blue-400/60'
-                    }`}
-                    style={{
-                      fontSize: `${typography.headerSize}px`,
-                      color: sectionColors.bridge,
-                      borderColor: `${sectionColors.bridge}50`,
-                      backgroundColor: `${sectionColors.bridge}1C`
-                    }}
-                    title={`Cliquer pour modifier la taille et la couleur du badge ${activeSongData.bridgeTitle}`}
-                  >
-                    {activeSongData.bridgeTitle}
-                  </span>
-                )}
-
-                {/* Badge d'arrangement vocal (Voix +) */}
-                {previewMetadata.vocalArrangement && (
-                  <div
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedPreviewElement({
-                        type: 'metadata',
-                        label: 'Arrangement vocal (Voix +)'
-                      });
-                    }}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#1B1626] border border-purple-500/30 text-purple-300 text-[11px] font-medium shadow-xs hover:bg-purple-950/60 transition-colors"
-                    title="Arrangement vocal de la section (Voix +)"
-                  >
-                    <Mic className="w-3 h-3 text-purple-400 shrink-0" />
-                    <span>Voix +</span>
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div className="space-y-1 font-mono">
-              <div className="inline-flex flex-col">
-                {stageSettings.showChords && (
-                  <span 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedPreviewElement({ type: 'chord', label: 'Accords' });
-                    }}
-                    className={`font-mono font-bold leading-none mb-1 cursor-pointer transition-all rounded px-1 -mx-1 select-none ${
-                      selectedPreviewElement?.type === 'chord'
-                        ? 'ring-2 ring-blue-500 bg-blue-500/20'
-                        : 'hover:ring-1 hover:ring-blue-400/60 hover:bg-blue-500/10'
-                    }`}
-                    style={{ fontSize: `${typography.chordSize}px`, color: chordColor }}
-                    title="Cliquer pour modifier la taille et la couleur des accords"
-                  >
-                    {activeSongData.key === 'E' ? (
-                      <>{transposeChord('C#m', stageSettings.transposeOffset, stageSettings.notation)}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{transposeChord('B', stageSettings.transposeOffset, stageSettings.notation)}</>
-                    ) : (
-                      <>{transposeChord('C', stageSettings.transposeOffset, stageSettings.notation)}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{transposeChord('G/B', stageSettings.transposeOffset, stageSettings.notation)}</>
-                    )}
-                  </span>
-                )}
-                <span 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedPreviewElement({ type: 'lyrics', label: 'Paroles' });
-                  }}
-                  className={`font-sans cursor-pointer transition-all rounded px-1 -mx-1 ${
-                    selectedPreviewElement?.type === 'lyrics'
-                      ? 'ring-2 ring-blue-500 bg-blue-500/15'
-                      : 'hover:ring-1 hover:ring-blue-400/50 hover:bg-blue-500/5'
-                  } ${effectivePreviewTheme === 'light' ? 'text-[#18181B]' : 'text-[#E0E0E0]'}`}
-                  style={{ fontSize: `${typography.lyricsSize}px` }}
-                  title="Cliquer pour modifier la taille et l'interligne des paroles"
-                >
-                  {activeSongData.bridgeLyrics}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Section 4: Outro */}
-          <div 
-            onClick={() => {
-              setSelectedPreviewElement({
-                type: 'sectionCard',
-                sectionType: 'outro',
-                label: 'Cadre & Espacement : Outro'
-              });
-            }}
-            className={`rounded-lg ${previewPadding} transition-all cursor-pointer ${
-              selectedPreviewElement?.type === 'sectionCard' && selectedPreviewElement.sectionType === 'outro'
-                ? 'ring-2 ring-blue-500 bg-blue-500/10 shadow-sm'
-                : 'hover:ring-2 hover:ring-blue-400/50 hover:bg-blue-500/5'
-            }`}
-            style={getSectionBorderStyles(sectionColors.outro, sectionBorders)}
-            title="Cliquer pour modifier l'espacement et les bordures de cette section"
-          >
-            <div className={`${previewHeaderMb} flex items-center justify-between gap-2 flex-wrap`}>
-              <span 
-                onClick={(e) => {
-                  e.stopPropagation();
+            return (
+              <div 
+                key={sec.key}
+                onClick={() => {
                   setSelectedPreviewElement({
-                    type: 'sectionHeader',
-                    sectionType: 'outro',
-                    label: 'Badge : Outro'
+                    type: 'sectionCard',
+                    sectionType: sec.key,
+                    label: `Cadre & Espacement : ${sec.badge}`
                   });
                 }}
-                className={`inline-block font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border shadow-xs select-none cursor-pointer transition-all ${
-                  selectedPreviewElement?.type === 'sectionHeader' && selectedPreviewElement.sectionType === 'outro'
-                    ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-[#0E0E10]'
-                    : 'hover:scale-105 hover:ring-1 hover:ring-blue-400/60'
+                className={`rounded-lg ${previewPadding} transition-all cursor-pointer ${
+                  isCardSelected
+                    ? 'ring-2 ring-blue-500 bg-blue-500/10 shadow-sm'
+                    : 'hover:ring-2 hover:ring-blue-400/50 hover:bg-blue-500/5'
                 }`}
-                style={{
-                  fontSize: `${typography.headerSize}px`,
-                  color: sectionColors.outro,
-                  borderColor: `${sectionColors.outro}50`,
-                  backgroundColor: `${sectionColors.outro}1C`
-                }}
-                title="Cliquer pour modifier la taille et la couleur du badge Outro"
+                style={getSectionBorderStyles(currentSecColor, sectionBorders)}
+                title={`Section ${sec.badge} - Cliquer pour ajuster la bordure et l'espacement`}
               >
-                Outro
-              </span>
-
-              {/* Badge d'arrangement vocal (Voix +) */}
-              {previewMetadata.vocalArrangement && (
-                <div
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedPreviewElement({
-                      type: 'metadata',
-                      label: 'Arrangement vocal (Voix +)'
-                    });
-                  }}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#1B1626] border border-purple-500/30 text-purple-300 text-[11px] font-medium shadow-xs hover:bg-purple-950/60 transition-colors"
-                  title="Arrangement vocal de la section (Voix +)"
-                >
-                  <Mic className="w-3 h-3 text-purple-400 shrink-0" />
-                  <span>Voix +</span>
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-1 font-mono">
-              <div className="inline-flex flex-col">
-                {stageSettings.showChords && (
-                  <span 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedPreviewElement({ type: 'chord', label: 'Accords' });
-                    }}
-                    className={`font-mono font-bold leading-none mb-1 cursor-pointer transition-all rounded px-1 -mx-1 select-none ${
-                      selectedPreviewElement?.type === 'chord'
-                        ? 'ring-2 ring-blue-500 bg-blue-500/20'
-                        : 'hover:ring-1 hover:ring-blue-400/60 hover:bg-blue-500/10'
-                    }`}
-                    style={{ fontSize: `${typography.chordSize}px`, color: chordColor }}
-                    title="Cliquer pour modifier la taille et la couleur des accords"
-                  >
-                    {activeSongData.key === 'E' ? (
-                      <>{transposeChord('A', stageSettings.transposeOffset, stageSettings.notation)}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{transposeChord('E', stageSettings.transposeOffset, stageSettings.notation)}</>
-                    ) : (
-                      <>{transposeChord('C', stageSettings.transposeOffset, stageSettings.notation)}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{transposeChord('G', stageSettings.transposeOffset, stageSettings.notation)}</>
+                {(previewMetadata.sectionHeaders !== false || previewMetadata.vocalArrangement) && (
+                  <div className={`${previewHeaderMb} flex items-center justify-between gap-2 flex-wrap`}>
+                    {previewMetadata.sectionHeaders !== false && (
+                      <span 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedPreviewElement({
+                            type: 'sectionHeader',
+                            sectionType: sec.key,
+                            label: `Badge : ${sec.badge}`
+                          });
+                        }}
+                        className={`inline-block font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border shadow-xs select-none cursor-pointer transition-all ${
+                          isHeaderSelected
+                            ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-[#0E0E10] scale-105'
+                            : 'hover:scale-105 hover:ring-1 hover:ring-blue-400/60'
+                        }`}
+                        style={{
+                          fontSize: `${typography.headerSize}px`,
+                          color: currentSecColor,
+                          borderColor: `${currentSecColor}50`,
+                          backgroundColor: `${currentSecColor}1C`
+                        }}
+                        title={`Cliquer pour modifier la couleur et la taille du badge ${sec.badge}`}
+                      >
+                        {sec.badge}
+                      </span>
                     )}
-                  </span>
+
+                    {previewMetadata.vocalArrangement && sec.vocalArrangement && (
+                      <div
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedPreviewElement({
+                            type: 'metadata',
+                            label: `Arrangement vocal (${sec.vocalArrangement})`
+                          });
+                        }}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#1B1626] border border-purple-500/30 text-purple-300 text-[11px] font-medium shadow-xs hover:bg-purple-950/60 transition-colors"
+                        title="Arrangement vocal de la section"
+                      >
+                        <Mic className="w-3 h-3 text-purple-400 shrink-0" />
+                        <span>{sec.vocalArrangement}</span>
+                      </div>
+                    )}
+                  </div>
                 )}
-                <span 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedPreviewElement({ type: 'lyrics', label: 'Paroles' });
-                  }}
-                  className={`font-sans cursor-pointer transition-all rounded px-1 -mx-1 ${
-                    selectedPreviewElement?.type === 'lyrics'
-                      ? 'ring-2 ring-blue-500 bg-blue-500/15'
-                      : 'hover:ring-1 hover:ring-blue-400/50 hover:bg-blue-500/5'
-                  } ${effectivePreviewTheme === 'light' ? 'text-[#18181B]' : 'text-[#E0E0E0]'}`}
-                  style={{ fontSize: `${typography.lyricsSize}px` }}
-                  title="Cliquer pour modifier la taille et l'interligne des paroles"
-                >
-                  À Dieu soit toute la gloire.
+
+                <div className="space-y-1 font-mono">
+                  {sec.items.map((line, lIdx) => (
+                    <div key={lIdx} className="flex flex-col">
+                      {stageSettings.showChords && line.chords && (
+                        <span 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedPreviewElement({ type: 'chord', label: 'Accords' });
+                          }}
+                          className={`font-mono font-bold leading-none mb-1 cursor-pointer transition-all rounded px-1 -mx-1 select-none whitespace-pre ${
+                            selectedPreviewElement?.type === 'chord'
+                              ? 'ring-2 ring-blue-500 bg-blue-500/20'
+                              : 'hover:ring-1 hover:ring-blue-400/60 hover:bg-blue-500/10'
+                          }`}
+                          style={{ fontSize: `${typography.chordSize}px`, color: chordColor }}
+                          title="Cliquer pour modifier la taille et la couleur des accords"
+                        >
+                          {line.chords.split(/(\s+)/).map((token, tIdx) => {
+                            if (!token.trim()) return token;
+                            return transposeChord(token, stageSettings.transposeOffset, stageSettings.notation);
+                          }).join('')}
+                        </span>
+                      )}
+                      <span 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedPreviewElement({ type: 'lyrics', label: 'Paroles' });
+                        }}
+                        className={`font-sans cursor-pointer transition-all rounded px-1 -mx-1 ${
+                          selectedPreviewElement?.type === 'lyrics'
+                            ? 'ring-2 ring-blue-500 bg-blue-500/15'
+                            : 'hover:ring-1 hover:ring-blue-400/50 hover:bg-blue-500/5'
+                        } ${effectivePreviewTheme === 'light' ? 'text-[#18181B]' : 'text-[#E0E0E0]'}`}
+                        style={{ fontSize: `${typography.lyricsSize}px` }}
+                        title="Cliquer pour modifier la taille et l'interligne des paroles"
+                      >
+                        {line.lyrics}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Song Sheet Legal Footer: CCLI & Copyright */}
+        {((previewMetadata.ccli && activeSongData.ccli) || (previewMetadata.copyright && activeSongData.copyright)) && (
+          <div className="mt-6 pt-3 border-t border-[#222226] flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px] text-gray-400">
+            {previewMetadata.copyright && activeSongData.copyright && (
+              <div className="flex items-center gap-1.5 text-gray-400 min-w-0">
+                <Copyright className="w-3 h-3 text-gray-500 shrink-0" />
+                <span className="truncate">{activeSongData.copyright}</span>
+              </div>
+            )}
+            {previewMetadata.ccli && activeSongData.ccli && (
+              <div className="flex items-center gap-1.5 shrink-0 sm:ml-auto">
+                <Shield className="w-3 h-3 text-blue-400 shrink-0" />
+                <span>
+                  Chant CCLI N°{' '}
+                  <span className="font-mono font-bold text-blue-400">
+                    {activeSongData.ccli}
+                  </span>
                 </span>
               </div>
-            </div>
+            )}
           </div>
-        </div>
+        )}
       </div>
     );
   };
@@ -2185,6 +1994,78 @@ export const SettingsView: React.FC = () => {
                   )}
                 </button>
               </div>
+
+              {/* N° CCLI */}
+              <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="w-5 h-5 rounded bg-blue-500/20 border border-blue-500/40 text-blue-300 text-[10px] font-bold flex items-center justify-center shrink-0">
+                    <Shield className="w-3 h-3 text-blue-400" />
+                  </span>
+                  <span className="text-xs font-bold text-gray-200">Numéro CCLI</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !songCardMetadata?.showCcli;
+                    updateSongCardMetadata({ showCcli: next });
+                    notify(next ? 'N° CCLI activé sur les cartes' : 'N° CCLI masqué sur les cartes');
+                  }}
+                  className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border ${
+                    songCardMetadata?.showCcli
+                      ? 'bg-blue-600 text-white border-blue-500 shadow-xs hover:bg-blue-500'
+                      : 'metadata-toggle-btn-inactive bg-[#121214] text-gray-400 border-[#2B2B30] hover:text-white'
+                  }`}
+                  title={songCardMetadata?.showCcli ? 'Cliquer pour masquer le CCLI' : 'Cliquer pour afficher le CCLI'}
+                >
+                  {songCardMetadata?.showCcli ? (
+                    <>
+                      <Eye className="w-3.5 h-3.5 shrink-0" />
+                      <span>Visible</span>
+                    </>
+                  ) : (
+                    <>
+                      <EyeOff className="w-3.5 h-3.5 shrink-0" />
+                      <span>Masqué</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Copyright */}
+              <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="w-5 h-5 rounded bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[10px] font-bold flex items-center justify-center shrink-0">
+                    <Copyright className="w-3 h-3 text-emerald-400" />
+                  </span>
+                  <span className="text-xs font-bold text-gray-200">Copyright & Droits</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !songCardMetadata?.showCopyright;
+                    updateSongCardMetadata({ showCopyright: next });
+                    notify(next ? 'Copyright activé sur les cartes' : 'Copyright masqué sur les cartes');
+                  }}
+                  className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border ${
+                    songCardMetadata?.showCopyright
+                      ? 'bg-blue-600 text-white border-blue-500 shadow-xs hover:bg-blue-500'
+                      : 'metadata-toggle-btn-inactive bg-[#121214] text-gray-400 border-[#2B2B30] hover:text-white'
+                  }`}
+                  title={songCardMetadata?.showCopyright ? 'Cliquer pour masquer le copyright' : 'Cliquer pour afficher le copyright'}
+                >
+                  {songCardMetadata?.showCopyright ? (
+                    <>
+                      <Eye className="w-3.5 h-3.5 shrink-0" />
+                      <span>Visible</span>
+                    </>
+                  ) : (
+                    <>
+                      <EyeOff className="w-3.5 h-3.5 shrink-0" />
+                      <span>Masqué</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
 
             {/* Apercu en direct de la vignette de chant */}
@@ -2192,7 +2073,7 @@ export const SettingsView: React.FC = () => {
               <div className="text-[11px] text-gray-400 mb-2 font-medium flex items-center justify-between">
                 <span>Aperçu de la vignette de chant</span>
                 <span className="text-[10px] text-gray-500">
-                  {!songCardMetadata?.showKey && !songCardMetadata?.showTempo && !songCardMetadata?.showDuration && !songCardMetadata?.showCategories
+                  {!songCardMetadata?.showKey && !songCardMetadata?.showTempo && !songCardMetadata?.showDuration && !songCardMetadata?.showCategories && !songCardMetadata?.showCcli && !songCardMetadata?.showCopyright
                     ? 'Métadonnées masquées par défaut'
                     : 'Métadonnées actives'}
                 </span>
@@ -2218,7 +2099,7 @@ export const SettingsView: React.FC = () => {
                   )}
                 </div>
 
-                {((songCardMetadata?.showKey) || (songCardMetadata?.showTempo) || (songCardMetadata?.showDuration)) && (
+                {((songCardMetadata?.showKey) || (songCardMetadata?.showTempo) || (songCardMetadata?.showDuration) || (songCardMetadata?.showCcli) || (songCardMetadata?.showCopyright)) && (
                   <div className="flex items-center gap-1 flex-wrap mt-2 pt-1.5 border-t border-[#1C1C1F]">
                     {songCardMetadata?.showKey && (
                       <span className="px-1.5 py-0.5 rounded border border-amber-500/50 bg-amber-500/20 text-amber-300 text-[9px] font-bold">
@@ -2235,6 +2116,18 @@ export const SettingsView: React.FC = () => {
                       <span className="px-1.5 py-0.5 rounded bg-cyan-950/50 border border-cyan-500/30 text-cyan-300 text-[9px] font-medium flex items-center gap-1 font-mono">
                         <Clock className="w-2.5 h-2.5 text-cyan-400" />
                         03:45
+                      </span>
+                    )}
+                    {songCardMetadata?.showCcli && (
+                      <span className="px-1.5 py-0.5 rounded bg-blue-950/50 border border-blue-500/30 text-blue-300 text-[9px] font-medium flex items-center gap-1 font-mono">
+                        <Shield className="w-2.5 h-2.5 text-blue-400" />
+                        #7117726
+                      </span>
+                    )}
+                    {songCardMetadata?.showCopyright && (
+                      <span className="px-1.5 py-0.5 rounded bg-[#1C1C1E] border border-[#222224] text-gray-400 text-[9px] font-medium flex items-center gap-1 truncate max-w-[130px]">
+                        <Copyright className="w-2.5 h-2.5 text-gray-500 shrink-0" />
+                        <span className="truncate">© Bethel</span>
                       </span>
                     )}
                   </div>

@@ -32,10 +32,14 @@ import {
   Loader2,
   UserPlus,
   UserMinus,
-  Search
+  Search,
+  FileEdit,
+  Monitor
 } from 'lucide-react';
 import { UserRole, Group } from '../types';
 import { AssignMembersModal } from './AssignMembersModal';
+import { RoleMatrixModal } from './RoleMatrixModal';
+import { RoleHierarchyChart } from './RoleHierarchyChart';
 
 // Composant Tooltip interactif compact (hover & click/touch)
 const InfoTooltip: React.FC<{ content: React.ReactNode; label?: string }> = ({ content, label = "Informations" }) => {
@@ -117,35 +121,71 @@ const ROLE_CONFIGS: Record<UserRole, {
     role: 'leader',
     label: 'Responsable',
     emoji: '⚡',
-    shortBadge: 'Musique & Chants',
+    shortBadge: 'Musique & Setlists',
     icon: Award,
     iconBoxStyle: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30',
     badgeStyle: 'bg-emerald-600/20 text-emerald-300 border-emerald-500/40',
     tagStyle: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
     dotColor: 'bg-emerald-400',
-    description: "Mêmes droits que l'Admin sur la musique : chants, setlists, cultes et accès complet aux réglages.",
+    description: "Conduite musicale : création des setlists, fixation des tonalités, choix des chants et conduite des cultes/concerts.",
     permissions: [
-      "Gestion complète des chants, dossiers et versions",
-      "Création, organisation et conduite des setlists & cultes",
-      "Mode Scène, métronome et transposition en direct",
-      "Accès à l'ensemble des réglages de l'application"
+      "Création, organisation et gestion des setlists",
+      "Définition des tonalités et tempos par défaut du groupe",
+      "Création et modification des chants dans le répertoire",
+      "Mode Scène, métronome, accordeur et historique"
+    ]
+  },
+  editor: {
+    role: 'editor',
+    label: 'Éditeur',
+    emoji: '✍️',
+    shortBadge: 'Gestion Chants',
+    icon: FileEdit,
+    iconBoxStyle: 'bg-amber-500/20 text-amber-400 border border-amber-500/30',
+    badgeStyle: 'bg-amber-600/20 text-amber-300 border-amber-500/40',
+    tagStyle: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+    dotColor: 'bg-amber-400',
+    description: "Saisie et enrichissement du répertoire : création de chants, import ChordPro, retouche des accords et des paroles. Ne modifie pas les setlists.",
+    permissions: [
+      "Création, édition et import de chants ChordPro",
+      "Organisation des dossiers, tags, clés et métadonnées",
+      "Consultation des setlists sans droit de modification",
+      "Mode Scène et transposition personnelle"
     ]
   },
   member: {
     role: 'member',
     label: 'Membre',
     emoji: '🎵',
-    shortBadge: 'Synchronisé',
+    shortBadge: 'Musicien / Chant',
     icon: UserCheck,
-    iconBoxStyle: 'bg-gray-500/20 text-gray-300 border border-gray-500/30',
+    iconBoxStyle: 'bg-purple-500/20 text-purple-300 border border-purple-500/30',
     badgeStyle: 'bg-[#1C1C1E] text-gray-300 border-[#333]',
-    tagStyle: 'bg-gray-500/20 text-gray-300 border-gray-500/30',
-    dotColor: 'bg-gray-400',
-    description: "Compte connecté. Synchronisation directe des setlists de la bibliothèque, répétitions en direct et Mode Scène.",
+    tagStyle: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
+    dotColor: 'bg-purple-400',
+    description: "Musicien ou choriste. Synchronisation directe des setlists, répétitions en direct, transposition et capodastre personnels.",
     permissions: [
-      "Lecture seule synchronisée du répertoire de la bibliothèque",
-      "Accès aux setlists et répétitions en direct",
-      "Accès aux réglages de l'application et affichage personnalisé",
+      "Lecture seule synchronisée du répertoire et des setlists",
+      "Accès aux répétitions en direct et Mode Scène",
+      "Transposition et capodastre personnels (sans impacter le groupe)",
+      "Pas de modification des chants racine ni des setlists officielles"
+    ]
+  },
+  viewer: {
+    role: 'viewer',
+    label: 'Régie / Lecteur',
+    emoji: '🖥️',
+    shortBadge: 'Projection',
+    icon: Monitor,
+    iconBoxStyle: 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30',
+    badgeStyle: 'bg-cyan-600/20 text-cyan-300 border-cyan-500/40',
+    tagStyle: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30',
+    dotColor: 'bg-cyan-400',
+    description: "Régie vidéo, projection des paroles ou observateur. Consultation en direct sans risque de modification involontaire.",
+    permissions: [
+      "Consultation en lecture seule des chants et setlists",
+      "Vue plein écran adaptée pour projection de paroles ou écran retour",
+      "Aucune modification possible (sécurité totale anti-fausse manip)",
       "Pas de modification de chants ni de setlists"
     ]
   }
@@ -222,7 +262,7 @@ const RoleDropdown: React.FC<{
           </div>
 
           <div className="space-y-1.5 max-h-[75vh] overflow-y-auto pr-0.5 custom-scrollbar">
-            {(['admin', 'leader', 'member'] as UserRole[]).map((roleKey) => {
+            {(['admin', 'leader', 'editor', 'member', 'viewer'] as UserRole[]).map((roleKey) => {
               const config = ROLE_CONFIGS[roleKey];
               const isSelected = value === roleKey;
               const Icon = config.icon;
@@ -331,6 +371,8 @@ export const GroupManager: React.FC = () => {
   const [assignModalTargetGroupId, setAssignModalTargetGroupId] = useState<string | undefined>(undefined);
   const [memberFilterTab, setMemberFilterTab] = useState<'all' | 'libraryOnly'>('all');
   const [memberSearchTerm, setMemberSearchTerm] = useState('');
+  const [isRoleMatrixOpen, setIsRoleMatrixOpen] = useState(false);
+  const [roleSectionTab, setRoleSectionTab] = useState<'members' | 'hierarchy'>('members');
 
   const openAssignModal = (groupId?: string) => {
     setAssignModalTargetGroupId(groupId || currentGroup?.id);
@@ -875,19 +917,51 @@ export const GroupManager: React.FC = () => {
                 <div className="w-7 h-7 rounded-lg bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0">
                   <Shield className="w-3.5 h-3.5" />
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="text-xs sm:text-sm font-bold text-white">Rôles & Membres</h3>
                   <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#1C1C1E] text-gray-400 font-medium border border-[#2A2A32]">
                     {allUsers.length} compte{allUsers.length > 1 ? 's' : ''} au total
                   </span>
                   <InfoTooltip 
                     label="Permissions des rôles" 
-                    content="Admin : gestion totale, bibliothèques, rôles, réglages. Responsable : gestion musicale, chants, setlists. Membre : consultation et mode scène." 
+                    content="Admin : gestion totale, bibliothèques, rôles. Responsable : direction musicale, setlists, tonalités. Éditeur : chants et accords. Membre : pupitre & transposition perso. Régie : projection." 
                   />
+                  <button
+                    type="button"
+                    onClick={() => setRoleSectionTab(prev => prev === 'hierarchy' ? 'members' : 'hierarchy')}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95 ${
+                      roleSectionTab === 'hierarchy'
+                        ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs'
+                        : 'bg-indigo-600/15 hover:bg-indigo-600/25 text-indigo-300 hover:text-white border border-indigo-500/30'
+                    }`}
+                    title="Afficher l'arborescence et le diagramme interactif de la hiérarchie des rôles"
+                  >
+                    <Layers className="w-3.5 h-3.5" />
+                    <span>{roleSectionTab === 'hierarchy' ? 'Liste des membres' : 'Hiérarchie visuelle'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsRoleMatrixOpen(true)}
+                    className="px-2.5 py-1 rounded-lg bg-blue-600/15 hover:bg-blue-600/25 text-blue-300 hover:text-white border border-blue-500/30 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95"
+                    title="Consulter le tableau comparatif complet des rôles et permissions"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />
+                    <span>Tableau comparatif</span>
+                  </button>
                 </div>
               </div>
 
               <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setIsRoleMatrixOpen(true)}
+                  className="px-3 py-1.5 rounded-lg bg-[#181822] hover:bg-[#20202E] text-blue-300 hover:text-white border border-blue-500/30 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95 sm:hidden"
+                  title="Consulter le tableau comparatif complet des rôles et permissions"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Permissions</span>
+                </button>
+
                 {canManageGroups && (
                   <button
                     type="button"
@@ -950,6 +1024,67 @@ export const GroupManager: React.FC = () => {
               </div>
             )}
 
+            {/* Onglets principaux de la section Rôles & Membres */}
+            <div className="flex items-center justify-between gap-3 mb-4 pb-3 border-b border-[#22222E]/80 flex-wrap">
+              <div className="flex items-center gap-1.5 bg-[#16161C] p-1 rounded-xl border border-[#262632]">
+                <button
+                  type="button"
+                  onClick={() => setRoleSectionTab('members')}
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+                    roleSectionTab === 'members'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  <span>Comptes & Membres ({allUsers.length})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRoleSectionTab('hierarchy')}
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+                    roleSectionTab === 'hierarchy'
+                      ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  <Layers className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Arborescence & Hiérarchie des Rôles</span>
+                  <span className="text-[9px] px-1.5 py-0.2 rounded bg-blue-500/25 text-blue-200 border border-blue-400/30 font-bold">
+                    Interactif
+                  </span>
+                </button>
+              </div>
+
+              {roleSectionTab === 'members' ? (
+                <button
+                  type="button"
+                  onClick={() => setRoleSectionTab('hierarchy')}
+                  className="text-xs text-blue-400 hover:text-blue-300 hover:underline flex items-center gap-1.5 cursor-pointer font-medium"
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>Voir le diagramme hiérarchique des 5 rôles →</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setRoleSectionTab('members')}
+                  className="text-xs text-gray-400 hover:text-white hover:underline flex items-center gap-1.5 cursor-pointer font-medium"
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  <span>← Revenir à la liste des comptes</span>
+                </button>
+              )}
+            </div>
+
+            {roleSectionTab === 'hierarchy' ? (
+              <RoleHierarchyChart
+                allUsers={allUsers}
+                currentRole={currentUser?.role}
+                onOpenMatrixModal={() => setIsRoleMatrixOpen(true)}
+              />
+            ) : (
+              <>
             {/* Filtrage des membres de la bibliothèque active */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 mb-3">
               <div className="flex items-center gap-1 bg-[#16161C] p-1 rounded-lg border border-[#262632] w-fit">
@@ -1063,6 +1198,10 @@ export const GroupManager: React.FC = () => {
                               ? 'bg-blue-600/30 text-blue-300 border border-blue-500/40' 
                               : isLeader
                               ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/40'
+                              : u.role === 'editor'
+                              ? 'bg-amber-600/30 text-amber-300 border border-amber-500/40'
+                              : u.role === 'viewer'
+                              ? 'bg-cyan-600/30 text-cyan-300 border border-cyan-500/40'
                               : 'bg-[#222228] text-gray-300 border border-[#333]'
                           }`}>
                             {u.displayName ? u.displayName.charAt(0).toUpperCase() : 'U'}
@@ -1132,9 +1271,13 @@ export const GroupManager: React.FC = () => {
                                 ? 'bg-blue-600/20 text-blue-300 border-blue-500/40' 
                                 : isLeader
                                 ? 'bg-emerald-600/20 text-emerald-300 border-emerald-500/40'
+                                : u.role === 'editor'
+                                ? 'bg-amber-600/20 text-amber-300 border-amber-500/40'
+                                : u.role === 'viewer'
+                                ? 'bg-cyan-600/20 text-cyan-300 border-cyan-500/40'
                                 : 'bg-[#1C1C1E] text-gray-400 border-[#333]'
                             }`}>
-                              {isAdmin ? 'Admin 👑' : isLeader ? 'Responsable ⚡' : 'Membre 🎵'}
+                              {isAdmin ? 'Admin 👑' : isLeader ? 'Responsable ⚡' : u.role === 'editor' ? 'Éditeur ✍️' : u.role === 'viewer' ? 'Régie 🖥️' : 'Membre 🎵'}
                             </span>
                           )}
                         </div>
@@ -1148,6 +1291,8 @@ export const GroupManager: React.FC = () => {
                 Aucun compte utilisateur enregistré dans la base pour le moment.
               </div>
             )}
+          </>
+        )}
           </div>
         </div>
 
@@ -1403,6 +1548,13 @@ export const GroupManager: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Modal du tableau comparatif des rôles et permissions */}
+      <RoleMatrixModal
+        isOpen={isRoleMatrixOpen}
+        onClose={() => setIsRoleMatrixOpen(false)}
+        currentRole={currentUser?.role}
+      />
 
       {/* Modal d'assignation des membres avec multiselect */}
       <AssignMembersModal

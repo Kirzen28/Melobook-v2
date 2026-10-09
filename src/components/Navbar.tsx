@@ -363,7 +363,7 @@ export const Navbar: React.FC = () => {
                           {currentUser ? currentUser.displayName : 'Non connecté'}
                         </p>
                         <p className="text-[10px] text-gray-400 truncate leading-tight">
-                          {currentUser ? (currentUser.email || (currentUser.role === 'admin' ? 'Administrateur' : currentUser.role === 'leader' ? 'Responsable' : 'Membre')) : 'Mode invité — lecture seule'}
+                          {currentUser ? (currentUser.email || (currentUser.role === 'admin' ? 'Administrateur 👑' : currentUser.role === 'leader' ? 'Responsable ⚡' : currentUser.role === 'editor' ? 'Éditeur ✍️' : currentUser.role === 'viewer' ? 'Régie 🖥️' : 'Membre 🎵')) : 'Mode invité — lecture seule'}
                         </p>
                       </div>
                     </div>

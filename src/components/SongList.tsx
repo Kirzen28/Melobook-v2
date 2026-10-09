@@ -53,7 +53,9 @@ import {
   KeyRound,
   Eye,
   ListMusic,
-  ArrowRight
+  ArrowRight,
+  Shield,
+  Copyright
 } from 'lucide-react';
 
 export const SongList: React.FC = () => {
@@ -593,7 +595,9 @@ export const SongList: React.FC = () => {
         const matchLyrics = song.contentChordPro.toLowerCase().includes(q);
         const matchLanguage = (song.language || '').toLowerCase().includes(q);
         const matchTags = song.tags?.some(t => t.toLowerCase().includes(q));
-        if (!matchTitle && !matchArtist && !matchLyrics && !matchTags && !matchLanguage) {
+        const matchCcli = (song.ccli || '').toLowerCase().includes(q);
+        const matchCopyright = (song.copyright || '').toLowerCase().includes(q);
+        if (!matchTitle && !matchArtist && !matchLyrics && !matchTags && !matchLanguage && !matchCcli && !matchCopyright) {
           return false;
         }
       }
@@ -1473,7 +1477,7 @@ export const SongList: React.FC = () => {
           {/* Badges et boutons d'action directement alignés sur la même ligne */}
           <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
             {/* Metadata badges if enabled */}
-            {((songCardMetadata?.showKey) || (songCardMetadata?.showTempo && song.tempo) || (songCardMetadata?.showDuration && getSongDuration(song))) && (
+            {((songCardMetadata?.showKey) || (songCardMetadata?.showTempo && song.tempo) || (songCardMetadata?.showDuration && getSongDuration(song)) || (songCardMetadata?.showCcli && song.ccli) || (songCardMetadata?.showCopyright && song.copyright)) && (
               <div className="flex items-center gap-1.5 flex-wrap">
                 {songCardMetadata?.showKey && (
                   <span
@@ -1504,52 +1508,24 @@ export const SongList: React.FC = () => {
                     {getSongDuration(song)}
                   </span>
                 ) : null}
+                {songCardMetadata?.showCcli && song.ccli && (
+                  <span className="px-1.5 py-0.5 rounded bg-blue-950/40 border border-blue-500/30 text-blue-300 text-[9px] font-mono font-medium flex items-center gap-1 shadow-xs">
+                    <Shield className="w-2.5 h-2.5 text-blue-400" />
+                    #{song.ccli}
+                  </span>
+                )}
+                {songCardMetadata?.showCopyright && song.copyright && (
+                  <span className="px-1.5 py-0.5 rounded bg-[#1C1C1E] border border-[#222224] text-gray-400 text-[9px] font-medium flex items-center gap-1 max-w-[130px] truncate shadow-xs" title={song.copyright}>
+                    <Copyright className="w-2.5 h-2.5 text-gray-500 shrink-0" />
+                    <span className="truncate">{song.copyright}</span>
+                  </span>
+                )}
               </div>
             )}
 
             {/* Buttons in the right corner */}
             {canManageSongs && (
               <div className="flex items-center gap-1 shrink-0">
-                {/* Bouton '+' rapide pour la setlist active */}
-                {selectedSetlist && (
-                  <button
-                    type="button"
-                    onClick={async (e) => {
-                      if (isMultiSelectMode) return;
-                      e.stopPropagation();
-                      const isAlreadyIn = selectedSetlist.songIds.includes(song.id);
-                      const updatedIds = isAlreadyIn
-                        ? selectedSetlist.songIds.filter(id => id !== song.id)
-                        : [...selectedSetlist.songIds, song.id];
-                      await updateSetlist(selectedSetlist.id, { songIds: updatedIds });
-                      showNotification?.({
-                        title: selectedSetlist.name,
-                        message: isAlreadyIn 
-                          ? `« ${song.title} » retiré de la setlist`
-                          : `« ${song.title} » ajouté à la setlist`,
-                        type: isAlreadyIn ? 'info' : 'success'
-                      });
-                    }}
-                    className={`p-1 sm:p-1.5 rounded text-xs font-semibold border transition-all flex items-center justify-center cursor-pointer ${
-                      selectedSetlist.songIds.includes(song.id)
-                        ? 'bg-emerald-600/25 border-emerald-500/50 text-emerald-300 hover:bg-rose-500/20 hover:text-rose-300 hover:border-rose-500/40'
-                        : 'bg-blue-600/20 hover:bg-blue-600/35 text-blue-300 hover:text-white border-blue-500/30 hover:border-blue-500/60'
-                    }`}
-                    title={
-                      selectedSetlist.songIds.includes(song.id)
-                        ? `Présent dans « ${selectedSetlist.name} » (cliquer pour retirer)`
-                        : `Ajouter rapidement à « ${selectedSetlist.name} »`
-                    }
-                    aria-label={`Ajouter à la setlist ${selectedSetlist.name}`}
-                  >
-                    {selectedSetlist.songIds.includes(song.id) ? (
-                      <Check className="w-3.5 h-3.5 text-emerald-400 stroke-[2.5]" />
-                    ) : (
-                      <Plus className="w-3.5 h-3.5 text-blue-400 stroke-[2.5]" />
-                    )}
-                  </button>
-                )}
-
                 <button
                   type="button"
                   onClick={(e) => {

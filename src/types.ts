@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'leader' | 'member';
+export type UserRole = 'admin' | 'leader' | 'editor' | 'member' | 'viewer';
 
 export type SyncStatus = 'synced' | 'syncing' | 'offline' | 'error';
 
@@ -37,6 +37,8 @@ export interface Song {
   timeSignature?: string;
   duration?: string; // ex: 4:30, 03:45, 5 min
   durationMode?: 'auto' | 'custom';
+  ccli?: string; // Numéro CCLI (SongSelect)
+  copyright?: string; // Droits d'auteur & mentions légales
   contentChordPro: string;
   content?: string;
   folderId?: string | null;
@@ -153,6 +155,8 @@ export interface SongMetadataVisibility {
   actions: boolean;
   vocalArrangement: boolean;
   sectionHeaders: boolean;
+  ccli: boolean;
+  copyright: boolean;
 }
 
 export type PreviewMetadataVisibility = SongMetadataVisibility;
@@ -170,6 +174,8 @@ export interface SongCardMetadataSettings {
   showTempo: boolean;
   showDuration: boolean;
   showCategories: boolean;
+  showCcli?: boolean;
+  showCopyright?: boolean;
 }
 
 export type NotificationType = 'success' | 'info' | 'warning' | 'error';

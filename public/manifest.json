@@ -1,27 +1,29 @@
 {
-  "id": "/",
+  "id": "/?v=20261008-02",
   "short_name": "Melobook",
   "name": "Melobook - Chants & Setlists",
+  "version": "2.4.0",
   "description": "Application progressive de gestion de partitions, chants ChordPro, transposition et setlists pour musiciens.",
   "icons": [
     {
-      "src": "/icon.svg",
+      "src": "/icon.svg?v=20261008-02",
       "type": "image/svg+xml",
       "sizes": "192x192 512x512",
       "purpose": "any"
     },
     {
-      "src": "/icon.svg",
+      "src": "/icon.svg?v=20261008-02",
       "type": "image/svg+xml",
       "sizes": "192x192 512x512",
       "purpose": "maskable"
     }
   ],
-  "start_url": "/",
+  "start_url": "/?v=20261008-02",
   "scope": "/",
   "background_color": "#090d16",
   "theme_color": "#090d16",
   "display": "standalone",
   "orientation": "any",
-  "categories": ["music", "productivity", "utilities"]
+  "categories": ["music", "productivity", "utilities"],
+  "prefer_related_applications": false
 }

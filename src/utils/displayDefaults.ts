@@ -21,6 +21,8 @@ export const DEFAULT_SONG_METADATA_VISIBILITY: SongMetadataVisibility = {
   actions: true,
   vocalArrangement: true,
   sectionHeaders: true,
+  ccli: true,
+  copyright: true,
 };
 
 export const DEFAULT_PREVIEW_METADATA = DEFAULT_SONG_METADATA_VISIBILITY;

@@ -13,6 +13,8 @@ export const SAMPLE_SONGS: Song[] = [
     duration: '05:10',
     tags: ['Adoration', 'Grâce', 'Fidélité'],
     language: 'Français',
+    ccli: '7117726',
+    copyright: '© 2018 Bethel Music Publishing',
     linkedSongIds: ['song-1-en'],
     notes: 'Intro douce à la guitare acoustique. Monter en puissance au Pont.',
     contentChordPro: `{title: Jésus tu es bon}
@@ -21,6 +23,8 @@ export const SAMPLE_SONGS: Song[] = [
 {tempo: 70}
 {time: 4/4}
 {duration: 05:10}
+{ccli: 7117726}
+{copyright: © 2018 Bethel Music Publishing}
 
 {c: Intro}
 [G] [Gsus4] [G] [Gsus4]
@@ -72,6 +76,8 @@ Je chan[C]terai la bonté [D]de mon [G]Dieu`
     duration: '05:00',
     tags: ['Adoration', 'Grâce', 'Fidélité'],
     language: 'Anglais',
+    ccli: '7117726',
+    copyright: '© 2018 Bethel Music Publishing',
     linkedSongIds: ['song-1'],
     notes: 'English version of "Jésus tu es bon".',
     contentChordPro: `{title: Goodness of God}
@@ -80,6 +86,8 @@ Je chan[C]terai la bonté [D]de mon [G]Dieu`
 {tempo: 70}
 {time: 4/4}
 {duration: 05:00}
+{ccli: 7117726}
+{copyright: © 2018 Bethel Music Publishing}
 
 {c: Intro}
 [G] [Gsus4] [G] [Gsus4]
@@ -124,6 +132,7 @@ With my [G/B]life laid down, I'm sur[C]rendered now, I give You [D]every[Em]thin
     duration: '04:20',
     tags: ['Louange', 'Rythmé', 'Joie', 'Célébration'],
     language: 'Français',
+    copyright: '© Aurélien Saniko',
     notes: 'Tempo dynamique avec clap des mains. Entrée énergique de la basse.',
     contentChordPro: `{title: Comment ne pas te louer}
 {artist: Aurélien Saniko}
@@ -131,6 +140,7 @@ With my [G/B]life laid down, I'm sur[C]rendered now, I give You [D]every[Em]thin
 {tempo: 118}
 {time: 4/4}
 {duration: 04:20}
+{copyright: © Aurélien Saniko}
 
 {c: Refrain}
 Comment ne [C]pas te louer, [G]Seigneur Jésus !
@@ -172,6 +182,8 @@ Comment ne [Dm]pas te louer, [G]Seigneur Jé[C]sus !`
     duration: '04:45',
     tags: ['Classique', 'Hymne', 'Grâce', 'Méditation'],
     language: 'Français',
+    ccli: '4768434',
+    copyright: '© 2006 sixsteps Music / Vamos Publishing',
     linkedSongIds: ['song-3-en'],
     notes: 'Capo 2 valse 3/4.',
     contentChordPro: `{title: Grâce Infinie}
@@ -181,6 +193,8 @@ Comment ne [Dm]pas te louer, [G]Seigneur Jé[C]sus !`
 {time: 3/4}
 {capo: 2}
 {duration: 04:45}
+{ccli: 4768434}
+{copyright: © 2006 sixsteps Music / Vamos Publishing}
 
 {c: Couplet 1}
 Grâce in[E]finie du [A]Seigneur [E]Dieu
@@ -218,6 +232,8 @@ Sa lou[E]ange pour [B7]l'éter[E]nité`
     duration: '04:30',
     tags: ['Classique', 'Hymne', 'Grâce'],
     language: 'Anglais',
+    ccli: '4768434',
+    copyright: '© 2006 sixsteps Music / Vamos Publishing',
     linkedSongIds: ['song-3'],
     notes: 'English version of Grâce Infinie.',
     contentChordPro: `{title: Amazing Grace}
@@ -227,6 +243,8 @@ Sa lou[E]ange pour [B7]l'éter[E]nité`
 {time: 3/4}
 {capo: 2}
 {duration: 04:30}
+{ccli: 4768434}
+{copyright: © 2006 sixsteps Music / Vamos Publishing}
 
 {c: Verse 1}
 Amazing [E]grace how [A]sweet the [E]sound
@@ -252,6 +270,8 @@ Unending [F#m]love, a[B7]mazing [E]grace`
     duration: '05:40',
     tags: ['Louange', 'Culte', 'Psaumes', 'Action de grâce'],
     language: 'Français',
+    ccli: '6016351',
+    copyright: '© 2011 Atlas Mountain Songs / sixsteps Music',
     linkedSongIds: ['song-4-en'],
     notes: 'Commencer directement par le refrain doux au piano.',
     contentChordPro: `{title: 10 000 Raisons}
@@ -260,6 +280,8 @@ Unending [F#m]love, a[B7]mazing [E]grace`
 {tempo: 73}
 {time: 4/4}
 {duration: 05:40}
+{ccli: 6016351}
+{copyright: © 2011 Atlas Mountain Songs / sixsteps Music}
 
 {c: Refrain}
 {vocal: Unisson}
@@ -303,6 +325,8 @@ Je [C]bénis Ton [D]saint Nom [G]`
     duration: '05:30',
     tags: ['Louange', 'Culte', 'Psaumes'],
     language: 'Anglais',
+    ccli: '6016351',
+    copyright: '© 2011 Atlas Mountain Songs / sixsteps Music',
     linkedSongIds: ['song-4'],
     notes: 'English version of 10 000 Raisons.',
     contentChordPro: `{title: 10,000 Reasons}
@@ -311,6 +335,8 @@ Je [C]bénis Ton [D]saint Nom [G]`
 {tempo: 73}
 {time: 4/4}
 {duration: 05:30}
+{ccli: 6016351}
+{copyright: © 2011 Atlas Mountain Songs / sixsteps Music}
 
 {c: Chorus}
 Bless the [C]Lord O my [G]soul, [D/F#]O my [Em]soul
@@ -336,6 +362,8 @@ What[C]ever may pass and what[G]ever lies be[D]fore [Em]me
     duration: '05:50',
     tags: ['Adoration', 'Trône', 'Majesté', 'Prière'],
     language: 'Français',
+    ccli: '4447960',
+    copyright: '© 2004 Gateway Create Publishing',
     notes: 'Progression continue: D - Am7 - C - G tout le long du chant.',
     contentChordPro: `{title: Révélation Song}
 {artist: Jennie Lee Riddle / Kari Jobe}
@@ -343,6 +371,8 @@ What[C]ever may pass and what[G]ever lies be[D]fore [Em]me
 {tempo: 62}
 {time: 4/4}
 {duration: 05:50}
+{ccli: 4447960}
+{copyright: © 2004 Gateway Create Publishing}
 
 {c: Intro}
 [D] [Am7] [C] [G]
@@ -379,6 +409,8 @@ Seul Roi de [C]sagesse, d'amour et de [G]paix`
     duration: '05:30',
     tags: ['Nom de Jésus', 'Puissance', 'Adoration', 'Louange'],
     language: 'Français',
+    ccli: '7068424',
+    copyright: '© 2016 Hillsong Music Publishing Australia',
     notes: 'Monter au Pont avec la batterie complète.',
     contentChordPro: `{title: Ce nom si merveilleux}
 {artist: Hillsong Worship}
@@ -386,6 +418,8 @@ Seul Roi de [C]sagesse, d'amour et de [G]paix`
 {tempo: 68}
 {time: 4/4}
 {duration: 05:30}
+{ccli: 7068424}
+{copyright: © 2016 Hillsong Music Publishing Australia}
 
 {c: Couplet 1}
 Tu étais [D]la Parole au commencement

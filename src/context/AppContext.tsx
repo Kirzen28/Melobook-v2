@@ -72,6 +72,13 @@ const SAMPLE_USERS: UserProfile[] = [
     role: 'leader'
   },
   {
+    uid: 'user-julien-p',
+    email: 'julien.editor@melobook.app',
+    displayName: 'Julien Éditeur',
+    currentGroupId: 'default-group',
+    role: 'editor'
+  },
+  {
     uid: 'user-lucas-g',
     email: 'lucas.guitare@melobook.app',
     displayName: 'Lucas Bernard',
@@ -87,10 +94,10 @@ const SAMPLE_USERS: UserProfile[] = [
   },
   {
     uid: 'user-thomas-b',
-    email: 'thomas.drums@melobook.app',
-    displayName: 'Thomas Dubois',
+    email: 'thomas.regie@melobook.app',
+    displayName: 'Thomas Régie',
     currentGroupId: 'default-group',
-    role: 'member'
+    role: 'viewer'
   }
 ];
 
@@ -229,7 +236,11 @@ interface AppContextType {
   // Permissions & Rôles
   isAdmin: boolean;
   isLeader: boolean;
+  isEditor: boolean;
+  isMember: boolean;
+  isViewer: boolean;
   canManageSongs: boolean;
+  canManageSetlists: boolean;
   canManageGroups: boolean;
   canAccessSettings: boolean;
   
@@ -612,6 +623,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showTempo: false,
     showDuration: false,
     showCategories: false,
+    showCcli: false,
+    showCopyright: false,
   };
 
   const [songCardMetadata, setSongCardMetadata] = useState<SongCardMetadataSettings>(() => {
@@ -625,6 +638,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           showTempo: parsed.showTempo === true,
           showDuration: parsed.showDuration === true,
           showCategories: parsed.showCategories === true,
+          showCcli: parsed.showCcli === true,
+          showCopyright: parsed.showCopyright === true,
         };
       } catch (e) {}
     }
@@ -819,8 +834,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     window.addEventListener('beforeinstallprompt', handleBeforeInstall);
 
-    // Register Service Worker pour acces complet hors-ligne
-    registerServiceWorker();
+    // Register Service Worker pour acces complet hors-ligne avec détection de mise à jour
+    registerServiceWorker(
+      () => {
+        refreshOfflineStats();
+      },
+      () => {
+        refreshOfflineStats();
+      }
+    );
     refreshOfflineStats();
 
     return () => {
@@ -2169,7 +2191,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setCurrentUser(updated);
         localStorage.setItem('songbook_user', JSON.stringify(updated));
       }
-      const roleLabel = newRole === 'admin' ? 'Administrateur' : newRole === 'leader' ? 'Responsable' : 'Membre';
+      const roleLabel = newRole === 'admin' ? 'Administrateur 👑' : newRole === 'leader' ? 'Responsable ⚡' : newRole === 'editor' ? 'Éditeur ✍️' : newRole === 'viewer' ? 'Régie / Lecteur 🖥️' : 'Membre 🎵';
       showNotification(`Rôle mis à jour : ${roleLabel}`);
     } catch (err) {
       console.error('Error updating user role:', err);
@@ -2199,7 +2221,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setCurrentUser(updated);
         localStorage.setItem('songbook_user', JSON.stringify(updated));
       }
-      const roleLabel = newRole === 'admin' ? 'Administrateur' : newRole === 'leader' ? 'Responsable' : 'Membre';
+      const roleLabel = newRole === 'admin' ? 'Administrateur 👑' : newRole === 'leader' ? 'Responsable ⚡' : newRole === 'editor' ? 'Éditeur ✍️' : newRole === 'viewer' ? 'Régie / Lecteur 🖥️' : 'Membre 🎵';
       showNotification(`Rôle ${roleLabel} appliqué aux membres sélectionnés`);
       return true;
     } catch (err) {
@@ -2293,7 +2315,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const cleanEmail = targetEmail.trim().toLowerCase();
     if (!cleanEmail) return;
 
-    const roleLabel = role === 'admin' ? 'Administrateur' : role === 'leader' ? 'Responsable' : 'Membre';
+    const roleLabel = role === 'admin' ? 'Administrateur 👑' : role === 'leader' ? 'Responsable ⚡' : role === 'editor' ? 'Éditeur ✍️' : role === 'viewer' ? 'Régie / Lecteur 🖥️' : 'Membre 🎵';
 
     try {
       // 1. Enregistrer dans admin_emails pour les futures connexions
@@ -2338,7 +2360,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const isAdmin = currentUser?.role === 'admin';
   const isLeader = currentUser?.role === 'leader';
-  const canManageSongs = isAdmin || isLeader;
+  const isEditor = currentUser?.role === 'editor';
+  const isMember = currentUser?.role === 'member' || (!isAdmin && !isLeader && !isEditor && currentUser?.role !== 'viewer');
+  const isViewer = currentUser?.role === 'viewer';
+  const canManageSongs = isAdmin || isLeader || isEditor;
+  const canManageSetlists = isAdmin || isLeader;
   const canManageGroups = isAdmin;
   const canAccessSettings = true;
 
@@ -2348,7 +2374,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       firebaseUser,
       isAdmin,
       isLeader,
+      isEditor,
+      isMember,
+      isViewer,
       canManageSongs,
+      canManageSetlists,
       canManageGroups,
       canAccessSettings,
       allUsers,

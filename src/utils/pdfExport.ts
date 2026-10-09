@@ -505,6 +505,26 @@ export async function generateSetlistPdf(
 
       currentY += 4;
     }
+
+    // Draw legal footer for this song if CCLI or Copyright exists
+    const effectiveCcli = (song.ccli || parsedData.ccli || '').trim();
+    const effectiveCopyright = (song.copyright || parsedData.copyright || '').trim();
+    if (effectiveCcli || effectiveCopyright) {
+      if (currentY + 12 > pageHeight - marginY - 10) {
+        doc.addPage();
+        renderPageBackground();
+        currentY = marginY + 4;
+      }
+      currentY += 3;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(colors.textMuted[0], colors.textMuted[1], colors.textMuted[2]);
+      const legalParts: string[] = [];
+      if (effectiveCopyright) legalParts.push(effectiveCopyright);
+      if (effectiveCcli) legalParts.push(`Chant CCLI N° ${effectiveCcli}`);
+      doc.text(legalParts.join('   •   '), marginX + 3, currentY + 3);
+      currentY += 8;
+    }
   }
 
   // ==========================================

@@ -190,6 +190,8 @@ export interface ParsedSongData {
   timeSignature: string;
   duration?: string;
   capo: number;
+  ccli?: string;
+  copyright?: string;
   sections: ParsedSection[];
   rawChordPro: string;
 }
@@ -531,6 +533,8 @@ export function parseChordPro(chordProText: string): ParsedSongData {
   let timeSignature = '4/4';
   let duration = '';
   let capo = 0;
+  let ccli = '';
+  let copyright = '';
 
   const sections: ParsedSection[] = [];
   let currentSection: ParsedSection = {
@@ -572,6 +576,10 @@ export function parseChordPro(chordProText: string): ParsedSongData {
         duration = value;
       } else if (tag === 'capo') {
         capo = parseInt(value, 10) || 0;
+      } else if (tag === 'ccli' || tag === 'cclisongno' || tag === 'ccli_song_id' || tag === 'ccli_no') {
+        ccli = value;
+      } else if (tag === 'copyright' || tag === 'cop' || tag === 'droits') {
+        copyright = value;
       } else if (tag === 'vocal' || tag === 'voix' || tag === 'arrangement' || tag === 'arrangement_vocal' || tag === 'vocal_arrangement') {
         // Direct vocal arrangement tag for current section
         const rawVocals = value.split(',').map(s => s.trim()).filter(Boolean);
@@ -738,6 +746,8 @@ export function parseChordPro(chordProText: string): ParsedSongData {
     timeSignature,
     duration: duration ? formatDurationToMMSS(duration) : undefined,
     capo,
+    ccli: ccli ? ccli.trim() : undefined,
+    copyright: copyright ? copyright.trim() : undefined,
     sections,
     rawChordPro: chordProText
   };

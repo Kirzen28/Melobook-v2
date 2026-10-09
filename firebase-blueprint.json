@@ -36,6 +36,8 @@
         "artist": { "type": "string" },
         "key": { "type": "string" },
         "tempo": { "type": "number" },
+        "ccli": { "type": "string" },
+        "copyright": { "type": "string" },
         "contentChordPro": { "type": "string" }
       },
       "required": ["id", "groupId", "title", "contentChordPro"]

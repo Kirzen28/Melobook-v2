@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { EXTERNAL_SONGS_DATABASE, ExternalSongItem } from '../data/externalSongsDatabase';
 import { Song } from '../types';
+import { parseChordPro } from '../utils/chordUtils';
 
 interface SongImportModalProps {
   isOpen: boolean;
@@ -302,13 +303,16 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
     setImportingId(songItem.id);
     try {
       const fullSong = await ensureSongLoaded(songItem);
+      const parsed = parseChordPro(fullSong.contentChordPro || '');
       await onImportSong({
         title: fullSong.title,
         artist: fullSong.artist,
-        key: fullSong.key || 'C',
-        tempo: fullSong.tempo || 100,
-        timeSignature: fullSong.timeSignature || '4/4',
+        key: fullSong.key || parsed.key || 'C',
+        tempo: fullSong.tempo || parsed.tempo || 100,
+        timeSignature: fullSong.timeSignature || parsed.timeSignature || '4/4',
         tags: fullSong.tags || [],
+        ccli: fullSong.ccli || parsed.ccli,
+        copyright: fullSong.copyright || parsed.copyright,
         contentChordPro: fullSong.contentChordPro
       });
 
@@ -325,14 +329,17 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
     setImportingId(songItem.id);
     try {
       const fullSong = await ensureSongLoaded(songItem);
+      const parsed = parseChordPro(fullSong.contentChordPro || '');
       if (onImportAndEdit) {
         await onImportAndEdit({
           title: fullSong.title,
           artist: fullSong.artist,
-          key: fullSong.key || 'C',
-          tempo: fullSong.tempo || 100,
-          timeSignature: fullSong.timeSignature || '4/4',
+          key: fullSong.key || parsed.key || 'C',
+          tempo: fullSong.tempo || parsed.tempo || 100,
+          timeSignature: fullSong.timeSignature || parsed.timeSignature || '4/4',
           tags: fullSong.tags || [],
+          ccli: fullSong.ccli || parsed.ccli,
+          copyright: fullSong.copyright || parsed.copyright,
           contentChordPro: fullSong.contentChordPro
         });
         onClose();
@@ -376,6 +383,8 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
         let key = 'C';
         let tempo = 100;
         let duration: string | undefined = undefined;
+        let ccli: string | undefined = undefined;
+        let copyright: string | undefined = undefined;
         let finalChordPro = text;
 
         if (!text.includes('[') && !text.includes('{')) {
@@ -393,6 +402,8 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
             if (tag === 'key' || tag === 'k') key = val;
             if (tag === 'tempo' || tag === 'bpm') tempo = parseInt(val, 10) || 100;
             if (tag === 'duration' || tag === 'd' || tag === 'dur') duration = val;
+            if (tag === 'ccli' || tag === 'cclisongno' || tag === 'ccli_no') ccli = val;
+            if (tag === 'copyright' || tag === 'copy') copyright = val;
           }
         });
 
@@ -402,6 +413,8 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
           key,
           tempo,
           duration,
+          ccli,
+          copyright,
           contentChordPro: finalChordPro
         });
         count++;
@@ -444,6 +457,8 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
     let detectedKey = manualKey || 'C';
     let detectedTempo = manualTempo || 100;
     let detectedDuration: string | undefined = undefined;
+    let detectedCcli: string | undefined = undefined;
+    let detectedCopyright: string | undefined = undefined;
 
     if (manualSource === 'webchords' || manualSource === 'shir' || (!manualText.includes('[') && !manualText.includes('{'))) {
       finalContent = convertPlainTextToChordPro(manualText);
@@ -460,6 +475,8 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
         if ((tag === 'key' || tag === 'k') && !manualKey) detectedKey = val;
         if ((tag === 'tempo' || tag === 'bpm') && !manualTempo) detectedTempo = parseInt(val, 10) || 100;
         if (tag === 'duration' || tag === 'd' || tag === 'dur') detectedDuration = val;
+        if (tag === 'ccli' || tag === 'cclisongno' || tag === 'ccli_no') detectedCcli = val;
+        if (tag === 'copyright' || tag === 'copy') detectedCopyright = val;
       }
     });
 
@@ -469,6 +486,8 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
       key: detectedKey,
       tempo: detectedTempo,
       duration: detectedDuration,
+      ccli: detectedCcli,
+      copyright: detectedCopyright,
       contentChordPro: finalContent
     });
 

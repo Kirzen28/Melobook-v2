@@ -198,6 +198,16 @@ Ne JAMAIS inventer de faux titres. Réponds uniquement avec un tableau JSON vali
     }
   });
 
+  // Désactiver la mise en cache HTTP agressive des navigateurs (Chrome / Brave) sur les pages et modules
+  app.use((req, res, next) => {
+    if (req.path === '/' || req.path.endsWith('.html') || req.path.startsWith('/@') || req.path.startsWith('/src/')) {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+    next();
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({

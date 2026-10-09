@@ -2768,6 +2768,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
             targetDuration: 5
           }}
           songs={[song]}
+          mode="song"
           onClose={() => setShowPdfModal(false)}
         />
       )}

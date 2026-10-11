@@ -134,8 +134,8 @@ interface AppContextType {
   currentLibrary: Group | null;
   songs: Song[];
   setlists: Setlist[];
-  activeTab: 'repertoire' | 'setlists' | 'stage' | 'groups' | 'editor' | 'settings' | 'tuner';
-  setActiveTab: (tab: 'repertoire' | 'setlists' | 'stage' | 'groups' | 'editor' | 'settings' | 'tuner') => void;
+  activeTab: 'repertoire' | 'setlists' | 'stage' | 'groups' | 'editor' | 'settings' | 'tuner' | 'presentation';
+  setActiveTab: (tab: 'repertoire' | 'setlists' | 'stage' | 'groups' | 'editor' | 'settings' | 'tuner' | 'presentation') => void;
   selectedSong: Song | null;
   setSelectedSong: (song: Song | null) => void;
   selectedSetlist: Setlist | null;
@@ -261,17 +261,17 @@ const AppContext = createContext<AppContextType | null>(null);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Navigation & Selection
-  const [activeTab, setActiveTabState] = useState<'repertoire' | 'setlists' | 'stage' | 'groups' | 'editor' | 'settings' | 'tuner'>(() => {
+  const [activeTab, setActiveTabState] = useState<'repertoire' | 'setlists' | 'stage' | 'groups' | 'editor' | 'settings' | 'tuner' | 'presentation'>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('songbook_active_tab');
-      if (saved && ['repertoire', 'setlists', 'stage', 'groups', 'editor', 'settings', 'tuner'].includes(saved)) {
+      if (saved && ['repertoire', 'setlists', 'stage', 'groups', 'editor', 'settings', 'tuner', 'presentation'].includes(saved)) {
         return saved as any;
       }
     }
     return 'groups';
   });
 
-  const setActiveTab = useCallback((tab: 'repertoire' | 'setlists' | 'stage' | 'groups' | 'editor' | 'settings' | 'tuner') => {
+  const setActiveTab = useCallback((tab: 'repertoire' | 'setlists' | 'stage' | 'groups' | 'editor' | 'settings' | 'tuner' | 'presentation') => {
     setActiveTabState(tab);
     if (typeof window !== 'undefined') {
       localStorage.setItem('songbook_active_tab', tab);

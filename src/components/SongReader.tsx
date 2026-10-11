@@ -75,8 +75,16 @@ import {
   Zap,
   Shield,
   Copyright,
-  Radio
+  Radio,
+  Tv,
+  ExternalLink
 } from 'lucide-react';
+import { 
+  buildPresentationSlides, 
+  broadcastPresentationState, 
+  listenForSyncRequests, 
+  subscribeToPresentation 
+} from '../utils/presentationUtils';
 import { SetlistPdfModal } from './SetlistPdfModal';
 import { ChordModal } from './ChordModal';
 import { LanguageVersionModal } from './LanguageVersionModal';

@@ -36,6 +36,20 @@ async function startServer() {
     res.json({ status: 'ok', serverTime: new Date().toISOString() });
   });
 
+  // Presentation State Sync (Brave & cross-window resilient)
+  let latestPresentationState: any = null;
+
+  app.get('/api/presentation-state', (_req, res) => {
+    res.json({ ok: true, state: latestPresentationState });
+  });
+
+  app.post('/api/presentation-state', (req, res) => {
+    if (req.body && req.body.state) {
+      latestPresentationState = { ...req.body.state, updatedAt: Date.now() };
+    }
+    res.json({ ok: true, state: latestPresentationState });
+  });
+
   // Fetch full song details and chords on-demand from external site
   app.post('/api/external-song-detail', async (req, res) => {
     try {

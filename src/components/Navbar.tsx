@@ -23,7 +23,8 @@ import {
   RefreshCw,
   AlertCircle,
   Cloud,
-  Piano
+  Piano,
+  Tv
 } from 'lucide-react';
 import { MelobookLogo } from './MelobookLogo';
 import { MetronomeIcon } from './MetronomeIcon';
@@ -186,6 +187,19 @@ export const Navbar: React.FC = () => {
                 <ListMusic className={`w-3 h-3 ${activeTab === 'setlists' ? 'text-blue-400' : 'text-gray-400'}`} />
                 <span>Listes</span>
               </button>
+
+              <button
+                type="button"
+                onClick={() => handleNavClick('presentation')}
+                className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                  activeTab === 'presentation'
+                    ? 'bg-[#1C1C1E] text-white border border-[#333] shadow-xs'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                <Tv className={`w-3 h-3 ${activeTab === 'presentation' ? 'text-blue-400' : 'text-gray-400'}`} />
+                <span>Projection</span>
+              </button>
             </div>
 
             {/* Version Tablette / Laptop / Desktop (>= md) */}
@@ -226,6 +240,25 @@ export const Navbar: React.FC = () => {
                 )}
                 <ListMusic className="w-3.5 h-3.5 text-blue-400" />
                 <span>Setlists</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('presentation')}
+                className={`relative z-10 flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
+                  activeTab === 'presentation'
+                    ? 'text-white'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                {activeTab === 'presentation' && (
+                  <motion.span
+                    layoutId="active-nav-indicator"
+                    className="absolute inset-0 bg-[#1C1C1E] rounded-md border border-[#333] -z-10 shadow-sm"
+                    transition={{ type: 'spring', stiffness: 450, damping: 35 }}
+                  />
+                )}
+                <Tv className="w-3.5 h-3.5 text-blue-400" />
+                <span>Présentation</span>
               </button>
 
               <button
@@ -508,6 +541,23 @@ export const Navbar: React.FC = () => {
 
                   {/* Navigation sections */}
                   <div className="py-1">
+                    <button
+                      onClick={() => handleNavClick('presentation')}
+                      className={`w-full text-left px-3.5 py-2 flex items-center justify-between transition-colors ${
+                        activeTab === 'presentation'
+                          ? 'bg-[#1C1C1E] text-blue-400 font-semibold'
+                          : 'text-gray-300 hover:bg-[#1C1C1E] hover:text-white'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Tv className="w-3.5 h-3.5 text-blue-400" />
+                        <span>Mode Présentation</span>
+                      </div>
+                      {activeTab === 'presentation' && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                      )}
+                    </button>
+
                     <button
                       onClick={() => handleNavClick('groups')}
                       className={`w-full text-left px-3.5 py-2 flex items-center justify-between transition-colors ${

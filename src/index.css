@@ -377,3 +377,25 @@ html.light-theme ::-webkit-scrollbar-thumb:hover {
   scrollbar-width: none;
 }
 
+/* Subtle fade & slide transition for presentation projector */
+@keyframes presentationFadeSlide {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-presentation-slide {
+  animation: presentationFadeSlide 240ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-presentation-slide {
+    animation: none !important;
+  }
+}
+

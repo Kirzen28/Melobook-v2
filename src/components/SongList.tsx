@@ -4,6 +4,7 @@ import { Song, Setlist } from '../types';
 import { parseDurationToSeconds, formatSetlistDuration, getSongDuration, stripParentheses } from '../utils/chordUtils';
 import { generateSetlistPdf, DEFAULT_PDF_OPTIONS } from '../utils/pdfExport';
 import { SongImportModal } from './SongImportModal';
+import { SetlistPdfModal } from './SetlistPdfModal';
 import { LanguageVersionModal } from './LanguageVersionModal';
 import { VoiceSearchControl } from './VoiceSearchControl';
 import { PRESET_LANGUAGES, getLanguageMeta, detectSongLanguage } from '../utils/languageUtils';
@@ -212,6 +213,7 @@ export const SongList: React.FC = () => {
   const [isMultiExportModalOpen, setIsMultiExportModalOpen] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [exportNotification, setExportNotification] = useState<string | null>(null);
+  const [songToExportPdf, setSongToExportPdf] = useState<Song | null>(null);
 
   const categoryFilterRef = useRef<HTMLDivElement>(null);
   const authorFilterRef = useRef<HTMLDivElement>(null);
@@ -1524,8 +1526,23 @@ export const SongList: React.FC = () => {
             )}
 
             {/* Buttons in the right corner */}
-            {canManageSongs && (
-              <div className="flex items-center gap-1 shrink-0">
+            <div className="flex items-center gap-1 shrink-0">
+              {/* Export PDF button */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  if (isMultiSelectMode) return;
+                  e.stopPropagation();
+                  setSongToExportPdf(song);
+                }}
+                className="p-1 sm:p-1.5 rounded bg-[#1C1C1E] hover:bg-emerald-500/15 text-gray-300 hover:text-emerald-300 border border-[#333] hover:border-emerald-500/50 transition-colors flex items-center justify-center cursor-pointer group"
+                title={isMultiSelectMode ? undefined : "Exporter en PDF"}
+                aria-label="Exporter en PDF"
+              >
+                <FileDown className="w-3.5 h-3.5 text-emerald-400 group-hover:scale-110 transition-transform" />
+              </button>
+
+              {canManageSongs && (
                 <button
                   type="button"
                   onClick={(e) => {
@@ -1539,8 +1556,8 @@ export const SongList: React.FC = () => {
                 >
                   <FileEdit className="w-3.5 h-3.5 text-amber-400 group-hover:scale-110 transition-transform" />
                 </button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -4630,6 +4647,23 @@ export const SongList: React.FC = () => {
           <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
           <span>{exportNotification}</span>
         </div>
+      )}
+
+      {/* Single Song PDF Export & Share Modal */}
+      {songToExportPdf && (
+        <SetlistPdfModal
+          setlist={{
+            id: `single-song-${songToExportPdf.id}`,
+            groupId: songToExportPdf.groupId,
+            name: songToExportPdf.title,
+            date: new Date().toISOString().split('T')[0],
+            songIds: [songToExportPdf.id],
+            targetDuration: 5
+          }}
+          songs={[songToExportPdf]}
+          mode="song"
+          onClose={() => setSongToExportPdf(null)}
+        />
       )}
 
     </div>

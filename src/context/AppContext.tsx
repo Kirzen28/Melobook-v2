@@ -105,7 +105,7 @@ const DEFAULT_GROUP: Group = {
   id: 'default-group',
   name: 'Bibliothèque Principale',
   ownerId: 'admin-kriveravelasquez',
-  members: ['admin-kriveravelasquez', 'user-sarah-m', 'user-lucas-g', 'user-emma-v', 'user-thomas-b'],
+  members: [],
   inviteCode: 'LOUAN7',
   description: 'Bibliothèque de louange et chants partagés.'
 };
@@ -1277,7 +1277,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       const seenGroupIds = new Set<string>();
       const mergedGroups: Group[] = [];
-      for (const g of [DEFAULT_GROUP, ...loadedGroups]) {
+      for (const g of [...loadedGroups, DEFAULT_GROUP]) {
         const gid = g.id || 'default-group';
         if (!seenGroupIds.has(gid)) {
           seenGroupIds.add(gid);

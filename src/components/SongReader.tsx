@@ -74,11 +74,13 @@ import {
   ArrowRight,
   Zap,
   Shield,
-  Copyright
+  Copyright,
+  Radio
 } from 'lucide-react';
 import { SetlistPdfModal } from './SetlistPdfModal';
 import { ChordModal } from './ChordModal';
 import { LanguageVersionModal } from './LanguageVersionModal';
+import { PadControl } from './PadControl';
 import { PRESET_LANGUAGES, getLanguageMeta, getLinkedSongVersions } from '../utils/languageUtils';
 import { DEFAULT_SONG_METADATA_VISIBILITY } from '../utils/displayDefaults';
 
@@ -1255,7 +1257,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
           />
           <div
             style={settingsPopoverStyle}
-            className="no-print absolute z-50 w-72 max-w-[calc(100vw-24px)] bg-[#16161A] border border-[#2E2E36] rounded-xl shadow-2xl p-3 backdrop-blur-md animate-in fade-in zoom-in-95 duration-100 box-border text-xs"
+            className="no-print absolute z-50 w-[340px] sm:w-[420px] max-w-[calc(100vw-20px)] max-h-[85vh] overflow-y-auto custom-scrollbar bg-[#16161A] border border-[#2E2E36] rounded-2xl shadow-2xl p-3 sm:p-4 backdrop-blur-md animate-in fade-in zoom-in-95 duration-100 box-border text-xs"
           >
             {/* En-tête */}
             <div className="flex items-center justify-between mb-3 pb-2 border-b border-[#282830]">
@@ -1263,7 +1265,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                 <Settings2 className="w-3.5 h-3.5 text-blue-400" />
                 <span className="font-semibold text-gray-200 text-[11px]">Réglages du chant</span>
                 {song.title && (
-                  <span className="text-[10px] text-gray-400 font-normal truncate max-w-[100px]">
+                  <span className="text-[10px] text-gray-400 font-normal truncate max-w-[120px]">
                     — {stripParentheses(song.title)}
                   </span>
                 )}
@@ -1276,6 +1278,23 @@ export const SongReader: React.FC<SongReaderProps> = ({
               >
                 <X className="w-3.5 h-3.5" />
               </button>
+            </div>
+
+            {/* Pad d'accompagnement (Tonic Pad) */}
+            <div className="mb-3">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Radio className="w-3.5 h-3.5 text-sky-400" />
+                  <span>Pad d'accompagnement</span>
+                </span>
+                <span className="text-[10px] text-sky-400/90 font-mono font-bold bg-sky-950/40 border border-sky-500/30 px-1.5 py-0.5 rounded">
+                  Tonalité {baseKeyDisplay}
+                </span>
+              </div>
+              <PadControl 
+                songKey={parsedData.key || song.key} 
+                transposeOffset={effectiveTransposeOffset}
+              />
             </div>
 
             {/* Accords */}
@@ -1403,6 +1422,41 @@ export const SongReader: React.FC<SongReaderProps> = ({
                   </>
                 )}
               </button>
+            </div>
+
+            {/* Écouter le chant (Recherche rapide YouTube & Spotify) */}
+            <div className="border-t border-[#282830] mt-3 pt-2.5">
+              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+                <span>Écouter le chant</span>
+                <span className="text-[10px] text-gray-500 font-normal">Recherche directe</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <a
+                  href={`https://www.youtube.com/results?search_query=${encodeURIComponent([parsedData.title || song.title, parsedData.artist || song.artist].filter(Boolean).join(' '))}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg bg-[#1C1C22] hover:bg-[#FF0000]/15 text-gray-200 hover:text-[#FF4E4E] border border-[#2E2E36] hover:border-[#FF0000]/40 text-xs font-semibold transition-all cursor-pointer group shadow-xs"
+                  title={`Rechercher « ${song.title} » sur YouTube (nouvel onglet / application)`}
+                >
+                  <svg className="w-3.5 h-3.5 text-red-500 fill-current shrink-0 group-hover:scale-110 transition-transform" viewBox="0 0 24 24">
+                    <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                  </svg>
+                  <span>YouTube</span>
+                </a>
+
+                <a
+                  href={`https://open.spotify.com/search/${encodeURIComponent([parsedData.title || song.title, parsedData.artist || song.artist].filter(Boolean).join(' '))}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg bg-[#1C1C22] hover:bg-[#1DB954]/15 text-gray-200 hover:text-[#1ED760] border border-[#2E2E36] hover:border-[#1DB954]/40 text-xs font-semibold transition-all cursor-pointer group shadow-xs"
+                  title={`Rechercher « ${song.title} » sur Spotify (nouvel onglet / application)`}
+                >
+                  <svg className="w-3.5 h-3.5 text-emerald-400 fill-current shrink-0 group-hover:scale-110 transition-transform" viewBox="0 0 24 24">
+                    <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+                  </svg>
+                  <span>Spotify</span>
+                </a>
+              </div>
             </div>
 
             {/* Actions du chant : Éditer & Exporter en PDF (particulièrement en mode mobile) */}
@@ -1817,19 +1871,23 @@ export const SongReader: React.FC<SongReaderProps> = ({
               <div className="w-full flex items-center gap-1.5 sm:gap-2 flex-wrap mb-1.5 sm:mb-2 text-xs">
                 {metaVis.artist && song.artist && (
                   <div 
-                    className="text-gray-300 font-medium break-words shrink-0 text-xs sm:text-sm"
-                    style={{ fontSize: `clamp(11px, 2.5vw, ${displaySettings.typography.metadataSize}px)` }}
+                    className="text-gray-300 font-medium break-words shrink-0"
+                    style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
                   >
                     {song.artist}
                   </div>
                 )}
 
                 {metaVis.tags && song.tags && song.tags.length > 0 && (
-                  <div className={`w-full sm:w-auto flex items-center gap-1 sm:gap-1.5 flex-wrap ${metaVis.artist && song.artist ? 'sm:border-l sm:border-[#2A2A2E] sm:pl-2' : ''}`}>
+                  <div 
+                    className={`w-full sm:w-auto flex items-center gap-1 sm:gap-1.5 flex-wrap ${metaVis.artist && song.artist ? 'sm:border-l sm:border-[#2A2A2E] sm:pl-2' : ''}`}
+                    style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
+                  >
                     {song.tags.map((cat, idx) => (
                       <span
                         key={idx}
-                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-[#18181C] border border-[#2A2A30] text-gray-300 text-[11px] sm:text-xs font-medium shadow-xs"
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-[#18181C] border border-[#2A2A30] text-gray-300 font-medium shadow-xs"
+                        style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
                       >
                         <Tag className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-blue-400" />
                         <span>{cat}</span>
@@ -1839,24 +1897,32 @@ export const SongReader: React.FC<SongReaderProps> = ({
                 )}
 
                 {metaVis.ccli && effectiveCcli && (
-                  <div className={`flex items-center gap-1 ${(metaVis.artist && song.artist) || (metaVis.tags && song.tags && song.tags.length > 0) ? 'sm:border-l sm:border-[#2A2A2E] sm:pl-2' : ''}`}>
+                  <div 
+                    className={`flex items-center gap-1 ${(metaVis.artist && song.artist) || (metaVis.tags && song.tags && song.tags.length > 0) ? 'sm:border-l sm:border-[#2A2A2E] sm:pl-2' : ''}`}
+                    style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
+                  >
                     <a
                       href={`https://songselect.ccli.com/Songs/${effectiveCcli.replace(/\D/g, '') || effectiveCcli}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-[#18181C] hover:bg-[#222228] border border-[#2A2A30] hover:border-blue-500/50 text-gray-300 transition-colors group cursor-pointer shadow-xs"
+                      style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
                       title={`Numéro CCLI : #${effectiveCcli} (Cliquer pour ouvrir sur SongSelect)`}
                     >
                       <Shield className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-blue-400 group-hover:scale-110 transition-transform" />
-                      <span className="text-blue-300 font-mono text-[10px] sm:text-xs font-semibold">CCLI #{effectiveCcli}</span>
+                      <span className="text-blue-300 font-mono font-semibold" style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}>CCLI #{effectiveCcli}</span>
                     </a>
                   </div>
                 )}
 
                 {metaVis.copyright && effectiveCopyright && (
-                  <div className={`flex items-center gap-1 ${((metaVis.artist && song.artist) || (metaVis.tags && song.tags && song.tags.length > 0) || (metaVis.ccli && effectiveCcli)) ? 'sm:border-l sm:border-[#2A2A2E] sm:pl-2' : ''}`}>
+                  <div 
+                    className={`flex items-center gap-1 ${((metaVis.artist && song.artist) || (metaVis.tags && song.tags && song.tags.length > 0) || (metaVis.ccli && effectiveCcli)) ? 'sm:border-l sm:border-[#2A2A2E] sm:pl-2' : ''}`}
+                    style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
+                  >
                     <span
-                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-[#18181C] border border-[#2A2A30] text-gray-400 text-[10px] sm:text-xs max-w-[260px] sm:max-w-md truncate shadow-xs"
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-[#18181C] border border-[#2A2A30] text-gray-400 max-w-[260px] sm:max-w-md truncate shadow-xs"
+                      style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
                       title={`Copyright : ${effectiveCopyright}`}
                     >
                       <Copyright className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-gray-500 shrink-0" />
@@ -1886,7 +1952,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                       setKeyPopoverStyle(calculatePopoverPos(keyButtonRef.current));
                     }
                   }}
-                  className={`h-8 inline-flex items-center gap-1.5 px-2.5 rounded-lg border font-mono shadow-xs transition-all cursor-pointer ${
+                  className={`min-h-[32px] py-1 inline-flex items-center gap-1.5 px-2.5 rounded-lg border font-mono shadow-xs transition-all cursor-pointer ${
                     showKeyMenu
                       ? 'bg-[#1C1C22] border-blue-500 text-white ring-1 ring-blue-500/40'
                       : 'bg-[#141416] hover:bg-[#1A1A1E] border-[#242428] hover:border-blue-500/40 text-gray-300'
@@ -1894,18 +1960,19 @@ export const SongReader: React.FC<SongReaderProps> = ({
                   style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
                   title="Cliquer pour choisir la tonalité - liste déroulante"
                 >
-                  <Music className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                  <span className="text-gray-400 font-sans text-xs hidden sm:inline">Tonalité :</span>
-                  <span className="text-blue-400 font-bold font-mono text-xs">{baseKeyDisplay}</span>
+                  <Music className="w-3.5 h-3.5 text-blue-400 shrink-0" style={{ width: `${Math.max(12, Math.round(displaySettings.typography.metadataSize * 0.9))}px`, height: `${Math.max(12, Math.round(displaySettings.typography.metadataSize * 0.9))}px` }} />
+                  <span className="text-gray-400 font-sans hidden sm:inline" style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}>Tonalité :</span>
+                  <span className="text-blue-400 font-bold font-mono" style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}>{baseKeyDisplay}</span>
                   {effectiveTransposeOffset !== 0 && transposedKeyDisplay && (
                     <span 
-                      className="text-amber-400 font-bold font-mono text-xs ml-0.5" 
+                      className="text-amber-400 font-bold font-mono ml-0.5" 
+                      style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
                       title={`Transposition piano : ${effectiveTransposeOffset > 0 ? `+${effectiveTransposeOffset}` : effectiveTransposeOffset} demi-tons (sonorité réelle : ${transposedKeyDisplay})`}
                     >
                       (Sonne {transposedKeyDisplay})
                     </span>
                   )}
-                  <ChevronDown className={`w-3 h-3 text-blue-400/80 transition-transform ${showKeyMenu ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`w-3 h-3 text-blue-400/80 transition-transform ${showKeyMenu ? 'rotate-180' : ''}`} style={{ width: `${Math.max(11, Math.round(displaySettings.typography.metadataSize * 0.8))}px`, height: `${Math.max(11, Math.round(displaySettings.typography.metadataSize * 0.8))}px` }} />
                 </button>
 
                 {showKeyMenu && (
@@ -2006,7 +2073,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                       setTransposePopoverStyle(calculatePopoverPos(transposeButtonRef.current));
                     }
                   }}
-                  className={`h-8 inline-flex items-center gap-1.5 px-2.5 rounded-lg border font-mono shadow-xs transition-all cursor-pointer ${
+                  className={`min-h-[32px] py-1 inline-flex items-center gap-1.5 px-2.5 rounded-lg border font-mono shadow-xs transition-all cursor-pointer ${
                     showTransposeMenu
                       ? 'bg-amber-950/40 border-amber-500 text-amber-300 ring-1 ring-amber-500/40'
                       : effectiveTransposeOffset !== 0
@@ -2016,23 +2083,25 @@ export const SongReader: React.FC<SongReaderProps> = ({
                   style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
                   title="Cliquer pour choisir la transposition (logique piano) - liste déroulante"
                 >
-                  <ArrowUpDown className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                  <span className="text-amber-400/90 font-sans text-xs shrink-0 hidden sm:inline">Transpose :</span>
-                  <span className={`px-1.5 py-0.5 rounded font-mono font-bold text-xs ${
+                  <ArrowUpDown className="w-3.5 h-3.5 text-amber-400 shrink-0" style={{ width: `${Math.max(12, Math.round(displaySettings.typography.metadataSize * 0.9))}px`, height: `${Math.max(12, Math.round(displaySettings.typography.metadataSize * 0.9))}px` }} />
+                  <span className="text-amber-400/90 font-sans shrink-0 hidden sm:inline" style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}>Transpose :</span>
+                  <span className={`px-1.5 py-0.5 rounded font-mono font-bold ${
                     effectiveTransposeOffset !== 0
                       ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                       : 'bg-[#18181C] text-gray-300 border border-[#242428]'
-                  }`}>
+                  }`}
+                  style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
+                  >
                     {effectiveTransposeOffset === 0 
                       ? '0' 
                       : (effectiveTransposeOffset > 0 ? `+${effectiveTransposeOffset}` : `${effectiveTransposeOffset}`)}
                   </span>
                   {effectiveTransposeOffset !== 0 && transposedKeyDisplay && (
-                    <span className="text-amber-300/90 text-[11px] font-mono font-semibold hidden md:inline">
+                    <span className="text-amber-300/90 font-mono font-semibold hidden md:inline" style={{ fontSize: `${Math.max(10, displaySettings.typography.metadataSize - 1)}px` }}>
                       (Sonne {transposedKeyDisplay})
                     </span>
                   )}
-                  <ChevronDown className={`w-3 h-3 text-amber-400/80 transition-transform ${showTransposeMenu ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`w-3 h-3 text-amber-400/80 transition-transform ${showTransposeMenu ? 'rotate-180' : ''}`} style={{ width: `${Math.max(11, Math.round(displaySettings.typography.metadataSize * 0.8))}px`, height: `${Math.max(11, Math.round(displaySettings.typography.metadataSize * 0.8))}px` }} />
                 </button>
 
                 {showTransposeMenu && (
@@ -2193,7 +2262,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                       setCapoPopoverStyle(calculatePopoverPos(capoButtonRef.current));
                     }
                   }}
-                  className={`h-8 inline-flex items-center gap-1.5 px-2.5 rounded-lg border font-mono shadow-xs transition-all cursor-pointer ${
+                  className={`min-h-[32px] py-1 inline-flex items-center gap-1.5 px-2.5 rounded-lg border font-mono shadow-xs transition-all cursor-pointer ${
                     showCapoMenu
                       ? 'bg-purple-950/40 border-purple-500 text-purple-300 ring-1 ring-purple-500/40'
                       : effectiveCapo > 0
@@ -2203,17 +2272,17 @@ export const SongReader: React.FC<SongReaderProps> = ({
                   style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
                   title="Cliquer pour afficher et régler le capodastre"
                 >
-                  <SlidersHorizontal className="w-3.5 h-3.5 text-purple-400 shrink-0" />
-                  <span className="text-gray-400 font-sans text-xs hidden sm:inline">Capo :</span>
-                  <span className="text-purple-400 font-bold font-mono text-xs">
+                  <SlidersHorizontal className="w-3.5 h-3.5 text-purple-400 shrink-0" style={{ width: `${Math.max(12, Math.round(displaySettings.typography.metadataSize * 0.9))}px`, height: `${Math.max(12, Math.round(displaySettings.typography.metadataSize * 0.9))}px` }} />
+                  <span className="text-gray-400 font-sans hidden sm:inline" style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}>Capo :</span>
+                  <span className="text-purple-400 font-bold font-mono" style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}>
                     {effectiveCapo > 0 ? effectiveCapo : '0'}
                   </span>
                   {personalCapo > 0 && (
-                    <span className="text-[9px] px-1 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 font-sans hidden sm:inline">
+                    <span className="px-1 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 font-sans hidden sm:inline" style={{ fontSize: `${Math.max(9, displaySettings.typography.metadataSize - 2)}px` }}>
                       Perso
                     </span>
                   )}
-                  <ChevronDown className={`w-3 h-3 text-purple-400/80 transition-transform ${showCapoMenu ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`w-3 h-3 text-purple-400/80 transition-transform ${showCapoMenu ? 'rotate-180' : ''}`} style={{ width: `${Math.max(11, Math.round(displaySettings.typography.metadataSize * 0.8))}px`, height: `${Math.max(11, Math.round(displaySettings.typography.metadataSize * 0.8))}px` }} />
                 </button>
 
                 {showCapoMenu && (
@@ -2282,7 +2351,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                       setTempoPopoverStyle(calculatePopoverPos(tempoButtonRef.current));
                     }
                   }}
-                  className={`h-8 inline-flex items-center gap-1.5 px-2.5 rounded-lg border font-mono shadow-xs transition-all cursor-pointer ${
+                  className={`min-h-[32px] py-1 inline-flex items-center gap-1.5 px-2.5 rounded-lg border font-mono shadow-xs transition-all cursor-pointer ${
                     showTempoMenu
                       ? 'bg-emerald-950/40 border-emerald-500 text-emerald-300 ring-1 ring-emerald-500/40'
                       : isMetronomePlaying
@@ -2292,14 +2361,14 @@ export const SongReader: React.FC<SongReaderProps> = ({
                   style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
                   title="Cliquer pour afficher et régler le tempo (BPM)"
                 >
-                  <Gauge className={`w-3.5 h-3.5 text-emerald-400 shrink-0 ${isMetronomePlaying ? 'animate-pulse' : ''}`} />
-                  <span className="text-gray-400 font-sans text-xs hidden sm:inline">Tempo :</span>
-                  <span className="text-emerald-400 font-bold font-mono text-xs">{effectiveTempo}</span>
-                  <span className="text-gray-400 font-mono text-[11px]">BPM</span>
+                  <Gauge className={`w-3.5 h-3.5 text-emerald-400 shrink-0 ${isMetronomePlaying ? 'animate-pulse' : ''}`} style={{ width: `${Math.max(12, Math.round(displaySettings.typography.metadataSize * 0.9))}px`, height: `${Math.max(12, Math.round(displaySettings.typography.metadataSize * 0.9))}px` }} />
+                  <span className="text-gray-400 font-sans hidden sm:inline" style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}>Tempo :</span>
+                  <span className="text-emerald-400 font-bold font-mono" style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}>{effectiveTempo}</span>
+                  <span className="text-gray-400 font-mono" style={{ fontSize: `${Math.max(10, Math.round(displaySettings.typography.metadataSize * 0.9))}px` }}>BPM</span>
                   {isMetronomePlaying && (
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping inline-block shrink-0" />
                   )}
-                  <ChevronDown className={`w-3 h-3 text-emerald-400/80 transition-transform ${showTempoMenu ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`w-3 h-3 text-emerald-400/80 transition-transform ${showTempoMenu ? 'rotate-180' : ''}`} style={{ width: `${Math.max(11, Math.round(displaySettings.typography.metadataSize * 0.8))}px`, height: `${Math.max(11, Math.round(displaySettings.typography.metadataSize * 0.8))}px` }} />
                 </button>
 
                 {showTempoMenu && (
@@ -2635,7 +2704,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                               : '';
 
                             return (
-                              <div key={iIdx} className="inline-flex flex-col">
+                              <div key={iIdx} className="inline-flex flex-col items-start">
                                  {/* Chord on top - Clickable to open Chord Library Diagram */}
                                 {stageSettings.showChords && (
                                   <button 

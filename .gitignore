@@ -16,3 +16,4 @@ firestore-debug.log*
 # Éditeurs & IDE
 .vscode/
 .cursor/
+.env

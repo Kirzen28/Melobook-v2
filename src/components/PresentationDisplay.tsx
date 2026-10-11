@@ -365,19 +365,13 @@ export const PresentationDisplay: React.FC = () => {
         )}
       </main>
 
-      {/* Footer minimaliste : Juste le titre */}
-      <footer className="w-full px-8 py-5 relative z-20 flex items-center justify-between text-gray-300">
-        <div className="min-w-0">
+      {/* Footer minimaliste : Juste le titre centré */}
+      <footer className="w-full px-8 py-5 relative z-20 flex items-center justify-center text-gray-300">
+        <div className="min-w-0 max-w-4xl text-center">
           <h2 className="text-sm sm:text-base md:text-lg font-medium text-gray-200 tracking-wide truncate drop-shadow">
             {title}
           </h2>
         </div>
-
-        {totalSlides > 1 && !isBlackout && (
-          <div className="text-xs sm:text-sm text-gray-400 font-mono shrink-0 ml-4 drop-shadow">
-            {currentIdx} / {totalSlides}
-          </div>
-        )}
       </footer>
 
       {showControlsHint && (

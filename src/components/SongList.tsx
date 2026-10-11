@@ -1434,96 +1434,12 @@ export const SongList: React.FC = () => {
               >
                 {stripParentheses(song.title)}
               </h3>
-              <p 
-                className={`text-[11px] sm:text-xs font-medium truncate mt-0.5 select-text ${
-                  selectedAuthors.includes(song.artist) || sortBy === 'artist' 
-                    ? 'text-blue-400 font-semibold' 
-                    : 'text-gray-400'
-                }`}
-                title={song.artist || 'Auteur inconnu'}
-              >
-                {song.artist || 'Auteur inconnu'}
-              </p>
             </div>
-
-            {/* Categories */}
-            {songCardMetadata?.showCategories && song.tags && song.tags.length > 0 && (
-              <div className="flex flex-wrap items-center gap-1 mt-1 md:mt-0">
-                {song.tags.map((cat, idx) => {
-                  const isFiltered = selectedCategories.includes(cat);
-                  return (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={(e) => {
-                        if (isMultiSelectMode) return;
-                        e.stopPropagation();
-                        toggleCategoryFilter(cat);
-                      }}
-                      className={`text-[9px] px-1.5 py-0.5 rounded border transition-colors flex items-center gap-1 max-w-full truncate ${
-                        isFiltered
-                          ? 'bg-blue-600/20 text-blue-300 border-blue-500/40 font-semibold'
-                          : 'bg-[#1C1C1E] border-[#222224] text-gray-400 hover:text-gray-200 hover:border-[#333]'
-                      }`}
-                      title={isMultiSelectMode ? undefined : `Filtrer par la catégorie ${cat}`}
-                    >
-                      <Tag className="w-2 h-2 text-blue-400 shrink-0" />
-                      <span className="truncate">{cat}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
           </div>
 
           {/* Badges et boutons d'action directement alignés sur la même ligne */}
           <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
-            {/* Metadata badges if enabled */}
-            {((songCardMetadata?.showKey) || (songCardMetadata?.showTempo && song.tempo) || (songCardMetadata?.showDuration && getSongDuration(song)) || (songCardMetadata?.showCcli && song.ccli) || (songCardMetadata?.showCopyright && song.copyright)) && (
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {songCardMetadata?.showKey && (
-                  <span
-                    onClick={(e) => {
-                      if (isMultiSelectMode) return;
-                      e.stopPropagation();
-                      toggleKeyFilter((song.key || 'C').toUpperCase());
-                    }}
-                    title={isMultiSelectMode ? undefined : `Filtrer par la tonalité ${(song.key || 'C').toUpperCase()}`}
-                    className={`px-1.5 py-0.5 rounded border text-[10px] font-bold transition-colors cursor-pointer ${
-                      selectedKeys.includes((song.key || 'C').toUpperCase())
-                        ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
-                        : 'bg-[#1C1C1E] border-[#333] text-gray-200 hover:border-amber-500/40 hover:text-amber-300'
-                    }`}
-                  >
-                    {song.key || 'C'}
-                  </span>
-                )}
-                {songCardMetadata?.showTempo && song.tempo && (
-                  <span className="px-1.5 py-0.5 rounded bg-[#1C1C1E] border border-[#222224] text-gray-400 text-[9px] font-medium flex items-center gap-1">
-                    <Gauge className="w-2.5 h-2.5 text-blue-400" />
-                    {song.tempo}
-                  </span>
-                )}
-                {songCardMetadata?.showDuration && getSongDuration(song) ? (
-                  <span className="px-1.5 py-0.5 rounded bg-cyan-950/50 border border-cyan-500/30 text-cyan-300 text-[9px] font-medium flex items-center gap-1 font-mono shadow-sm">
-                    <Clock className="w-2.5 h-2.5 text-cyan-400" />
-                    {getSongDuration(song)}
-                  </span>
-                ) : null}
-                {songCardMetadata?.showCcli && song.ccli && (
-                  <span className="px-1.5 py-0.5 rounded bg-blue-950/40 border border-blue-500/30 text-blue-300 text-[9px] font-mono font-medium flex items-center gap-1 shadow-xs">
-                    <Shield className="w-2.5 h-2.5 text-blue-400" />
-                    #{song.ccli}
-                  </span>
-                )}
-                {songCardMetadata?.showCopyright && song.copyright && (
-                  <span className="px-1.5 py-0.5 rounded bg-[#1C1C1E] border border-[#222224] text-gray-400 text-[9px] font-medium flex items-center gap-1 max-w-[130px] truncate shadow-xs" title={song.copyright}>
-                    <Copyright className="w-2.5 h-2.5 text-gray-500 shrink-0" />
-                    <span className="truncate">{song.copyright}</span>
-                  </span>
-                )}
-              </div>
-            )}
+
 
             {/* Buttons in the right corner */}
             <div className="flex items-center gap-1 shrink-0">
@@ -1775,36 +1691,7 @@ export const SongList: React.FC = () => {
         )}
       </div>
 
-      {/* Visitor Consultation Notice */}
-      {!currentUser && (
-        <div className="mb-4 p-3 rounded-xl bg-gradient-to-r from-blue-950/40 via-[#141724] to-[#121217] border border-blue-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-xs">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400 shrink-0">
-              <Eye className="w-4 h-4" />
-            </div>
-            <div className="min-w-0">
-              <div className="font-semibold text-white truncate flex items-center gap-2">
-                <span>Mode Invité • « {currentGroup?.name || 'Bibliothèque Principale'} »</span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium">Consultation</span>
-              </div>
-              <p className="text-[11px] text-gray-400 mt-0.5">
-                Vous pouvez consulter les chants, transposer les accords, changer la tonalité et voir les différentes versions.
-              </p>
-            </div>
-          </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={() => setIsGroupDropdownOpen(true)}
-              className="px-2.5 py-1.5 rounded-lg bg-[#1C1C22] hover:bg-[#282830] text-gray-200 border border-[#333] hover:border-blue-500/40 text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5"
-            >
-              <Library className="w-3.5 h-3.5 text-blue-400" />
-              <span>Changer de bibliothèque</span>
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Modal: Entrer un code d'invitation pour consulter une bibliothèque */}
       {isJoinCodeModalOpen && (

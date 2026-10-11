@@ -422,13 +422,7 @@ export const PresentationManager: React.FC = () => {
           <div>
             <h1 className="text-lg sm:text-xl font-bold text-white tracking-tight flex items-center gap-2">
               <span>Mode Présentation</span>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 font-semibold font-mono">
-                Régie Direct
-              </span>
             </h1>
-            <p className="text-xs text-gray-400">
-              Contrôlez les paroles projetées vers votre écran secondaire, vidéoprojecteur ou TV.
-            </p>
           </div>
         </div>
 
@@ -662,9 +656,7 @@ export const PresentationManager: React.FC = () => {
                                 <span className="text-[10px] text-gray-500 font-normal">Noir</span>
                               )}
                             </div>
-                            <p className="text-[11px] text-gray-400 truncate">
-                              {backgroundImage ? `${Math.round(backgroundOverlay * 100)}% opacité` : 'Fond noir par défaut'}
-                            </p>
+
                           </div>
                         </div>
 
@@ -798,59 +790,7 @@ export const PresentationManager: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* Recherche rapide pour ajout depuis la bibliothèque */}
-                      <div className="space-y-1.5 relative pt-1 border-t border-[#202026]">
-                        <label className="text-[11px] font-semibold text-gray-300 flex items-center gap-1.5">
-                          <Plus className="w-3.5 h-3.5 text-emerald-400" />
-                          <span>Ajouter un chant depuis la bibliothèque :</span>
-                        </label>
-                        <div className="relative">
-                          <Search className="w-3.5 h-3.5 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" />
-                          <input
-                            type="text"
-                            placeholder="Rechercher par titre ou artiste..."
-                            value={searchQuery}
-                            onChange={(e) => {
-                              setSearchQuery(e.target.value);
-                              setIsSearchOpen(true);
-                            }}
-                            onFocus={() => setIsSearchOpen(true)}
-                            className="w-full bg-[#1A1A1E] border border-[#333] focus:border-blue-500 rounded-xl pl-9 pr-8 py-2 text-xs text-white placeholder-gray-500 focus:outline-none"
-                          />
-                          {searchQuery && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSearchQuery('');
-                                setIsSearchOpen(false);
-                              }}
-                              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </div>
 
-                        {/* Menu déroulant des suggestions de recherche */}
-                        {isSearchOpen && searchResults.length > 0 && (
-                          <div className="absolute left-0 right-0 top-full mt-1.5 bg-[#18181D] border border-[#2E2E36] rounded-xl shadow-2xl z-30 max-h-56 overflow-y-auto divide-y divide-[#25252D]">
-                            {searchResults.map(song => (
-                              <button
-                                key={song.id}
-                                type="button"
-                                onClick={() => handleAddSong(song)}
-                                className="w-full text-left px-3 py-2 hover:bg-blue-600/20 text-xs text-gray-200 hover:text-white flex items-center justify-between group cursor-pointer transition-colors"
-                              >
-                                <div className="min-w-0 pr-2">
-                                  <p className="font-semibold text-white truncate">{song.title}</p>
-                                  {song.artist && <p className="text-[10px] text-gray-400 truncate">{song.artist}</p>}
-                                </div>
-                                <Plus className="w-4 h-4 text-emerald-400 opacity-60 group-hover:opacity-100 shrink-0" />
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
                     </div>
                   )}
                 </div>
@@ -1043,16 +983,7 @@ export const PresentationManager: React.FC = () => {
             
             {/* Barre de navigation du chant */}
             <div className="flex items-center justify-between gap-3 border-b border-[#202026] pb-3">
-              <div className="min-w-0">
-                <span className="text-[10px] uppercase tracking-wider font-bold text-blue-400">
-                  Chant {activeSongIndex + 1} sur {queueSongs.length}
-                </span>
-                <h3 className="text-base sm:text-lg font-bold text-white truncate">
-                  {currentSong ? stripParentheses(currentSong.title) : 'Aucun chant actif'}
-                </h3>
-              </div>
-
-              {/* Boutons Suivant / Précédent & Bouton Noir */}
+              {/* Bouton Noir à gauche */}
               <div className="flex items-center gap-2 shrink-0">
                 <button
                   type="button"
@@ -1067,9 +998,20 @@ export const PresentationManager: React.FC = () => {
                   <EyeOff className="w-3.5 h-3.5" />
                   <span>{isBlackout ? 'Écran masqué' : 'Noir (B)'}</span>
                 </button>
+              </div>
 
-                <div className="h-5 w-px bg-[#262630] mx-0.5" />
+              {/* Nom de la chanson centré */}
+              <div className="text-center min-w-0 flex-1 px-2">
+                <span className="text-[10px] uppercase tracking-wider font-bold text-blue-400 block truncate">
+                  Chant {activeSongIndex + 1} sur {queueSongs.length}
+                </span>
+                <h3 className="text-base sm:text-lg font-bold text-white truncate">
+                  {currentSong ? stripParentheses(currentSong.title) : 'Aucun chant actif'}
+                </h3>
+              </div>
 
+              {/* Boutons Précédent / Suivant à droite */}
+              <div className="flex items-center gap-2 shrink-0">
                 <button
                   type="button"
                   onClick={goToPrevSlide}
@@ -1080,10 +1022,6 @@ export const PresentationManager: React.FC = () => {
                   <ChevronLeft className="w-4 h-4" />
                   <span className="hidden sm:inline">Précédent</span>
                 </button>
-
-                <div className="font-mono text-xs font-bold text-gray-300 px-2 py-1 rounded bg-[#18181C] border border-[#2A2A30]">
-                  {currentSlides.length > 0 ? `${clampedSlideIndex + 1} / ${currentSlides.length}` : '0 / 0'}
-                </div>
 
                 <button
                   type="button"
@@ -1116,9 +1054,7 @@ export const PresentationManager: React.FC = () => {
                 <span>MONITEUR SORTIE {isBlackout ? '(MASQUÉ)' : '(EN DIRECT)'}</span>
               </div>
 
-              <div className="text-[10px] font-mono text-gray-300 drop-shadow absolute top-2 right-3 z-10">
-                Taille : {Math.round(fontScale * 100)}%
-              </div>
+
 
               {/* Paroles projetées */}
               <div className="flex-1 flex items-center justify-center px-4 relative z-10">
@@ -1144,13 +1080,7 @@ export const PresentationManager: React.FC = () => {
                 )}
               </div>
 
-              {/* Footer miniature */}
-              <div className="flex items-center justify-between text-[11px] text-gray-300 border-t border-gray-800/80 pt-1.5 relative z-10">
-                <span className="truncate drop-shadow">{currentSong ? stripParentheses(currentSong.title) : ''}</span>
-                {currentSlides.length > 0 && !isBlackout && (
-                  <span className="font-mono drop-shadow">{clampedSlideIndex + 1} / {currentSlides.length}</span>
-                )}
-              </div>
+
             </div>
           </div>
 

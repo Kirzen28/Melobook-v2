@@ -15,6 +15,8 @@ import { SnackbarNotification } from './components/SnackbarNotification';
 import { MiniPianoPopup } from './components/MiniPianoPopup';
 import { MetronomePopup } from './components/MetronomePopup';
 import { OfflineIndicator } from './components/OfflineIndicator';
+import { PresentationDisplay } from './components/PresentationDisplay';
+import { PresentationManager } from './components/PresentationManager';
 
 const viewVariants = {
   initial: {
@@ -62,6 +64,7 @@ const AppContent: React.FC = () => {
             {activeTab === 'repertoire' && <SongList />}
             {activeTab === 'setlists' && <SetlistManager />}
             {activeTab === 'stage' && <SongReader />}
+            {activeTab === 'presentation' && <PresentationManager />}
             {activeTab === 'editor' && <SongEditor />}
             {activeTab === 'groups' && <GroupManager />}
             {activeTab === 'settings' && <SettingsView />}
@@ -80,10 +83,15 @@ const AppContent: React.FC = () => {
 };
 
 export default function App() {
+  const isPresentation = typeof window !== 'undefined' && (
+    new URLSearchParams(window.location.search).get('mode') === 'presentation' ||
+    window.location.hash === '#presentation'
+  );
+
   return (
     <AppProvider>
       <MidiProvider>
-        <AppContent />
+        {isPresentation ? <PresentationDisplay /> : <AppContent />}
       </MidiProvider>
     </AppProvider>
   );

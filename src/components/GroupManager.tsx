@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useApp } from '../context/AppContext';
 import { 
   Users, 
@@ -533,16 +533,32 @@ export const GroupManager: React.FC = () => {
   const [bulkLibraryMenuOpen, setBulkLibraryMenuOpen] = useState(false);
   const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
 
+  // Vérifie si un utilisateur fait partie d'une bibliothèque donnée (en filtrant les faux IDs et en gérant default-group)
+  const isMemberOfGroup = useCallback((groupId: string | undefined, members: string[] | undefined, userUid: string): boolean => {
+    if (!groupId) return false;
+    const memberList = members || [];
+    if (groupId === 'default-group') {
+      const hasExplicitValidMembers = memberList.some(m => allUsers.some(u => u.uid === m));
+      return hasExplicitValidMembers ? memberList.includes(userUid) : true;
+    }
+    return memberList.includes(userUid);
+  }, [allUsers]);
+
+  // Décompte précis des membres réels enregistrés dans la bibliothèque
+  const getGroupValidMemberCount = useCallback((g: Group): number => {
+    return allUsers.filter(u => isMemberOfGroup(g.id, g.members, u.uid)).length;
+  }, [allUsers, isMemberOfGroup]);
+
   const filteredUsers = useMemo(() => {
     return allUsers.filter(u => {
       const matchesRole = memberRoleFilter === 'all' || u.role === memberRoleFilter;
       if (!matchesRole) return false;
       if (memberFilterTab === 'libraryOnly') {
-        return (currentGroup?.members || []).includes(u.uid);
+        return isMemberOfGroup(currentGroup?.id, currentGroup?.members, u.uid);
       }
       return true;
     });
-  }, [allUsers, memberRoleFilter, memberFilterTab, currentGroup?.members]);
+  }, [allUsers, memberRoleFilter, memberFilterTab, currentGroup?.id, currentGroup?.members, isMemberOfGroup]);
 
   const isAllSelected = filteredUsers.length > 0 && filteredUsers.every(u => selectedUserUids.includes(u.uid));
   const isSomeSelected = filteredUsers.some(u => selectedUserUids.includes(u.uid)) && !isAllSelected;
@@ -964,7 +980,7 @@ export const GroupManager: React.FC = () => {
                   </div>
 
                   <div className="flex items-center justify-between text-[11px] text-gray-400 mt-1">
-                    <span>{g.members?.length || 1} membre{(g.members?.length || 1) > 1 ? 's' : ''}</span>
+                    <span>{getGroupValidMemberCount(g)} membre{getGroupValidMemberCount(g) > 1 ? 's' : ''}</span>
                     <div className="flex items-center gap-1.5">
                       {canManageGroups && (
                         <button
@@ -1119,7 +1135,7 @@ export const GroupManager: React.FC = () => {
                       : 'text-gray-400 hover:text-white'
                   }`}
                 >
-                  Membres de cette bibliothèque — {allUsers.filter(u => (currentGroup?.members || []).includes(u.uid)).length}
+                  Membres de cette bibliothèque — {allUsers.filter(u => isMemberOfGroup(currentGroup?.id, currentGroup?.members, u.uid)).length}
                 </button>
               </div>
 
@@ -1171,7 +1187,7 @@ export const GroupManager: React.FC = () => {
                     const isAdmin = u.role === 'admin';
                     const isLeader = u.role === 'leader';
                     const isSelf = currentUser?.uid === u.uid;
-                    const isAssigned = (currentGroup?.members || []).includes(u.uid);
+                    const isAssigned = isMemberOfGroup(currentGroup?.id, currentGroup?.members, u.uid);
                     const isSelected = selectedUserUids.includes(u.uid);
                     const userKey = u.uid ? `user-${u.uid}-${index}` : (u.email ? `user-${u.email}-${index}` : `user-${index}`);
 

@@ -61,8 +61,15 @@ export const AssignMembersModal: React.FC<AssignMembersModalProps> = ({
   // Current assigned UIDs for this target group
   const assignedUidsSet = useMemo(() => {
     const list = activeTargetGroup?.members || [];
-    return new Set<string>(list);
-  }, [activeTargetGroup?.members]);
+    if (activeTargetGroup?.id === 'default-group') {
+      const valid = list.filter(m => allUsers.some(u => u.uid === m));
+      if (valid.length === 0) {
+        return new Set<string>(allUsers.map(u => u.uid));
+      }
+      return new Set<string>(valid);
+    }
+    return new Set<string>(list.filter(m => allUsers.some(u => u.uid === m)));
+  }, [activeTargetGroup?.id, activeTargetGroup?.members, allUsers]);
 
   // Multi-select state: track selected user UIDs in UI
   const [selectedUids, setSelectedUids] = useState<Set<string>>(new Set());
@@ -70,9 +77,9 @@ export const AssignMembersModal: React.FC<AssignMembersModalProps> = ({
   // Initialize selectedUids with currently assigned members when modal opens or target group changes
   useEffect(() => {
     if (isOpen && activeTargetGroup) {
-      setSelectedUids(new Set(activeTargetGroup.members || []));
+      setSelectedUids(new Set(assignedUidsSet));
     }
-  }, [isOpen, activeTargetGroup?.id, activeTargetGroup?.members]);
+  }, [isOpen, activeTargetGroup?.id, assignedUidsSet]);
 
   // Search & filter
   const [searchQuery, setSearchQuery] = useState('');

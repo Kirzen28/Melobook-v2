@@ -200,7 +200,7 @@ const PointNClickInspector: React.FC<PointNClickInspectorProps> = ({
       {selection.type === 'metadata' && (
         <div className="space-y-2">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-gray-300 font-medium">Taille des métadonnées (artiste, tempo, tonalité) :</span>
+            <span className="text-gray-300 font-medium">Taille des métadonnées (artiste, catégories, CCLI, copyright...) :</span>
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -765,14 +765,15 @@ export const SettingsView: React.FC = () => {
   const langMeta = getLanguageMeta(activeSongData.language);
 
   // Définition complète des 9 sections du chant témoin Lorem Ipsum (Intro, Couplet, Pré-refrain, Refrain, Pont, Instrumental, Tag, Outro, Spécial)
+  interface LoremSectionItem {
+    pairs: Array<{ chord?: string; lyrics: string }>;
+  }
+
   interface LoremSection {
     key: keyof SectionColors;
     badge: string;
     vocalArrangement?: string;
-    items: Array<{
-      chords?: string;
-      lyrics: string;
-    }>;
+    items: LoremSectionItem[];
   }
 
   const LOREM_SECTIONS: LoremSection[] = [
@@ -782,8 +783,12 @@ export const SettingsView: React.FC = () => {
       vocalArrangement: 'Piano seul',
       items: [
         {
-          chords: 'G                 C/G               G                 D/F#',
-          lyrics: '(Arpège doux au piano et nappe atmosphérique de synthétiseur)'
+          pairs: [
+            { chord: 'G', lyrics: '(Arpège doux ' },
+            { chord: 'C/G', lyrics: 'au piano et ' },
+            { chord: 'G', lyrics: 'nappe atmosphérique ' },
+            { chord: 'D/F#', lyrics: 'de synthétiseur)' }
+          ]
         }
       ]
     },
@@ -793,12 +798,16 @@ export const SettingsView: React.FC = () => {
       vocalArrangement: 'Voix unisson',
       items: [
         {
-          chords: 'G                             Em7',
-          lyrics: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit,'
+          pairs: [
+            { chord: 'G', lyrics: 'Lorem ipsum dolor sit ' },
+            { chord: 'Em7', lyrics: 'amet, consectetur adipiscing elit,' }
+          ]
         },
         {
-          chords: 'Cadd9                         D',
-          lyrics: 'Sed do eiusmod tempor incididunt ut labore et dolore magna.'
+          pairs: [
+            { chord: 'Cadd9', lyrics: 'Sed do eiusmod tempor incididunt ' },
+            { chord: 'D', lyrics: 'ut labore et dolore magna.' }
+          ]
         }
       ]
     },
@@ -808,12 +817,17 @@ export const SettingsView: React.FC = () => {
       vocalArrangement: 'Harmonies',
       items: [
         {
-          chords: 'Am7                           C',
-          lyrics: 'Quis autem vel eum iure reprehenderit in ea voluptate,'
+          pairs: [
+            { chord: 'Am7', lyrics: 'Quis autem vel eum iure ' },
+            { chord: 'C', lyrics: 'reprehenderit in ea voluptate,' }
+          ]
         },
         {
-          chords: 'Em7                           Dsus4           D',
-          lyrics: 'Velit esse quam nihil molestiae consequatur!'
+          pairs: [
+            { chord: 'Em7', lyrics: 'Velit esse quam ' },
+            { chord: 'Dsus4', lyrics: 'nihil molestiae ' },
+            { chord: 'D', lyrics: 'consequatur!' }
+          ]
         }
       ]
     },
@@ -823,12 +837,16 @@ export const SettingsView: React.FC = () => {
       vocalArrangement: 'Tutti (Chœur)',
       items: [
         {
-          chords: 'G                             D/F#',
-          lyrics: 'Duis aute irure dolor in reprehenderit in voluptate,'
+          pairs: [
+            { chord: 'G', lyrics: 'Duis aute irure dolor in ' },
+            { chord: 'D/F#', lyrics: 'reprehenderit in voluptate,' }
+          ]
         },
         {
-          chords: 'Em7                           Cadd9',
-          lyrics: 'Cillum dolore eu fugiat nulla pariatur excepteur sint!'
+          pairs: [
+            { chord: 'Em7', lyrics: 'Cillum dolore eu fugiat nulla ' },
+            { chord: 'Cadd9', lyrics: 'pariatur excepteur sint!' }
+          ]
         }
       ]
     },
@@ -838,12 +856,16 @@ export const SettingsView: React.FC = () => {
       vocalArrangement: 'Lead + Écho',
       items: [
         {
-          chords: 'Em                            C',
-          lyrics: 'Nemo enim ipsam voluptatem quia voluptas sit aspernatur,'
+          pairs: [
+            { chord: 'Em', lyrics: 'Nemo enim ipsam voluptatem ' },
+            { chord: 'C', lyrics: 'quia voluptas sit aspernatur,' }
+          ]
         },
         {
-          chords: 'G                             D/F#',
-          lyrics: 'Neque porro quisquam est qui dolorem ipsum quia dolor.'
+          pairs: [
+            { chord: 'G', lyrics: 'Neque porro quisquam est qui ' },
+            { chord: 'D/F#', lyrics: 'dolorem ipsum quia dolor.' }
+          ]
         }
       ]
     },
@@ -853,8 +875,12 @@ export const SettingsView: React.FC = () => {
       vocalArrangement: 'Solo Guitare',
       items: [
         {
-          chords: 'Cadd9             Em7             Dsus4             G',
-          lyrics: '(Solo de guitare électrique ou envolée orchestrale tutti)'
+          pairs: [
+            { chord: 'Cadd9', lyrics: '(Solo de guitare ' },
+            { chord: 'Em7', lyrics: 'électrique ou ' },
+            { chord: 'Dsus4', lyrics: 'envolée orchestrale ' },
+            { chord: 'G', lyrics: 'tutti)' }
+          ]
         }
       ]
     },
@@ -864,8 +890,11 @@ export const SettingsView: React.FC = () => {
       vocalArrangement: 'A cappella',
       items: [
         {
-          chords: 'C                             D                             G',
-          lyrics: 'In aeternum et in saecula saeculorum, amen.'
+          pairs: [
+            { chord: 'C', lyrics: 'In aeternum ' },
+            { chord: 'D', lyrics: 'et in saecula saeculorum, ' },
+            { chord: 'G', lyrics: 'amen.' }
+          ]
         }
       ]
     },
@@ -875,8 +904,13 @@ export const SettingsView: React.FC = () => {
       vocalArrangement: 'Tenu',
       items: [
         {
-          chords: 'G                 C                 G/B               D                 G',
-          lyrics: 'Pellentesque habitant morbi tristique senectus, decrescendo pianissimo.'
+          pairs: [
+            { chord: 'G', lyrics: 'Pellentesque ' },
+            { chord: 'C', lyrics: 'habitant morbi ' },
+            { chord: 'G/B', lyrics: 'tristique senectus, ' },
+            { chord: 'D', lyrics: 'decrescendo ' },
+            { chord: 'G', lyrics: 'pianissimo.' }
+          ]
         }
       ]
     },
@@ -886,8 +920,12 @@ export const SettingsView: React.FC = () => {
       vocalArrangement: 'Spontané',
       items: [
         {
-          chords: 'Em7               D/F#              G                 C',
-          lyrics: 'Ad libitum — transition libre et prière spontanée.'
+          pairs: [
+            { chord: 'Em7', lyrics: 'Ad libitum ' },
+            { chord: 'D/F#', lyrics: '— transition libre ' },
+            { chord: 'G', lyrics: 'et prière ' },
+            { chord: 'C', lyrics: 'spontanée.' }
+          ]
         }
       ]
     }
@@ -1155,7 +1193,7 @@ export const SettingsView: React.FC = () => {
                   } ${
                     effectivePreviewTheme === 'light' ? 'text-gray-600' : 'text-gray-300'
                   }`}
-                  style={{ fontSize: `clamp(11px, 2.5vw, ${typography.metadataSize}px)` }}
+                  style={{ fontSize: `${typography.metadataSize}px` }}
                   title="Cliquer pour modifier la taille des métadonnées"
                 >
                   {activeSongData.artist}
@@ -1171,18 +1209,20 @@ export const SettingsView: React.FC = () => {
                   className={`w-full sm:w-auto flex items-center gap-1 sm:gap-1.5 flex-wrap cursor-pointer ${
                     previewMetadata.artist ? 'sm:border-l sm:border-[#2A2A2E] sm:pl-2' : ''
                   }`}
+                  style={{ fontSize: `${typography.metadataSize}px` }}
                   title="Catégories du chant - Cliquer pour ajuster la taille"
                 >
                   {activeSongData.tags.map((cat, idx) => (
                     <span
                       key={idx}
-                      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-gray-300 text-[11px] sm:text-xs font-medium shadow-xs transition-all ${
+                      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-gray-300 font-medium shadow-xs transition-all ${
                         selectedPreviewElement?.type === 'metadata' ? 'ring-1 ring-blue-500' : ''
                       } ${
                         effectivePreviewTheme === 'light'
                           ? 'bg-gray-100 border-gray-300 text-gray-700'
                           : 'bg-[#18181C] border-[#2A2A30]'
                       }`}
+                      style={{ fontSize: `${typography.metadataSize}px` }}
                     >
                       <Tag className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-blue-400" />
                       <span>{cat}</span>
@@ -1200,14 +1240,16 @@ export const SettingsView: React.FC = () => {
                   className={`flex items-center gap-1 cursor-pointer ${
                     (previewMetadata.artist || (previewMetadata.tags && activeSongData.tags.length > 0)) ? 'sm:border-l sm:border-[#2A2A2E] sm:pl-2' : ''
                   }`}
+                  style={{ fontSize: `${typography.metadataSize}px` }}
                   title="Numéro CCLI SongSelect"
                 >
                   <span
-                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[10px] sm:text-xs font-semibold shadow-xs ${
+                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border font-semibold shadow-xs ${
                       effectivePreviewTheme === 'light'
                         ? 'bg-blue-50 border-blue-200 text-blue-700'
                         : 'bg-[#18181C] border-[#2A2A30] text-blue-300 font-mono'
                     }`}
+                    style={{ fontSize: `${typography.metadataSize}px` }}
                   >
                     <Shield className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-blue-400 shrink-0" />
                     <span>CCLI #{activeSongData.ccli}</span>
@@ -1224,14 +1266,16 @@ export const SettingsView: React.FC = () => {
                   className={`flex items-center gap-1 cursor-pointer ${
                     ((previewMetadata.artist || (previewMetadata.tags && activeSongData.tags.length > 0) || (previewMetadata.ccli && activeSongData.ccli))) ? 'sm:border-l sm:border-[#2A2A2E] sm:pl-2' : ''
                   }`}
+                  style={{ fontSize: `${typography.metadataSize}px` }}
                   title={`Copyright : ${activeSongData.copyright}`}
                 >
                   <span
-                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[10px] sm:text-xs shadow-xs max-w-[220px] truncate ${
+                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border shadow-xs max-w-[220px] truncate ${
                       effectivePreviewTheme === 'light'
                         ? 'bg-gray-100 border-gray-300 text-gray-700'
                         : 'bg-[#18181C] border-[#2A2A30] text-gray-400'
                     }`}
+                    style={{ fontSize: `${typography.metadataSize}px` }}
                   >
                     <Copyright className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-gray-500 shrink-0" />
                     <span className="truncate">{activeSongData.copyright}</span>
@@ -1248,65 +1292,68 @@ export const SettingsView: React.FC = () => {
                 e.stopPropagation();
                 setSelectedPreviewElement({ type: 'metadata', label: 'Barre Tonalité & Tempo' });
               }}
-              className={`flex items-center gap-2 flex-wrap text-xs cursor-pointer rounded-lg p-0.5 transition-all ${
+              className={`flex items-center gap-2 flex-wrap cursor-pointer rounded-lg p-0.5 transition-all ${
                 selectedPreviewElement?.type === 'metadata' && selectedPreviewElement.label.includes('Tonalité')
                   ? 'ring-2 ring-blue-500 bg-blue-500/10'
                   : ''
               }`}
+              style={{ fontSize: `${typography.metadataSize}px` }}
               title="Barre de contrôles de tonalité et tempo - Cliquer pour ajuster la taille"
             >
               {/* Tonalité */}
               <div 
-                className={`h-8 inline-flex items-center gap-1.5 px-2.5 rounded-lg border font-mono shadow-xs ${
+                className={`min-h-[32px] py-1 inline-flex items-center gap-1.5 px-2.5 rounded-lg border font-mono shadow-xs ${
                   effectivePreviewTheme === 'light'
                     ? 'bg-gray-100 border-gray-300 text-gray-700'
                     : 'bg-[#141416] border-[#242428] text-gray-300'
                 }`}
                 style={{ fontSize: `${typography.metadataSize}px` }}
               >
-                <Music className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                <span className="text-gray-400 font-sans text-xs hidden sm:inline">Tonalité :</span>
-                <span className="text-blue-400 font-bold font-mono text-xs">
+                <Music className="w-3.5 h-3.5 text-blue-400 shrink-0" style={{ width: `${Math.max(12, Math.round(typography.metadataSize * 0.9))}px`, height: `${Math.max(12, Math.round(typography.metadataSize * 0.9))}px` }} />
+                <span className="text-gray-400 font-sans hidden sm:inline" style={{ fontSize: `${typography.metadataSize}px` }}>Tonalité :</span>
+                <span className="text-blue-400 font-bold font-mono" style={{ fontSize: `${typography.metadataSize}px` }}>
                   {stageSettings.notation === 'latin' ? (LATIN_NOTES[activeSongData.key] || activeSongData.key) : activeSongData.key}
                 </span>
-                <ChevronDown className="w-3 h-3 text-blue-400/80" />
+                <ChevronDown className="w-3 h-3 text-blue-400/80" style={{ width: `${Math.max(11, Math.round(typography.metadataSize * 0.8))}px`, height: `${Math.max(11, Math.round(typography.metadataSize * 0.8))}px` }} />
               </div>
 
               {/* Transpose */}
               <div 
-                className={`h-8 inline-flex items-center gap-1.5 px-2.5 rounded-lg border font-mono shadow-xs ${
+                className={`min-h-[32px] py-1 inline-flex items-center gap-1.5 px-2.5 rounded-lg border font-mono shadow-xs ${
                   effectivePreviewTheme === 'light'
                     ? 'bg-gray-100 border-gray-300 text-gray-700'
                     : 'bg-[#141416] border-[#242428] text-gray-300'
                 }`}
                 style={{ fontSize: `${typography.metadataSize}px` }}
               >
-                <ArrowUpDown className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                <span className="text-amber-400/90 font-sans text-xs shrink-0 hidden sm:inline">Transpose :</span>
-                <span className={`px-1.5 py-0.5 rounded font-mono font-bold text-xs ${
+                <ArrowUpDown className="w-3.5 h-3.5 text-amber-400 shrink-0" style={{ width: `${Math.max(12, Math.round(typography.metadataSize * 0.9))}px`, height: `${Math.max(12, Math.round(typography.metadataSize * 0.9))}px` }} />
+                <span className="text-amber-400/90 font-sans shrink-0 hidden sm:inline" style={{ fontSize: `${typography.metadataSize}px` }}>Transpose :</span>
+                <span className={`px-1.5 py-0.5 rounded font-mono font-bold ${
                   stageSettings.transposeOffset !== 0
                     ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                     : effectivePreviewTheme === 'light' ? 'bg-gray-200 text-gray-700' : 'bg-[#18181C] text-gray-300 border border-[#242428]'
-                }`}>
+                }`}
+                style={{ fontSize: `${typography.metadataSize}px` }}
+                >
                   {stageSettings.transposeOffset === 0 ? '0' : (stageSettings.transposeOffset > 0 ? `+${stageSettings.transposeOffset}` : `${stageSettings.transposeOffset}`)}
                 </span>
-                <ChevronDown className="w-3 h-3 text-amber-400/80" />
+                <ChevronDown className="w-3 h-3 text-amber-400/80" style={{ width: `${Math.max(11, Math.round(typography.metadataSize * 0.8))}px`, height: `${Math.max(11, Math.round(typography.metadataSize * 0.8))}px` }} />
               </div>
 
               {/* Tempo */}
               <div 
-                className={`h-8 inline-flex items-center gap-1.5 px-2.5 rounded-lg border font-mono shadow-xs ${
+                className={`min-h-[32px] py-1 inline-flex items-center gap-1.5 px-2.5 rounded-lg border font-mono shadow-xs ${
                   effectivePreviewTheme === 'light'
                     ? 'bg-gray-100 border-gray-300 text-gray-700'
                     : 'bg-[#141416] border-[#242428] text-gray-300'
                 }`}
                 style={{ fontSize: `${typography.metadataSize}px` }}
               >
-                <Gauge className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                <span className="text-gray-400 font-sans text-xs hidden sm:inline">Tempo :</span>
-                <span className="text-emerald-400 font-bold font-mono text-xs">{activeSongData.tempo}</span>
-                <span className="text-gray-400 font-mono text-[11px]">BPM</span>
-                <ChevronDown className="w-3 h-3 text-emerald-400/80" />
+                <Gauge className="w-3.5 h-3.5 text-emerald-400 shrink-0" style={{ width: `${Math.max(12, Math.round(typography.metadataSize * 0.9))}px`, height: `${Math.max(12, Math.round(typography.metadataSize * 0.9))}px` }} />
+                <span className="text-gray-400 font-sans hidden sm:inline" style={{ fontSize: `${typography.metadataSize}px` }}>Tempo :</span>
+                <span className="text-emerald-400 font-bold font-mono" style={{ fontSize: `${typography.metadataSize}px` }}>{activeSongData.tempo}</span>
+                <span className="text-gray-400 font-mono" style={{ fontSize: `${Math.max(10, Math.round(typography.metadataSize * 0.9))}px` }}>BPM</span>
+                <ChevronDown className="w-3 h-3 text-emerald-400/80" style={{ width: `${Math.max(11, Math.round(typography.metadataSize * 0.8))}px`, height: `${Math.max(11, Math.round(typography.metadataSize * 0.8))}px` }} />
               </div>
             </div>
           )}
@@ -1429,44 +1476,51 @@ export const SettingsView: React.FC = () => {
                   </div>
                 )}
 
-                <div className="space-y-1 font-mono">
+                <div className="space-y-1">
                   {sec.items.map((line, lIdx) => (
-                    <div key={lIdx} className="flex flex-col">
-                      {stageSettings.showChords && line.chords && (
-                        <span 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedPreviewElement({ type: 'chord', label: 'Accords' });
-                          }}
-                          className={`font-mono font-bold leading-none mb-1 cursor-pointer transition-all rounded px-1 -mx-1 select-none whitespace-pre ${
-                            selectedPreviewElement?.type === 'chord'
-                              ? 'ring-2 ring-blue-500 bg-blue-500/20'
-                              : 'hover:ring-1 hover:ring-blue-400/60 hover:bg-blue-500/10'
-                          }`}
-                          style={{ fontSize: `${typography.chordSize}px`, color: chordColor }}
-                          title="Cliquer pour modifier la taille et la couleur des accords"
-                        >
-                          {line.chords.split(/(\s+)/).map((token, tIdx) => {
-                            if (!token.trim()) return token;
-                            return transposeChord(token, stageSettings.transposeOffset, stageSettings.notation);
-                          }).join('')}
-                        </span>
-                      )}
-                      <span 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedPreviewElement({ type: 'lyrics', label: 'Paroles' });
-                        }}
-                        className={`font-sans cursor-pointer transition-all rounded px-1 -mx-1 ${
-                          selectedPreviewElement?.type === 'lyrics'
-                            ? 'ring-2 ring-blue-500 bg-blue-500/15'
-                            : 'hover:ring-1 hover:ring-blue-400/50 hover:bg-blue-500/5'
-                        } ${effectivePreviewTheme === 'light' ? 'text-[#18181B]' : 'text-[#E0E0E0]'}`}
-                        style={{ fontSize: `${typography.lyricsSize}px` }}
-                        title="Cliquer pour modifier la taille et l'interligne des paroles"
-                      >
-                        {line.lyrics}
-                      </span>
+                    <div key={lIdx} className="flex flex-wrap items-end">
+                      {line.pairs.map((pair, pIdx) => {
+                        const displayedChord = pair.chord
+                          ? transposeChord(pair.chord, stageSettings.transposeOffset, stageSettings.notation)
+                          : '';
+
+                        return (
+                          <div key={pIdx} className="inline-flex flex-col items-start">
+                            {stageSettings.showChords && (
+                              <span 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedPreviewElement({ type: 'chord', label: 'Accords' });
+                                }}
+                                className={`font-mono font-bold leading-none mb-1 cursor-pointer transition-all rounded px-0.5 select-none ${
+                                  selectedPreviewElement?.type === 'chord'
+                                    ? 'ring-2 ring-blue-500 bg-blue-500/20'
+                                    : 'hover:ring-1 hover:ring-blue-400/60 hover:bg-blue-500/10'
+                                } ${displayedChord ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                                style={{ fontSize: `${typography.chordSize}px`, color: chordColor }}
+                                title="Cliquer pour modifier la taille et la couleur des accords"
+                              >
+                                {displayedChord || '\u00A0'}
+                              </span>
+                            )}
+                            <span 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedPreviewElement({ type: 'lyrics', label: 'Paroles' });
+                              }}
+                              className={`font-sans cursor-pointer transition-all rounded whitespace-pre ${
+                                selectedPreviewElement?.type === 'lyrics'
+                                  ? 'ring-2 ring-blue-500 bg-blue-500/15'
+                                  : 'hover:ring-1 hover:ring-blue-400/50 hover:bg-blue-500/5'
+                              } ${effectivePreviewTheme === 'light' ? 'text-[#18181B]' : 'text-[#E0E0E0]'}`}
+                              style={{ fontSize: `${typography.lyricsSize}px` }}
+                              title="Cliquer pour modifier la taille et l'interligne des paroles"
+                            >
+                              {pair.lyrics || (pair.chord ? '\u00A0' : '')}
+                            </span>
+                          </div>
+                        );
+                      })}
                     </div>
                   ))}
                 </div>

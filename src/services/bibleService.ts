@@ -1,5 +1,6 @@
 import { BiblePassageData, BibleVerseItem } from '../types';
 import { BIBLE_BOOKS, BibleBookInfo, OFFLINE_KEY_VERSES } from '../data/bibleBooksData';
+import { cleanBibleVerseText } from '../utils/presentationUtils';
 
 export interface BibleTranslationInfo {
   id: string;
@@ -152,8 +153,12 @@ export async function getChapterVerses(
     if (rawLocal) {
       const parsed = JSON.parse(rawLocal) as BibleVerseItem[];
       if (Array.isArray(parsed) && parsed.length > 0) {
-        memoryChapterCache.set(cacheKey, parsed);
-        return parsed;
+        const cleaned = parsed.map(v => ({
+          verseNumber: v.verseNumber,
+          text: cleanBibleVerseText(v.text)
+        }));
+        memoryChapterCache.set(cacheKey, cleaned);
+        return cleaned;
       }
     }
   } catch {}
@@ -172,7 +177,10 @@ export async function getChapterVerses(
     if (localRes.ok) {
       const data = await localRes.json();
       if (Array.isArray(data.verses) && data.verses.length > 0) {
-        fetchedVerses = data.verses;
+        fetchedVerses = data.verses.map((v: any) => ({
+          verseNumber: v.verseNumber,
+          text: cleanBibleVerseText(v.text)
+        }));
       }
     }
   } catch {}
@@ -186,7 +194,7 @@ export async function getChapterVerses(
         if (Array.isArray(rawList)) {
           fetchedVerses = rawList.map((item: any) => ({
             verseNumber: item.verse,
-            text: (item.text || '').replace(/<[^>]+>/g, '').trim()
+            text: cleanBibleVerseText(item.text)
           }));
         }
       }

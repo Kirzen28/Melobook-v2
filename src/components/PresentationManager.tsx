@@ -6,6 +6,7 @@ import {
   buildBilingualPresentationSlides,
   buildBiblePresentationSlides,
   buildBilingualBiblePresentationSlides,
+  cleanBibleVerseText,
   broadcastPresentationState, 
   pushPresentationStateToServer,
   PresentationSlide,
@@ -597,6 +598,8 @@ export const PresentationManager: React.FC = () => {
     cdTitle: string,
     cdThemeId: CountdownThemeId,
     liveBible: BiblePassageData | null,
+    liveSecondaryBible: BiblePassageData | null,
+    liveBibleFmt: 'stacked' | 'columns',
     liveBibleIdx: number,
     liveMedia: MediaPresentationState | null,
     pupitreTab: 'songs' | 'bible' | 'media'
@@ -642,8 +645,8 @@ export const PresentationManager: React.FC = () => {
 
     // Priorité 1 : Live Direct Biblique
     if (liveBible) {
-      const bSlides = liveDirectSecondaryBible
-        ? buildBilingualBiblePresentationSlides(liveBible, liveDirectSecondaryBible, liveDirectBibleFormat)
+      const bSlides = liveSecondaryBible
+        ? buildBilingualBiblePresentationSlides(liveBible, liveSecondaryBible, liveBibleFmt)
         : buildBiblePresentationSlides(liveBible);
       const validIdx = Math.max(0, Math.min(Math.max(0, bSlides.length - 1), liveBibleIdx));
       const slide = bSlides[validIdx] || bSlides[0];
@@ -662,11 +665,11 @@ export const PresentationManager: React.FC = () => {
         itemType: 'bible',
         bibleReference: slide?.bibleReference || `${liveBible.referenceText} (${liveBible.version})`,
         bibleVersion: slide?.version || liveBible.version,
-        isBilingual: Boolean(liveDirectSecondaryBible && slide?.isBilingual),
-        bilingualFormat: slide?.bilingualFormat || liveDirectBibleFormat,
+        isBilingual: Boolean(liveSecondaryBible && slide?.isBilingual),
+        bilingualFormat: slide?.bilingualFormat || liveBibleFmt,
         primaryLanguage: slide?.primaryLanguage || liveBible.version,
-        secondaryLanguage: slide?.secondaryLanguage || liveDirectSecondaryBible?.version,
-        secondarySongTitle: liveDirectSecondaryBible?.referenceText,
+        secondaryLanguage: slide?.secondaryLanguage || liveSecondaryBible?.version,
+        secondarySongTitle: liveSecondaryBible?.referenceText,
         secondaryLines: slide?.secondaryLines,
         updatedAt: Date.now()
       };
@@ -874,12 +877,14 @@ export const PresentationManager: React.FC = () => {
       isBlackout, 
       fontScale, 
       backgroundImage, 
-      backgroundOverlay,
-      countdownActive,
-      countdownTime,
-      countdownTitle,
+      backgroundOverlay, 
+      countdownActive, 
+      countdownTime, 
+      countdownTitle, 
       countdownThemeId,
       liveDirectBible,
+      liveDirectSecondaryBible,
+      liveDirectBibleFormat,
       liveDirectSlideIndex,
       liveDirectMedia,
       activePupitreTab
@@ -922,12 +927,14 @@ export const PresentationManager: React.FC = () => {
           isBlackout, 
           fontScale, 
           backgroundImage, 
-          backgroundOverlay,
-          countdownActive,
-          countdownTime,
-          countdownTitle,
+          backgroundOverlay, 
+          countdownActive, 
+          countdownTime, 
+          countdownTitle, 
           countdownThemeId,
           liveDirectBible,
+          liveDirectSecondaryBible,
+          liveDirectBibleFormat,
           liveDirectSlideIndex,
           liveDirectMedia,
           activePupitreTab
@@ -1038,11 +1045,32 @@ export const PresentationManager: React.FC = () => {
     secondaryPassage?: BiblePassageData | null,
     format?: 'stacked' | 'columns'
   ) => {
+    const chosenFormat = format || 'stacked';
+    const chosenSecondary = secondaryPassage || null;
     setLiveDirectBible(passage);
-    setLiveDirectSecondaryBible(secondaryPassage || null);
-    setLiveDirectBibleFormat(format || 'stacked');
+    setLiveDirectSecondaryBible(chosenSecondary);
+    setLiveDirectBibleFormat(chosenFormat);
     setLiveDirectSlideIndex(0);
     setIsBlackout(false);
+    broadcastCurrentState(
+      currentQueueItem,
+      currentSong,
+      activeSlideIndex,
+      false,
+      fontScale,
+      backgroundImage,
+      backgroundOverlay,
+      countdownActive,
+      countdownTime,
+      countdownTitle,
+      countdownThemeId,
+      passage,
+      chosenSecondary,
+      chosenFormat,
+      0,
+      liveDirectMedia,
+      'bible'
+    );
     showNotification?.({
       title: secondaryPassage ? 'Passage biblique bilingue en direct' : 'Passage biblique diffusé en direct',
       message: secondaryPassage 
@@ -1050,18 +1078,67 @@ export const PresentationManager: React.FC = () => {
         : `${passage.referenceText} (${passage.version}) est à l'écran`,
       type: 'info'
     });
-  }, [showNotification]);
+  }, [
+    currentQueueItem,
+    currentSong,
+    activeSlideIndex,
+    fontScale,
+    backgroundImage,
+    backgroundOverlay,
+    countdownActive,
+    countdownTime,
+    countdownTitle,
+    countdownThemeId,
+    liveDirectMedia,
+    broadcastCurrentState,
+    showNotification
+  ]);
 
   const handleStopLiveBible = useCallback(() => {
     setLiveDirectBible(null);
     setLiveDirectSecondaryBible(null);
     setLiveDirectSlideIndex(0);
+    broadcastCurrentState(
+      currentQueueItem,
+      currentSong,
+      activeSlideIndex,
+      isBlackout,
+      fontScale,
+      backgroundImage,
+      backgroundOverlay,
+      countdownActive,
+      countdownTime,
+      countdownTitle,
+      countdownThemeId,
+      null,
+      null,
+      'stacked',
+      0,
+      liveDirectMedia,
+      activePupitreTab
+    );
     showNotification?.({
       title: 'Diffusion biblique terminée',
       message: 'Retour au pupitre',
       type: 'info'
     });
-  }, [showNotification]);
+  }, [
+    currentQueueItem,
+    currentSong,
+    activeSlideIndex,
+    isBlackout,
+    fontScale,
+    backgroundImage,
+    backgroundOverlay,
+    countdownActive,
+    countdownTime,
+    countdownTitle,
+    countdownThemeId,
+    liveDirectMedia,
+    activePupitreTab,
+    broadcastCurrentState,
+    showNotification
+  ]);
 
   const handleNextLiveVerse = useCallback(() => {
     if (liveDirectBible && liveDirectSlideIndex < liveDirectSlides.length - 1) {
@@ -1195,6 +1272,8 @@ export const PresentationManager: React.FC = () => {
       countdownTitle,
       countdownThemeId,
       liveDirectBible,
+      liveDirectSecondaryBible,
+      liveDirectBibleFormat,
       liveDirectSlideIndex,
       liveDirectMedia,
       activePupitreTab
@@ -1923,7 +2002,7 @@ export const PresentationManager: React.FC = () => {
                 }`}
               >
                 <Music className="w-3.5 h-3.5" />
-                <span>Pupitre & Projection</span>
+                <span>Pupitre</span>
                 {queueItems.length > 0 && (
                   <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-black/40 text-blue-200">
                     {queueItems.length}
@@ -1941,7 +2020,7 @@ export const PresentationManager: React.FC = () => {
                 }`}
               >
                 <BookOpen className="w-3.5 h-3.5 text-amber-400" />
-                <span>Module Bible & Versets</span>
+                <span>Bible</span>
                 {liveDirectBible && (
                   <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded-full bg-amber-400 text-black uppercase animate-pulse">
                     En direct
@@ -1959,7 +2038,7 @@ export const PresentationManager: React.FC = () => {
                 }`}
               >
                 <Film className="w-3.5 h-3.5 text-purple-400" />
-                <span>Module Média</span>
+                <span>Média</span>
                 {liveDirectMedia?.isActive && (
                   <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded-full bg-purple-400 text-black uppercase animate-pulse">
                     En direct
@@ -2515,7 +2594,7 @@ export const PresentationManager: React.FC = () => {
                                   textShadow: '0 1px 3px rgba(0,0,0,0.85)'
                                 }}
                               >
-                                {l}
+                                {cleanBibleVerseText(l)}
                               </p>
                             ))}
                           </div>
@@ -2535,7 +2614,7 @@ export const PresentationManager: React.FC = () => {
                                   textShadow: '0 1px 3px rgba(6,182,212,0.4)'
                                 }}
                               >
-                                {l}
+                                {cleanBibleVerseText(l)}
                               </p>
                             ))}
                           </div>
@@ -2551,7 +2630,7 @@ export const PresentationManager: React.FC = () => {
                                   textShadow: '0 1px 3px rgba(0,0,0,0.85)'
                                 }}
                               >
-                                {l}
+                                {cleanBibleVerseText(l)}
                               </p>
                               {activeSlide.secondaryLines?.[i] && (
                                 <p 
@@ -2561,7 +2640,7 @@ export const PresentationManager: React.FC = () => {
                                     textShadow: '0 1px 3px rgba(6,182,212,0.4)'
                                   }}
                                 >
-                                  {activeSlide.secondaryLines[i]}
+                                  {cleanBibleVerseText(activeSlide.secondaryLines[i])}
                                 </p>
                               )}
                             </div>

@@ -485,6 +485,23 @@ function wrapScriptureLines(text: string, maxLineLength: number = 55): string[] 
 }
 
 /**
+ * Nettoie le texte des versets bibliques (élimine les balises et numéros Strong ex: <S>1234</S>,
+ * les numéros de concordance accolés aux mots ex: Then3767 -> Then, et les notes de bas de page)
+ */
+export function cleanBibleVerseText(raw: string): string {
+  if (!raw) return '';
+  return raw
+    .replace(/<[sS][^>]*>[\s\S]*?<\/[sS]>/gi, '')
+    .replace(/<[fF][^>]*>[\s\S]*?<\/[fF]>/gi, '')
+    .replace(/<[^>]+>/g, '')
+    .replace(/([a-zA-Z]+)\d{1,5}\b/g, '$1')
+    .replace(/\[\d{1,5}\]|\(\d{1,5}\)/g, '')
+    .replace(/\s+/g, ' ')
+    .replace(/\s+([,.;:?!])/g, '$1')
+    .trim();
+}
+
+/**
  * Construit la liste des slides de projection pour un passage ou verset biblique
  */
 export function buildBiblePresentationSlides(
@@ -502,7 +519,7 @@ export function buildBiblePresentationSlides(
   if (passage.verses && passage.verses.length > 0) {
     for (const v of passage.verses) {
       const verseRef = `${passage.bookName} ${passage.chapter}:${v.verseNumber}${versionTag}`;
-      const wrapped = wrapScriptureLines(v.text, 55);
+      const wrapped = wrapScriptureLines(cleanBibleVerseText(v.text), 55);
 
       if (wrapped.length === 0) continue;
 
@@ -584,8 +601,10 @@ export function buildBilingualBiblePresentationSlides(
   if (pVerses.length > 0) {
     pVerses.forEach((pv, idx) => {
       const sv = sVerses.find(v => v.verseNumber === pv.verseNumber) || sVerses[idx];
-      const pWrapped = wrapScriptureLines(pv.text, format === 'columns' ? 36 : 52);
-      const sWrapped = wrapScriptureLines(sv?.text || '', format === 'columns' ? 36 : 52);
+      const cleanP = cleanBibleVerseText(pv.text);
+      const cleanS = cleanBibleVerseText(sv?.text || '');
+      const pWrapped = wrapScriptureLines(cleanP, format === 'columns' ? 36 : 52);
+      const sWrapped = wrapScriptureLines(cleanS, format === 'columns' ? 36 : 52);
 
       if (format === 'columns') {
         const chunkCount = Math.max(
@@ -604,7 +623,7 @@ export function buildBilingualBiblePresentationSlides(
             id: `bible_bi_${pv.verseNumber}_${c}`,
             songTitle: primaryPassage.referenceText,
             sectionTitle: secTitle,
-            lines: pChunk.length > 0 ? pChunk : [pv.text],
+            lines: pChunk.length > 0 ? pChunk : [cleanP],
             slideIndex: slides.length,
             totalSlides: 0,
             itemType: 'bible',
@@ -615,7 +634,7 @@ export function buildBilingualBiblePresentationSlides(
             primaryLanguage: pVersionTag,
             secondaryLanguage: sVersionTag,
             secondarySongTitle: secondaryPassage.referenceText,
-            secondaryLines: sChunk.length > 0 ? sChunk : (sv ? [sv.text] : [])
+            secondaryLines: sChunk.length > 0 ? sChunk : (sv ? [cleanS] : [])
           });
         }
       } else {
@@ -687,7 +706,7 @@ export function buildBilingualBiblePresentationSlides(
       id: 'bible_bi_fallback',
       songTitle: primaryPassage.referenceText,
       sectionTitle: 'Verset',
-      lines: [primaryPassage.text || primaryPassage.referenceText],
+      lines: [cleanBibleVerseText(primaryPassage.text || primaryPassage.referenceText)],
       slideIndex: 0,
       totalSlides: 1,
       itemType: 'bible',
@@ -698,7 +717,7 @@ export function buildBilingualBiblePresentationSlides(
       primaryLanguage: pVersionTag,
       secondaryLanguage: sVersionTag,
       secondarySongTitle: secondaryPassage.referenceText,
-      secondaryLines: [secondaryPassage.text || secondaryPassage.referenceText]
+      secondaryLines: [cleanBibleVerseText(secondaryPassage.text || secondaryPassage.referenceText)]
     });
   }
 

@@ -50,6 +50,19 @@ async function startServer() {
     res.json({ ok: true, state: latestPresentationState });
   });
 
+  function cleanBibleVerseText(raw: string): string {
+    if (!raw) return '';
+    return raw
+      .replace(/<[sS][^>]*>[\s\S]*?<\/[sS]>/gi, '')
+      .replace(/<[fF][^>]*>[\s\S]*?<\/[fF]>/gi, '')
+      .replace(/<[^>]+>/g, '')
+      .replace(/([a-zA-Z]+)\d{1,5}\b/g, '$1')
+      .replace(/\[\d{1,5}\]|\(\d{1,5}\)/g, '')
+      .replace(/\s+/g, ' ')
+      .replace(/\s+([,.;:?!])/g, '$1')
+      .trim();
+  }
+
   // Bible proxy & high-speed in-memory cache
   const bibleChapterCache = new Map<string, any[]>();
 
@@ -87,7 +100,7 @@ async function startServer() {
       const verses = Array.isArray(data)
         ? data.map((item: any) => ({
             verseNumber: item.verse,
-            text: (item.text || '').replace(/<[^>]+>/g, '').trim()
+            text: cleanBibleVerseText(item.text)
           }))
         : [];
 

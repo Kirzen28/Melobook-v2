@@ -13,7 +13,8 @@ import {
   BACKGROUND_IMAGE_KEY,
   BACKGROUND_OVERLAY_KEY,
   formatRemainingTime,
-  getCountdownTheme
+  getCountdownTheme,
+  cleanBibleVerseText
 } from '../utils/presentationUtils';
 import { stripParentheses } from '../utils/chordUtils';
 import { useApp } from '../context/AppContext';
@@ -142,6 +143,8 @@ export const PresentationDisplay: React.FC = () => {
         prev.slideIndex === incoming.slideIndex &&
         prev.songTitle === incoming.songTitle &&
         prev.isBlackout === incoming.isBlackout &&
+        prev.itemType === incoming.itemType &&
+        prev.bibleReference === incoming.bibleReference &&
         prev.lines.length === incoming.lines.length &&
         prev.lines.every((l, i) => l === incoming.lines[i]) &&
         prev.fontScale === incoming.fontScale &&
@@ -149,6 +152,8 @@ export const PresentationDisplay: React.FC = () => {
         prev.backgroundOverlay === incoming.backgroundOverlay &&
         prev.isBilingual === incoming.isBilingual &&
         prev.bilingualFormat === incoming.bilingualFormat &&
+        prev.primaryLanguage === incoming.primaryLanguage &&
+        prev.secondaryLanguage === incoming.secondaryLanguage &&
         prev.secondarySongTitle === incoming.secondarySongTitle &&
         prev.secondaryLines?.length === incoming.secondaryLines?.length &&
         (prev.secondaryLines || []).every((l, i) => l === (incoming.secondaryLines || [])[i])
@@ -489,14 +494,14 @@ export const PresentationDisplay: React.FC = () => {
                     style={{ fontSize: `calc(clamp(0.95rem, 2vw, 1.55rem) * ${effectiveFontScale})` }}
                   >
                     <BookOpen className="w-5 h-5 sm:w-6 sm:h-6 text-amber-400 shrink-0" />
-                    <span>{displayState?.bibleReference || title}</span>
+                    <span>{displayState?.songTitle || displayState?.bibleReference || title}</span>
                   </div>
 
                   <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-14 items-center">
                     {/* Left Column : Primary Version */}
-                    <div className="flex flex-col items-center justify-center text-center space-y-2 sm:space-y-3">
+                    <div className="flex flex-col items-start justify-center text-left space-y-2 sm:space-y-3">
                       <div 
-                        className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-amber-500/20 border border-amber-400/30 text-amber-200 font-bold uppercase tracking-wider mb-1 transition-all"
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-amber-500/20 border border-amber-400/30 text-amber-200 font-bold uppercase tracking-wider mb-1 transition-all self-start"
                         style={{ fontSize: `calc(clamp(0.75rem, 1.3vw, 1.15rem) * ${effectiveFontScale})` }}
                       >
                         <span>{displayState.primaryLanguage || displayState.bibleVersion || 'Principal'}</span>
@@ -504,22 +509,22 @@ export const PresentationDisplay: React.FC = () => {
                       {lines.map((line, idx) => (
                         <p
                           key={`bp-${idx}`}
-                          className="font-extrabold tracking-wide text-white leading-relaxed select-none transition-all drop-shadow-md"
+                          className="font-extrabold tracking-wide text-white leading-relaxed select-none transition-all drop-shadow-md text-left w-full"
                           style={{
                             fontSize: `calc(clamp(1.5rem, 3.2vw, 3.6rem) * ${effectiveFontScale})`,
                             lineHeight: 1.4,
                             textShadow: '0 2px 12px rgba(0, 0, 0, 0.9), 0 4px 25px rgba(0, 0, 0, 0.7)'
                           }}
                         >
-                          {line}
+                          {cleanBibleVerseText(line)}
                         </p>
                       ))}
                     </div>
 
                     {/* Right Column : Secondary Version */}
-                    <div className="flex flex-col items-center justify-center text-center space-y-2 sm:space-y-3 md:border-l md:border-amber-400/20 md:pl-8">
+                    <div className="flex flex-col items-start justify-center text-left space-y-2 sm:space-y-3 md:border-l md:border-amber-400/20 md:pl-8">
                       <div 
-                        className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-cyan-500/20 border border-cyan-400/30 text-cyan-200 font-bold uppercase tracking-wider mb-1 transition-all"
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-cyan-500/20 border border-cyan-400/30 text-cyan-200 font-bold uppercase tracking-wider mb-1 transition-all self-start"
                         style={{ fontSize: `calc(clamp(0.75rem, 1.3vw, 1.15rem) * ${effectiveFontScale})` }}
                       >
                         <span>{displayState.secondaryLanguage || 'Traduction'}</span>
@@ -527,14 +532,14 @@ export const PresentationDisplay: React.FC = () => {
                       {displayState.secondaryLines.map((line, idx) => (
                         <p
                           key={`bs-${idx}`}
-                          className="font-bold tracking-wide text-cyan-100/95 leading-relaxed select-none transition-all drop-shadow-md"
+                          className="font-bold tracking-wide text-cyan-100/95 leading-relaxed select-none transition-all drop-shadow-md text-left w-full"
                           style={{
                             fontSize: `calc(clamp(1.5rem, 3.2vw, 3.6rem) * ${effectiveFontScale})`,
                             lineHeight: 1.4,
                             textShadow: '0 2px 12px rgba(6, 182, 212, 0.4), 0 4px 25px rgba(0, 0, 0, 0.9)'
                           }}
                         >
-                          {line}
+                          {cleanBibleVerseText(line)}
                         </p>
                       ))}
                     </div>
@@ -551,39 +556,48 @@ export const PresentationDisplay: React.FC = () => {
                     style={{ fontSize: `calc(clamp(0.95rem, 2vw, 1.55rem) * ${effectiveFontScale})` }}
                   >
                     <BookOpen className="w-5 h-5 sm:w-6 sm:h-6 text-amber-400 shrink-0" />
-                    <span>{displayState?.bibleReference || title}</span>
+                    <span>{displayState?.songTitle || displayState?.bibleReference || title}</span>
                   </div>
 
-                  <div className="space-y-4 max-w-5xl">
-                    {lines.map((primaryLine, idx) => {
-                      const secondaryLine = displayState.secondaryLines?.[idx];
-                      return (
-                        <div key={idx} className="flex flex-col items-center text-center space-y-1">
+                  <div className="space-y-4 max-w-5xl text-center">
+                    <div className="space-y-1">
+                      {lines.map((primaryLine, idx) => (
+                        <p
+                          key={`bp-${idx}`}
+                          className="font-black tracking-wide text-white leading-tight select-none drop-shadow-lg transition-all"
+                          style={{
+                            fontSize: `calc(clamp(1.65rem, 3.8vw, 4.2rem) * ${effectiveFontScale})`,
+                            lineHeight: 1.35,
+                            textShadow: '0 2px 12px rgba(0, 0, 0, 0.95), 0 4px 30px rgba(0, 0, 0, 0.8)'
+                          }}
+                        >
+                          {cleanBibleVerseText(primaryLine)}
+                        </p>
+                      ))}
+                    </div>
+                    {displayState.secondaryLines && displayState.secondaryLines.length > 0 && (
+                      <div className="space-y-1 pt-2 border-t border-amber-500/20">
+                        <div 
+                          className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-cyan-500/20 border border-cyan-400/30 text-cyan-200 font-bold uppercase tracking-wider mb-1"
+                          style={{ fontSize: `calc(clamp(0.7rem, 1.1vw, 0.95rem) * ${effectiveFontScale})` }}
+                        >
+                          <span>{displayState.secondaryLanguage || 'Traduction'}</span>
+                        </div>
+                        {displayState.secondaryLines.map((secondaryLine, idx) => (
                           <p
-                            className="font-black tracking-wide text-white leading-tight select-none drop-shadow-lg transition-all"
+                            key={`bs-${idx}`}
+                            className="font-semibold tracking-wide text-cyan-200/90 italic leading-snug select-none transition-all"
                             style={{
-                              fontSize: `calc(clamp(1.65rem, 3.8vw, 4.2rem) * ${effectiveFontScale})`,
+                              fontSize: `calc(clamp(1.2rem, 2.7vw, 2.9rem) * ${effectiveFontScale})`,
                               lineHeight: 1.35,
-                              textShadow: '0 2px 12px rgba(0, 0, 0, 0.95), 0 4px 30px rgba(0, 0, 0, 0.8)'
+                              textShadow: '0 2px 10px rgba(6, 182, 212, 0.5), 0 4px 20px rgba(0, 0, 0, 0.95)'
                             }}
                           >
-                            {primaryLine}
+                            {cleanBibleVerseText(secondaryLine)}
                           </p>
-                          {secondaryLine && (
-                            <p
-                              className="font-semibold tracking-wide text-cyan-200/90 italic leading-snug select-none transition-all"
-                              style={{
-                                fontSize: `calc(clamp(1.2rem, 2.7vw, 2.9rem) * ${effectiveFontScale})`,
-                                lineHeight: 1.35,
-                                textShadow: '0 2px 10px rgba(6, 182, 212, 0.5), 0 4px 20px rgba(0, 0, 0, 0.95)'
-                              }}
-                            >
-                              {secondaryLine}
-                            </p>
-                          )}
-                        </div>
-                      );
-                    })}
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               )
@@ -624,9 +638,9 @@ export const PresentationDisplay: React.FC = () => {
                 className="max-w-7xl w-full grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-14 items-center animate-presentation-slide select-none"
               >
                 {/* Left Column : Original / Primary */}
-                <div className="flex flex-col items-center justify-center text-center space-y-2 sm:space-y-3">
+                <div className="flex flex-col items-start justify-center text-left space-y-2 sm:space-y-3">
                   <div 
-                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-200 font-bold uppercase tracking-wider mb-1 transition-all"
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-200 font-bold uppercase tracking-wider mb-1 transition-all self-start"
                     style={{ fontSize: `calc(clamp(0.75rem, 1.3vw, 1.15rem) * ${effectiveFontScale})` }}
                   >
                     <span>{displayState.primaryLanguage || 'Original'}</span>
@@ -634,7 +648,7 @@ export const PresentationDisplay: React.FC = () => {
                   {lines.map((line, idx) => (
                     <p
                       key={`p-${idx}`}
-                      className="font-extrabold tracking-wide text-white leading-relaxed select-none transition-all drop-shadow-md"
+                      className="font-extrabold tracking-wide text-white leading-relaxed select-none transition-all drop-shadow-md text-left w-full"
                       style={{
                         fontSize: `calc(clamp(1.5rem, 3.2vw, 3.6rem) * ${effectiveFontScale})`,
                         lineHeight: 1.38,
@@ -647,9 +661,9 @@ export const PresentationDisplay: React.FC = () => {
                 </div>
 
                 {/* Right Column : Secondary / Translation */}
-                <div className="flex flex-col items-center justify-center text-center space-y-2 sm:space-y-3 md:border-l md:border-white/15 md:pl-8">
+                <div className="flex flex-col items-start justify-center text-left space-y-2 sm:space-y-3 md:border-l md:border-white/15 md:pl-8">
                   <div 
-                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-500/20 border border-cyan-400/30 text-cyan-200 font-bold uppercase tracking-wider mb-1 transition-all"
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-500/20 border border-cyan-400/30 text-cyan-200 font-bold uppercase tracking-wider mb-1 transition-all self-start"
                     style={{ fontSize: `calc(clamp(0.75rem, 1.3vw, 1.15rem) * ${effectiveFontScale})` }}
                   >
                     <span>{displayState.secondaryLanguage || 'Traduction'}</span>
@@ -657,7 +671,7 @@ export const PresentationDisplay: React.FC = () => {
                   {displayState.secondaryLines.map((line, idx) => (
                     <p
                       key={`s-${idx}`}
-                      className="font-bold tracking-wide text-cyan-100/95 leading-relaxed select-none transition-all drop-shadow-md"
+                      className="font-bold tracking-wide text-cyan-100/95 leading-relaxed select-none transition-all drop-shadow-md text-left w-full"
                       style={{
                         fontSize: `calc(clamp(1.5rem, 3.2vw, 3.6rem) * ${effectiveFontScale})`,
                         lineHeight: 1.38,

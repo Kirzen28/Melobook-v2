@@ -232,12 +232,6 @@ export const BibleProjectionModule: React.FC<BibleProjectionModuleProps> = ({
     } catch {}
   };
 
-  const handleSelectBilingualFormat = (fmt: 'stacked' | 'columns') => {
-    setBilingualFormat(fmt);
-    try {
-      localStorage.setItem('bible_bilingual_format', fmt);
-    } catch {}
-  };
 
   const handleSwapTranslations = () => {
     const temp = selectedTranslation;
@@ -768,6 +762,16 @@ export const BibleProjectionModule: React.FC<BibleProjectionModuleProps> = ({
       activeLiveBibleRef.startsWith(currentSelectedPassage.referenceText)
     )
   );
+
+  const handleSelectBilingualFormat = useCallback((fmt: 'stacked' | 'columns') => {
+    setBilingualFormat(fmt);
+    try {
+      localStorage.setItem('bible_bilingual_format', fmt);
+    } catch {}
+    if ((isCurrentlyLive || activeLiveBibleRef) && currentSelectedPassage) {
+      onProjectLive(currentSelectedPassage, isBilingual ? currentSecondaryPassage : null, fmt);
+    }
+  }, [isCurrentlyLive, activeLiveBibleRef, currentSelectedPassage, isBilingual, currentSecondaryPassage, onProjectLive]);
 
   // Bouton unique fusionné : active directement le mode auto et projette immédiatement le passage
   const handleToggleProject = useCallback(() => {

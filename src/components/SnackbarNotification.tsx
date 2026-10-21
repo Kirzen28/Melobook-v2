@@ -63,6 +63,9 @@ const ToastItem: React.FC<ToastItemProps> = ({ notification, onDismiss }) => {
     >
       <Icon className={`w-3.5 h-3.5 ${config.iconColor} shrink-0`} />
       <span className="whitespace-nowrap tracking-wide">{label}</span>
+      {notification.message && notification.message !== label && (
+        <span className="sr-only">{notification.message}</span>
+      )}
     </motion.div>
   );
 };

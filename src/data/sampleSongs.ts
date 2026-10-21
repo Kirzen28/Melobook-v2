@@ -15,6 +15,7 @@ export const SAMPLE_SONGS: Song[] = [
     language: 'Français',
     ccli: '7117726',
     copyright: '© 2018 Bethel Music Publishing',
+    youtubeUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
     linkedSongIds: ['song-1-en'],
     notes: 'Intro douce à la guitare acoustique. Monter en puissance au Pont.',
     contentChordPro: `{title: Jésus tu es bon}
@@ -25,6 +26,7 @@ export const SAMPLE_SONGS: Song[] = [
 {duration: 05:10}
 {ccli: 7117726}
 {copyright: © 2018 Bethel Music Publishing}
+{youtube: https://www.youtube.com/watch?v=dQw4w9WgXcQ}
 
 {c: Intro}
 [G] [Gsus4] [G] [Gsus4]

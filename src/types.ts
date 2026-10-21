@@ -34,6 +34,7 @@ export interface Song {
   artist: string;
   key: string;
   tempo: number;
+  bpm?: number; // BPM (Beats Per Minute) explicit metadata
   timeSignature?: string;
   duration?: string; // ex: 4:30, 03:45, 5 min
   durationMode?: 'auto' | 'custom';
@@ -47,6 +48,9 @@ export interface Song {
   language?: string;
   linkedSongIds?: string[];
   notes?: string;
+  youtubeUrl?: string; // Lien externe YouTube
+  audioUrl?: string; // Lien direct audio ou enregistrement
+  spotifyUrl?: string; // Lien direct Spotify (morceau, album, playlist)
   createdAt?: any;
   updatedAt?: any;
 }
@@ -54,11 +58,13 @@ export interface Song {
 export interface SetlistSongOverride {
   key?: string;
   tempo?: number;
+  bpm?: number;
   capo?: number;
   transposeOffset?: number;
   duration?: string;
   notes?: string;
   sectionRepeats?: Record<number, number>;
+  spotifyUrl?: string;
 }
 
 export interface Setlist {
@@ -187,3 +193,21 @@ export interface AppNotification {
   type?: NotificationType;
   duration?: number;
 }
+
+export interface BibleVerseItem {
+  verseNumber: number;
+  text: string;
+}
+
+export interface BiblePassageData {
+  bookId: number;
+  bookName: string;
+  chapter: number;
+  verseStart: number;
+  verseEnd?: number;
+  version: string; // e.g. 'LSG', 'S21', 'NBS', 'PDV'
+  referenceText: string; // e.g. 'Jean 3:16' ou 'Psaume 23:1-3'
+  text: string;
+  verses: BibleVerseItem[];
+}
+

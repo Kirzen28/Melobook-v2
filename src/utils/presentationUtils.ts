@@ -1,4 +1,5 @@
 import { parseChordPro, ParsedSongData, stripParentheses } from './chordUtils';
+import { BiblePassageData } from '../types';
 
 export interface PresentationSlide {
   id: string;
@@ -7,6 +8,134 @@ export interface PresentationSlide {
   lines: string[];
   slideIndex: number;
   totalSlides: number;
+  itemType?: 'song' | 'bible';
+  bibleReference?: string;
+  version?: string;
+  isBilingual?: boolean;
+  bilingualFormat?: 'stacked' | 'columns';
+  primaryLanguage?: string;
+  secondaryLines?: string[];
+  secondarySongTitle?: string;
+  secondaryLanguage?: string;
+}
+
+
+export type CountdownThemeId = 'neon-cyan' | 'gold-amber' | 'pure-white' | 'emerald' | 'purple-royal' | 'ruby-sunset';
+
+export interface CountdownTheme {
+  id: CountdownThemeId;
+  name: string;
+  category: string;
+  textColor: string;
+  glowCss: string;
+  badgeBg: string;
+  badgeBorder: string;
+  badgeText: string;
+  badgeIconColor: string;
+  accentHex: string;
+}
+
+export const COUNTDOWN_THEMES: CountdownTheme[] = [
+  {
+    id: 'neon-cyan',
+    name: 'Cyan Électrique',
+    category: 'Moderne / Tech',
+    textColor: 'text-cyan-100',
+    glowCss: '0 0 25px rgba(6, 182, 212, 0.75), 0 0 65px rgba(14, 165, 233, 0.55), 0 4px 20px rgba(0, 0, 0, 0.95)',
+    badgeBg: 'bg-cyan-500/20',
+    badgeBorder: 'border-cyan-400/40',
+    badgeText: 'text-cyan-200',
+    badgeIconColor: 'text-cyan-400',
+    accentHex: '#06b6d4'
+  },
+  {
+    id: 'gold-amber',
+    name: 'Or & Célébration',
+    category: 'Chaleureux / Louange',
+    textColor: 'text-amber-100',
+    glowCss: '0 0 25px rgba(245, 158, 11, 0.75), 0 0 65px rgba(251, 191, 36, 0.55), 0 4px 20px rgba(0, 0, 0, 0.95)',
+    badgeBg: 'bg-amber-500/20',
+    badgeBorder: 'border-amber-400/40',
+    badgeText: 'text-amber-200',
+    badgeIconColor: 'text-amber-400',
+    accentHex: '#f59e0b'
+  },
+  {
+    id: 'pure-white',
+    name: 'Blanc Épure & Halo',
+    category: 'Minimaliste / Contraste',
+    textColor: 'text-white',
+    glowCss: '0 0 25px rgba(255, 255, 255, 0.65), 0 0 55px rgba(255, 255, 255, 0.35), 0 4px 25px rgba(0, 0, 0, 0.98)',
+    badgeBg: 'bg-white/15',
+    badgeBorder: 'border-white/30',
+    badgeText: 'text-white',
+    badgeIconColor: 'text-white',
+    accentHex: '#ffffff'
+  },
+  {
+    id: 'emerald',
+    name: 'Émeraude Espérance',
+    category: 'Sérénité / Nature',
+    textColor: 'text-emerald-100',
+    glowCss: '0 0 25px rgba(16, 185, 129, 0.75), 0 0 65px rgba(52, 211, 153, 0.55), 0 4px 20px rgba(0, 0, 0, 0.95)',
+    badgeBg: 'bg-emerald-500/20',
+    badgeBorder: 'border-emerald-400/40',
+    badgeText: 'text-emerald-200',
+    badgeIconColor: 'text-emerald-400',
+    accentHex: '#10b981'
+  },
+  {
+    id: 'purple-royal',
+    name: 'Pourpre Majesté',
+    category: 'Adoration / Solennel',
+    textColor: 'text-purple-100',
+    glowCss: '0 0 25px rgba(168, 85, 247, 0.75), 0 0 65px rgba(192, 132, 252, 0.55), 0 4px 20px rgba(0, 0, 0, 0.95)',
+    badgeBg: 'bg-purple-500/20',
+    badgeBorder: 'border-purple-400/40',
+    badgeText: 'text-purple-200',
+    badgeIconColor: 'text-purple-400',
+    accentHex: '#a855f7'
+  },
+  {
+    id: 'ruby-sunset',
+    name: 'Rubis Crépuscule',
+    category: 'Dynamique / Chaleur',
+    textColor: 'text-rose-100',
+    glowCss: '0 0 25px rgba(244, 63, 94, 0.75), 0 0 65px rgba(251, 113, 133, 0.55), 0 4px 20px rgba(0, 0, 0, 0.95)',
+    badgeBg: 'bg-rose-500/20',
+    badgeBorder: 'border-rose-400/40',
+    badgeText: 'text-rose-200',
+    badgeIconColor: 'text-rose-400',
+    accentHex: '#f43f5e'
+  }
+];
+
+export function getCountdownTheme(id?: string): CountdownTheme {
+  return COUNTDOWN_THEMES.find(t => t.id === id) || COUNTDOWN_THEMES[0];
+}
+
+export interface CountdownState {
+  isActive: boolean;
+  targetTime: string; // e.g. "10:30"
+  targetTimestamp: number; // epoch ms
+  title: string; // e.g. "Le culte commence dans"
+  themeId?: CountdownThemeId;
+}
+
+export type MediaType = 'video' | 'image' | 'audio';
+export type MediaSourceType = 'youtube' | 'pixabay' | 'unsplash' | 'url' | 'local';
+
+export interface MediaPresentationState {
+  isActive: boolean;
+  type: MediaType;
+  source: MediaSourceType;
+  url: string;
+  title: string;
+  thumbnail?: string;
+  author?: string;
+  isLoop?: boolean;
+  isMuted?: boolean;
+  aspectRatio?: '16/9' | '4/3' | 'contain' | 'cover';
 }
 
 export interface PresentationState {
@@ -19,7 +148,78 @@ export interface PresentationState {
   fontScale?: number;
   backgroundImage?: string;
   backgroundOverlay?: number;
+  countdown?: CountdownState;
+  media?: MediaPresentationState;
+  itemType?: 'song' | 'bible' | 'media';
+  bibleReference?: string;
+  bibleVersion?: string;
+  isBilingual?: boolean;
+  bilingualFormat?: 'stacked' | 'columns';
+  primaryLanguage?: string;
+  secondarySongTitle?: string;
+  secondaryLanguage?: string;
+  secondaryLines?: string[];
   updatedAt: number;
+}
+
+export function extractYouTubeVideoId(url: string): string | null {
+  if (!url) return null;
+  const regExp = /^.*(?:youtu\.be\/|v\/|e\/|u\/\w+\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+  const match = url.match(regExp);
+  return (match && match[1].length === 11) ? match[1] : null;
+}
+
+export function getYouTubeEmbedUrl(url: string, autoplay = true, loop = true, mute = false): string | null {
+  const videoId = extractYouTubeVideoId(url);
+  if (!videoId) return null;
+  const params = new URLSearchParams({
+    autoplay: autoplay ? '1' : '0',
+    controls: '1',
+    rel: '0',
+    modestbranding: '1',
+    enablejsapi: '1'
+  });
+  if (loop) {
+    params.set('loop', '1');
+    params.set('playlist', videoId);
+  }
+  if (mute) {
+    params.set('mute', '1');
+  }
+  return `https://www.youtube-nocookie.com/embed/${videoId}?${params.toString()}`;
+}
+
+
+export function getTargetTimestampFromTime(timeStr: string): number {
+  if (!timeStr) return Date.now();
+  const [hours, minutes] = timeStr.split(':').map(Number);
+  if (isNaN(hours) || isNaN(minutes)) return Date.now();
+  const target = new Date();
+  target.setHours(hours, minutes, 0, 0);
+  // Si l'heure est passée de plus de 45 minutes, cible le jour suivant
+  if (Date.now() - target.getTime() > 45 * 60 * 1000) {
+    target.setDate(target.getDate() + 1);
+  }
+  return target.getTime();
+}
+
+export function formatRemainingTime(ms: number): { formatted: string; hasHours: boolean; isExpired: boolean; hours: number; minutes: number; seconds: number } {
+  if (ms <= 0) {
+    return { formatted: '00:00', hasHours: false, isExpired: true, hours: 0, minutes: 0, seconds: 0 };
+  }
+  const totalSeconds = Math.floor(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  const mm = String(minutes).padStart(2, '0');
+  const ss = String(seconds).padStart(2, '0');
+
+  if (hours > 0) {
+    const hh = String(hours).padStart(2, '0');
+    return { formatted: `${hh}:${mm}:${ss}`, hasHours: true, isExpired: false, hours, minutes, seconds };
+  }
+  return { formatted: `${mm}:${ss}`, hasHours: false, isExpired: false, hours, minutes, seconds };
 }
 
 const CHANNEL_NAME = 'melobook_presentation_channel';
@@ -205,6 +405,311 @@ export function buildPresentationSlides(
     totalSlides
   }));
 }
+
+/**
+ * Construit la liste des slides pour la projection bilingue (chant original + version traduite)
+ */
+export function buildBilingualPresentationSlides(
+  primaryChordPro: string,
+  secondaryChordPro: string,
+  primaryTitle: string,
+  secondaryTitle: string,
+  primaryLang: string = 'Français',
+  secondaryLang: string = 'Anglais',
+  format: 'stacked' | 'columns' = 'stacked',
+  maxLines: number = format === 'stacked' ? 3 : 4
+): PresentationSlide[] {
+  const pSlides = buildPresentationSlides(primaryChordPro, primaryTitle, maxLines);
+  const sSlides = buildPresentationSlides(secondaryChordPro, secondaryTitle, maxLines);
+
+  if (pSlides.length === 0 && sSlides.length === 0) return [];
+  if (pSlides.length === 0) return sSlides;
+  if (sSlides.length === 0) return pSlides;
+
+  const totalSlides = Math.max(pSlides.length, sSlides.length);
+  const result: PresentationSlide[] = [];
+
+  for (let i = 0; i < totalSlides; i++) {
+    const pSlide = pSlides[Math.min(i, pSlides.length - 1)];
+    const sSlide = sSlides[Math.min(i, sSlides.length - 1)];
+
+    result.push({
+      id: `bilingual_slide_${i}`,
+      songTitle: stripParentheses(primaryTitle),
+      sectionTitle: pSlide?.sectionTitle || sSlide?.sectionTitle || '',
+      lines: pSlide?.lines || [],
+      slideIndex: i,
+      totalSlides,
+      itemType: 'song',
+      isBilingual: true,
+      bilingualFormat: format,
+      primaryLanguage: primaryLang,
+      secondaryLines: sSlide?.lines || [],
+      secondarySongTitle: stripParentheses(secondaryTitle),
+      secondaryLanguage: secondaryLang
+    });
+  }
+
+  return result;
+}
+
+/**
+ * Découpe un texte de verset en lignes bien proportionnées pour la projection
+ */
+function wrapScriptureLines(text: string, maxLineLength: number = 55): string[] {
+  const clean = (text || '')
+    .replace(/<[^>]+>/g, '')
+    .replace(/[\r\n]+/g, ' ')
+    .trim();
+
+  if (!clean) return [];
+
+  const words = clean.split(/\s+/);
+  const lines: string[] = [];
+  let current = '';
+
+  for (const word of words) {
+    if (!current) {
+      current = word;
+    } else if ((current + ' ' + word).length <= maxLineLength) {
+      current += ' ' + word;
+    } else {
+      lines.push(current);
+      current = word;
+    }
+  }
+  if (current) {
+    lines.push(current);
+  }
+  return lines;
+}
+
+/**
+ * Construit la liste des slides de projection pour un passage ou verset biblique
+ */
+export function buildBiblePresentationSlides(
+  passage: BiblePassageData,
+  maxLines: number = 3
+): PresentationSlide[] {
+  const rawSlides: {
+    sectionTitle: string;
+    lines: string[];
+    verseRef: string;
+  }[] = [];
+
+  const versionTag = passage.version ? ` (${passage.version})` : '';
+
+  if (passage.verses && passage.verses.length > 0) {
+    for (const v of passage.verses) {
+      const verseRef = `${passage.bookName} ${passage.chapter}:${v.verseNumber}${versionTag}`;
+      const wrapped = wrapScriptureLines(v.text, 55);
+
+      if (wrapped.length === 0) continue;
+
+      // Découpage en blocs de maxLines max
+      const chunks: string[][] = [];
+      for (let i = 0; i < wrapped.length; i += maxLines) {
+        chunks.push(wrapped.slice(i, i + maxLines));
+      }
+
+      chunks.forEach((chunk, cIdx) => {
+        let secTitle = `Verset ${v.verseNumber}`;
+        if (chunks.length > 1) {
+          secTitle = `Verset ${v.verseNumber} (${cIdx + 1}/${chunks.length})`;
+        }
+        rawSlides.push({
+          sectionTitle: secTitle,
+          lines: chunk,
+          verseRef
+        });
+      });
+    }
+  }
+
+  // Fallback si verses est vide mais que passage.text existe
+  if (rawSlides.length === 0 && passage.text) {
+    const wrapped = wrapScriptureLines(passage.text, 55);
+    const chunks: string[][] = [];
+    for (let i = 0; i < wrapped.length; i += maxLines) {
+      chunks.push(wrapped.slice(i, i + maxLines));
+    }
+    chunks.forEach((chunk, cIdx) => {
+      rawSlides.push({
+        sectionTitle: chunks.length > 1 ? `Passage (${cIdx + 1}/${chunks.length})` : 'Passage',
+        lines: chunk,
+        verseRef: `${passage.referenceText}${versionTag}`
+      });
+    });
+  }
+
+  // Fallback ultime
+  if (rawSlides.length === 0) {
+    rawSlides.push({
+      sectionTitle: 'Verset',
+      lines: [passage.referenceText || 'Passage biblique'],
+      verseRef: `${passage.referenceText || 'Passage'}${versionTag}`
+    });
+  }
+
+  const total = rawSlides.length;
+  return rawSlides.map((s, idx) => ({
+    id: `bible_slide_${idx}`,
+    songTitle: passage.referenceText || `${passage.bookName} ${passage.chapter}`,
+    sectionTitle: s.sectionTitle,
+    lines: s.lines,
+    slideIndex: idx,
+    totalSlides: total,
+    itemType: 'bible',
+    bibleReference: s.verseRef,
+    version: passage.version
+  }));
+}
+
+/**
+ * Construit la liste des slides pour la projection d'un passage biblique bilingue (2 versions)
+ */
+export function buildBilingualBiblePresentationSlides(
+  primaryPassage: BiblePassageData,
+  secondaryPassage: BiblePassageData,
+  format: 'stacked' | 'columns' = 'stacked',
+  maxLines: number = format === 'stacked' ? 2 : 4
+): PresentationSlide[] {
+  const slides: PresentationSlide[] = [];
+  const pVerses = primaryPassage.verses || [];
+  const sVerses = secondaryPassage.verses || [];
+  const pVersionTag = primaryPassage.version || 'LSG';
+  const sVersionTag = secondaryPassage.version || 'KJV';
+  const compoundRef = `${primaryPassage.referenceText} (${pVersionTag} • ${sVersionTag})`;
+
+  if (pVerses.length > 0) {
+    pVerses.forEach((pv, idx) => {
+      const sv = sVerses.find(v => v.verseNumber === pv.verseNumber) || sVerses[idx];
+      const pWrapped = wrapScriptureLines(pv.text, format === 'columns' ? 36 : 52);
+      const sWrapped = wrapScriptureLines(sv?.text || '', format === 'columns' ? 36 : 52);
+
+      if (format === 'columns') {
+        const chunkCount = Math.max(
+          Math.ceil(pWrapped.length / maxLines),
+          Math.ceil(sWrapped.length / maxLines),
+          1
+        );
+        for (let c = 0; c < chunkCount; c++) {
+          const pChunk = pWrapped.slice(c * maxLines, (c + 1) * maxLines);
+          const sChunk = sWrapped.slice(c * maxLines, (c + 1) * maxLines);
+          let secTitle = `Verset ${pv.verseNumber}`;
+          if (chunkCount > 1) {
+            secTitle = `Verset ${pv.verseNumber} (${c + 1}/${chunkCount})`;
+          }
+          slides.push({
+            id: `bible_bi_${pv.verseNumber}_${c}`,
+            songTitle: primaryPassage.referenceText,
+            sectionTitle: secTitle,
+            lines: pChunk.length > 0 ? pChunk : [pv.text],
+            slideIndex: slides.length,
+            totalSlides: 0,
+            itemType: 'bible',
+            bibleReference: `${primaryPassage.bookName} ${primaryPassage.chapter}:${pv.verseNumber} (${pVersionTag} • ${sVersionTag})`,
+            version: `${pVersionTag} • ${sVersionTag}`,
+            isBilingual: true,
+            bilingualFormat: 'columns',
+            primaryLanguage: pVersionTag,
+            secondaryLanguage: sVersionTag,
+            secondarySongTitle: secondaryPassage.referenceText,
+            secondaryLines: sChunk.length > 0 ? sChunk : (sv ? [sv.text] : [])
+          });
+        }
+      } else {
+        // format === 'stacked' : sous-titres
+        if (pv.text.length > 130 && pWrapped.length > 2) {
+          const halfP = Math.ceil(pWrapped.length / 2);
+          const halfS = Math.ceil(sWrapped.length / 2);
+
+          slides.push({
+            id: `bible_bi_${pv.verseNumber}_0`,
+            songTitle: primaryPassage.referenceText,
+            sectionTitle: `Verset ${pv.verseNumber} (1/2)`,
+            lines: pWrapped.slice(0, halfP),
+            slideIndex: slides.length,
+            totalSlides: 0,
+            itemType: 'bible',
+            bibleReference: `${primaryPassage.bookName} ${primaryPassage.chapter}:${pv.verseNumber} (${pVersionTag} • ${sVersionTag})`,
+            version: `${pVersionTag} • ${sVersionTag}`,
+            isBilingual: true,
+            bilingualFormat: 'stacked',
+            primaryLanguage: pVersionTag,
+            secondaryLanguage: sVersionTag,
+            secondarySongTitle: secondaryPassage.referenceText,
+            secondaryLines: sWrapped.slice(0, halfS)
+          });
+          slides.push({
+            id: `bible_bi_${pv.verseNumber}_1`,
+            songTitle: primaryPassage.referenceText,
+            sectionTitle: `Verset ${pv.verseNumber} (2/2)`,
+            lines: pWrapped.slice(halfP),
+            slideIndex: slides.length,
+            totalSlides: 0,
+            itemType: 'bible',
+            bibleReference: `${primaryPassage.bookName} ${primaryPassage.chapter}:${pv.verseNumber} (${pVersionTag} • ${sVersionTag})`,
+            version: `${pVersionTag} • ${sVersionTag}`,
+            isBilingual: true,
+            bilingualFormat: 'stacked',
+            primaryLanguage: pVersionTag,
+            secondaryLanguage: sVersionTag,
+            secondarySongTitle: secondaryPassage.referenceText,
+            secondaryLines: sWrapped.slice(halfS)
+          });
+        } else {
+          slides.push({
+            id: `bible_bi_${pv.verseNumber}_0`,
+            songTitle: primaryPassage.referenceText,
+            sectionTitle: `Verset ${pv.verseNumber}`,
+            lines: pWrapped,
+            slideIndex: slides.length,
+            totalSlides: 0,
+            itemType: 'bible',
+            bibleReference: `${primaryPassage.bookName} ${primaryPassage.chapter}:${pv.verseNumber} (${pVersionTag} • ${sVersionTag})`,
+            version: `${pVersionTag} • ${sVersionTag}`,
+            isBilingual: true,
+            bilingualFormat: 'stacked',
+            primaryLanguage: pVersionTag,
+            secondaryLanguage: sVersionTag,
+            secondarySongTitle: secondaryPassage.referenceText,
+            secondaryLines: sWrapped
+          });
+        }
+      }
+    });
+  }
+
+  // Fallback si aucun slide
+  if (slides.length === 0) {
+    slides.push({
+      id: 'bible_bi_fallback',
+      songTitle: primaryPassage.referenceText,
+      sectionTitle: 'Verset',
+      lines: [primaryPassage.text || primaryPassage.referenceText],
+      slideIndex: 0,
+      totalSlides: 1,
+      itemType: 'bible',
+      bibleReference: compoundRef,
+      version: `${pVersionTag} • ${sVersionTag}`,
+      isBilingual: true,
+      bilingualFormat: format,
+      primaryLanguage: pVersionTag,
+      secondaryLanguage: sVersionTag,
+      secondarySongTitle: secondaryPassage.referenceText,
+      secondaryLines: [secondaryPassage.text || secondaryPassage.referenceText]
+    });
+  }
+
+  const total = slides.length;
+  return slides.map((s, idx) => ({
+    ...s,
+    slideIndex: idx,
+    totalSlides: total
+  }));
+}
+
 
 /**
  * Envoie l'état au récepteur de projection (BroadcastChannel + localStorage + serveur HTTP)

@@ -71,6 +71,20 @@ class PadAudioEngine {
   private currentPreset: PadPresetId = 'classic_warm';
   private currentVolume: number = 0.75;
   private isMuted: boolean = false;
+  private listeners: Set<() => void> = new Set();
+
+  public subscribe(listener: () => void): () => void {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
+  private notify() {
+    this.listeners.forEach(fn => {
+      try { fn(); } catch (e) { console.error(e); }
+    });
+  }
 
   private initContext() {
     if (!this.ctx) {
@@ -111,11 +125,13 @@ class PadAudioEngine {
       const target = this.isMuted ? 0 : this.currentVolume;
       this.masterGain.gain.setTargetAtTime(target, this.ctx.currentTime, 0.05);
     }
+    this.notify();
   }
 
   public toggleMute(): boolean {
     this.isMuted = !this.isMuted;
     this.setVolume(this.currentVolume);
+    this.notify();
     return this.isMuted;
   }
 
@@ -132,6 +148,7 @@ class PadAudioEngine {
 
     // Spawn new voice layer
     this.spawnVoice(semitone, preset);
+    this.notify();
   }
 
   public changeNote(semitone: number) {
@@ -147,6 +164,7 @@ class PadAudioEngine {
     // Smooth worship crossfade (1.2s)
     this.fadePreviousVoices();
     this.spawnVoice(semitone, this.currentPreset);
+    this.notify();
   }
 
   public changePreset(preset: PadPresetId) {
@@ -155,11 +173,13 @@ class PadAudioEngine {
       this.fadePreviousVoices();
       this.spawnVoice(this.currentSemitone, preset);
     }
+    this.notify();
   }
 
   public stop() {
     this.isRunning = false;
     this.fadePreviousVoices(0.6);
+    this.notify();
   }
 
   private fadePreviousVoices(duration: number = 1.2) {

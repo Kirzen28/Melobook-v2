@@ -1,12 +1,22 @@
-import React from 'react';
+import React, { Component, ReactNode, ErrorInfo } from 'react';
+
+interface Props {
+  children: ReactNode;
+}
 
 interface State {
   hasError: boolean;
   error: Error | null;
 }
 
-export class ErrorBoundary extends React.Component<{ children: React.ReactNode }, State> {
+export class ErrorBoundary extends Component<Props, State> {
+  props: Props;
   state: State = { hasError: false, error: null };
+
+  constructor(props: Props) {
+    super(props);
+    this.props = props;
+  }
 
   static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };

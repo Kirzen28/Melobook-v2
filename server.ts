@@ -50,7 +50,57 @@ async function startServer() {
     res.json({ ok: true, state: latestPresentationState });
   });
 
+  // Bible proxy & high-speed in-memory cache
+  const bibleChapterCache = new Map<string, any[]>();
+
+  app.get('/api/bible/chapter', async (req, res) => {
+    try {
+      const rawTranslation = (req.query.translation as string) || 'FRLSG';
+      const aliasMap: Record<string, string> = {
+        'RVR1960': 'RV1960',
+        'LSG': 'FRLSG',
+        'Darby': 'FRDBY',
+        'BLA': 'LBLA',
+        'FROST': 'OST',
+        'Ostervald': 'OST'
+      };
+      const translation = aliasMap[rawTranslation] || rawTranslation;
+      const bookId = Number(req.query.bookId);
+      const chapter = Number(req.query.chapter);
+
+      if (!bookId || !chapter) {
+        return res.status(400).json({ error: 'bookId et chapter requis' });
+      }
+
+      const cacheKey = `${translation}_${bookId}_${chapter}`;
+      if (bibleChapterCache.has(cacheKey)) {
+        return res.json({ ok: true, verses: bibleChapterCache.get(cacheKey) });
+      }
+
+      const externalUrl = `https://bolls.life/get-chapter/${encodeURIComponent(translation)}/${bookId}/${chapter}/`;
+      const response = await fetch(externalUrl);
+      if (!response.ok) {
+        return res.status(response.status).json({ error: 'Erreur externe Bible' });
+      }
+
+      const data = await response.json();
+      const verses = Array.isArray(data)
+        ? data.map((item: any) => ({
+            verseNumber: item.verse,
+            text: (item.text || '').replace(/<[^>]+>/g, '').trim()
+          }))
+        : [];
+
+      bibleChapterCache.set(cacheKey, verses);
+      return res.json({ ok: true, verses });
+    } catch (err: any) {
+      console.error('Erreur /api/bible/chapter:', err);
+      return res.status(500).json({ error: err.message || 'Erreur serveur Bible' });
+    }
+  });
+
   // Fetch full song details and chords on-demand from external site
+
   app.post('/api/external-song-detail', async (req, res) => {
     try {
       const { pageTitle, tabUrl, source } = req.body;
@@ -209,6 +259,161 @@ Ne JAMAIS inventer de faux titres. Réponds uniquement avec un tableau JSON vali
     } catch (error: any) {
       console.error('Erreur API external-search:', error);
       return res.status(500).json({ error: error.message || 'Erreur lors de la recherche en ligne' });
+    }
+  });
+
+  // Recherche en ligne Pixabay & Unsplash (exclusivement en format horizontal 16:9)
+  app.post('/api/media/search', async (req, res) => {
+    try {
+      const { query, mediaType = 'image', source = 'all', pixabayApiKey } = req.body;
+      const q = (query || '').trim();
+      if (!q) {
+        return res.status(400).json({ error: 'Terme de recherche requis' });
+      }
+
+      const results: any[] = [];
+
+      // 1. Si une clé API Pixabay est fournie, interroger l'API officielle Pixabay (orientation=horizontal)
+      if ((source === 'all' || source === 'pixabay') && pixabayApiKey) {
+        try {
+          if (mediaType === 'video') {
+            const pbUrl = `https://pixabay.com/api/videos/?key=${encodeURIComponent(pixabayApiKey)}&q=${encodeURIComponent(q)}&orientation=horizontal&per_page=20`;
+            const pbRes = await fetch(pbUrl);
+            if (pbRes.ok) {
+              const pbData = await pbRes.json();
+              if (Array.isArray(pbData.hits)) {
+                for (const hit of pbData.hits) {
+                  const videoFile = hit.videos?.large?.url || hit.videos?.medium?.url || hit.videos?.small?.url;
+                  if (videoFile) {
+                    results.push({
+                      id: `pb-vid-${hit.id}`,
+                      type: 'video',
+                      source: 'pixabay',
+                      title: hit.tags ? hit.tags.split(',')[0].trim() : `Vidéo Pixabay ${hit.id}`,
+                      category: 'Pixabay Vidéo',
+                      url: videoFile,
+                      thumbnail: hit.userImageURL || `https://i.vimeocdn.com/video/${hit.picture_id}_640x360.jpg`,
+                      author: hit.user || 'Pixabay'
+                    });
+                  }
+                }
+              }
+            }
+          } else {
+            const pbUrl = `https://pixabay.com/api/?key=${encodeURIComponent(pixabayApiKey)}&q=${encodeURIComponent(q)}&image_type=photo&orientation=horizontal&per_page=24`;
+            const pbRes = await fetch(pbUrl);
+            if (pbRes.ok) {
+              const pbData = await pbRes.json();
+              if (Array.isArray(pbData.hits)) {
+                for (const hit of pbData.hits) {
+                  results.push({
+                    id: `pb-img-${hit.id}`,
+                    type: 'image',
+                    source: 'pixabay',
+                    title: hit.tags ? hit.tags.split(',')[0].trim() : `Image Pixabay ${hit.id}`,
+                    category: 'Pixabay Photo',
+                    url: hit.largeImageURL || hit.webformatURL,
+                    thumbnail: hit.webformatURL || hit.previewURL,
+                    author: hit.user || 'Pixabay'
+                  });
+                }
+              }
+            }
+          }
+        } catch (pbErr) {
+          console.warn('Pixabay direct API error:', pbErr);
+        }
+      }
+
+      // 2. Recherche en ligne IA multi-sources (Unsplash & Pixabay) strictement en format horizontal 16:9
+      const ai = getAIClient();
+      if (ai) {
+        try {
+          const prompt = mediaType === 'video'
+            ? `Tu es un moteur de recherche de médias libres de droits en ligne pour des projections d'église et de culte.
+Recherche des vidéos d'arrière-plan réelles en FORMAT HORIZONTAL STRICT (16:9 / paysage, résolution 1920x1080) sur le thème: "${q}".
+Source demandée: ${source === 'all' ? 'Pixabay et Pexels' : source}.
+Toutes les vidéos DOIVENT être au format horizontal paysage (widescreen 16:9).
+Renvoie UNIQUEMENT un tableau JSON valide de 6 à 10 vidéos au format MP4 direct avec miniatures:
+[
+  {
+    "id": "vid-1",
+    "type": "video",
+    "source": "pixabay",
+    "title": "Titre descriptif en français",
+    "category": "Catégorie",
+    "url": "https://videos.pexels.com/...-hd_1920_1080_...mp4 ou mixkit/pixabay mp4",
+    "thumbnail": "https://images.unsplash.com/... ou miniature jpg",
+    "author": "Nom auteur / photographe"
+  }
+]`
+            : `Tu es un moteur de recherche d'images haute résolution en ligne pour des projections d'église et de culte.
+Recherche des photos réelles en FORMAT HORIZONTAL STRICT (16:9 / paysage panoramique, w=1920&h=1080&fit=crop) sur le thème: "${q}".
+Sources demandées: ${source === 'all' ? 'Unsplash et Pixabay' : source}.
+Toutes les URLs d'images Unsplash DOIVENT inclure "?w=1920&h=1080&fit=crop" pour garantir le format horizontal 16:9.
+Renvoie UNIQUEMENT un tableau JSON valide de 6 à 12 images:
+[
+  {
+    "id": "img-1",
+    "type": "image",
+    "source": "unsplash",
+    "title": "Titre descriptif en français",
+    "category": "Catégorie",
+    "url": "https://images.unsplash.com/photo-...?w=1920&h=1080&fit=crop&q=85",
+    "thumbnail": "https://images.unsplash.com/photo-...?w=480&h=270&fit=crop&q=80",
+    "author": "Nom du photographe"
+  }
+]`;
+
+          const candidateModels = ['gemini-3.8-flash', 'gemini-flash-latest', 'gemini-3.1-flash-lite'];
+          let aiText = '';
+          for (const modelName of candidateModels) {
+            try {
+              const resp = await ai.models.generateContent({
+                model: modelName,
+                contents: prompt,
+                config: {
+                  temperature: 0.2,
+                  responseMimeType: 'application/json'
+                }
+              });
+              aiText = resp.text || '';
+              if (aiText) break;
+            } catch {
+              // Fallback to next model
+            }
+          }
+
+          if (aiText) {
+            let parsed: any[] = [];
+            try {
+              parsed = JSON.parse(aiText);
+            } catch {
+              const match = aiText.match(/\[[\s\S]*\]/);
+              if (match) parsed = JSON.parse(match[0]);
+            }
+            if (Array.isArray(parsed)) {
+              for (const item of parsed) {
+                // S'assurer que le format est strictement horizontal 16:9
+                if (item.url && item.url.includes('images.unsplash.com') && !item.url.includes('fit=crop')) {
+                  item.url = `${item.url}${item.url.includes('?') ? '&' : '?'}w=1920&h=1080&fit=crop`;
+                }
+                if (item.thumbnail && item.thumbnail.includes('images.unsplash.com') && !item.thumbnail.includes('fit=crop')) {
+                  item.thumbnail = `${item.thumbnail}${item.thumbnail.includes('?') ? '&' : '?'}w=480&h=270&fit=crop`;
+                }
+                results.push(item);
+              }
+            }
+          }
+        } catch (aiErr) {
+          console.error('Erreur IA media search:', aiErr);
+        }
+      }
+
+      return res.json({ ok: true, results, query: q, total: results.length });
+    } catch (err: any) {
+      console.error('Erreur /api/media/search:', err);
+      return res.status(500).json({ error: err.message || 'Erreur recherche média' });
     }
   });
 

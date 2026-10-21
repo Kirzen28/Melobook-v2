@@ -134,7 +134,8 @@ export const SongEditor: React.FC = () => {
   const [customArtists, setCustomArtists] = useState<string[]>(() => getCustomArtists());
   const artistDropdownRef = useRef<HTMLDivElement>(null);
   const [key, setKey] = useState(selectedSong?.key || 'C');
-  const [tempo, setTempo] = useState<number>(selectedSong?.tempo || 100);
+  const [tempo, setTempo] = useState<number>(selectedSong?.bpm || selectedSong?.tempo || 100);
+  const [bpm, setBpm] = useState<number>(selectedSong?.bpm || selectedSong?.tempo || 100);
   const [timeSignature, setTimeSignature] = useState(selectedSong?.timeSignature || '4/4');
   const [duration, setDuration] = useState(selectedSong?.duration ? formatDurationToMMSS(selectedSong.duration) : '03:30');
   const [capo, setCapo] = useState<number>(selectedSong?.capo || 0);
@@ -153,6 +154,9 @@ export const SongEditor: React.FC = () => {
   const [categories, setCategories] = useState<string[]>(selectedSong?.tags || []);
   const [ccli, setCcli] = useState(selectedSong?.ccli || '');
   const [copyright, setCopyright] = useState(selectedSong?.copyright || '');
+  const [youtubeUrl, setYoutubeUrl] = useState(selectedSong?.youtubeUrl || '');
+  const [audioUrl, setAudioUrl] = useState(selectedSong?.audioUrl || '');
+  const [spotifyUrl, setSpotifyUrl] = useState(selectedSong?.spotifyUrl || '');
   const [notes, setNotes] = useState(selectedSong?.notes || '');
   const [contentChordPro, setContentChordPro] = useState(selectedSong?.contentChordPro || SAMPLE_TEMPLATE);
   const [showPreviewPane, setShowPreviewPane] = useState(true);
@@ -376,7 +380,9 @@ export const SongEditor: React.FC = () => {
       setArtist(selectedSong.artist || '');
       setSelectedArtists(parseArtistsString(selectedSong.artist));
       setKey(selectedSong.key || 'C');
-      setTempo(selectedSong.tempo || 100);
+      const songBpm = selectedSong.bpm || selectedSong.tempo || 100;
+      setTempo(songBpm);
+      setBpm(songBpm);
       setTimeSignature(selectedSong.timeSignature || '4/4');
       setDuration(selectedSong.duration && selectedSong.duration !== 'auto' ? formatDurationToMMSS(selectedSong.duration) : '03:30');
       setCapo(selectedSong.capo || 0);
@@ -390,6 +396,9 @@ export const SongEditor: React.FC = () => {
       const parsedMeta = parseChordPro(selectedSong.contentChordPro || selectedSong.content || '');
       setCcli(selectedSong.ccli || parsedMeta.ccli || '');
       setCopyright(selectedSong.copyright || parsedMeta.copyright || '');
+      setYoutubeUrl(selectedSong.youtubeUrl || parsedMeta.youtubeUrl || '');
+      setAudioUrl(selectedSong.audioUrl || parsedMeta.audioUrl || '');
+      setSpotifyUrl(selectedSong.spotifyUrl || parsedMeta.spotifyUrl || '');
 
       setLinkedSongIds(selectedSong.linkedSongIds || []);
       setCategories(selectedSong.tags || []);
@@ -402,11 +411,14 @@ export const SongEditor: React.FC = () => {
       setSelectedArtists([]);
       setKey('C');
       setTempo(100);
+      setBpm(100);
       setTimeSignature('4/4');
       setDuration('3:30');
       setCapo(0);
       setCcli('');
       setCopyright('');
+      setYoutubeUrl('');
+      setAudioUrl('');
       
       const initialDetected = detectSongLanguageWithConfidence('', SAMPLE_TEMPLATE);
       setLanguage(initialDetected.language);
@@ -681,30 +693,40 @@ export const SongEditor: React.FC = () => {
     setIsSaving(true);
     const resolvedDuration = formatDurationToMMSS(duration.trim() || '03:30');
 
+    const resolvedBpm = Number(bpm || tempo) || 100;
+
     // Ensure ChordPro content is up to date from visual sections
     const finalChordPro = visualSectionsToChordPro(visualSections, {
       title: title.trim(),
       artist: artist.trim(),
       key: key.trim().toUpperCase(),
-      tempo: Number(tempo) || 100,
+      tempo: resolvedBpm,
+      bpm: resolvedBpm,
       timeSignature,
       duration: resolvedDuration,
       capo: Number(capo) || 0,
       ccli: ccli.trim(),
-      copyright: copyright.trim()
+      copyright: copyright.trim(),
+      youtubeUrl: youtubeUrl.trim(),
+      audioUrl: audioUrl.trim(),
+      spotifyUrl: spotifyUrl.trim()
     });
 
     const songData: Partial<Song> = {
       title: title.trim(),
       artist: artist.trim(),
       key: key.trim().toUpperCase(),
-      tempo: Number(tempo) || 100,
+      tempo: resolvedBpm,
+      bpm: resolvedBpm,
       timeSignature,
       duration: resolvedDuration,
       durationMode: 'custom',
       capo: Number(capo) || 0,
       ccli: ccli.trim(),
       copyright: copyright.trim(),
+      youtubeUrl: youtubeUrl.trim(),
+      audioUrl: audioUrl.trim(),
+      spotifyUrl: spotifyUrl.trim(),
       language: language || detectSongLanguage(title.trim(), finalChordPro),
       linkedSongIds: linkedSongIds || [],
       tags: categories,
@@ -730,7 +752,7 @@ export const SongEditor: React.FC = () => {
 
   // Live parsed preview
   const livePreviewData = parseChordPro(
-    visualSectionsToChordPro(visualSections, { title, artist, key, tempo, timeSignature, duration, capo, ccli, copyright })
+    visualSectionsToChordPro(visualSections, { title, artist, key, tempo, timeSignature, duration, capo, ccli, copyright, youtubeUrl, audioUrl, spotifyUrl })
   );
 
   if (!canManageSongs) {
@@ -1000,15 +1022,21 @@ export const SongEditor: React.FC = () => {
 
             <div>
               <label className="block text-[11px] font-semibold text-gray-400 mb-1 truncate text-center">
-                Tempo
+                BPM
               </label>
               <input
                 type="number"
                 min={30}
                 max={260}
-                value={tempo}
-                onChange={(e) => setTempo(parseInt(e.target.value, 10) || 100)}
-                className="w-full h-8 bg-[#1C1C1E] border border-[#333] hover:border-[#444] rounded-lg px-1 text-xs text-white focus:outline-none focus:border-blue-500 text-center font-bold transition-colors"
+                value={bpm}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value, 10) || 100;
+                  setBpm(val);
+                  setTempo(val);
+                }}
+                className="w-full h-8 bg-[#1C1C1E] border border-[#333] hover:border-emerald-500/50 focus:border-emerald-500 rounded-lg px-1 text-xs text-emerald-400 focus:outline-none text-center font-mono font-bold transition-colors"
+                title="Battements par minute (BPM)"
+                placeholder="100"
               />
             </div>
 
@@ -1300,7 +1328,98 @@ export const SongEditor: React.FC = () => {
           </div>
         </div>
 
-        {/* Row 4: Raccourcis d'écoute & recherche rapide (YouTube & Spotify) */}
+        {/* Row 4: Liens d'enregistrement externes (YouTube, Spotify & Audio) */}
+        <div className="grid grid-cols-12 gap-2.5 items-start pt-2 border-t border-[#1F1F23]">
+          {/* Lien YouTube */}
+          <div className="col-span-12 sm:col-span-4">
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-[11px] font-semibold text-gray-400 flex items-center gap-1.5">
+                <svg className="w-3 h-3 text-red-500 fill-current shrink-0" viewBox="0 0 24 24">
+                  <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                </svg>
+                <span>Lien YouTube</span>
+              </label>
+              {youtubeUrl.trim() && (
+                <a
+                  href={youtubeUrl.trim()}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[10px] text-red-400 hover:text-red-300 font-medium hover:underline flex items-center gap-0.5"
+                  title="Tester le lien YouTube"
+                >
+                  <span>Tester ↗</span>
+                </a>
+              )}
+            </div>
+            <input
+              type="url"
+              placeholder="https://www.youtube.com/watch?v=..."
+              value={youtubeUrl}
+              onChange={(e) => setYoutubeUrl(e.target.value)}
+              className="w-full h-8 bg-[#1C1C1E] border border-[#333] hover:border-[#444] rounded-lg px-2.5 text-xs text-red-300 placeholder-gray-500 font-mono focus:outline-none focus:border-red-500 transition-colors"
+            />
+          </div>
+
+          {/* Lien Spotify */}
+          <div className="col-span-12 sm:col-span-4">
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-[11px] font-semibold text-gray-400 flex items-center gap-1.5">
+                <svg className="w-3 h-3 text-emerald-400 fill-current shrink-0" viewBox="0 0 24 24">
+                  <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+                </svg>
+                <span>Lien Spotify (morceau/album)</span>
+              </label>
+              {spotifyUrl.trim() && (
+                <a
+                  href={spotifyUrl.trim()}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[10px] text-emerald-400 hover:text-emerald-300 font-medium hover:underline flex items-center gap-0.5"
+                  title="Tester le lien Spotify"
+                >
+                  <span>Tester ↗</span>
+                </a>
+              )}
+            </div>
+            <input
+              type="url"
+              placeholder="https://open.spotify.com/track/..."
+              value={spotifyUrl}
+              onChange={(e) => setSpotifyUrl(e.target.value)}
+              className="w-full h-8 bg-[#1C1C1E] border border-[#333] hover:border-[#444] rounded-lg px-2.5 text-xs text-emerald-300 placeholder-gray-500 font-mono focus:outline-none focus:border-emerald-500 transition-colors"
+            />
+          </div>
+
+          {/* Lien Audio externe */}
+          <div className="col-span-12 sm:col-span-4">
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-[11px] font-semibold text-gray-400 flex items-center gap-1.5">
+                <Music className="w-3 h-3 text-blue-400 shrink-0" />
+                <span>Lien Audio (MP3 / flux)</span>
+              </label>
+              {audioUrl.trim() && (
+                <a
+                  href={audioUrl.trim()}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[10px] text-blue-400 hover:text-blue-300 font-medium hover:underline flex items-center gap-0.5"
+                  title="Tester le lien audio"
+                >
+                  <span>Tester ↗</span>
+                </a>
+              )}
+            </div>
+            <input
+              type="url"
+              placeholder="https://domaine.com/audio.mp3"
+              value={audioUrl}
+              onChange={(e) => setAudioUrl(e.target.value)}
+              className="w-full h-8 bg-[#1C1C1E] border border-[#333] hover:border-[#444] rounded-lg px-2.5 text-xs text-blue-300 placeholder-gray-500 font-mono focus:outline-none focus:border-blue-500 transition-colors"
+            />
+          </div>
+        </div>
+
+        {/* Row 5: Raccourcis d'écoute & recherche rapide (YouTube & Spotify) */}
         <div className="pt-2.5 border-t border-[#1F1F23] flex items-center justify-between flex-wrap gap-2 text-xs">
           <div className="flex items-center gap-1.5 text-gray-400 text-[11px]">
             <Radio className="w-3.5 h-3.5 text-blue-400 shrink-0" />

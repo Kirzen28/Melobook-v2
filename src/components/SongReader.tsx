@@ -17,7 +17,10 @@ import {
   getSemitoneDifference,
   transposeChordProText,
   stripParentheses,
-  parseTimeSignatureToBeats
+  parseTimeSignatureToBeats,
+  getYouTubeEmbedUrl,
+  getSpotifyEmbedUrl,
+  isDirectAudioUrl
 } from '../utils/chordUtils';
 import { cacheSongInWorker } from '../utils/pwaCache';
 import { getSectionColor, getSectionBorderStyles } from '../utils/displayDefaults';
@@ -77,6 +80,7 @@ import {
   Copyright,
   Radio,
   Tv,
+  Search,
   ExternalLink
 } from 'lucide-react';
 import { 
@@ -89,6 +93,7 @@ import { SetlistPdfModal } from './SetlistPdfModal';
 import { ChordModal } from './ChordModal';
 import { LanguageVersionModal } from './LanguageVersionModal';
 import { PadControl } from './PadControl';
+import { padAudio, CHROMATIC_NOTES } from '../utils/padAudio';
 import { PRESET_LANGUAGES, getLanguageMeta, getLinkedSongVersions } from '../utils/languageUtils';
 import { DEFAULT_SONG_METADATA_VISIBILITY } from '../utils/displayDefaults';
 
@@ -159,7 +164,10 @@ export const SongReader: React.FC<SongReaderProps> = ({
     currentGroup,
     setActiveSetlistIndex,
     canManageSongs,
-    canManageSetlists
+    canManageSetlists,
+    linkSongs,
+    unlinkSongs,
+    createLanguageVersion
   } = useApp();
 
   const metaVis = displaySettings.metadataVisibility || DEFAULT_SONG_METADATA_VISIBILITY;
@@ -240,6 +248,31 @@ export const SongReader: React.FC<SongReaderProps> = ({
     toastTimeoutRef.current = window.setTimeout(() => {
       setFeedbackToast(null);
     }, 3500);
+  }, []);
+
+  // Mode Bilingue (2 colonnes : normale à gauche, version traduite à droite)
+  const [isBilingualMode, setIsBilingualMode] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('melobook_bilingual_mode') === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const [selectedTranslatedSongId, setSelectedTranslatedSongId] = useState<string | null>(null);
+  const [showAddTranslationModal, setShowAddTranslationModal] = useState(false);
+  const [bilingualSearchQuery, setBilingualSearchQuery] = useState('');
+  const [bilingualNewLang, setBilingualNewLang] = useState('Anglais');
+  const [bilingualNewTitle, setBilingualNewTitle] = useState('');
+  const [isCreatingTranslation, setIsCreatingTranslation] = useState(false);
+
+  const handleToggleBilingualMode = useCallback(() => {
+    setIsBilingualMode(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem('melobook_bilingual_mode', String(next));
+      } catch {}
+      return next;
+    });
   }, []);
 
   const getCurrentIndexInSetlist = useCallback((): number => {
@@ -329,17 +362,90 @@ export const SongReader: React.FC<SongReaderProps> = ({
     return parseChordPro(song.contentChordPro);
   }, [song?.contentChordPro]);
 
+  // Versions liées linguistiques
+  const linkedVersions = useMemo(() => {
+    if (!song) return [];
+    return getLinkedSongVersions(song, songs);
+  }, [song, songs]);
+
+  // Version traduite active pour le mode bilingue
+  const translatedSong = useMemo(() => {
+    if (!isBilingualMode) return null;
+    if (selectedTranslatedSongId) {
+      const found = songs.find(s => s.id === selectedTranslatedSongId);
+      if (found) return found;
+    }
+    if (linkedVersions.length > 0) {
+      return linkedVersions[0];
+    }
+    return null;
+  }, [isBilingualMode, selectedTranslatedSongId, songs, linkedVersions]);
+
+  // Données ChordPro de la version traduite
+  const parsedTranslatedData = useMemo(() => {
+    if (!translatedSong?.contentChordPro) return null;
+    return parseChordPro(translatedSong.contentChordPro);
+  }, [translatedSong?.contentChordPro]);
+
+  const handleLinkExistingAsTranslation = useCallback(async (targetSongId: string) => {
+    if (!song) return;
+    try {
+      await linkSongs(song.id, targetSongId);
+      setSelectedTranslatedSongId(targetSongId);
+      setShowAddTranslationModal(false);
+      showFeedbackToast('Version traduite liée avec succès !');
+    } catch (e) {
+      console.error(e);
+    }
+  }, [song, linkSongs, showFeedbackToast]);
+
+  const handleCreateNewTranslationFromReader = useCallback(async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!song) return;
+    setIsCreatingTranslation(true);
+    try {
+      const title = bilingualNewTitle.trim() || `${song.title} - ${bilingualNewLang}`;
+      const newId = await createLanguageVersion(song.id, bilingualNewLang, title);
+      setSelectedTranslatedSongId(newId);
+      setShowAddTranslationModal(false);
+      setBilingualNewTitle('');
+      showFeedbackToast(`Version ${bilingualNewLang} créée et affichée à droite !`);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsCreatingTranslation(false);
+    }
+  }, [song, bilingualNewTitle, bilingualNewLang, createLanguageVersion, showFeedbackToast]);
+
+  const availableSongsToLinkBilingual = useMemo(() => {
+    if (!song) return [];
+    const linkedIds = new Set([song.id, ...linkedVersions.map(v => v.id)]);
+    const filtered = songs.filter(s => !linkedIds.has(s.id));
+    if (!bilingualSearchQuery.trim()) return filtered.slice(0, 10);
+    const q = bilingualSearchQuery.toLowerCase().trim();
+    return filtered.filter(s => 
+      s.title.toLowerCase().includes(q) || 
+      (s.artist && s.artist.toLowerCase().includes(q)) ||
+      (s.language && s.language.toLowerCase().includes(q))
+    ).slice(0, 15);
+  }, [song, linkedVersions, songs, bilingualSearchQuery]);
+
   // Base parameters
   const catalogBaseKey = (parsedData?.hasExplicitKey && parsedData.key) || song?.key || parsedData?.key || 'C';
   const effectiveBaseKey = setlistOverride?.key || catalogBaseKey;
   const effectiveTransposeOffset = stageSettings.transposeOffset !== 0
     ? stageSettings.transposeOffset
     : (setlistOverride?.transposeOffset !== undefined ? setlistOverride.transposeOffset : 0);
-  const effectiveTempo = setlistOverride?.tempo || song?.tempo || parsedData?.tempo || 120;
+  const effectiveTempo = setlistOverride?.bpm || setlistOverride?.tempo || song?.bpm || song?.tempo || parsedData?.tempo || 120;
   const rawDuration = setlistOverride?.duration || song?.duration || parsedData?.duration || '03:30';
   const effectiveDuration = useMemo(() => formatDurationToMMSS(rawDuration), [rawDuration]);
   const effectiveCcli = (song?.ccli || parsedData?.ccli || '').trim();
   const effectiveCopyright = (song?.copyright || parsedData?.copyright || '').trim();
+  const effectiveYoutubeUrl = (song?.youtubeUrl || parsedData?.youtubeUrl || '').trim();
+  const effectiveAudioUrl = (song?.audioUrl || parsedData?.audioUrl || '').trim();
+  const effectiveSpotifyUrl = (song?.spotifyUrl || parsedData?.spotifyUrl || (setlistOverride as any)?.spotifyUrl || '').trim();
+  const hasSpotifyEmbed = Boolean(getSpotifyEmbedUrl(effectiveSpotifyUrl));
+  const hasAudioLink = Boolean(effectiveAudioUrl || effectiveYoutubeUrl || hasSpotifyEmbed);
 
   // Durée du chant en secondes pour le calcul du défilement automatique
   const songDurationSeconds = useMemo(() => {
@@ -409,6 +515,12 @@ export const SongReader: React.FC<SongReaderProps> = ({
   const [showCapoMenu, setShowCapoMenu] = useState(false);
   const [showTempoMenu, setShowTempoMenu] = useState(false);
   const [showZoomMenu, setShowZoomMenu] = useState(false);
+  const [showAudioPlayer, setShowAudioPlayer] = useState(false);
+  const [isAudioPlayerMinimized, setIsAudioPlayerMinimized] = useState(false);
+  const [activeAudioSource, setActiveAudioSource] = useState<'youtube' | 'spotify' | 'audio'>('youtube');
+  const [showSpotifyConfig, setShowSpotifyConfig] = useState(false);
+  const [spotifyInputUrl, setSpotifyInputUrl] = useState('');
+  const [isSavingSpotify, setIsSavingSpotify] = useState(false);
 
   // État du métronome et du flash écran
   const [isMetronomePlaying, setIsMetronomePlaying] = useState<boolean>(() => metronome.getIsPlaying());
@@ -427,6 +539,58 @@ export const SongReader: React.FC<SongReaderProps> = ({
   const [isEditingTempoPopover, setIsEditingTempoPopover] = useState(false);
   const [tempoInputValue, setTempoInputValue] = useState(String(effectiveTempo));
   const tempoInputRef = useRef<HTMLInputElement>(null);
+
+  // État du module Pad (replier / déplier - plié par défaut)
+  const [isPadCollapsed, setIsPadCollapsed] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('melobook_pad_collapsed_v2');
+      return saved !== null ? saved === 'true' : true;
+    } catch {
+      return true;
+    }
+  });
+  const [isPadPlaying, setIsPadPlaying] = useState<boolean>(() => padAudio.getIsRunning());
+  const [activePadSemitone, setActivePadSemitone] = useState<number>(() => padAudio.getCurrentSemitone());
+
+  useEffect(() => {
+    return padAudio.subscribe(() => {
+      setIsPadPlaying(padAudio.getIsRunning());
+      setActivePadSemitone(padAudio.getCurrentSemitone());
+    });
+  }, []);
+
+  const togglePadCollapse = () => {
+    setIsPadCollapsed(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem('melobook_pad_collapsed_v2', String(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
+
+  const handleSaveSpotifyUrl = async (urlToSave?: string) => {
+    const clean = (urlToSave !== undefined ? urlToSave : spotifyInputUrl).trim();
+    if (!song) return;
+    setIsSavingSpotify(true);
+    try {
+      if (canManageSongs) {
+        await updateSong(song.id, { spotifyUrl: clean });
+      }
+      setActiveAudioSource('spotify');
+      setShowSpotifyConfig(false);
+      setShowSettingsDrawer(false);
+      setShowAudioPlayer(true);
+      setIsAudioPlayerMinimized(false);
+      setFeedbackToast(clean ? 'Lien Spotify enregistré !' : 'Lien Spotify retiré');
+    } catch (err) {
+      console.error('Failed to save Spotify url:', err);
+    } finally {
+      setIsSavingSpotify(false);
+    }
+  };
 
   // Refs for toolbar buttons to calculate viewport-safe placement
   const keyButtonRef = useRef<HTMLButtonElement>(null);
@@ -1164,7 +1328,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
     ? stageSettings.columns
     : (stageSettings.columns === 'auto' ? 2 : 1);
 
-  const isWideLayout = isFullscreen || numColumns > 1;
+  const isWideLayout = isFullscreen || numColumns > 1 || isBilingualMode;
 
   const currentSectionSpacing = displaySettings.typography?.sectionSpacing !== undefined
     ? displaySettings.typography.sectionSpacing
@@ -1194,6 +1358,163 @@ export const SongReader: React.FC<SongReaderProps> = ({
       default:
         return 'w-full flex flex-col';
     }
+  };
+
+  const renderSongSections = (sectionsToRender: any[], semitonesOffset: number, isTranslatedCol: boolean) => {
+    return sectionsToRender.map((section, sIdx) => {
+      const secColor = getSectionColor(section.type, displaySettings.sectionColors);
+      const sectionRepeat = (!isTranslatedCol && setlistOverride?.sectionRepeats && setlistOverride.sectionRepeats[sIdx] !== undefined)
+        ? setlistOverride.sectionRepeats[sIdx]
+        : (section.repeat || 1);
+
+      const sectionTitle = (section.title && section.title.trim()) || (
+        section.type === 'verse' ? `Couplet ${sIdx + 1}` :
+        section.type === 'chorus' ? 'Refrain' :
+        section.type === 'bridge' ? 'Pont' :
+        section.type === 'pre_chorus' ? 'Pré-refrain' :
+        section.type === 'intro' ? 'Intro' :
+        section.type === 'outro' ? 'Outro' :
+        section.type === 'solo' ? 'Solo' :
+        section.type === 'interlude' ? 'Interlude' :
+        section.type === 'instrumental' ? 'Instrumental' :
+        section.type === 'tag' ? 'Tag' :
+        section.type === 'finale' ? 'Finale' :
+        section.type && section.type !== 'general' ? section.type : ''
+      );
+
+      const isSectionHeaderVisible = metaVis.sectionHeaders !== false;
+      const hasVisibleHeader = Boolean(
+        (isSectionHeaderVisible && sectionTitle) ||
+        sectionRepeat > 1 || 
+        (!isTranslatedCol && metaVis.vocalArrangement && (section.vocals?.length || section.vocal))
+      );
+
+      const isCompact = currentSectionSpacing <= 6;
+      const isUltraCompact = currentSectionSpacing <= 2;
+      const cardPaddingClass = !hasVisibleHeader
+        ? (isUltraCompact ? 'py-1.5 px-3 sm:py-2 sm:px-3.5' : isCompact ? 'py-2 px-3.5 sm:py-2.5 sm:px-4' : 'py-2.5 px-4')
+        : (isUltraCompact ? 'py-2 px-3 sm:py-2.5 sm:px-3.5' : isCompact ? 'py-2.5 px-3.5 sm:py-3 sm:px-4' : 'p-4');
+      const headerMarginClass = isUltraCompact 
+        ? 'mb-1.5' 
+        : isCompact 
+        ? 'mb-2' 
+        : 'mb-3';
+      const linesSpacingClass = isUltraCompact 
+        ? 'space-y-1.5' 
+        : isCompact 
+        ? 'space-y-2' 
+        : 'space-y-3';
+
+      return (
+        <div 
+          key={sIdx}
+          className={`rounded-lg ${cardPaddingClass} transition-all ${isTranslatedCol ? 'bg-[#121217]/60' : ''}`}
+          style={getSectionBorderStyles(secColor, displaySettings.sectionBorders)}
+        >
+          {hasVisibleHeader && (
+            <div className={`flex items-center justify-between gap-2 ${headerMarginClass} flex-wrap`}>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {isSectionHeaderVisible && sectionTitle ? (
+                  <span
+                    className="inline-block font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border shadow-xs text-left select-none"
+                    style={{
+                      fontSize: `${displaySettings.typography.headerSize}px`,
+                      color: secColor,
+                      borderColor: `${secColor}50`,
+                      backgroundColor: `${secColor}1C`
+                    }}
+                  >
+                    {sectionTitle}
+                  </span>
+                ) : null}
+
+                {sectionRepeat > 1 && (
+                  <span 
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded border bg-emerald-950/40 border-emerald-500/50 text-emerald-300 font-bold font-mono select-none"
+                    style={{ fontSize: `${Math.max(10, Math.round((displaySettings.typography?.headerSize || 12) * 0.9))}px` }}
+                    title={`Répété ${sectionRepeat} fois`}
+                  >
+                    <Repeat 
+                      style={{ 
+                        width: `${Math.max(11, Math.round((displaySettings.typography?.headerSize || 12) * 0.9))}px`,
+                        height: `${Math.max(11, Math.round((displaySettings.typography?.headerSize || 12) * 0.9))}px` 
+                      }}
+                      className="text-emerald-400 shrink-0" 
+                    />
+                    <span>x{sectionRepeat}</span>
+                  </span>
+                )}
+              </div>
+
+              {!isTranslatedCol && metaVis.vocalArrangement && (
+                <div className="flex items-center gap-1.5 flex-wrap ml-auto">
+                  <VocalArrangementSelector
+                    vocals={section.vocals || (section.vocal ? [section.vocal] : [])}
+                    onChange={(newVocals) => handleUpdateSectionVocals(sIdx, newVocals)}
+                    canEdit={canManageSongs}
+                    discreet={true}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className={`${linesSpacingClass} font-chord leading-relaxed`}>
+            {section.lines.map((line: any, lIdx: number) => {
+              if (line.type === 'empty') {
+                return <div key={lIdx} className="h-3" />;
+              }
+
+              return (
+                <div key={lIdx} className="flex flex-wrap items-end gap-x-0.5">
+                  {line.items.map((item: any, iIdx: number) => {
+                    const displayedChord = item.chord 
+                      ? transposeChord(item.chord, semitonesOffset, stageSettings.notation) 
+                      : '';
+
+                    return (
+                      <div key={iIdx} className="inline-flex flex-col items-start">
+                        {stageSettings.showChords && (
+                          <button 
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (displayedChord) {
+                                setChordModalData({
+                                  isOpen: true,
+                                  chord: displayedChord
+                                });
+                              }
+                            }}
+                            className={`chord-badge font-mono font-bold hover:underline select-none leading-none mb-1 pr-1 text-left inline-flex items-center cursor-pointer transition-all active:scale-95 group/chord ${
+                              displayedChord ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                            }`}
+                            style={{ 
+                              fontSize: `${displaySettings.typography.chordSize}px`,
+                              color: displaySettings.chordColor || '#60a5fa'
+                            }}
+                            title={displayedChord ? `Diagramme de l'accord ${displayedChord}` : undefined}
+                          >
+                            {displayedChord || '\u00A0'}
+                          </button>
+                        )}
+                        
+                        <span 
+                          className="text-[#E0E0E0] font-sans tracking-normal whitespace-pre"
+                          style={{ fontSize: `${displaySettings.typography.lyricsSize}px` }}
+                        >
+                          {item.lyrics || (item.chord ? ' ' : '')}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    });
   };
 
   if (!song || !parsedData) {
@@ -1288,21 +1609,109 @@ export const SongReader: React.FC<SongReaderProps> = ({
               </button>
             </div>
 
-            {/* Pad d'accompagnement (Tonic Pad) */}
-            <div className="mb-3">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <Radio className="w-3.5 h-3.5 text-sky-400" />
-                  <span>Pad d'accompagnement</span>
-                </span>
-                <span className="text-[10px] text-sky-400/90 font-mono font-bold bg-sky-950/40 border border-sky-500/30 px-1.5 py-0.5 rounded">
-                  Tonalité {baseKeyDisplay}
-                </span>
+            {/* Actions principales mises en valeur en haut : Éditer & Exporter en PDF */}
+            <div className="mb-3.5 pb-3 border-b border-[#282830]">
+              <div className={`grid ${canManageSongs ? 'grid-cols-2' : 'grid-cols-1'} gap-2.5`}>
+                {canManageSongs && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowSettingsDrawer(false);
+                      setActiveTab('editor');
+                    }}
+                    className="flex items-center gap-2.5 p-2.5 rounded-xl bg-gradient-to-br from-amber-500/20 via-amber-600/10 to-[#18181F] hover:from-amber-500/30 hover:via-amber-600/20 border border-amber-500/40 hover:border-amber-400 text-left transition-all cursor-pointer group shadow-md shadow-amber-950/30 active:scale-98"
+                    title="Éditer le chant dans l'éditeur"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0 group-hover:scale-110 transition-transform shadow-xs">
+                      <FileEdit className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-bold text-xs text-white group-hover:text-amber-200 transition-colors">
+                        Éditer
+                      </div>
+                      <div className="text-[10px] text-amber-300/80 truncate">
+                        Modifier le chant
+                      </div>
+                    </div>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSettingsDrawer(false);
+                    setShowPdfModal(true);
+                  }}
+                  className="flex items-center gap-2.5 p-2.5 rounded-xl bg-gradient-to-br from-emerald-500/20 via-teal-600/10 to-[#18181F] hover:from-emerald-500/30 hover:via-teal-600/20 border border-emerald-500/40 hover:border-emerald-400 text-left transition-all cursor-pointer group shadow-md shadow-emerald-950/30 active:scale-98"
+                  title="Exporter le chant au format PDF"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0 group-hover:scale-110 transition-transform shadow-xs">
+                    <FileDown className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-bold text-xs text-white group-hover:text-emerald-200 transition-colors">
+                      Exporter PDF
+                    </div>
+                    <div className="text-[10px] text-emerald-300/80 truncate">
+                      Partage & impression
+                    </div>
+                  </div>
+                </button>
               </div>
-              <PadControl 
-                songKey={parsedData.key || song.key} 
-                transposeOffset={effectiveTransposeOffset}
-              />
+            </div>
+
+            {/* Pad d'accompagnement (Tonic Pad) */}
+            <div className="mb-3 rounded-2xl bg-[#131720]/80 border border-[#222938] p-2 sm:p-2.5 transition-all">
+              <button
+                type="button"
+                onClick={togglePadCollapse}
+                className="w-full flex items-center justify-between text-left cursor-pointer group rounded-xl p-1 hover:bg-[#1A202E]/60 transition-colors"
+                aria-expanded={!isPadCollapsed}
+                title={isPadCollapsed ? "Déplier le module Pad" : "Replier le module Pad"}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+                    isPadPlaying 
+                      ? 'bg-sky-400 text-black shadow-md shadow-sky-400/30' 
+                      : 'bg-[#1A202C] text-sky-400 border border-[#2B3547]'
+                  }`}>
+                    <Radio className={`w-3.5 h-3.5 ${isPadPlaying ? 'animate-pulse' : ''}`} />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] font-bold text-gray-200 group-hover:text-white uppercase tracking-wider transition-colors">
+                        Pad d'accompagnement
+                      </span>
+                      {isPadPlaying && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/30">
+                          <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-ping" />
+                          Actif • {CHROMATIC_NOTES[activePadSemitone]?.label}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[10px] text-gray-400 truncate">
+                      {isPadCollapsed ? 'Module replié (cliquer pour déplier)' : 'Nappe sonore continue pour le chant'}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-[10px] text-sky-400/90 font-mono font-bold bg-sky-950/40 border border-sky-500/30 px-1.5 py-0.5 rounded">
+                    Tonalité {baseKeyDisplay}
+                  </span>
+                  <div className="w-6 h-6 rounded-lg bg-[#181D27] group-hover:bg-[#222836] border border-[#2A3344] flex items-center justify-center text-gray-400 group-hover:text-white transition-all">
+                    {isPadCollapsed ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
+                  </div>
+                </div>
+              </button>
+
+              <div className={isPadCollapsed ? 'hidden' : 'mt-2.5'}>
+                <PadControl 
+                  songKey={parsedData.key || song.key} 
+                  transposeOffset={effectiveTransposeOffset}
+                  onToggleCollapse={togglePadCollapse}
+                />
+              </div>
             </div>
 
             {/* Accords */}
@@ -1337,6 +1746,25 @@ export const SongReader: React.FC<SongReaderProps> = ({
                   <span>Masqués</span>
                 </button>
               </div>
+            </div>
+
+            {/* Mode Bilingue 2 colonnes */}
+            <div className="flex items-center justify-between mb-2.5">
+              <span className="text-gray-400 flex items-center gap-1.5">
+                <Columns className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Mode bilingue (2 colonnes)</span>
+              </span>
+              <button
+                type="button"
+                onClick={handleToggleBilingualMode}
+                className={`px-3 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                  isBilingualMode
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'bg-[#1A1A20] text-gray-400 hover:text-white border border-[#2B2B34]'
+                }`}
+              >
+                {isBilingualMode ? 'Actif' : 'Désactivé'}
+              </button>
             </div>
 
             {/* Taille du texte */}
@@ -1432,76 +1860,171 @@ export const SongReader: React.FC<SongReaderProps> = ({
               </button>
             </div>
 
-            {/* Écouter le chant (Recherche rapide YouTube & Spotify) */}
+            {/* Écouter le chant (Recherche rapide YouTube & Spotify / Lecteur intégré) */}
             <div className="border-t border-[#282830] mt-3 pt-2.5">
               <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center justify-between">
                 <span>Écouter le chant</span>
-                <span className="text-[10px] text-gray-500 font-normal">Recherche directe</span>
+                <span className="text-[10px] text-gray-500 font-normal">Lecteur intégré & liens</span>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <a
                   href={`https://www.youtube.com/results?search_query=${encodeURIComponent([parsedData.title || song.title, parsedData.artist || song.artist].filter(Boolean).join(' '))}`}
+                  onClick={(e) => {
+                    if (effectiveYoutubeUrl) {
+                      e.preventDefault();
+                      setActiveAudioSource('youtube');
+                      setShowSettingsDrawer(false);
+                      setShowAudioPlayer(true);
+                      setIsAudioPlayerMinimized(false);
+                    }
+                  }}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg bg-[#1C1C22] hover:bg-[#FF0000]/15 text-gray-200 hover:text-[#FF4E4E] border border-[#2E2E36] hover:border-[#FF0000]/40 text-xs font-semibold transition-all cursor-pointer group shadow-xs"
-                  title={`Rechercher « ${song.title} » sur YouTube (nouvel onglet / application)`}
+                  title={effectiveYoutubeUrl ? "Écouter la vidéo YouTube dans le petit lecteur" : `Rechercher « ${song.title} » sur YouTube (nouvel onglet / application)`}
                 >
                   <svg className="w-3.5 h-3.5 text-red-500 fill-current shrink-0 group-hover:scale-110 transition-transform" viewBox="0 0 24 24">
                     <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
                   </svg>
                   <span>YouTube</span>
+                  {effectiveYoutubeUrl && <span className="w-1.5 h-1.5 rounded-full bg-red-500" title="Lecteur prêt" />}
                 </a>
 
                 <a
                   href={`https://open.spotify.com/search/${encodeURIComponent([parsedData.title || song.title, parsedData.artist || song.artist].filter(Boolean).join(' '))}`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (hasSpotifyEmbed) {
+                      setActiveAudioSource('spotify');
+                      setShowSettingsDrawer(false);
+                      setShowAudioPlayer(true);
+                      setIsAudioPlayerMinimized(false);
+                    } else {
+                      setShowSpotifyConfig(prev => !prev);
+                      setSpotifyInputUrl(effectiveSpotifyUrl || '');
+                    }
+                  }}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg bg-[#1C1C22] hover:bg-[#1DB954]/15 text-gray-200 hover:text-[#1ED760] border border-[#2E2E36] hover:border-[#1DB954]/40 text-xs font-semibold transition-all cursor-pointer group shadow-xs"
-                  title={`Rechercher « ${song.title} » sur Spotify (nouvel onglet / application)`}
+                  title={hasSpotifyEmbed ? "Écouter sur le petit lecteur Spotify sans quitter l'app" : "Configurer le petit lecteur Spotify (sans quitter l'app)"}
                 >
                   <svg className="w-3.5 h-3.5 text-emerald-400 fill-current shrink-0 group-hover:scale-110 transition-transform" viewBox="0 0 24 24">
                     <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
                   </svg>
                   <span>Spotify</span>
+                  {hasSpotifyEmbed ? (
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" title="Lecteur prêt" />
+                  ) : (
+                    <span className="text-[9px] text-emerald-400/80 font-normal ml-0.5">+ Lecteur</span>
+                  )}
                 </a>
               </div>
-            </div>
 
-            {/* Actions du chant : Éditer & Exporter en PDF (particulièrement en mode mobile) */}
-            <div className="border-t border-[#282830] mt-3 pt-2.5 flex flex-col gap-1.5">
-              {canManageSongs && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowSettingsDrawer(false);
-                    setActiveTab('editor');
-                  }}
-                  className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-[#1C1C22] hover:bg-amber-500/15 border border-[#2E2E36] hover:border-amber-500/50 text-gray-200 hover:text-amber-300 transition-all cursor-pointer group"
-                  title="Éditer le chant"
-                >
-                  <span className="flex items-center gap-2">
-                    <FileEdit className="w-3.5 h-3.5 text-amber-400 group-hover:scale-110 transition-transform" />
-                    <span className="font-medium text-xs">Éditer le chant</span>
-                  </span>
-                  <span className="text-[10px] text-gray-500 group-hover:text-amber-400/80">Ouvrir</span>
-                </button>
+              {/* Enregistrement configuré & bouton petit lecteur */}
+              {hasAudioLink && (
+                <div className="mt-2.5 pt-2 border-t border-[#25252D]">
+                  <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                    <span>Enregistrement configuré</span>
+                    <div className="flex items-center gap-1">
+                      {effectiveYoutubeUrl && (
+                        <span className="text-[9px] text-red-400 font-semibold bg-red-950/40 px-1.5 py-0.5 rounded border border-red-500/30">
+                          YouTube
+                        </span>
+                      )}
+                      {hasSpotifyEmbed && (
+                        <span className="text-[9px] text-emerald-400 font-semibold bg-emerald-950/40 px-1.5 py-0.5 rounded border border-emerald-500/30">
+                          Spotify
+                        </span>
+                      )}
+                      {effectiveAudioUrl && !effectiveYoutubeUrl && !hasSpotifyEmbed && (
+                        <span className="text-[9px] text-blue-400 font-semibold bg-blue-950/40 px-1.5 py-0.5 rounded border border-blue-500/30">
+                          Audio
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (hasSpotifyEmbed && !effectiveYoutubeUrl) {
+                        setActiveAudioSource('spotify');
+                      } else if (effectiveYoutubeUrl) {
+                        setActiveAudioSource('youtube');
+                      } else if (effectiveAudioUrl) {
+                        setActiveAudioSource('audio');
+                      }
+                      setShowSettingsDrawer(false);
+                      setShowAudioPlayer(true);
+                      setIsAudioPlayerMinimized(false);
+                    }}
+                    className={`w-full flex items-center justify-center gap-2 py-1.5 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-xs active:scale-98 ${
+                      hasSpotifyEmbed && !effectiveYoutubeUrl
+                        ? 'bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40'
+                        : 'bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/40'
+                    }`}
+                  >
+                    <Play className="w-3.5 h-3.5 fill-current" />
+                    <span>Écouter le chant (petit lecteur)</span>
+                  </button>
+                </div>
               )}
 
-              <button
-                type="button"
-                onClick={() => {
-                  setShowSettingsDrawer(false);
-                  setShowPdfModal(true);
-                }}
-                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-[#1C1C22] hover:bg-emerald-500/15 border border-[#2E2E36] hover:border-emerald-500/50 text-gray-200 hover:text-emerald-300 transition-all cursor-pointer group"
-                title="Exporter en PDF"
-              >
-                <span className="flex items-center gap-2">
-                  <FileDown className="w-3.5 h-3.5 text-emerald-400 group-hover:scale-110 transition-transform" />
-                  <span className="font-medium text-xs">Exporter en PDF</span>
-                </span>
-                <span className="text-[10px] text-gray-500 group-hover:text-emerald-400/80">PDF</span>
-              </button>
+              {/* Panneau de configuration rapide Spotify */}
+              {showSpotifyConfig && (
+                <div className="mt-2.5 p-2.5 rounded-xl bg-[#141822] border border-emerald-500/40 text-xs animate-in fade-in zoom-in-95 duration-100">
+                  <div className="text-[11px] font-bold text-emerald-400 mb-1 flex items-center justify-between">
+                    <span>Lier un morceau ou album Spotify</span>
+                    <button 
+                      type="button" 
+                      onClick={() => setShowSpotifyConfig(false)}
+                      className="text-gray-400 hover:text-white p-0.5"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-gray-400 mb-2 leading-relaxed">
+                    Collez le lien Spotify pour l'écouter directement dans le petit lecteur sans quitter l'application.
+                  </p>
+                  <div className="flex gap-1.5 mb-2">
+                    <input
+                      type="url"
+                      value={spotifyInputUrl}
+                      onChange={(e) => setSpotifyInputUrl(e.target.value)}
+                      placeholder="https://open.spotify.com/track/..."
+                      className="flex-1 px-2.5 py-1.5 rounded-lg bg-[#1C1C22] border border-[#3A3A44] text-xs text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 font-mono"
+                    />
+                    <button
+                      type="button"
+                      disabled={!spotifyInputUrl.trim() || isSavingSpotify}
+                      onClick={() => handleSaveSpotifyUrl()}
+                      className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold text-xs cursor-pointer transition-colors shrink-0 shadow-xs"
+                    >
+                      {isSavingSpotify ? '...' : 'Écouter'}
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between text-[10px]">
+                    <a
+                      href={`https://open.spotify.com/search/${encodeURIComponent([parsedData.title || song.title, parsedData.artist || song.artist].filter(Boolean).join(' '))}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-emerald-400 hover:underline flex items-center gap-1"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      <span>Chercher sur Spotify pour copier le lien</span>
+                    </a>
+                    {effectiveSpotifyUrl && (
+                      <button
+                        type="button"
+                        onClick={() => handleSaveSpotifyUrl('')}
+                        className="text-rose-400 hover:text-rose-300 hover:underline cursor-pointer"
+                      >
+                        Retirer le lien
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </>
@@ -1538,6 +2061,24 @@ export const SongReader: React.FC<SongReaderProps> = ({
                     <span className="font-bold text-white text-xs sm:text-sm truncate">
                       {stripParentheses(parsedData.title || song.title)}
                     </span>
+                  )}
+                  {hasAudioLink && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAudioPlayer(!showAudioPlayer);
+                        setIsAudioPlayerMinimized(false);
+                      }}
+                      className={`p-1 rounded-md text-xs font-bold transition-all cursor-pointer shrink-0 flex items-center justify-center border ${
+                        showAudioPlayer
+                          ? 'bg-red-600 border-red-500 text-white shadow-xs'
+                          : 'bg-red-500/15 hover:bg-red-500/25 text-red-400 border-red-500/40 hover:border-red-400'
+                      }`}
+                      title={`Écouter l'enregistrement (${effectiveYoutubeUrl ? 'YouTube' : 'Audio'})`}
+                      aria-label="Écouter l'enregistrement"
+                    >
+                      <Play className="w-3 h-3 fill-current" />
+                    </button>
                   )}
                 </div>
 
@@ -1601,6 +2142,22 @@ export const SongReader: React.FC<SongReaderProps> = ({
                         </button>
                       )}
 
+                      {/* Bouton direct Mode Bilingue en compact */}
+                      <button
+                        type="button"
+                        id="btn-song-bilingual-compact"
+                        onClick={handleToggleBilingualMode}
+                        className={`p-1.5 rounded-lg border text-xs font-medium flex items-center justify-center transition-colors shrink-0 cursor-pointer ${
+                          isBilingualMode
+                            ? 'bg-indigo-600 border-indigo-500 text-white shadow-xs'
+                            : 'bg-[#1C1C1E] hover:bg-indigo-950/40 text-indigo-300 border-[#333]'
+                        }`}
+                        title={isBilingualMode ? "Quitter le mode bilingue" : "Mode bilingue (2 colonnes)"}
+                        aria-label="Mode bilingue"
+                      >
+                        <Columns className="w-3.5 h-3.5" />
+                      </button>
+
                       <button
                         type="button"
                         onClick={() => setShowSettingsDrawer(!showSettingsDrawer)}
@@ -1640,50 +2197,96 @@ export const SongReader: React.FC<SongReaderProps> = ({
                     const linkedVersions = getLinkedSongVersions(song, songs);
 
                     return (
-                      <div className="relative inline-block">
-                        <button
-                          type="button"
-                          id="btn-song-language"
-                          onClick={() => {
-                            if ((isInSetlist || isSetlistMode) && currentSetlist) {
-                              setShowSetlistVersionModal(true);
-                            } else {
-                              setShowLanguageMenu(!showLanguageMenu);
-                            }
-                          }}
-                          className={`inline-flex items-center justify-center gap-1.5 px-2 py-0.5 rounded-md border text-xs font-bold transition-all shadow-xs hover:brightness-110 active:scale-95 cursor-pointer ${lMeta.badgeClass}`}
-                          title={`Langue : ${lMeta.name} (${lMeta.code})${linkedVersions.length > 0 ? ` • ${linkedVersions.length} version(s) liée(s)` : ''}`}
-                        >
-                          <Globe className="w-3.5 h-3.5 shrink-0" />
-                          <span className="leading-none text-[11px] font-bold tracking-tight">{lMeta.code}</span>
-                        </button>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <div className="relative inline-block">
+                          <button
+                            type="button"
+                            id="btn-song-language"
+                            onClick={() => {
+                              if ((isInSetlist || isSetlistMode) && currentSetlist) {
+                                setShowSetlistVersionModal(true);
+                              } else {
+                                setShowLanguageMenu(!showLanguageMenu);
+                              }
+                            }}
+                            className={`inline-flex items-center justify-center gap-1.5 px-2 py-0.5 rounded-md border text-xs font-bold transition-all shadow-xs hover:brightness-110 active:scale-95 cursor-pointer ${lMeta.badgeClass}`}
+                            title={`Langue : ${lMeta.name} (${lMeta.code})${linkedVersions.length > 0 ? ` • ${linkedVersions.length} version(s) liée(s)` : ''}`}
+                          >
+                            <Globe className="w-3.5 h-3.5 shrink-0" />
+                            <span className="leading-none text-[11px] font-bold tracking-tight">{lMeta.code}</span>
+                          </button>
 
-                        {showLanguageMenu && (
-                          <>
-                            <div 
-                              className="fixed inset-0 z-40" 
-                              onClick={() => setShowLanguageMenu(false)} 
-                            />
-                            <div className="absolute left-0 top-full mt-1.5 z-50 w-76 max-w-[calc(100vw-32px)] bg-[#18181C] border border-[#2E2E36] rounded-xl shadow-2xl p-2.5 backdrop-blur-md">
-                              {/* Bannière mode setlist si actif */}
-                              {(isInSetlist || isSetlistMode) && currentSetlist && (
-                                <div className="mb-2.5 p-2 rounded-lg bg-blue-950/40 border border-blue-500/30 flex items-center justify-between">
-                                  <div className="min-w-0 pr-1">
-                                    <div className="text-[10px] font-bold text-blue-400 uppercase tracking-wider">Setlist active</div>
-                                    <div className="text-xs font-semibold text-white truncate">{currentSetlist.name}</div>
+                          {/* Bouton direct Mode Bilingue (2 colonnes) */}
+                          <button
+                            type="button"
+                            id="btn-song-bilingual"
+                            onClick={handleToggleBilingualMode}
+                            className={`inline-flex items-center justify-center gap-1.5 px-2 py-0.5 rounded-md border text-xs font-bold transition-all shadow-xs hover:brightness-110 active:scale-95 cursor-pointer ${
+                              isBilingualMode
+                                ? 'bg-indigo-600 border-indigo-500 text-white shadow-indigo-500/20 ring-1 ring-indigo-400'
+                                : 'bg-[#181822] hover:bg-indigo-950/40 border-indigo-500/40 text-indigo-300'
+                            }`}
+                            title={isBilingualMode ? "Désactiver le mode bilingue" : "Activer le mode bilingue (2 colonnes : chant original à gauche, version traduite à droite)"}
+                          >
+                            <Columns className="w-3.5 h-3.5 shrink-0" />
+                            <span className="leading-none text-[11px] font-bold tracking-tight">
+                              {isBilingualMode ? 'Bilingue (2 col.)' : 'Bilingue'}
+                            </span>
+                          </button>
+
+                          {showLanguageMenu && (
+                            <>
+                              <div 
+                                className="fixed inset-0 z-40" 
+                                onClick={() => setShowLanguageMenu(false)} 
+                              />
+                              <div className="absolute left-0 top-full mt-1.5 z-50 w-76 max-w-[calc(100vw-32px)] bg-[#18181C] border border-[#2E2E36] rounded-xl shadow-2xl p-2.5 backdrop-blur-md">
+                                {/* Option Mode Bilingue 2 colonnes */}
+                                <div className="mb-2.5 p-2 rounded-lg bg-indigo-950/40 border border-indigo-500/30 flex items-center justify-between">
+                                  <div className="min-w-0 pr-2">
+                                    <div className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-1">
+                                      <Columns className="w-3 h-3" />
+                                      <span>Mode bilingue (2 colonnes)</span>
+                                    </div>
+                                    <div className="text-[11px] text-gray-300 truncate">
+                                      Normale à gauche • Traduite à droite
+                                    </div>
                                   </div>
                                   <button
                                     type="button"
                                     onClick={() => {
+                                      handleToggleBilingualMode();
                                       setShowLanguageMenu(false);
-                                      setShowSetlistVersionModal(true);
                                     }}
-                                    className="px-2 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold shrink-0 transition-colors cursor-pointer"
+                                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-colors cursor-pointer shrink-0 ${
+                                      isBilingualMode
+                                        ? 'bg-indigo-600 text-white shadow-xs'
+                                        : 'bg-[#202028] hover:bg-[#282834] text-indigo-300 border border-indigo-500/40'
+                                    }`}
                                   >
-                                    Options
+                                    {isBilingualMode ? 'Actif' : 'Activer'}
                                   </button>
                                 </div>
-                              )}
+
+                                {/* Bannière mode setlist si actif */}
+                                {(isInSetlist || isSetlistMode) && currentSetlist && (
+                                  <div className="mb-2.5 p-2 rounded-lg bg-blue-950/40 border border-blue-500/30 flex items-center justify-between">
+                                    <div className="min-w-0 pr-1">
+                                      <div className="text-[10px] font-bold text-blue-400 uppercase tracking-wider">Setlist active</div>
+                                      <div className="text-xs font-semibold text-white truncate">{currentSetlist.name}</div>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setShowLanguageMenu(false);
+                                        setShowSetlistVersionModal(true);
+                                      }}
+                                      className="px-2 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold shrink-0 transition-colors cursor-pointer"
+                                    >
+                                      Options
+                                    </button>
+                                  </div>
+                                )}
 
                               {/* Section: Langue du chant actuel & Sélecteur rapide */}
                               <div className="mb-2.5 pb-2.5 border-b border-[#282830]">
@@ -1813,8 +2416,27 @@ export const SongReader: React.FC<SongReaderProps> = ({
                           </>
                         )}
                       </div>
-                    );
-                  })()}
+
+                      {/* Bouton Mode Bilingue 2 colonnes */}
+                      <button
+                        type="button"
+                        id="btn-bilingual-mode"
+                        onClick={handleToggleBilingualMode}
+                        className={`inline-flex items-center justify-center gap-1.5 px-2.5 py-0.5 rounded-md border text-xs font-bold transition-all shadow-xs hover:brightness-110 active:scale-95 cursor-pointer ${
+                          isBilingualMode
+                            ? 'bg-indigo-600 border-indigo-400 text-white shadow-indigo-600/30 ring-1 ring-indigo-400/50'
+                            : 'bg-[#18181E] hover:bg-[#22222A] text-gray-300 hover:text-white border-[#2E2E38]'
+                        }`}
+                        title={isBilingualMode ? "Quitter le mode bilingue 2 colonnes" : "Activer le mode bilingue (version normale à gauche, version traduite à droite)"}
+                      >
+                        <Columns className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                        <span className="leading-none text-[11px] font-semibold">
+                          {isBilingualMode ? 'Bilingue actif' : 'Mode bilingue'}
+                        </span>
+                      </button>
+                    </div>
+                  );
+                })()}
 
                   {/* Durée estimée : icône + valeur (sans libellé texte) */}
                   {metaVis.duration && (
@@ -1828,6 +2450,28 @@ export const SongReader: React.FC<SongReaderProps> = ({
                         {effectiveDuration}
                       </span>
                     </div>
+                  )}
+
+                  {/* Play icon button if audio link available */}
+                  {hasAudioLink && (
+                    <button
+                      type="button"
+                      id="btn-song-play-audio"
+                      onClick={() => {
+                        setShowAudioPlayer(!showAudioPlayer);
+                        setIsAudioPlayerMinimized(false);
+                      }}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md border text-xs font-bold transition-all shadow-xs cursor-pointer ${
+                        showAudioPlayer
+                          ? 'bg-red-600 border-red-500 text-white shadow-red-500/25 ring-2 ring-red-400/40'
+                          : 'bg-red-500/15 hover:bg-red-500/25 text-red-400 border-red-500/40 hover:border-red-400'
+                      }`}
+                      style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
+                      title={`Écouter l'enregistrement (${effectiveYoutubeUrl ? 'YouTube' : 'Audio'})`}
+                    >
+                      <Play className="w-3 h-3 fill-current" />
+                      <span className="text-xs">{showAudioPlayer ? 'Lecteur actif' : 'Écouter'}</span>
+                    </button>
                   )}
                 </div>
               </div>
@@ -2586,7 +3230,8 @@ export const SongReader: React.FC<SongReaderProps> = ({
           </div>
         )}
 
-        {/* Structured ChordPro Sections */}
+        {/* Structured ChordPro Sections : Standard ou Mode Bilingue */}
+        {!isBilingualMode ? (
           <div 
             className={getColumnsGridClass(numColumns)}
             style={{ 
@@ -2761,6 +3406,240 @@ export const SongReader: React.FC<SongReaderProps> = ({
               );
             })}
           </div>
+        ) : (
+          <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6 items-start">
+            {/* Colonne GAUCHE : Version Normale */}
+            <div className="w-full flex flex-col space-y-3">
+              <div className="sticky top-0 z-10 py-2 px-3 rounded-xl bg-[#141418]/95 backdrop-blur-md border border-blue-500/30 flex items-center justify-between text-xs shadow-md">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border shrink-0 ${getLanguageMeta(song.language).badgeClass}`}>
+                    {getLanguageMeta(song.language).code}
+                  </span>
+                  <div className="min-w-0">
+                    <span className="font-bold text-white text-xs truncate block">
+                      {stripParentheses(parsedData.title || song.title)}
+                    </span>
+                    <span className="text-[10px] text-blue-300 font-medium">
+                      Version normale ({getLanguageMeta(song.language).name})
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <span className="text-[10px] font-mono font-bold text-blue-400 bg-blue-950/50 px-2 py-0.5 rounded-md border border-blue-500/40">
+                    Tonalité {baseKeyDisplay}
+                  </span>
+                </div>
+              </div>
+
+              <div 
+                className="w-full flex flex-col"
+                style={{ 
+                  gap: `${currentSectionSpacing}px`, 
+                  rowGap: `${currentSectionSpacing}px` 
+                }}
+              >
+                {renderSongSections(parsedData.sections, visualChordTransposeSemitones, false)}
+              </div>
+            </div>
+
+            {/* Colonne DROITE : Version Traduite */}
+            <div className="w-full flex flex-col space-y-3">
+              {translatedSong && parsedTranslatedData ? (
+                <>
+                  <div className="sticky top-0 z-10 py-2 px-3 rounded-xl bg-[#151522]/95 backdrop-blur-md border border-indigo-500/40 flex items-center justify-between text-xs shadow-md">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border shrink-0 ${getLanguageMeta(translatedSong.language).badgeClass}`}>
+                        {getLanguageMeta(translatedSong.language).code}
+                      </span>
+                      <div className="min-w-0">
+                        <span className="font-bold text-white text-xs truncate block">
+                          {stripParentheses(parsedTranslatedData.title || translatedSong.title)}
+                        </span>
+                        <span className="text-[10px] text-indigo-300 font-medium">
+                          Version traduite ({getLanguageMeta(translatedSong.language).name})
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {linkedVersions.length > 1 && (
+                        <select
+                          value={translatedSong.id}
+                          onChange={(e) => setSelectedTranslatedSongId(e.target.value)}
+                          className="bg-[#1C1C26] border border-indigo-500/40 rounded-lg px-2 py-1 text-[11px] font-medium text-indigo-200 cursor-pointer focus:outline-none"
+                          title="Changer de version traduite"
+                        >
+                          {linkedVersions.map((lv) => {
+                            const meta = getLanguageMeta(lv.language);
+                            return (
+                              <option key={lv.id} value={lv.id} className="bg-[#141418] text-white">
+                                {meta.code} - {lv.title}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => setShowAddTranslationModal(true)}
+                        className="p-1.5 rounded-lg bg-[#222232] hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 transition-colors cursor-pointer"
+                        title="Ajouter ou lier une autre version traduite"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setIsBilingualMode(false)}
+                        className="p-1.5 rounded-lg bg-[#202026] hover:bg-[#2A2A34] text-gray-400 hover:text-white transition-colors cursor-pointer"
+                        title="Quitter la vue bilingue"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div 
+                    className="w-full flex flex-col"
+                    style={{ 
+                      gap: `${currentSectionSpacing}px`, 
+                      rowGap: `${currentSectionSpacing}px` 
+                    }}
+                  >
+                    {renderSongSections(
+                      parsedTranslatedData.sections, 
+                      getSemitoneDifference((parsedTranslatedData.key || translatedSong.key || catalogBaseKey), effectiveBaseKey) % 12, 
+                      true
+                    )}
+                  </div>
+                </>
+              ) : (
+                /* Card pour ajouter/lier la version traduite */
+                <div className="p-4 sm:p-5 rounded-2xl bg-[#14141A] border border-indigo-500/30 shadow-xl space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-[#242432]">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center border border-indigo-500/30">
+                        <Globe className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs sm:text-sm font-bold text-white">Ajouter la version traduite</h4>
+                        <p className="text-[11px] text-gray-400">Présentez la version normale à gauche et la traduction ici à droite</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsBilingualMode(false)}
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#202028] transition-colors cursor-pointer"
+                      title="Quitter la vue bilingue"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  <div className="space-y-3.5">
+                    {/* 1. Lier un chant existant */}
+                    <div className="p-3 rounded-xl bg-[#181822] border border-[#282838] space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-indigo-300 uppercase tracking-wider">
+                          1. Lier un chant existant du répertoire
+                        </span>
+                        <span className="text-[10px] text-gray-500">Recherche rapide</span>
+                      </div>
+                      <div className="relative">
+                        <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          placeholder="Rechercher par titre ou langue..."
+                          value={bilingualSearchQuery}
+                          onChange={(e) => setBilingualSearchQuery(e.target.value)}
+                          className="w-full bg-[#111116] border border-[#333] rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
+                        {availableSongsToLinkBilingual.length === 0 ? (
+                          <div className="text-center py-3 text-[11px] text-gray-500">
+                            Aucun chant correspondant disponible
+                          </div>
+                        ) : (
+                          availableSongsToLinkBilingual.map((item) => {
+                            const lMeta = getLanguageMeta(item.language);
+                            return (
+                              <div
+                                key={item.id}
+                                className="p-2 rounded-lg bg-[#121218] hover:bg-[#1A1A24] border border-[#262634] flex items-center justify-between gap-2 text-xs transition-colors"
+                              >
+                                <div className="min-w-0 flex items-center gap-2">
+                                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border shrink-0 ${lMeta.badgeClass}`}>
+                                    {lMeta.code}
+                                  </span>
+                                  <div className="min-w-0">
+                                    <div className="text-xs font-semibold text-white truncate">{item.title}</div>
+                                    <div className="text-[10px] text-gray-400 truncate">{item.artist || 'Auteur inconnu'} • {lMeta.name}</div>
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleLinkExistingAsTranslation(item.id)}
+                                  className="px-2.5 py-1 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold transition-colors shrink-0 shadow-xs cursor-pointer"
+                                >
+                                  Afficher
+                                </button>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 2. Créer une nouvelle version traduite */}
+                    {canManageSongs && (
+                      <form onSubmit={handleCreateNewTranslationFromReader} className="p-3 rounded-xl bg-[#181822] border border-[#282838] space-y-2.5">
+                        <span className="text-[11px] font-bold text-blue-300 uppercase tracking-wider block">
+                          2. Ou créer une nouvelle version traduite
+                        </span>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-[10px] font-medium text-gray-400 block mb-1">Langue cible</label>
+                            <select
+                              value={bilingualNewLang}
+                              onChange={(e) => setBilingualNewLang(e.target.value)}
+                              className="w-full bg-[#111116] border border-[#333] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
+                            >
+                              {PRESET_LANGUAGES.filter(l => l.name.toLowerCase() !== song.language?.toLowerCase()).map((lang) => (
+                                <option key={lang.code} value={lang.name} className="bg-[#141416]">
+                                  {lang.name} ({lang.code})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-medium text-gray-400 block mb-1">Titre de la nouvelle version</label>
+                            <input
+                              type="text"
+                              placeholder={`${song.title} - ${bilingualNewLang}`}
+                              value={bilingualNewTitle}
+                              onChange={(e) => setBilingualNewTitle(e.target.value)}
+                              className="w-full bg-[#111116] border border-[#333] rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                            />
+                          </div>
+                        </div>
+                        <button
+                          type="submit"
+                          disabled={isCreatingTranslation}
+                          className="w-full py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>{isCreatingTranslation ? 'Création en cours...' : 'Créer et afficher à droite'}</span>
+                        </button>
+                      </form>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
           {/* Song Sheet Legal Footer: CCLI & Copyright */}
           {((metaVis.ccli && effectiveCcli) || (metaVis.copyright && effectiveCopyright)) && (
@@ -2874,6 +3753,123 @@ export const SongReader: React.FC<SongReaderProps> = ({
         />
       )}
 
+      {/* Quick Add Translation Modal (Bilingual Mode) */}
+      {showAddTranslationModal && song && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-xs animate-in fade-in duration-100"
+          onClick={() => setShowAddTranslationModal(false)}
+        >
+          <div 
+            className="w-full max-w-md bg-[#16161A] border border-[#2E2E38] rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-4 py-3 bg-[#1C1C22] border-b border-[#282832] flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Globe className="w-4 h-4 text-indigo-400" />
+                <h3 className="text-xs sm:text-sm font-bold text-white">Ajouter une version traduite</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddTranslationModal(false)}
+                className="p-1 rounded text-gray-400 hover:text-white hover:bg-[#25252D] cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-4 max-h-[75vh] overflow-y-auto custom-scrollbar">
+              {/* Option 1: Lier un chant */}
+              <div className="p-3 rounded-xl bg-[#141418] border border-[#282834] space-y-2">
+                <span className="text-[11px] font-bold text-indigo-300 uppercase tracking-wider block">
+                  1. Lier un chant existant
+                </span>
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Rechercher par titre ou langue..."
+                    value={bilingualSearchQuery}
+                    onChange={(e) => setBilingualSearchQuery(e.target.value)}
+                    className="w-full bg-[#111116] border border-[#333] rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <div className="max-h-40 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
+                  {availableSongsToLinkBilingual.length === 0 ? (
+                    <div className="text-center py-2 text-[11px] text-gray-500">
+                      Aucun chant disponible
+                    </div>
+                  ) : (
+                    availableSongsToLinkBilingual.map((item) => {
+                      const lMeta = getLanguageMeta(item.language);
+                      return (
+                        <div key={item.id} className="p-2 rounded-lg bg-[#111115] hover:bg-[#1A1A22] border border-[#22222C] flex items-center justify-between gap-2 text-xs">
+                          <div className="min-w-0 flex items-center gap-2">
+                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border shrink-0 ${lMeta.badgeClass}`}>
+                              {lMeta.code}
+                            </span>
+                            <span className="truncate text-white font-medium">{item.title}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleLinkExistingAsTranslation(item.id)}
+                            className="px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold shrink-0 cursor-pointer"
+                          >
+                            Afficher
+                          </button>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* Option 2: Créer une nouvelle version */}
+              {canManageSongs && (
+                <form onSubmit={handleCreateNewTranslationFromReader} className="p-3 rounded-xl bg-[#141418] border border-[#282834] space-y-2.5">
+                  <span className="text-[11px] font-bold text-blue-300 uppercase tracking-wider block">
+                    2. Ou créer une nouvelle version traduite
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] font-medium text-gray-400 block mb-1">Langue cible</label>
+                      <select
+                        value={bilingualNewLang}
+                        onChange={(e) => setBilingualNewLang(e.target.value)}
+                        className="w-full bg-[#111116] border border-[#333] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
+                      >
+                        {PRESET_LANGUAGES.filter(l => l.name.toLowerCase() !== song.language?.toLowerCase()).map((lang) => (
+                          <option key={lang.code} value={lang.name} className="bg-[#141416]">
+                            {lang.name} ({lang.code})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-medium text-gray-400 block mb-1">Titre de la nouvelle version</label>
+                      <input
+                        type="text"
+                        placeholder={`${song.title} - ${bilingualNewLang}`}
+                        value={bilingualNewTitle}
+                        onChange={(e) => setBilingualNewTitle(e.target.value)}
+                        className="w-full bg-[#111116] border border-[#333] rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={isCreatingTranslation}
+                    className="w-full py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>{isCreatingTranslation ? 'Création en cours...' : 'Créer et afficher à droite'}</span>
+                  </button>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Setlist Language Version Modal (Liste simpliste avec boutons Afficher et Remplacer) */}
       {showSetlistVersionModal && song && currentSetlist && (() => {
         const currentLangMeta = getLanguageMeta(song.language);
@@ -2913,8 +3909,45 @@ export const SongReader: React.FC<SongReaderProps> = ({
                 </button>
               </div>
 
-              {/* Contenu simple : Liste des versions avec boutons Afficher et Remplacer */}
-              <div className="p-3 sm:p-4 space-y-2.5 max-h-[calc(80vh-90px)] overflow-y-auto custom-scrollbar">
+              {/* Contenu : Mode Bilingue et Liste des versions */}
+              <div className="p-3 sm:p-4 space-y-3 max-h-[calc(80vh-90px)] overflow-y-auto custom-scrollbar">
+                {/* Carte Mode Bilingue (2 colonnes) */}
+                <div className="p-3 rounded-xl bg-indigo-950/40 border border-indigo-500/40 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center text-indigo-300 shrink-0">
+                      <Columns className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                        <span>Mode bilingue (2 colonnes)</span>
+                        {isBilingualMode && (
+                          <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-indigo-500/30 text-indigo-300 border border-indigo-500/40">
+                            Actif
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-gray-300 truncate">
+                        Chant original à gauche • Version traduite à droite
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleToggleBilingualMode();
+                      setShowSetlistVersionModal(false);
+                      showFeedbackToast(isBilingualMode ? 'Mode bilingue désactivé' : 'Mode bilingue activé');
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                      isBilingualMode
+                        ? 'bg-[#202028] hover:bg-[#282834] text-gray-300 border border-gray-600'
+                        : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-md'
+                    }`}
+                  >
+                    {isBilingualMode ? 'Désactiver' : 'Activer'}
+                  </button>
+                </div>
+
                 {linkedVersions.length > 0 ? (
                   <>
                     <div className="space-y-2">
@@ -2935,19 +3968,33 @@ export const SongReader: React.FC<SongReaderProps> = ({
                               </span>
                             </div>
 
-                            {/* Les 2 boutons demandés : « Afficher » et « Remplacer » */}
-                            <div className="flex items-center gap-2 shrink-0">
+                            {/* Boutons : « Bilingue », « Afficher » et « Remplacer » */}
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedTranslatedSongId(lv.id);
+                                  setIsBilingualMode(true);
+                                  setShowSetlistVersionModal(false);
+                                  showFeedbackToast(`Mode bilingue activé avec « ${lv.title} » à droite.`);
+                                }}
+                                className="px-2 sm:px-2.5 py-1.5 rounded-lg bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 hover:text-white text-xs font-semibold border border-indigo-500/40 transition-colors cursor-pointer flex items-center gap-1"
+                                title="Afficher en 2 colonnes (mode bilingue)"
+                              >
+                                <Columns className="w-3 h-3" />
+                                <span>Bilingue</span>
+                              </button>
                               <button
                                 type="button"
                                 onClick={() => handleViewOnlyVersion(lv)}
-                                className="px-2.5 sm:px-3 py-1.5 rounded-lg bg-[#222228] hover:bg-[#2C2C34] text-gray-200 hover:text-white text-xs font-semibold border border-[#33333E] transition-colors cursor-pointer"
+                                className="px-2 sm:px-2.5 py-1.5 rounded-lg bg-[#222228] hover:bg-[#2C2C34] text-gray-200 hover:text-white text-xs font-semibold border border-[#33333E] transition-colors cursor-pointer"
                               >
                                 Afficher
                               </button>
                               <button
                                 type="button"
                                 onClick={() => handleReplaceCurrentSongInSetlist(lv)}
-                                className="px-2.5 sm:px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                                className="px-2 sm:px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
                               >
                                 Remplacer
                               </button>
@@ -2989,21 +4036,35 @@ export const SongReader: React.FC<SongReaderProps> = ({
                   </>
                 ) : (
                   /* Aucune version liée */
-                  <div className="text-center py-6 space-y-3">
+                  <div className="text-center py-5 space-y-3">
                     <p className="text-xs text-gray-400 leading-relaxed max-w-xs mx-auto">
                       Ce chant ({currentLangMeta.name}) n'a pas encore d'autre version liée dans le répertoire.
                     </p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowSetlistVersionModal(false);
-                        setShowLanguageModal(true);
-                      }}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-colors cursor-pointer"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Lier une version</span>
-                    </button>
+                    <div className="flex items-center justify-center gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsBilingualMode(true);
+                          setShowSetlistVersionModal(false);
+                          showFeedbackToast('Mode bilingue activé : ajoutez ou liez la version traduite à droite.');
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-colors cursor-pointer shadow-md"
+                      >
+                        <Columns className="w-3.5 h-3.5" />
+                        <span>Ouvrir en 2 colonnes & traduire</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowSetlistVersionModal(false);
+                          setShowLanguageModal(true);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#202028] hover:bg-[#282832] text-gray-200 text-xs font-semibold border border-[#333] transition-colors cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Lier une version</span>
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -3018,6 +4079,228 @@ export const SongReader: React.FC<SongReaderProps> = ({
           <Check className="w-4 h-4 text-emerald-400 shrink-0" />
           <span>{feedbackToast}</span>
         </div>
+      )}
+
+      {/* Floating Audio, YouTube & Spotify Player */}
+      {showAudioPlayer && hasAudioLink && (
+        isAudioPlayerMinimized ? (
+          <div className={`no-print fixed bottom-3 right-3 sm:bottom-6 sm:right-6 z-50 flex items-center gap-2 p-1.5 pl-3 rounded-full bg-[#16161A]/95 shadow-2xl backdrop-blur-md animate-in fade-in duration-150 border ${
+            activeAudioSource === 'spotify' ? 'border-emerald-500/50' : 'border-red-500/50'
+          }`}>
+            <span className={`w-2 h-2 rounded-full animate-ping shrink-0 ${
+              activeAudioSource === 'spotify' ? 'bg-emerald-400' : 'bg-red-500'
+            }`} />
+            <span className="text-xs font-bold text-white max-w-[130px] truncate">{song.title}</span>
+            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+              activeAudioSource === 'spotify' 
+                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' 
+                : 'bg-red-500/20 text-red-300 border border-red-500/30'
+            }`}>
+              {activeAudioSource === 'spotify' ? 'Spotify' : (effectiveYoutubeUrl ? 'YouTube' : 'Audio')}
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsAudioPlayerMinimized(false)}
+              className="p-1 rounded-full text-gray-300 hover:text-white hover:bg-[#282830] transition-colors cursor-pointer"
+              title="Agrandir le lecteur"
+            >
+              <Maximize2 className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowAudioPlayer(false)}
+              className="p-1 rounded-full text-gray-400 hover:text-white hover:bg-[#282830] transition-colors cursor-pointer"
+              title="Fermer le lecteur"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        ) : (
+          <div className="no-print fixed bottom-3 right-3 sm:bottom-6 sm:right-6 z-50 w-[calc(100vw-24px)] sm:w-96 max-w-sm bg-[#16161A]/95 border border-[#333] shadow-2xl rounded-2xl p-3 backdrop-blur-md animate-in fade-in slide-in-from-bottom-3 duration-200">
+            <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#282830]">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                  activeAudioSource === 'spotify' 
+                    ? 'bg-emerald-600/20 text-emerald-400' 
+                    : 'bg-red-600/20 text-red-400'
+                }`}>
+                  {activeAudioSource === 'spotify' ? (
+                    <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+                  ) : (
+                    <Play className="w-3.5 h-3.5 fill-current" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-bold text-white truncate">{song.title}</div>
+                  <div className="text-[10px] text-gray-400 truncate">
+                    {activeAudioSource === 'spotify' 
+                      ? 'Lecteur Spotify' 
+                      : (activeAudioSource === 'youtube' ? 'Vidéo YouTube' : 'Piste Audio')}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-1">
+                {activeAudioSource === 'spotify' && effectiveSpotifyUrl && (
+                  <a
+                    href={effectiveSpotifyUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#25252D] transition-colors"
+                    title="Ouvrir dans Spotify (nouvel onglet)"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                )}
+                {activeAudioSource === 'youtube' && effectiveYoutubeUrl && (
+                  <a
+                    href={effectiveYoutubeUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#25252D] transition-colors"
+                    title="Ouvrir dans un nouvel onglet"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                )}
+                {activeAudioSource === 'audio' && effectiveAudioUrl && (
+                  <a
+                    href={effectiveAudioUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#25252D] transition-colors"
+                    title="Ouvrir dans un nouvel onglet"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsAudioPlayerMinimized(true)}
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#25252D] transition-colors cursor-pointer"
+                  title="Réduire"
+                >
+                  <Minimize2 className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowAudioPlayer(false)}
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#25252D] transition-colors cursor-pointer"
+                  title="Fermer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Switcher de source si plusieurs sources configurées */}
+            {[Boolean(effectiveYoutubeUrl), hasSpotifyEmbed, Boolean(effectiveAudioUrl)].filter(Boolean).length > 1 && (
+              <div className="flex items-center gap-1 mb-2 p-1 bg-[#101014] rounded-lg border border-[#25252E]">
+                {effectiveYoutubeUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveAudioSource('youtube')}
+                    className={`flex-1 py-1 px-2 rounded-md text-[10px] font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer ${
+                      activeAudioSource === 'youtube'
+                        ? 'bg-red-600/30 text-red-200 border border-red-500/40'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    <svg className="w-3 h-3 text-red-500 fill-current" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                    <span>YouTube</span>
+                  </button>
+                )}
+                {hasSpotifyEmbed && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveAudioSource('spotify')}
+                    className={`flex-1 py-1 px-2 rounded-md text-[10px] font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer ${
+                      activeAudioSource === 'spotify'
+                        ? 'bg-emerald-600/30 text-emerald-200 border border-emerald-500/40'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    <svg className="w-3 h-3 text-emerald-400 fill-current" viewBox="0 0 24 24"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+                    <span>Spotify</span>
+                  </button>
+                )}
+                {effectiveAudioUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveAudioSource('audio')}
+                    className={`flex-1 py-1 px-2 rounded-md text-[10px] font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer ${
+                      activeAudioSource === 'audio'
+                        ? 'bg-blue-600/30 text-blue-200 border border-blue-500/40'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    <Music className="w-3 h-3 text-blue-400" />
+                    <span>Audio</span>
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Spotify Player Embed */}
+            {activeAudioSource === 'spotify' && hasSpotifyEmbed && (
+              <div className="rounded-xl overflow-hidden border border-[#2A2A32] bg-[#121212] mb-1.5 shadow-md">
+                <iframe
+                  src={getSpotifyEmbedUrl(effectiveSpotifyUrl)!}
+                  title={`Spotify: ${song.title}`}
+                  className="w-full h-[152px] border-0"
+                  allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                  loading="lazy"
+                />
+              </div>
+            )}
+
+            {/* Video Embed YouTube */}
+            {activeAudioSource === 'youtube' && effectiveYoutubeUrl && (() => {
+              const embedUrl = getYouTubeEmbedUrl(effectiveYoutubeUrl);
+              if (embedUrl) {
+                return (
+                  <div className="rounded-lg overflow-hidden border border-[#2A2A32] bg-black aspect-video mb-2">
+                    <iframe
+                      src={embedUrl}
+                      title={song.title}
+                      className="w-full h-full border-0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  </div>
+                );
+              }
+              return (
+                <div className="p-3 bg-[#111114] rounded-lg text-center mb-2">
+                  <a
+                    href={effectiveYoutubeUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-semibold"
+                  >
+                    <Play className="w-3.5 h-3.5 fill-current" />
+                    <span>Ouvrir sur YouTube</span>
+                  </a>
+                </div>
+              );
+            })()}
+
+            {/* Direct Audio Stream */}
+            {activeAudioSource === 'audio' && effectiveAudioUrl && (
+              <div>
+                <div className="text-[10px] text-gray-400 font-medium mb-1 flex items-center justify-between">
+                  <span>Piste audio directe</span>
+                  {isDirectAudioUrl(effectiveAudioUrl) && <span className="text-[9px] text-emerald-400 font-mono">Fichier direct</span>}
+                </div>
+                <audio
+                  controls
+                  autoPlay
+                  src={effectiveAudioUrl}
+                  className="w-full h-9 rounded"
+                />
+              </div>
+            )}
+          </div>
+        )
       )}
 
     </div>

@@ -172,11 +172,15 @@ export function visualSectionsToChordPro(
     artist?: string;
     key?: string;
     tempo?: number;
+    bpm?: number;
     timeSignature?: string;
     duration?: string;
     capo?: number;
     ccli?: string;
     copyright?: string;
+    youtubeUrl?: string;
+    audioUrl?: string;
+    spotifyUrl?: string;
   }
 ): string {
   const lines: string[] = [];
@@ -185,12 +189,16 @@ export function visualSectionsToChordPro(
   if (metadata?.title) lines.push(`{title: ${metadata.title}}`);
   if (metadata?.artist) lines.push(`{artist: ${metadata.artist}}`);
   if (metadata?.key) lines.push(`{key: ${metadata.key}}`);
-  if (metadata?.tempo) lines.push(`{tempo: ${metadata.tempo}}`);
+  const resolvedTempo = metadata?.bpm || metadata?.tempo;
+  if (resolvedTempo) lines.push(`{tempo: ${resolvedTempo}}`);
   if (metadata?.timeSignature) lines.push(`{time: ${metadata.timeSignature}}`);
   if (metadata?.duration) lines.push(`{duration: ${metadata.duration}}`);
   if (metadata?.capo && metadata.capo > 0) lines.push(`{capo: ${metadata.capo}}`);
   if (metadata?.ccli) lines.push(`{ccli: ${metadata.ccli}}`);
   if (metadata?.copyright) lines.push(`{copyright: ${metadata.copyright}}`);
+  if (metadata?.youtubeUrl) lines.push(`{youtube: ${metadata.youtubeUrl}}`);
+  if (metadata?.audioUrl) lines.push(`{audio: ${metadata.audioUrl}}`);
+  if (metadata?.spotifyUrl) lines.push(`{spotify: ${metadata.spotifyUrl}}`);
 
   if (lines.length > 0) {
     lines.push('');

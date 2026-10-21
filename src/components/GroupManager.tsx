@@ -841,53 +841,6 @@ export const GroupManager: React.FC = () => {
                       {currentGroup.description}
                     </p>
                   )}
-
-                  {/* Boîte et bouton du code d'invitation intégrés de manière ergonomique */}
-                  <div className="mt-3 flex items-center gap-2 flex-wrap">
-                    <div 
-                      onClick={handleCopyInviteCode}
-                      className="group inline-flex items-center gap-2.5 px-3 py-1.5 rounded-lg bg-[#0A0A0B] hover:bg-[#141418] border border-[#222224] hover:border-blue-500/50 shadow-xs cursor-pointer transition-all active:scale-98 select-none"
-                      title="Cliquer pour copier le code d'invitation"
-                    >
-                      <div className="flex items-center gap-1.5 text-gray-400 group-hover:text-blue-400 transition-colors">
-                        <KeyRound className="w-3.5 h-3.5 text-blue-400" />
-                        <span className="text-[11px] font-semibold">Code d'invitation :</span>
-                      </div>
-                      <span className="text-sm font-bold font-mono tracking-widest text-blue-400 group-hover:text-blue-300">
-                        {currentGroup.inviteCode || 'LOUAN7'}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleCopyInviteCode();
-                        }}
-                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold shadow-xs transition-all cursor-pointer ${
-                          isCopied
-                            ? 'bg-emerald-600 text-white'
-                            : 'bg-blue-600 hover:bg-blue-500 text-white'
-                        }`}
-                        title="Copier le code d'invitation"
-                      >
-                        {isCopied ? (
-                          <>
-                            <Check className="w-3.5 h-3.5" />
-                            <span>Copié</span>
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="w-3.5 h-3.5" />
-                            <span>Copier</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-
-                    <InfoTooltip 
-                      label="Code d'accès" 
-                      content="Transmettez ce code aux musiciens pour qu'ils rejoignent directement cette bibliothèque partagée." 
-                    />
-                  </div>
                 </div>
               )}
             </div>

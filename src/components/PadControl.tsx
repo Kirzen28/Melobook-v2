@@ -4,6 +4,7 @@ import {
   Volume2, 
   VolumeX, 
   ChevronDown, 
+  ChevronUp,
   Sparkles, 
   Lock, 
   Unlock,
@@ -21,12 +22,14 @@ interface PadControlProps {
   songKey?: string;
   transposeOffset?: number;
   className?: string;
+  onToggleCollapse?: () => void;
 }
 
 export const PadControl: React.FC<PadControlProps> = ({
   songKey,
   transposeOffset = 0,
-  className = ''
+  className = '',
+  onToggleCollapse
 }) => {
   const [isPlaying, setIsPlaying] = useState<boolean>(() => padAudio.getIsRunning());
   const [activeSemitone, setActiveSemitone] = useState<number>(() => {
@@ -39,6 +42,17 @@ export const PadControl: React.FC<PadControlProps> = ({
   const [isMuted, setIsMuted] = useState<boolean>(() => padAudio.getIsMuted());
   const [isPresetDropdownOpen, setIsPresetDropdownOpen] = useState(false);
   const [isLockedToSongKey, setIsLockedToSongKey] = useState(false);
+
+  // Sync state with padAudio changes
+  useEffect(() => {
+    return padAudio.subscribe(() => {
+      setIsPlaying(padAudio.getIsRunning());
+      setActiveSemitone(padAudio.getCurrentSemitone());
+      setCurrentPreset(padAudio.getCurrentPreset());
+      setVolume(Math.round(padAudio.getCurrentVolume() * 100));
+      setIsMuted(padAudio.getIsMuted());
+    });
+  }, []);
 
   // Calculate song's current target semitone
   const songTargetSemitone = (parseKeyToSemitone(songKey) + transposeOffset + 12) % 12;
@@ -195,6 +209,20 @@ export const PadControl: React.FC<PadControlProps> = ({
           {isLockedToSongKey ? <Lock className="w-3.5 h-3.5 text-sky-400" /> : <Unlock className="w-3.5 h-3.5" />}
           <span className="mt-0.5 leading-none">Lock</span>
         </button>
+
+        {/* Bouton Replier */}
+        {onToggleCollapse && (
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            className="h-11 px-2.5 rounded-xl border border-[#2A3344] bg-[#171C26] hover:bg-[#1E2533] text-gray-400 hover:text-white flex flex-col items-center justify-center transition-colors cursor-pointer shrink-0"
+            title="Replier le module Pad"
+            aria-label="Replier le module Pad"
+          >
+            <ChevronUp className="w-3.5 h-3.5 text-sky-400" />
+            <span className="mt-0.5 leading-none text-[10px] font-bold">Plier</span>
+          </button>
+        )}
       </div>
 
       {/* Main Area: 12 Chromatic Notes Grid (2 rows x 6 cols) + Fader */}

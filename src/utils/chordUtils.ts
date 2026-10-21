@@ -187,11 +187,15 @@ export interface ParsedSongData {
   key: string;
   hasExplicitKey?: boolean;
   tempo: number;
+  bpm?: number;
   timeSignature: string;
   duration?: string;
   capo: number;
   ccli?: string;
   copyright?: string;
+  youtubeUrl?: string;
+  audioUrl?: string;
+  spotifyUrl?: string;
   sections: ParsedSection[];
   rawChordPro: string;
 }
@@ -535,6 +539,9 @@ export function parseChordPro(chordProText: string): ParsedSongData {
   let capo = 0;
   let ccli = '';
   let copyright = '';
+  let youtubeUrl = '';
+  let audioUrl = '';
+  let spotifyUrl = '';
 
   const sections: ParsedSection[] = [];
   let currentSection: ParsedSection = {
@@ -580,6 +587,12 @@ export function parseChordPro(chordProText: string): ParsedSongData {
         ccli = value;
       } else if (tag === 'copyright' || tag === 'cop' || tag === 'droits') {
         copyright = value;
+      } else if (tag === 'youtube' || tag === 'yt' || tag === 'video' || tag === 'youtube_url') {
+        youtubeUrl = value;
+      } else if (tag === 'spotify' || tag === 'sp' || tag === 'spotify_url') {
+        spotifyUrl = value;
+      } else if (tag === 'audio' || tag === 'audio_url' || tag === 'sound' || tag === 'mp3' || tag === 'music_url') {
+        audioUrl = value;
       } else if (tag === 'vocal' || tag === 'voix' || tag === 'arrangement' || tag === 'arrangement_vocal' || tag === 'vocal_arrangement') {
         // Direct vocal arrangement tag for current section
         const rawVocals = value.split(',').map(s => s.trim()).filter(Boolean);
@@ -743,14 +756,54 @@ export function parseChordPro(chordProText: string): ParsedSongData {
     key,
     hasExplicitKey,
     tempo,
+    bpm: tempo,
     timeSignature,
     duration: duration ? formatDurationToMMSS(duration) : undefined,
     capo,
     ccli: ccli ? ccli.trim() : undefined,
     copyright: copyright ? copyright.trim() : undefined,
+    youtubeUrl: youtubeUrl ? youtubeUrl.trim() : undefined,
+    audioUrl: audioUrl ? audioUrl.trim() : undefined,
+    spotifyUrl: spotifyUrl ? spotifyUrl.trim() : undefined,
     sections,
     rawChordPro: chordProText
   };
+}
+
+// Helpers for YouTube and external audio URLs
+export function getYouTubeVideoId(url?: string): string | null {
+  if (!url) return null;
+  const regExp = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i;
+  const match = url.match(regExp);
+  return match ? match[1] : null;
+}
+
+export function getYouTubeEmbedUrl(url?: string): string | null {
+  const id = getYouTubeVideoId(url);
+  return id ? `https://www.youtube-nocookie.com/embed/${id}?autoplay=1` : null;
+}
+
+export function isDirectAudioUrl(url?: string): boolean {
+  if (!url) return false;
+  return /\.(mp3|wav|ogg|m4a|aac|flac)(\?.*)?$/i.test(url) || url.startsWith('blob:') || url.startsWith('data:audio');
+}
+
+export function getSpotifyEmbedUrl(url?: string): string | null {
+  if (!url) return null;
+  const clean = url.trim();
+  if (clean.includes('open.spotify.com/embed/')) return clean;
+
+  const match = clean.match(/open\.spotify\.com\/(track|album|playlist|artist|episode)\/([a-zA-Z0-9]+)/i);
+  if (match) {
+    return `https://open.spotify.com/embed/${match[1]}/${match[2]}?utm_source=generator&theme=0`;
+  }
+
+  const uriMatch = clean.match(/spotify:(track|album|playlist|artist|episode):([a-zA-Z0-9]+)/i);
+  if (uriMatch) {
+    return `https://open.spotify.com/embed/${uriMatch[1]}/${uriMatch[2]}?utm_source=generator&theme=0`;
+  }
+
+  return null;
 }
 
 // ==========================================

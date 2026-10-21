@@ -56,7 +56,10 @@ import {
   ListMusic,
   ArrowRight,
   Shield,
-  Copyright
+  Copyright,
+  Play,
+  Radio,
+  ExternalLink
 } from 'lucide-react';
 
 export const SongList: React.FC = () => {
@@ -215,6 +218,61 @@ export const SongList: React.FC = () => {
   const [exportNotification, setExportNotification] = useState<string | null>(null);
   const [songToExportPdf, setSongToExportPdf] = useState<Song | null>(null);
 
+  // External YouTube, Spotify & Audio Link Modal State
+  const [audioLinkSong, setAudioLinkSong] = useState<Song | null>(null);
+  const [audioLinkYoutubeInput, setAudioLinkYoutubeInput] = useState('');
+  const [audioLinkSpotifyInput, setAudioLinkSpotifyInput] = useState('');
+  const [audioLinkAudioInput, setAudioLinkAudioInput] = useState('');
+  const [isSavingAudioLink, setIsSavingAudioLink] = useState(false);
+
+  const handleOpenAudioLinkModal = (song: Song) => {
+    setAudioLinkSong(song);
+    setAudioLinkYoutubeInput(song.youtubeUrl || '');
+    setAudioLinkSpotifyInput(song.spotifyUrl || '');
+    setAudioLinkAudioInput(song.audioUrl || '');
+  };
+
+  const handleSaveAudioLinks = async () => {
+    if (!audioLinkSong) return;
+    setIsSavingAudioLink(true);
+    try {
+      await updateSong(audioLinkSong.id, {
+        youtubeUrl: audioLinkYoutubeInput.trim(),
+        spotifyUrl: audioLinkSpotifyInput.trim(),
+        audioUrl: audioLinkAudioInput.trim()
+      });
+      showNotification('Liens multimédias enregistrés');
+      setAudioLinkSong(null);
+    } catch (err) {
+      console.error('Error saving audio links:', err);
+      showNotification('Erreur lors de l’enregistrement');
+    } finally {
+      setIsSavingAudioLink(false);
+    }
+  };
+
+  const handleClearAudioLinks = async () => {
+    if (!audioLinkSong) return;
+    setIsSavingAudioLink(true);
+    try {
+      await updateSong(audioLinkSong.id, {
+        youtubeUrl: '',
+        spotifyUrl: '',
+        audioUrl: ''
+      });
+      showNotification('Liens retirés');
+      setAudioLinkYoutubeInput('');
+      setAudioLinkSpotifyInput('');
+      setAudioLinkAudioInput('');
+      setAudioLinkSong(null);
+    } catch (err) {
+      console.error('Error clearing audio links:', err);
+      showNotification('Erreur');
+    } finally {
+      setIsSavingAudioLink(false);
+    }
+  };
+
   const categoryFilterRef = useRef<HTMLDivElement>(null);
   const authorFilterRef = useRef<HTMLDivElement>(null);
   const keyFilterRef = useRef<HTMLDivElement>(null);
@@ -265,6 +323,9 @@ export const SongList: React.FC = () => {
         if (isMultiSelectMode) {
           setIsMultiSelectMode(false);
           setSelectedSongIds([]);
+        }
+        if (audioLinkSong) {
+          setAudioLinkSong(null);
         }
         setIsCategoryFilterOpen(false);
         setIsAuthorFilterOpen(false);
@@ -1427,13 +1488,26 @@ export const SongList: React.FC = () => {
         <div className="flex items-center justify-between gap-2.5 sm:gap-3 min-w-0 flex-1">
           {/* Title and Artist */}
           <div className="min-w-0 flex-1 flex flex-col md:flex-row md:items-center gap-0.5 md:gap-3">
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 flex-1 flex items-center gap-2">
               <h3 
                 className="text-xs sm:text-sm font-bold text-white group-hover:text-blue-400 transition-colors truncate leading-snug"
                 title={stripParentheses(song.title)}
               >
                 {stripParentheses(song.title)}
               </h3>
+              {(song.youtubeUrl || song.audioUrl) && (
+                <span
+                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold shrink-0 border ${
+                    song.youtubeUrl
+                      ? 'bg-red-500/15 border-red-500/40 text-red-400'
+                      : 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400'
+                  }`}
+                  title={song.youtubeUrl ? `Lien YouTube configuré : ${song.youtubeUrl}` : `Lien Audio configuré : ${song.audioUrl}`}
+                >
+                  <Play className="w-2.5 h-2.5 fill-current" />
+                  <span className="hidden sm:inline">{song.youtubeUrl ? 'YouTube' : 'Audio'}</span>
+                </span>
+              )}
             </div>
           </div>
 
@@ -1443,6 +1517,33 @@ export const SongList: React.FC = () => {
 
             {/* Buttons in the right corner */}
             <div className="flex items-center gap-1 shrink-0">
+              {/* Lien YouTube / Audio externe */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  if (isMultiSelectMode) return;
+                  e.stopPropagation();
+                  handleOpenAudioLinkModal(song);
+                }}
+                className={`p-1 sm:p-1.5 rounded transition-colors flex items-center justify-center cursor-pointer group border ${
+                  (song.youtubeUrl || song.audioUrl)
+                    ? 'bg-red-500/15 hover:bg-red-500/25 text-red-400 border-red-500/40 hover:border-red-400 shadow-xs'
+                    : 'bg-[#1C1C1E] hover:bg-red-500/15 text-gray-400 hover:text-red-400 border-[#333] hover:border-red-500/40'
+                }`}
+                title={
+                  (song.youtubeUrl || song.audioUrl)
+                    ? "Lien YouTube/Audio disponible (cliquer pour écouter ou modifier)"
+                    : "Ajouter un lien YouTube ou Audio"
+                }
+                aria-label="Lien YouTube ou Audio"
+              >
+                {(song.youtubeUrl || song.audioUrl) ? (
+                  <Play className="w-3.5 h-3.5 fill-current text-red-400 group-hover:scale-110 transition-transform" />
+                ) : (
+                  <Radio className="w-3.5 h-3.5 text-gray-400 group-hover:text-red-400 group-hover:scale-110 transition-transform" />
+                )}
+              </button>
+
               {/* Export PDF button */}
               <button
                 type="button"
@@ -4551,6 +4652,180 @@ export const SongList: React.FC = () => {
           mode="song"
           onClose={() => setSongToExportPdf(null)}
         />
+      )}
+
+      {/* Modal d'édition des liens Audio et YouTube externes */}
+      {audioLinkSong && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs animate-in fade-in duration-200">
+          <div 
+            className="w-full max-w-lg bg-[#141417] border border-[#2A2A32] rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="p-4 border-b border-[#222228] flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-center shrink-0">
+                  <Play className="w-5 h-5 fill-current" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-base font-bold text-white truncate">
+                    Liens Audio & Vidéo
+                  </h3>
+                  <p className="text-xs text-gray-400 truncate">
+                    {audioLinkSong.title} {audioLinkSong.artist ? `• ${audioLinkSong.artist}` : ''}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAudioLinkSong(null)}
+                className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#202026] transition-colors cursor-pointer"
+                title="Fermer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-4 space-y-4 text-xs">
+              <p className="text-gray-400 text-xs leading-relaxed">
+                Configurez une vidéo YouTube ou une piste audio externe pour ce chant. Un bouton de lecture (Play) apparaîtra automatiquement dans le lecteur de partition.
+              </p>
+
+              {/* Champ Lien YouTube */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="font-semibold text-gray-300 flex items-center gap-1.5">
+                    <svg className="w-3.5 h-3.5 text-red-500 fill-current shrink-0" viewBox="0 0 24 24">
+                      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                    </svg>
+                    <span>Lien vidéo YouTube</span>
+                  </label>
+                  {audioLinkYoutubeInput.trim() && (
+                    <a
+                      href={audioLinkYoutubeInput.trim()}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-red-400 hover:text-red-300 flex items-center gap-1 text-[11px] font-medium hover:underline"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      <span>Tester</span>
+                    </a>
+                  )}
+                </div>
+                <input
+                  type="url"
+                  placeholder="ex: https://www.youtube.com/watch?v=... ou https://youtu.be/..."
+                  value={audioLinkYoutubeInput}
+                  onChange={(e) => setAudioLinkYoutubeInput(e.target.value)}
+                  className="w-full h-9 bg-[#1B1B1E] border border-[#333] hover:border-[#444] focus:border-red-500 rounded-lg px-3 text-xs text-red-200 placeholder-gray-500 font-mono focus:outline-none transition-colors"
+                />
+              </div>
+
+              {/* Champ Lien Spotify */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="font-semibold text-gray-300 flex items-center gap-1.5">
+                    <svg className="w-3.5 h-3.5 text-emerald-400 fill-current shrink-0" viewBox="0 0 24 24">
+                      <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+                    </svg>
+                    <span>Lien Spotify (morceau, album)</span>
+                  </label>
+                  {audioLinkSpotifyInput.trim() && (
+                    <a
+                      href={audioLinkSpotifyInput.trim()}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-emerald-400 hover:text-emerald-300 flex items-center gap-1 text-[11px] font-medium hover:underline"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      <span>Tester</span>
+                    </a>
+                  )}
+                </div>
+                <input
+                  type="url"
+                  placeholder="ex: https://open.spotify.com/track/..."
+                  value={audioLinkSpotifyInput}
+                  onChange={(e) => setAudioLinkSpotifyInput(e.target.value)}
+                  className="w-full h-9 bg-[#1B1B1E] border border-[#333] hover:border-[#444] focus:border-emerald-500 rounded-lg px-3 text-xs text-emerald-200 placeholder-gray-500 font-mono focus:outline-none transition-colors"
+                />
+              </div>
+
+              {/* Champ Lien Audio externe */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="font-semibold text-gray-300 flex items-center gap-1.5">
+                    <Music className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                    <span>Lien Audio direct (MP3 / flux)</span>
+                  </label>
+                  {audioLinkAudioInput.trim() && (
+                    <a
+                      href={audioLinkAudioInput.trim()}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-emerald-400 hover:text-emerald-300 flex items-center gap-1 text-[11px] font-medium hover:underline"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      <span>Tester</span>
+                    </a>
+                  )}
+                </div>
+                <input
+                  type="url"
+                  placeholder="ex: https://domaine.com/enregistrement.mp3 ou lien streaming..."
+                  value={audioLinkAudioInput}
+                  onChange={(e) => setAudioLinkAudioInput(e.target.value)}
+                  className="w-full h-9 bg-[#1B1B1E] border border-[#333] hover:border-[#444] focus:border-emerald-500 rounded-lg px-3 text-xs text-emerald-200 placeholder-gray-500 font-mono focus:outline-none transition-colors"
+                />
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-3.5 border-t border-[#222228] bg-[#101013] flex items-center justify-between">
+              {(audioLinkSong.youtubeUrl || audioLinkSong.spotifyUrl || audioLinkSong.audioUrl) ? (
+                <button
+                  type="button"
+                  onClick={handleClearAudioLinks}
+                  disabled={isSavingAudioLink}
+                  className="text-xs text-red-400 hover:text-red-300 hover:underline flex items-center gap-1 disabled:opacity-50 cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Supprimer les liens</span>
+                </button>
+              ) : <div />}
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAudioLinkSong(null)}
+                  disabled={isSavingAudioLink}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium text-gray-300 hover:text-white hover:bg-[#202026] border border-[#333] transition-colors cursor-pointer"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveAudioLinks}
+                  disabled={isSavingAudioLink}
+                  className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white transition-all disabled:opacity-50 cursor-pointer shadow-md shadow-blue-600/20"
+                >
+                  {isSavingAudioLink ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Enregistrement...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Enregistrer</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>

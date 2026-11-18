@@ -65,7 +65,8 @@ import {
   Palette,
   BookOpen,
   Columns,
-  Globe
+  Globe,
+  Lock
 } from 'lucide-react';
 
 export interface QueueItem {
@@ -285,6 +286,36 @@ export const PresentationManager: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isCountdownMenuOpen]);
 
+  // Référence de la colonne droite pour limiter la hauteur max de la file de projection
+  const rightColRef = useRef<HTMLDivElement>(null);
+  const [maxQueueHeight, setMaxQueueHeight] = useState<number | undefined>(undefined);
+
+  useEffect(() => {
+    const el = rightColRef.current;
+    if (!el) return;
+
+    const updateHeight = () => {
+      if (window.innerWidth >= 1024) {
+        setMaxQueueHeight(el.offsetHeight);
+      } else {
+        setMaxQueueHeight(undefined);
+      }
+    };
+
+    updateHeight();
+
+    const observer = new ResizeObserver(() => {
+      updateHeight();
+    });
+    observer.observe(el);
+    window.addEventListener('resize', updateHeight);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', updateHeight);
+    };
+  }, []);
+
   // Image d'arrière-plan personnalisée et filtre sombre automatique
   const [backgroundImage, setBackgroundImage] = useState<string>(() => getSavedBackgroundImage());
   const [backgroundOverlay, setBackgroundOverlay] = useState<number>(() => getSavedBackgroundOverlay());
@@ -356,9 +387,9 @@ export const PresentationManager: React.FC = () => {
     saveBackgroundOverlay(overlay);
   }, []);
 
-  // Recherche rapide pour ajout depuis la bibliothèque
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  // Modal d'ajout d'un chant séparé (hors-setlist)
+  const [isAddSongModalOpen, setIsAddSongModalOpen] = useState<boolean>(false);
+  const [songModalSearch, setSongModalSearch] = useState<string>('');
 
   // Sélecteur de setlist
   const [selectedSetlistId, setSelectedSetlistId] = useState<string>(selectedSetlist?.id || '');
@@ -1326,17 +1357,41 @@ export const PresentationManager: React.FC = () => {
     });
   };
 
-  // Ajouter un chant individuel
-  const handleAddSong = (song: Song) => {
-    setQueueItems(prev => [
-      ...prev,
-      {
-        uid: `manual_${song.id}_${Date.now()}`,
-        songId: song.id,
-        setlistName: 'Chants ajoutés'
+  // Liste filtrée pour le modal d'ajout de chant séparé
+  const filteredModalSongs = useMemo(() => {
+    const q = songModalSearch.trim().toLowerCase();
+    if (!q) return songs;
+    return songs.filter(s =>
+      s.title.toLowerCase().includes(q) ||
+      (s.artist && s.artist.toLowerCase().includes(q)) ||
+      (s.content && s.content.toLowerCase().includes(q))
+    );
+  }, [songs, songModalSearch]);
+
+  // Ajouter un chant individuel séparé (hors-setlist)
+  const handleAddIndividualSong = useCallback((song: Song) => {
+    const newItem: QueueItem = {
+      uid: `manual_${song.id}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      type: 'song',
+      songId: song.id,
+      setlistName: ''
+    };
+    setQueueItems(prev => {
+      const next = [...prev, newItem];
+      if (prev.length === 0) {
+        setActiveSongIndex(0);
+        setActiveSlideIndex(0);
       }
-    ]);
-  };
+      return next;
+    });
+    setIsAddSongModalOpen(false);
+    setSongModalSearch('');
+    showNotification?.({
+      title: 'Chant séparé ajouté',
+      message: `"${song.title}" ajouté à la file de projection (déplaçable et retirable).`,
+      type: 'success'
+    });
+  }, [showNotification]);
 
   // Retirer un chant de la file
   const handleRemoveSong = (indexToRemove: number) => {
@@ -1561,19 +1616,15 @@ export const PresentationManager: React.FC = () => {
   const cdInfo = formatRemainingTime(cdRemaining);
 
   return (
-    <div className="w-full min-h-[calc(100vh-64px)] bg-[#0A0A0B] text-[#E0E0E0] p-3 sm:p-6 flex flex-col gap-5 max-w-7xl mx-auto">
+    <div className="max-w-7xl mx-auto px-3 sm:px-6 py-6 pb-12 text-[#E0E0E0] min-h-[calc(100vh-64px)]">
       
       {/* 1. Barre d'en-tête de régie */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#121215] border border-[#222226] p-4 rounded-2xl shadow-lg">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-blue-600/20 text-blue-400 border border-blue-500/30">
-            <Tv className="w-6 h-6" />
-          </div>
-          <div>
-            <h1 className="text-lg sm:text-xl font-bold text-white tracking-tight flex items-center gap-2">
-              <span>Mode Présentation</span>
-            </h1>
-          </div>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-wrap">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-2 sm:gap-2.5">
+            <Tv className="w-5 h-5 sm:w-6 sm:h-6 text-blue-500 shrink-0" />
+            <span>Mode Présentation</span>
+          </h1>
         </div>
 
         {/* Bouton d'action d'ouverture de l'écran externe */}
@@ -1581,522 +1632,462 @@ export const PresentationManager: React.FC = () => {
           <button
             type="button"
             onClick={handleOpenProjectionWindow}
-            className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shadow-lg shadow-blue-900/30 ring-1 ring-blue-400/40"
+            className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-md bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-sm transition-all active:scale-95 whitespace-nowrap cursor-pointer"
             title="Ouvrir la fenêtre d'affichage pour l'écran externe"
           >
-            <Tv className="w-4 h-4" />
+            <Tv className="w-3.5 h-3.5" />
             <span>Ouvrir l'écran de projection</span>
             <ExternalLink className="w-3.5 h-3.5 opacity-80" />
           </button>
         </div>
       </div>
 
-      {/* 2. Corps principal : Colonne gauche (Réglages, File & Ajout) + Colonne droite (Pupitre & Slides) */}
+      {/* 2. Corps principal : 2/3 Choix des slides + 1/3 (Moniteur en direct & File de projection) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-        
-        {/* Colonne Gauche : File de projection & Sélecteur de setlist (4 cols) */}
-        <div className="lg:col-span-4 flex flex-col gap-3.5">
-          <div className="bg-[#121215] border border-[#222226] rounded-2xl shadow-md transition-all duration-150">
-            {/* En-tête harmonisé avec bouton Dérouler/Enrouler */}
-            <div
-              onClick={toggleQueueCollapse}
-              className="flex items-center justify-between p-3.5 sm:p-4 select-none cursor-pointer hover:bg-white/[0.02] transition-colors rounded-2xl"
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-6 h-6 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
-                  <Music className="w-3.5 h-3.5" />
-                </div>
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <span className="text-xs font-bold text-gray-200 uppercase tracking-wide truncate">
-                    File de projection
-                  </span>
-                  {queueItems.length > 0 && (
-                    <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                      {queueItems.length}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 shrink-0">
-                {queueSongs.length > 0 && (
+        {/* Module Actif : Pupitre (Chants) OU Bible OU Média (pleine largeur) */}
+        <div className="col-span-1 lg:col-span-8 w-full flex flex-col gap-4">
+          <div className="bg-[#121215] border border-[#222226] rounded-2xl p-4 sm:p-5 shadow-md space-y-4 w-full">
+            {/* En-tête harmonisé avec sélecteur de modules et actions contextuelles */}
+            <div className="flex items-center justify-between flex-wrap gap-2.5 pb-2.5 border-b border-[#202028]">
+              <div className="flex items-center gap-3 flex-wrap">
+                {/* Onglets sélecteurs de modules (Pupitre, Bible, Média) */}
+                <div className="flex items-center gap-1 bg-[#16161D] p-1 border border-[#262632] rounded-xl shadow-inner">
                   <button
                     type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setQueueItems([]);
-                      setActiveSongIndex(0);
-                      setActiveSlideIndex(0);
-                    }}
-                    className="text-[10px] text-gray-500 hover:text-red-400 cursor-pointer px-1.5 py-0.5 rounded hover:bg-red-500/10 transition-colors"
-                    title="Vider la file de projection"
+                    onClick={() => setActivePupitreTab('songs')}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+                      activePupitreTab === 'songs'
+                        ? 'bg-blue-600 text-white shadow-md shadow-blue-900/30 ring-1 ring-blue-400/40'
+                        : 'text-gray-400 hover:text-gray-200 hover:bg-[#20202A]'
+                    }`}
                   >
-                    Vider
+                    <Music className="w-3.5 h-3.5" />
+                    <span>Pupitre</span>
+                    {queueItems.length > 0 && (
+                      <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-black/40 text-blue-200">
+                        {queueItems.length}
+                      </span>
+                    )}
                   </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setActivePupitreTab('bible')}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+                      activePupitreTab === 'bible'
+                        ? 'bg-amber-600 text-white shadow-md shadow-amber-900/30 ring-1 ring-amber-400/40'
+                        : 'text-gray-400 hover:text-gray-200 hover:bg-[#20202A]'
+                    }`}
+                  >
+                    <BookOpen className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Bible</span>
+                    {liveDirectBible && (
+                      <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded-full bg-amber-400 text-black uppercase animate-pulse">
+                        En direct
+                      </span>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setActivePupitreTab('media')}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+                      activePupitreTab === 'media'
+                        ? 'bg-purple-600 text-white shadow-md shadow-purple-900/30 ring-1 ring-purple-400/40'
+                        : 'text-gray-400 hover:text-gray-200 hover:bg-[#20202A]'
+                    }`}
+                  >
+                    <Film className="w-3.5 h-3.5 text-purple-400" />
+                    <span>Média</span>
+                    {liveDirectMedia?.isActive && (
+                      <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded-full bg-purple-400 text-black uppercase animate-pulse">
+                        En direct
+                      </span>
+                    )}
+                  </button>
+                </div>
+
+                {/* Info contextuelle module Pupitre */}
+                {activePupitreTab === 'songs' && (
+                  <div className="hidden md:flex items-center gap-2 pl-2 border-l border-[#242430] text-xs text-gray-400 font-medium">
+                    {currentQueueItem?.type === 'bible' && currentQueueItem.bibleData ? (
+                      <span className="flex items-center gap-1.5 text-amber-300">
+                        <BookOpen className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Verset : {currentQueueItem.bibleData.referenceText} ({currentSlides.length})</span>
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1.5 text-gray-300">
+                        <Music className="w-3.5 h-3.5 text-blue-400" />
+                        <span>Slides ({currentSlides.length})</span>
+                        {isBilingualMode && secondarySong && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">
+                            Bilingue {getLanguageMeta(currentSong?.language).code} + {getLanguageMeta(secondarySong.language).code}
+                          </span>
+                        )}
+                      </span>
+                    )}
+                  </div>
                 )}
-                <button
-                  type="button"
-                  aria-label={isQueueCollapsed ? "Dérouler" : "Enrouler"}
-                  className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-[#202028] transition-colors"
-                >
-                  {isQueueCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
-                </button>
               </div>
-            </div>
 
-            {/* Corps du bloc déroulable */}
-            {!isQueueCollapsed && (
-                    <div className="px-3.5 sm:px-4 pb-3.5 sm:pb-4 pt-0 space-y-3 border-t border-[#1E1E26] mt-0.5">
-                      {/* Sélecteur et ajout de setlist à la file */}
-                      <div className="space-y-1.5 pt-3 pb-2.5 border-b border-[#1E1E26]">
-                        <label className="text-[11px] font-semibold text-gray-300 flex items-center gap-1.5">
-                          <ListMusic className="w-3.5 h-3.5 text-blue-400" />
-                          <span>Charger une setlist existante :</span>
-                        </label>
-                        <div className="flex gap-2 items-center">
-                          <div className="relative flex-1" ref={setlistDropdownRef}>
-                            {(() => {
-                              const selectedSetlistObject = setlists.find(st => st.id === selectedSetlistId);
-                              return (
-                                <>
-                                  <button
-                                    type="button"
-                                    onClick={() => setIsSetlistDropdownOpen(prev => !prev)}
-                                    className={`w-full flex items-center justify-between bg-[#16161D] hover:bg-[#1C1C24] border rounded-xl pl-3.5 pr-3 py-2.5 text-xs font-medium transition-all duration-150 cursor-pointer shadow-inner ${
-                                      isSetlistDropdownOpen
-                                        ? 'border-blue-500 ring-2 ring-blue-500/25 text-white'
-                                        : selectedSetlistObject
-                                        ? 'border-[#333342] text-white'
-                                        : 'border-[#2D2D3A] text-gray-400 hover:text-gray-300'
-                                    }`}
-                                  >
-                                    <span className="truncate flex items-center gap-2">
-                                      <ListMusic className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                                      <span className="truncate">
-                                        {selectedSetlistObject ? selectedSetlistObject.name : '-- Choisir une setlist --'}
-                                      </span>
-                                    </span>
-                                    <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform shrink-0 ml-1.5 ${isSetlistDropdownOpen ? 'rotate-180 text-blue-400' : ''}`} />
-                                  </button>
-
-                                  {isSetlistDropdownOpen && (
-                                    <div className="absolute left-0 right-0 top-full mt-1.5 bg-[#14141A] border border-[#2B2B38] rounded-xl shadow-2xl p-1.5 z-40 max-h-60 overflow-y-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-100 space-y-1">
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setSelectedSetlistId('');
-                                          setIsSetlistDropdownOpen(false);
-                                        }}
-                                        className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-center justify-between cursor-pointer ${
-                                          !selectedSetlistId
-                                            ? 'bg-blue-600/20 text-blue-300 font-semibold'
-                                            : 'text-gray-400 hover:bg-[#1D1D26] hover:text-gray-200'
-                                        }`}
-                                      >
-                                        <span>-- Choisir une setlist --</span>
-                                        {!selectedSetlistId && <Check className="w-3.5 h-3.5 text-blue-400" />}
-                                      </button>
-
-                                      <div className="h-px bg-[#22222E] my-1" />
-
-                                      {setlists.length === 0 ? (
-                                        <div className="px-3 py-3 text-center text-xs text-gray-500">
-                                          Aucune setlist disponible
-                                        </div>
-                                      ) : (
-                                        setlists.map((st) => {
-                                          const isSelected = selectedSetlistId === st.id;
-                                          return (
-                                            <button
-                                              key={st.id}
-                                              type="button"
-                                              onClick={() => {
-                                                setSelectedSetlistId(st.id);
-                                                setIsSetlistDropdownOpen(false);
-                                              }}
-                                              className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-center justify-between gap-2 cursor-pointer group ${
-                                                isSelected
-                                                  ? 'bg-blue-600 text-white font-semibold shadow-xs'
-                                                  : 'text-gray-200 hover:bg-[#1E1E28] hover:text-white'
-                                              }`}
-                                            >
-                                              <div className="flex items-center gap-2 min-w-0 pr-1">
-                                                <ListMusic className={`w-3.5 h-3.5 shrink-0 ${isSelected ? 'text-white' : 'text-blue-400'}`} />
-                                                <span className="truncate">{st.name}</span>
-                                              </div>
-                                              {isSelected && <Check className="w-3.5 h-3.5 text-white shrink-0" />}
-                                            </button>
-                                          );
-                                        })
-                                      )}
-                                    </div>
-                                  )}
-                                </>
-                              );
-                            })()}
-                          </div>
+              {/* Actions Pupitre à droite */}
+              {activePupitreTab === 'songs' && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Sélecteur et chargement de setlist déplacé dans le Pupitre */}
+                  <div className="flex items-center gap-1.5" ref={setlistDropdownRef}>
+                    {(() => {
+                      const selectedSetlistObject = setlists.find(st => st.id === selectedSetlistId);
+                      return (
+                        <div className="relative">
                           <button
                             type="button"
-                            onClick={() => selectedSetlistId && handleAddSetlist(selectedSetlistId)}
-                            disabled={!selectedSetlistId}
-                            className="px-3.5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-xs font-bold disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-all shadow-md shadow-blue-900/20 flex items-center gap-1.5 shrink-0"
-                            title="Ajouter tous les chants de cette setlist à la file de projection"
+                            onClick={() => setIsSetlistDropdownOpen(prev => !prev)}
+                            className={`flex items-center justify-between gap-2 bg-[#16161D] hover:bg-[#1C1C24] border rounded-xl pl-3 pr-2.5 py-1.5 text-xs font-medium transition-all duration-150 cursor-pointer shadow-inner min-w-[170px] sm:min-w-[210px] ${
+                              isSetlistDropdownOpen
+                                ? 'border-blue-500 ring-2 ring-blue-500/25 text-white'
+                                : selectedSetlistObject
+                                ? 'border-[#333342] text-white'
+                                : 'border-[#2D2D3A] text-gray-400 hover:text-gray-300'
+                            }`}
                           >
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>Ajouter</span>
+                            <span className="truncate flex items-center gap-1.5">
+                              <ListMusic className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                              <span className="truncate">
+                                {selectedSetlistObject ? selectedSetlistObject.name : '-- Choisir une setlist --'}
+                              </span>
+                            </span>
+                            <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform shrink-0 ml-1 ${isSetlistDropdownOpen ? 'rotate-180 text-blue-400' : ''}`} />
+                          </button>
+
+                          {isSetlistDropdownOpen && (
+                            <div className="absolute left-0 top-full mt-1.5 bg-[#14141A] border border-[#2B2B38] rounded-xl shadow-2xl p-2 z-50 w-72 sm:w-80 max-w-[calc(100vw-2.5rem)] max-h-80 overflow-y-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-100 flex flex-col gap-1">
+                              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-2 py-0.5">
+                                Choisir une setlist
+                              </div>
+
+                              <div className="space-y-1 max-h-48 overflow-y-auto custom-scrollbar pr-0.5">
+                                {setlists.length === 0 ? (
+                                  <div className="px-3 py-4 text-center text-xs text-gray-500">
+                                    Aucune setlist disponible
+                                  </div>
+                                ) : (
+                                  setlists.map((st) => {
+                                    const isSelected = selectedSetlistId === st.id;
+                                    return (
+                                      <div
+                                        key={st.id}
+                                        onClick={() => setSelectedSetlistId(st.id)}
+                                        className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors flex items-center justify-between gap-2 cursor-pointer group border ${
+                                          isSelected
+                                            ? 'bg-blue-600/20 text-blue-200 border-blue-500/40'
+                                            : 'text-gray-200 hover:bg-[#1E1E28] hover:text-white border-transparent'
+                                        }`}
+                                      >
+                                        <div className="flex items-center gap-2 min-w-0 pr-1 flex-1">
+                                          <ListMusic className={`w-3.5 h-3.5 shrink-0 ${isSelected ? 'text-blue-300' : 'text-blue-400'}`} />
+                                          <span className="truncate font-medium">{st.name}</span>
+                                          <span className="text-[10px] text-gray-500 font-mono shrink-0">
+                                            ({st.songIds?.length || 0})
+                                          </span>
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setSelectedSetlistId(st.id);
+                                            handleAddSetlist(st.id);
+                                            setIsSetlistDropdownOpen(false);
+                                          }}
+                                          className="px-2 py-1 rounded-md bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-[11px] font-bold transition-all shrink-0 flex items-center gap-1 shadow-xs cursor-pointer"
+                                          title={`Ajouter les chants de « ${st.name} » à la file`}
+                                        >
+                                          <Plus className="w-3 h-3" />
+                                          <span>Ajouter</span>
+                                        </button>
+                                      </div>
+                                    );
+                                  })
+                                )}
+                              </div>
+
+                              {/* Bouton Ajouter intégré directement dans la dropdown */}
+                              <div className="pt-2 border-t border-[#22222E] mt-1">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (selectedSetlistId) {
+                                      handleAddSetlist(selectedSetlistId);
+                                      setIsSetlistDropdownOpen(false);
+                                    }
+                                  }}
+                                  disabled={!selectedSetlistId}
+                                  className="w-full py-2 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-xs font-bold disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-all shadow-md shadow-blue-900/25 flex items-center justify-center gap-1.5"
+                                  title="Ajouter tous les chants de cette setlist à la file de projection"
+                                >
+                                  <Plus className="w-3.5 h-3.5" />
+                                  <span>Ajouter la setlist à la file</span>
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSongModalSearch('');
+                        setIsAddSongModalOpen(true);
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-emerald-600/15 hover:bg-emerald-600/25 border border-emerald-500/40 hover:border-emerald-500/60 text-emerald-300 hover:text-emerald-200 text-xs font-semibold cursor-pointer transition-all flex items-center gap-1.5 shrink-0 active:scale-95 shadow-xs"
+                      title="Ajouter un chant individuel (hors-liste) à la file de projection"
+                    >
+                      <Plus className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Chant libre</span>
+                    </button>
+                  </div>
+
+                  {/* Contrôles Mode Bilingue (uniquement pour les chants) */}
+                  {currentSong && currentQueueItem?.type !== 'bible' && (
+                    <div className="flex items-center gap-2 flex-wrap pl-2 border-l border-[#202028]">
+                      {/* Bouton Toggle Bilingue */}
+                      <button
+                      type="button"
+                      onClick={handleToggleBilingualMode}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${
+                        isBilingualMode
+                          ? 'bg-indigo-600 border-indigo-500 text-white shadow-xs ring-1 ring-indigo-400/50'
+                          : 'bg-[#181822] hover:bg-indigo-950/30 text-indigo-300 border-indigo-500/30'
+                      }`}
+                      title={isBilingualMode ? "Désactiver le mode bilingue" : "Activer la projection bilingue (original + traduction)"}
+                    >
+                      <Columns className="w-3.5 h-3.5" />
+                      <span>Bilingue</span>
+                      {isBilingualMode && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                      )}
+                    </button>
+
+                    {/* Options quand bilingue est actif */}
+                    {isBilingualMode && (
+                      <div className="flex items-center gap-1.5 animate-in fade-in zoom-in-95 duration-100">
+                        {/* Sélecteur de version traduite */}
+                        {availableLinkedVersions.length > 0 ? (
+                          <div className="relative">
+                            <select
+                              value={secondarySong?.id || ''}
+                              onChange={(e) => setSelectedSecondarySongId(e.target.value)}
+                              className="bg-[#181824] border border-indigo-500/40 rounded-lg px-2.5 py-1 text-xs text-indigo-200 cursor-pointer focus:outline-none focus:border-indigo-400 font-medium appearance-none pr-6"
+                              title="Changer la version traduite à projeter"
+                            >
+                              {availableLinkedVersions.map((lv) => {
+                                const lMeta = getLanguageMeta(lv.language);
+                                return (
+                                  <option key={lv.id} value={lv.id} className="bg-[#141418] text-white">
+                                    {lMeta.code} • {lv.title}
+                                  </option>
+                                );
+                              })}
+                            </select>
+                            <ChevronDown className="w-3 h-3 text-indigo-400 pointer-events-none absolute right-2 top-1/2 -translate-y-1/2" />
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setShowBilingualModal(true)}
+                            className="px-2 py-1 rounded-lg bg-indigo-950/50 hover:bg-indigo-900/50 border border-indigo-500/40 text-[11px] font-medium text-indigo-300 flex items-center gap-1 cursor-pointer"
+                            title="Lier ou choisir une version traduite"
+                          >
+                            <Globe className="w-3 h-3 text-indigo-400" />
+                            <span>{secondarySong ? `${getLanguageMeta(secondarySong.language).code} • ${secondarySong.title}` : 'Lier une traduction'}</span>
+                          </button>
+                        )}
+
+                        {/* Bouton pour ouvrir la recherche dans tout le répertoire */}
+                        <button
+                          type="button"
+                          onClick={() => setShowBilingualModal(true)}
+                          className="p-1 rounded-lg bg-[#181824] hover:bg-[#202030] text-indigo-300 border border-indigo-500/40 transition-colors cursor-pointer"
+                          title="Lier un autre chant du répertoire pour la projection bilingue"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+
+                        {/* Choix du format : Sous-titres intercalés OU 2 Colonnes */}
+                        <div className="flex items-center rounded-lg bg-[#16161E] border border-[#2B2B38] p-0.5 text-[11px]">
+                          <button
+                            type="button"
+                            onClick={() => handleSetBilingualFormat('stacked')}
+                            className={`px-2 py-0.5 rounded-md font-semibold transition-colors cursor-pointer ${
+                              bilingualFormat === 'stacked'
+                                ? 'bg-indigo-600 text-white shadow-xs'
+                                : 'text-gray-400 hover:text-white'
+                            }`}
+                            title="Sous-titres : paroles originales en grand, traduction sous chaque ligne"
+                          >
+                            Sous-titres
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSetBilingualFormat('columns')}
+                            className={`px-2 py-0.5 rounded-md font-semibold transition-colors cursor-pointer ${
+                              bilingualFormat === 'columns'
+                                ? 'bg-indigo-600 text-white shadow-xs'
+                                : 'text-gray-400 hover:text-white'
+                            }`}
+                            title="2 Colonnes : original à gauche, traduction à droite"
+                          >
+                            2 Colonnes
                           </button>
                         </div>
                       </div>
-
-                      {queueItems.length === 0 ? (
-                        <div className="text-center py-7 text-gray-500 text-xs">
-                          <Music className="w-8 h-8 mx-auto mb-2 opacity-30 text-emerald-400" />
-                          <span>Aucun chant ou passage dans la file.</span>
-                          <p className="text-[10px] mt-1 text-gray-600">Choisissez une setlist ou ajoutez des versets depuis le module Bible.</p>
-                        </div>
-                      ) : (
-                        <div className="space-y-1.5 max-h-[460px] overflow-y-auto pr-0.5 custom-scrollbar pt-1">
-                          {queueItems.map((item, idx) => {
-                            const isBible = item.type === 'bible' && Boolean(item.bibleData);
-                            const song = !isBible && item.songId ? songs.find(s => s.id === item.songId) : null;
-                            if (!isBible && !song) return null;
-
-                            const isInSetlist = !isBible && Boolean(item.setlistName || item.setlistId);
-                            const prevItem = idx > 0 ? queueItems[idx - 1] : null;
-                            const isFirstOfSetlist = isInSetlist && (
-                              !prevItem || 
-                              prevItem.type === 'bible' || 
-                              (item.setlistId ? prevItem.setlistId !== item.setlistId : prevItem.setlistName !== item.setlistName)
-                            );
-
-                            const isActive = idx === activeSongIndex && !liveDirectBible;
-                            const isBeingDragged = draggedIndex === idx;
-                            const isDraggedOver = dragOverIndex === idx;
-
-                            // Calcul de la possibilité de déplacement de la setlist entière
-                            let canSetlistMoveUp = false;
-                            let canSetlistMoveDown = false;
-
-                            if (isFirstOfSetlist) {
-                              canSetlistMoveUp = idx > 0;
-                              let setlistEndIdx = idx;
-                              while (setlistEndIdx < queueItems.length - 1) {
-                                const nextIt = queueItems[setlistEndIdx + 1];
-                                const same = item.setlistId 
-                                  ? nextIt.setlistId === item.setlistId 
-                                  : nextIt.setlistName === item.setlistName;
-                                if (same) setlistEndIdx++;
-                                else break;
-                              }
-                              canSetlistMoveDown = setlistEndIdx < queueItems.length - 1;
-                            }
-
-                            return (
-                              <React.Fragment key={item.uid}>
-                                {isFirstOfSetlist && (
-                                  <div
-                                    draggable
-                                    onDragStart={(e) => handleSetlistDragStart(e, item.setlistName, item.setlistId)}
-                                    onDragOver={(e) => handleDragOver(e, idx)}
-                                    onDrop={(e) => handleDrop(e, idx)}
-                                    className="flex items-center justify-between px-2.5 py-1.5 mt-2.5 first:mt-0 rounded-lg border text-xs font-bold bg-[#181820] hover:bg-[#1C1C26] border-[#2A2A38] text-blue-300 transition-colors shadow-xs group/setlist"
-                                  >
-                                    <div className="flex items-center gap-1.5 min-w-0 pr-2">
-                                      <div
-                                        className="cursor-grab active:cursor-grabbing text-blue-400/60 hover:text-blue-300 p-0.5 rounded shrink-0"
-                                        title="Glisser-déposer pour déplacer toute la liste"
-                                      >
-                                        <GripVertical className="w-3.5 h-3.5" />
-                                      </div>
-                                      <ListMusic className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                                      <span className="truncate">{item.setlistName}</span>
-                                    </div>
-                                    <div className="flex items-center gap-1 shrink-0">
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleMoveSetlist(item.setlistName, item.setlistId, 'up');
-                                        }}
-                                        disabled={!canSetlistMoveUp}
-                                        className="p-1 rounded text-gray-400 hover:text-white disabled:opacity-20 cursor-pointer transition-colors"
-                                        title="Déplacer toute la liste vers le haut"
-                                      >
-                                        <ArrowUp className="w-3.5 h-3.5" />
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleMoveSetlist(item.setlistName, item.setlistId, 'down');
-                                        }}
-                                        disabled={!canSetlistMoveDown}
-                                        className="p-1 rounded text-gray-400 hover:text-white disabled:opacity-20 cursor-pointer transition-colors"
-                                        title="Déplacer toute la liste vers le bas"
-                                      >
-                                        <ArrowDown className="w-3.5 h-3.5" />
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleRemoveSetlistFromQueue(item.setlistName, item.setlistId);
-                                        }}
-                                        className="text-[10px] text-gray-500 hover:text-red-400 font-normal px-1.5 py-0.5 rounded hover:bg-red-500/10 transition-colors shrink-0 cursor-pointer ml-1"
-                                        title={`Retirer tous les chants de la setlist "${item.setlistName}"`}
-                                      >
-                                        Retirer
-                                      </button>
-                                    </div>
-                                  </div>
-                                )}
-
-                                <div
-                                  draggable={isBible}
-                                  onDragStart={(e) => {
-                                    if (isBible) handleDragStart(e, idx);
-                                  }}
-                                  onDragOver={(e) => handleDragOver(e, idx)}
-                                  onDrop={(e) => handleDrop(e, idx)}
-                                  onDragEnd={() => {
-                                    setDraggedIndex(null);
-                                    setDragOverIndex(null);
-                                  }}
-                                  onClick={() => {
-                                    setLiveDirectBible(null);
-                                    setActiveSongIndex(idx);
-                                    setActiveSlideIndex(0);
-                                    setActivePupitreTab('songs');
-                                  }}
-                                  className={`flex items-center justify-between p-2.5 rounded-xl border transition-all cursor-pointer group select-none ${
-                                    isBeingDragged ? 'opacity-40 border-dashed border-gray-500' : ''
-                                  } ${
-                                    isDraggedOver ? 'ring-2 ring-blue-500 bg-blue-950/40 border-blue-400' : ''
-                                  } ${
-                                    isActive
-                                      ? isBible
-                                        ? 'bg-amber-950/40 border-amber-500/70 text-white shadow-md'
-                                        : 'bg-blue-950/40 border-blue-500/70 text-white shadow-md'
-                                      : isBible
-                                      ? 'bg-[#181824] hover:bg-[#202030] border-amber-500/30 hover:border-amber-500/60 text-gray-200'
-                                      : 'bg-[#18181D] hover:bg-[#202026] border-[#26262E] text-gray-300'
-                                  }`}
-                                  title={
-                                    isBible 
-                                      ? "Verset individuel - Glisser pour déplacer dans la file" 
-                                      : `Chant de "${item.setlistName}" - Ordre fixé par la liste`
-                                  }
-                                >
-                                  <div className="flex items-center gap-2 min-w-0 pr-2 flex-1">
-                                    {/* Poignée de déplacement drag & drop réservée aux versets individuels */}
-                                    {isBible && (
-                                      <div
-                                        className="cursor-grab active:cursor-grabbing text-gray-500 hover:text-gray-300 p-0.5 rounded shrink-0"
-                                        title="Glisser-déposer pour réordonner ce verset"
-                                      >
-                                        <GripVertical className="w-3.5 h-3.5" />
-                                      </div>
-                                    )}
-
-                                    <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold font-mono shrink-0 ${
-                                      isActive 
-                                        ? isBible ? 'bg-amber-500 text-black font-extrabold' : 'bg-blue-600 text-white' 
-                                        : isBible ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-[#25252D] text-gray-400'
-                                    }`}>
-                                      {idx + 1}
-                                    </span>
-                                    <div className="min-w-0 flex-1">
-                                      {isBible ? (
-                                        <>
-                                          <div className="flex items-center gap-1.5 flex-wrap">
-                                            <span className="text-[9px] font-bold font-mono uppercase px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0">
-                                              Verset
-                                            </span>
-                                            <p className="font-bold text-xs truncate leading-snug text-amber-200 flex items-center gap-1">
-                                              <BookOpen className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                                              <span>{item.bibleData!.referenceText}</span>
-                                              <span className="text-[9px] font-mono px-1 py-0.2 bg-black/40 rounded border border-amber-500/30 text-amber-300">
-                                                {item.bibleData!.version}
-                                              </span>
-                                            </p>
-                                          </div>
-                                          <p className="text-[10px] text-gray-400 truncate italic mt-0.5">
-                                            {item.bibleData!.verses[0]?.text || item.bibleData!.text}
-                                          </p>
-                                        </>
-                                      ) : (
-                                        <>
-                                          <p className="font-semibold text-xs truncate leading-snug">{song!.title}</p>
-                                          {song!.artist && <p className="text-[10px] text-gray-500 truncate">{song!.artist}</p>}
-                                        </>
-                                      )}
-                                    </div>
-                                  </div>
-
-                                  <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
-                                    {/* Boutons de réordonnancement uniquement pour les versets individuels */}
-                                    {isBible && (
-                                      <>
-                                        <button
-                                          type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleMoveSong(idx, 'up');
-                                          }}
-                                          disabled={idx === 0}
-                                          className="p-1 rounded text-gray-400 hover:text-white disabled:opacity-20 cursor-pointer transition-colors"
-                                          title="Déplacer vers le haut"
-                                        >
-                                          <ArrowUp className="w-3.5 h-3.5" />
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleMoveSong(idx, 'down');
-                                          }}
-                                          disabled={idx === queueItems.length - 1}
-                                          className="p-1 rounded text-gray-400 hover:text-white disabled:opacity-20 cursor-pointer transition-colors"
-                                          title="Déplacer vers le bas"
-                                        >
-                                          <ArrowDown className="w-3.5 h-3.5" />
-                                        </button>
-                                      </>
-                                    )}
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleRemoveSong(idx);
-                                      }}
-                                      className="p-1 rounded text-gray-400 hover:text-red-400 cursor-pointer transition-colors"
-                                      title={isBible ? "Retirer ce verset de la file" : "Retirer ce chant de la file"}
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                  </div>
-                                </div>
-                              </React.Fragment>
-                            );
-                          })}
-                        </div>
-                      )}
+                    )}
                     </div>
                   )}
-          </div>
+                </div>
+              )}
+            </div>
+
+            {/* Corps du module actif : Bible OU Média OU Grille de slides */}
+            {activePupitreTab === 'bible' ? (
+              <BibleProjectionModule
+                onProjectLive={handleProjectLiveBible}
+                onAddToQueue={handleAddBibleToQueue}
+                activeLiveBibleRef={liveDirectBible ? (liveDirectSecondaryBible ? `${liveDirectBible.referenceText} (${liveDirectBible.version} • ${liveDirectSecondaryBible.version})` : `${liveDirectBible.referenceText} (${liveDirectBible.version})`) : null}
+                onStopLive={handleStopLiveBible}
+                onNextLiveVerse={handleNextLiveVerse}
+                onPrevLiveVerse={handlePrevLiveVerse}
+                className="bg-transparent border-0 p-0 shadow-none"
+              />
+            ) : activePupitreTab === 'media' ? (
+              <MediaProjectionModule
+                activeMedia={liveDirectMedia}
+                onProjectMedia={handleProjectMedia}
+                onStopMedia={handleStopMedia}
+                className="bg-transparent border-0 p-0 shadow-none"
+              />
+            ) : (
+              currentSlides.length === 0 ? (
+                <div className="text-center py-10 text-gray-600 text-xs">
+                  Sélectionnez un élément dans la file pour afficher ses sections.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 max-h-[460px] overflow-y-auto pr-1 custom-scrollbar">
+                  {currentSlides.map((slide, sIdx) => {
+                    const isCurrent = sIdx === clampedSlideIndex;
+                    const isBibleSlide = slide.itemType === 'bible';
+
+                    return (
+                      <button
+                        key={slide.id || sIdx}
+                        type="button"
+                        onClick={() => {
+                          if (liveDirectBible) {
+                            setLiveDirectSlideIndex(sIdx);
+                          } else {
+                            setActiveSlideIndex(sIdx);
+                          }
+                          setIsBlackout(false);
+                        }}
+                        className={`text-left p-3.5 rounded-xl border flex flex-col justify-between min-h-[110px] transition-all cursor-pointer relative overflow-hidden group ${
+                          isCurrent
+                            ? isBibleSlide
+                              ? 'bg-amber-950/50 border-amber-400 ring-2 ring-amber-500/40 text-white shadow-lg shadow-amber-950/50'
+                              : 'bg-blue-950/50 border-blue-400 ring-2 ring-blue-500/40 text-white shadow-lg shadow-blue-950/50'
+                            : 'bg-[#16161B] hover:bg-[#1E1E24] border-[#2A2A33] text-gray-300 hover:text-white'
+                        }`}
+                      >
+                        {/* En-tête de la slide card */}
+                        <div className="flex items-center justify-between w-full mb-2">
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                            isCurrent 
+                              ? isBibleSlide ? 'bg-amber-500 text-black font-extrabold' : 'bg-blue-600 text-white' 
+                              : 'bg-[#22222A] text-gray-400 group-hover:text-blue-300'
+                          }`}>
+                            {slide.sectionTitle || `Slide ${sIdx + 1}`}
+                          </span>
+                          <span className="text-[10px] font-mono text-gray-500">
+                            #{sIdx + 1}
+                          </span>
+                        </div>
+
+                        {/* Lignes de paroles ou verset */}
+                        <div className="space-y-0.5 flex-1">
+                          {slide.lines.slice(0, 2).map((line, lIdx) => (
+                            <p key={lIdx} className="text-xs leading-snug line-clamp-1 opacity-90 font-medium">
+                              {line}
+                            </p>
+                          ))}
+                          {slide.isBilingual && slide.secondaryLines && slide.secondaryLines.length > 0 && (
+                            <div className="pt-1 border-t border-indigo-500/20 mt-1 space-y-0.5">
+                              {slide.secondaryLines.slice(0, 2).map((sLine, slIdx) => (
+                                <p key={slIdx} className="text-[11px] leading-snug line-clamp-1 text-cyan-300 italic opacity-85">
+                                  {sLine}
+                                </p>
+                              ))}
+                            </div>
+                          )}
+                          {!slide.isBilingual && slide.lines.length > 2 && (
+                            <p className="text-[10px] text-gray-500 italic">+{slide.lines.length - 2} ligne(s)</p>
+                          )}
+                        </div>
+
+                        {isCurrent && (
+                          <div className="absolute top-1 right-1">
+                            <span className="flex h-2 w-2 relative">
+                              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${isBibleSlide ? 'bg-amber-400' : 'bg-blue-400'}`} />
+                              <span className={`relative inline-flex rounded-full h-2 w-2 ${isBibleSlide ? 'bg-amber-500' : 'bg-blue-500'}`} />
+                            </span>
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )
+            )}
+                    </div>
         </div>
 
-        {/* Colonne Droite : Pupitre de contrôle & Module Bible (8 cols) */}
-        <div className="lg:col-span-8 flex flex-col gap-4">
-          
-          {/* Onglets sélecteurs de pupitre : Chants vs Bible */}
-          <div className="flex items-center justify-between gap-3 bg-[#121216] border border-[#23232C] p-1.5 rounded-2xl shadow-md">
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setActivePupitreTab('songs')}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
-                  activePupitreTab === 'songs'
-                    ? 'bg-blue-600 text-white shadow-md shadow-blue-900/30 ring-1 ring-blue-400/40'
-                    : 'text-gray-400 hover:text-gray-200 hover:bg-[#1C1C24]'
-                }`}
-              >
-                <Music className="w-3.5 h-3.5" />
-                <span>Pupitre</span>
-                {queueItems.length > 0 && (
-                  <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-black/40 text-blue-200">
-                    {queueItems.length}
-                  </span>
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActivePupitreTab('bible')}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
-                  activePupitreTab === 'bible'
-                    ? 'bg-amber-600 text-white shadow-md shadow-amber-900/30 ring-1 ring-amber-400/40'
-                    : 'text-gray-400 hover:text-gray-200 hover:bg-[#1C1C24]'
-                }`}
-              >
-                <BookOpen className="w-3.5 h-3.5 text-amber-400" />
-                <span>Bible</span>
-                {liveDirectBible && (
-                  <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded-full bg-amber-400 text-black uppercase animate-pulse">
-                    En direct
-                  </span>
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActivePupitreTab('media')}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
-                  activePupitreTab === 'media'
-                    ? 'bg-purple-600 text-white shadow-md shadow-purple-900/30 ring-1 ring-purple-400/40'
-                    : 'text-gray-400 hover:text-gray-200 hover:bg-[#1C1C24]'
-                }`}
-              >
-                <Film className="w-3.5 h-3.5 text-purple-400" />
-                <span>Média</span>
-                {liveDirectMedia?.isActive && (
-                  <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded-full bg-purple-400 text-black uppercase animate-pulse">
-                    En direct
-                  </span>
-                )}
-              </button>
-            </div>
-
-            {/* Indicateur d'état actif */}
-            <div className="hidden sm:flex items-center gap-2 pr-2 text-[11px] text-gray-400 font-mono">
-              <span className={`w-2 h-2 rounded-full ${liveDirectMedia?.isActive ? 'bg-purple-400 animate-ping' : liveDirectBible ? 'bg-amber-400 animate-ping' : isBlackout ? 'bg-amber-500' : 'bg-emerald-400'}`} />
-              <span>{liveDirectMedia?.isActive ? `Média : ${liveDirectMedia.title}` : liveDirectBible ? `Bible : ${liveDirectBible.referenceText}` : isBlackout ? 'Noir' : 'Sortie Active'}</span>
-            </div>
-          </div>
-
-          {/* Aperçu en direct & Contrôleur de défilement */}
+        {/* Colonne 1/3 (4 cols) : Aperçu en direct & File de projection */}
+        <div className="col-span-1 lg:col-span-4 flex flex-col gap-4">
           <div className="bg-[#121215] border border-[#222226] rounded-2xl p-4 sm:p-5 shadow-md flex flex-col gap-4">
             
-            {/* Barre de navigation du chant / passage biblique */}
-            <div className="flex items-center justify-between gap-3 border-b border-[#202026] pb-3">
-              {/* Bouton Noir & Taille de police à gauche */}
-              <div className="flex items-center gap-1.5 shrink-0">
+            {/* Barre de navigation et contrôles rapides */}
+            <div className="flex items-center justify-between gap-1.5 sm:gap-2 border-b border-[#202026] pb-3">
+              {/* Outils d'affichage & projection (Blackout, Décompte, Police, Fond) */}
+              <div className="flex items-center gap-1 bg-[#16161D] p-1 rounded-xl border border-[#262632] shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsBlackout(b => !b)}
-                  className={`p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-center shadow-xs ${
+                  className={`w-8 h-8 rounded-lg transition-all cursor-pointer flex items-center justify-center ${
                     isBlackout
-                      ? 'bg-amber-600 hover:bg-amber-500 text-white border-amber-400/60 ring-2 ring-amber-500/40'
-                      : 'bg-[#1C1C22] hover:bg-[#282830] text-gray-300 border-[#333]'
+                      ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-xs ring-1 ring-amber-400/50'
+                      : 'text-gray-400 hover:text-white hover:bg-[#22222A]'
                   }`}
                   title="Masquer ou afficher l'écran externe (Touche B)"
                 >
                   <EyeOff className="w-4 h-4" />
                 </button>
 
-                {/* Module Décompte (Bouton Icône & Popover de contrôle) */}
+                {/* Module Décompte */}
                 <div className="relative" ref={countdownMenuRef}>
                   <button
                     type="button"
                     onClick={() => setIsCountdownMenuOpen(v => !v)}
-                    className={`p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-center shadow-xs relative ${
+                    className={`w-8 h-8 rounded-lg transition-all cursor-pointer flex items-center justify-center relative ${
                       countdownActive
-                        ? 'bg-blue-600/30 hover:bg-blue-600/40 text-blue-300 border-blue-500/60 ring-2 ring-blue-500/40 shadow-blue-900/30'
+                        ? 'bg-blue-600/30 hover:bg-blue-600/40 text-blue-300 ring-1 ring-blue-500/50'
                         : isCountdownMenuOpen
-                        ? 'bg-blue-600 text-white border-blue-400 ring-2 ring-blue-500/30'
-                        : 'bg-[#1C1C22] hover:bg-[#282830] text-gray-300 hover:text-white border-[#333]'
+                        ? 'bg-blue-600 text-white'
+                        : 'text-gray-400 hover:text-white hover:bg-[#22222A]'
                     }`}
                     title={countdownActive ? `Décompte actif (${cdInfo.formatted}) - Cliquer pour gérer` : "Décompte avant événement"}
                   >
                     <Timer className={`w-4 h-4 ${countdownActive ? 'text-blue-400 animate-pulse' : ''}`} />
                     {countdownActive && (
-                      <>
-                        <span className="font-mono text-xs font-bold text-blue-300 ml-1.5 hidden sm:inline tabular-nums">
-                          {cdInfo.formatted}
-                        </span>
-                        <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-blue-500 ring-2 ring-[#121215] animate-ping" />
-                        <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-blue-500 ring-2 ring-[#121215]" />
-                      </>
+                      <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-blue-500 ring-2 ring-[#121215] animate-ping" />
                     )}
                   </button>
 
@@ -2294,27 +2285,26 @@ export const PresentationManager: React.FC = () => {
                   )}
                 </div>
 
+                {/* Module Taille de texte */}
                 <div className="relative" ref={fontMenuRef}>
                   <button
                     type="button"
                     onClick={() => setIsFontScaleMenuOpen(v => !v)}
-                    className={`p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-xs ${
+                    className={`w-8 h-8 rounded-lg transition-all cursor-pointer flex items-center justify-center relative ${
                       isFontScaleMenuOpen
-                        ? 'bg-blue-600 text-white border-blue-400 ring-2 ring-blue-500/30'
-                        : 'bg-[#1C1C22] hover:bg-[#282830] text-gray-300 hover:text-white border-[#333]'
+                        ? 'bg-blue-600 text-white'
+                        : 'text-gray-400 hover:text-white hover:bg-[#22222A]'
                     }`}
                     title="Ajuster la taille de la police du texte projeté (paroles, mode bilingue, Bible)"
                   >
                     <Type className="w-4 h-4" />
                     {Math.abs(fontScale - 1.0) > 0.05 && (
-                      <span className="text-[10px] font-mono font-bold text-blue-300">
-                        {Math.round(fontScale * 100)}%
-                      </span>
+                      <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-blue-500 ring-2 ring-[#121215]" />
                     )}
                   </button>
 
                   {isFontScaleMenuOpen && (
-                    <div className="absolute left-0 top-full mt-2 w-60 bg-[#16161E] border border-[#2B2B38] rounded-xl p-3 shadow-2xl z-50 animate-in fade-in duration-100 flex flex-col gap-2.5">
+                    <div className="absolute left-0 top-full mt-2 w-60 max-w-[calc(100vw-32px)] bg-[#16161E] border border-[#2B2B38] rounded-xl p-3 shadow-2xl z-50 animate-in fade-in duration-100 flex flex-col gap-2.5">
                       <div className="flex items-center justify-between text-xs font-semibold text-gray-200">
                         <span className="flex items-center gap-1.5">
                           <Type className="w-3.5 h-3.5 text-blue-400" />
@@ -2405,10 +2395,10 @@ export const PresentationManager: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsBackgroundModalOpen(true)}
-                  className={`p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-center shadow-xs ${
+                  className={`w-8 h-8 rounded-lg transition-all cursor-pointer flex items-center justify-center ${
                     backgroundImage
-                      ? 'bg-purple-600/30 hover:bg-purple-600/40 text-purple-200 border-purple-500/50 shadow-purple-900/20'
-                      : 'bg-[#1C1C22] hover:bg-[#282830] text-gray-300 hover:text-white border-[#333]'
+                      ? 'bg-purple-600/30 hover:bg-purple-600/40 text-purple-200 border border-purple-500/50'
+                      : 'text-gray-400 hover:text-white hover:bg-[#22222A]'
                   }`}
                   title="Changer l'arrière-plan de projection"
                 >
@@ -2416,77 +2406,57 @@ export const PresentationManager: React.FC = () => {
                 </button>
               </div>
 
-              {/* Titre centré */}
-              <div className="text-center min-w-0 flex-1 px-2">
-                {liveDirectMedia?.isActive ? (
-                  <>
-                    <span className="text-[10px] uppercase tracking-wider font-extrabold text-purple-400 block truncate flex items-center justify-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-ping inline-block" />
-                      <span>Média en Direct ({liveDirectMedia.type.toUpperCase()})</span>
-                    </span>
-                    <h3 className="text-base sm:text-lg font-bold text-white truncate flex items-center justify-center gap-1.5">
-                      <Film className="w-4 h-4 text-purple-400 shrink-0" />
-                      <span>{liveDirectMedia.title}</span>
-                      <span className="text-xs font-mono text-gray-400">({liveDirectMedia.source})</span>
-                    </h3>
-                  </>
-                ) : liveDirectBible ? (
-                  <>
-                    <span className="text-[10px] uppercase tracking-wider font-extrabold text-amber-400 block truncate flex items-center justify-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping inline-block" />
-                      <span>Bible en Direct ({effectiveSlideIndex + 1}/{currentSlides.length})</span>
-                    </span>
-                    <h3 className="text-base sm:text-lg font-bold text-white truncate flex items-center justify-center gap-1.5">
-                      <BookOpen className="w-4 h-4 text-amber-400 shrink-0" />
-                      <span>{liveDirectBible.referenceText}</span>
-                      <span className="text-xs font-mono text-gray-400">({liveDirectBible.version})</span>
-                    </h3>
-                  </>
-                ) : currentQueueItem?.type === 'bible' && currentQueueItem.bibleData ? (
-                  <>
-                    <span className="text-[10px] uppercase tracking-wider font-bold text-amber-400 block truncate">
-                      Passage biblique ({activeSongIndex + 1} sur {queueItems.length})
-                    </span>
-                    <h3 className="text-base sm:text-lg font-bold text-white truncate flex items-center justify-center gap-1.5">
-                      <BookOpen className="w-4 h-4 text-amber-400 shrink-0" />
-                      <span>{currentQueueItem.bibleData.referenceText}</span>
-                    </h3>
-                  </>
-                ) : (
-                  <>
-                    <span className="text-[10px] uppercase tracking-wider font-bold text-blue-400 block truncate">
-                      {currentSong ? `Chant ${activeSongIndex + 1} sur ${queueItems.length}` : 'Aucun élément actif'}
-                    </span>
-                    <h3 className="text-base sm:text-lg font-bold text-white truncate">
-                      {currentSong ? stripParentheses(currentSong.title) : 'Aucun chant actif'}
-                    </h3>
-                  </>
-                )}
-              </div>
+              {/* Titre au centre (si élément actif) */}
+              {(currentSong || liveDirectBible || liveDirectMedia?.isActive || (currentQueueItem?.type === 'bible' && currentQueueItem.bibleData)) ? (
+                <div className="text-center min-w-0 flex-1 px-1 sm:px-2">
+                  <span className="text-[11px] font-bold text-white truncate block">
+                    {liveDirectMedia?.isActive
+                      ? liveDirectMedia.title
+                      : liveDirectBible
+                      ? liveDirectBible.referenceText
+                      : currentQueueItem?.type === 'bible' && currentQueueItem.bibleData
+                      ? currentQueueItem.bibleData.referenceText
+                      : currentSong
+                      ? stripParentheses(currentSong.title)
+                      : ''}
+                  </span>
+                  <span className="text-[9px] font-mono text-gray-400 truncate block">
+                    {liveDirectBible
+                      ? `Diapo ${liveDirectSlideIndex + 1}/${liveDirectSlides.length}`
+                      : currentSong
+                      ? `Diapo ${activeSlideIndex + 1}/${currentSlides.length}`
+                      : ''}
+                  </span>
+                </div>
+              ) : (
+                <div className="flex-1" />
+              )}
 
-              {/* Boutons Précédent / Suivant à droite */}
+              {/* Navigation & Statut à droite */}
               <div className="flex items-center gap-1.5 shrink-0">
-                <button
-                  type="button"
-                  onClick={goToPrevSlide}
-                  disabled={liveDirectBible ? liveDirectSlideIndex === 0 : (activeSongIndex === 0 && activeSlideIndex === 0)}
-                  className="p-2 rounded-xl bg-[#1C1C22] hover:bg-[#282830] text-white disabled:opacity-30 disabled:cursor-not-allowed border border-[#333] transition-colors cursor-pointer flex items-center justify-center"
-                  title="Précédent (Flèche Gauche)"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-1 bg-[#16161D] p-1 rounded-xl border border-[#262632]">
+                  <button
+                    type="button"
+                    onClick={goToPrevSlide}
+                    disabled={liveDirectBible ? liveDirectSlideIndex === 0 : (activeSongIndex === 0 && activeSlideIndex === 0)}
+                    className="w-8 h-8 rounded-lg text-gray-300 hover:text-white hover:bg-[#22222A] disabled:opacity-25 disabled:cursor-not-allowed transition-colors cursor-pointer flex items-center justify-center"
+                    title="Précédent (Flèche Gauche)"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={goToNextSlide}
-                  disabled={liveDirectBible ? liveDirectSlideIndex >= liveDirectSlides.length - 1 : (activeSongIndex >= queueItems.length - 1 && activeSlideIndex >= currentSlides.length - 1)}
-                  className={`p-2 rounded-xl text-white disabled:opacity-30 disabled:cursor-not-allowed font-bold shadow-md transition-colors cursor-pointer flex items-center justify-center ${
-                    liveDirectBible ? 'bg-amber-600 hover:bg-amber-500 shadow-amber-900/30' : 'bg-blue-600 hover:bg-blue-500 shadow-blue-900/30'
-                  }`}
-                  title="Suivant (Flèche Droite / Espace)"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
+                  <button
+                    type="button"
+                    onClick={goToNextSlide}
+                    disabled={liveDirectBible ? liveDirectSlideIndex >= liveDirectSlides.length - 1 : (activeSongIndex >= queueItems.length - 1 && activeSlideIndex >= currentSlides.length - 1)}
+                    className={`w-8 h-8 rounded-lg text-white disabled:opacity-25 disabled:cursor-not-allowed font-bold shadow-xs transition-colors cursor-pointer flex items-center justify-center ${
+                      liveDirectBible ? 'bg-amber-600 hover:bg-amber-500' : 'bg-blue-600 hover:bg-blue-500'
+                    }`}
+                    title="Suivant (Flèche Droite / Espace)"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -2670,227 +2640,318 @@ export const PresentationManager: React.FC = () => {
             </div>
           </div>
 
-          {/* Vue conditionnelle : Module Bible OU Module Média OU Grille de slides de chant */}
-          {activePupitreTab === 'bible' ? (
-            <BibleProjectionModule
-              onProjectLive={handleProjectLiveBible}
-              onAddToQueue={handleAddBibleToQueue}
-              activeLiveBibleRef={liveDirectBible ? (liveDirectSecondaryBible ? `${liveDirectBible.referenceText} (${liveDirectBible.version} • ${liveDirectSecondaryBible.version})` : `${liveDirectBible.referenceText} (${liveDirectBible.version})`) : null}
-              onStopLive={handleStopLiveBible}
-              onNextLiveVerse={handleNextLiveVerse}
-              onPrevLiveVerse={handlePrevLiveVerse}
-            />
-          ) : activePupitreTab === 'media' ? (
-            <MediaProjectionModule
-              activeMedia={liveDirectMedia}
-              onProjectMedia={handleProjectMedia}
-              onStopMedia={handleStopMedia}
-            />
-          ) : (
-            /* Grille de sélection directe de toutes les slides du chant (ProPresenter style) */
-            <div className="bg-[#121215] border border-[#222226] rounded-2xl p-4 sm:p-5 shadow-md space-y-3">
-              <div className="flex items-center justify-between flex-wrap gap-2.5 pb-2 border-b border-[#202028]">
-                <h3 className="text-xs font-bold text-gray-300 uppercase tracking-wider flex items-center gap-2">
-                  {currentQueueItem?.type === 'bible' && currentQueueItem.bibleData ? (
-                    <>
-                      <BookOpen className="w-4 h-4 text-amber-400" />
-                      <span>Slides du verset : {currentQueueItem.bibleData.referenceText} ({currentSlides.length})</span>
-                    </>
-                  ) : (
-                    <>
-                      <Music className="w-4 h-4 text-blue-400" />
-                      <span>Slides du chant actif ({currentSlides.length})</span>
-                      {isBilingualMode && secondarySong && (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">
-                          Bilingue {getLanguageMeta(currentSong?.language).code} + {getLanguageMeta(secondarySong.language).code}
-                        </span>
-                      )}
-                    </>
+          {/* File de projection */}
+
+
+
+          <div className="bg-[#121215] border border-[#222226] rounded-2xl shadow-md transition-all duration-150 flex flex-col">
+            {/* En-tête harmonisé avec bouton Dérouler/Enrouler */}
+            <div
+              onClick={toggleQueueCollapse}
+              className="flex items-center justify-between p-3.5 sm:p-4 select-none cursor-pointer hover:bg-white/[0.02] transition-colors rounded-2xl shrink-0"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-6 h-6 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+                  <Music className="w-3.5 h-3.5" />
+                </div>
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="text-xs font-bold text-gray-200 uppercase tracking-wide truncate">
+                    File de projection
+                  </span>
+                  {queueItems.length > 0 && (
+                    <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      {queueItems.length}
+                    </span>
                   )}
-                </h3>
+                </div>
+              </div>
 
-                {/* Contrôles Mode Bilingue (uniquement pour les chants) */}
-                {currentSong && currentQueueItem?.type !== 'bible' && (
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {/* Bouton Toggle Bilingue */}
-                    <button
-                      type="button"
-                      onClick={handleToggleBilingualMode}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${
-                        isBilingualMode
-                          ? 'bg-indigo-600 border-indigo-500 text-white shadow-xs ring-1 ring-indigo-400/50'
-                          : 'bg-[#181822] hover:bg-indigo-950/30 text-indigo-300 border-indigo-500/30'
-                      }`}
-                      title={isBilingualMode ? "Désactiver le mode bilingue" : "Activer la projection bilingue (original + traduction)"}
-                    >
-                      <Columns className="w-3.5 h-3.5" />
-                      <span>Mode bilingue</span>
-                      {isBilingualMode && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-                      )}
-                    </button>
+              <div className="flex items-center gap-2 shrink-0">
+                {queueSongs.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setQueueItems([]);
+                      setActiveSongIndex(0);
+                      setActiveSlideIndex(0);
+                    }}
+                    className="text-[10px] text-gray-500 hover:text-red-400 cursor-pointer px-1.5 py-0.5 rounded hover:bg-red-500/10 transition-colors"
+                    title="Vider la file de projection"
+                  >
+                    Vider
+                  </button>
+                )}
+                <button
+                  type="button"
+                  aria-label={isQueueCollapsed ? "Dérouler" : "Enrouler"}
+                  className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-[#202028] transition-colors"
+                >
+                  {isQueueCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
 
-                    {/* Options quand bilingue est actif */}
-                    {isBilingualMode && (
-                      <div className="flex items-center gap-1.5 animate-in fade-in zoom-in-95 duration-100">
-                        {/* Sélecteur de version traduite */}
-                        {availableLinkedVersions.length > 0 ? (
-                          <div className="relative">
-                            <select
-                              value={secondarySong?.id || ''}
-                              onChange={(e) => setSelectedSecondarySongId(e.target.value)}
-                              className="bg-[#181824] border border-indigo-500/40 rounded-lg px-2.5 py-1 text-xs text-indigo-200 cursor-pointer focus:outline-none focus:border-indigo-400 font-medium appearance-none pr-6"
-                              title="Changer la version traduite à projeter"
+            {/* Corps du bloc déroulable */}
+            {!isQueueCollapsed && (
+              <div className="px-3.5 sm:px-4 pb-3.5 sm:pb-4 pt-0 space-y-3 border-t border-[#1E1E26] mt-0.5 flex-1 min-h-0 flex flex-col">
+                {queueItems.length === 0 ? (
+                  <div className="text-center py-7 text-gray-500 text-xs flex-1 flex flex-col items-center justify-center">
+                    <Music className="w-8 h-8 mx-auto mb-2 opacity-30 text-emerald-400" />
+                    <span>Aucun chant ou passage dans la file.</span>
+                    <p className="text-[10px] mt-1 text-gray-600">Sélectionnez une setlist ou ajoutez un chant libre / passage dans le Pupitre.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5 overflow-y-auto pr-0.5 custom-scrollbar pt-1 flex-1 min-h-0 max-lg:max-h-[460px]">
+                    {queueItems.map((item, idx) => {
+                      const isBible = item.type === 'bible' && Boolean(item.bibleData);
+                      const song = !isBible && item.songId ? songs.find(s => s.id === item.songId) : null;
+                      if (!isBible && !song) return null;
+
+                      const isSetlistSong = !isBible && Boolean(item.setlistId);
+                      const isIndividualItem = isBible || !item.setlistId;
+                      const prevItem = idx > 0 ? queueItems[idx - 1] : null;
+                      const isFirstOfSetlist = isSetlistSong && (
+                        !prevItem || 
+                        prevItem.type === 'bible' || 
+                        prevItem.setlistId !== item.setlistId
+                      );
+
+                      const isActive = idx === activeSongIndex && !liveDirectBible;
+                      const isBeingDragged = draggedIndex === idx;
+                      const isDraggedOver = dragOverIndex === idx;
+
+                      // Calcul de la possibilité de déplacement de la setlist entière
+                      let canSetlistMoveUp = false;
+                      let canSetlistMoveDown = false;
+
+                      if (isFirstOfSetlist) {
+                        canSetlistMoveUp = idx > 0;
+                        let setlistEndIdx = idx;
+                        while (setlistEndIdx < queueItems.length - 1) {
+                          const nextIt = queueItems[setlistEndIdx + 1];
+                          const same = item.setlistId 
+                            ? nextIt.setlistId === item.setlistId 
+                            : nextIt.setlistName === item.setlistName;
+                          if (same) setlistEndIdx++;
+                          else break;
+                        }
+                        canSetlistMoveDown = setlistEndIdx < queueItems.length - 1;
+                      }
+
+                      return (
+                        <React.Fragment key={item.uid}>
+                          {isFirstOfSetlist && (
+                            <div
+                              draggable
+                              onDragStart={(e) => handleSetlistDragStart(e, item.setlistName, item.setlistId)}
+                              onDragOver={(e) => handleDragOver(e, idx)}
+                              onDrop={(e) => handleDrop(e, idx)}
+                              className="flex items-center justify-between px-2.5 py-1.5 mt-2.5 first:mt-0 rounded-lg border text-xs font-bold bg-[#181820] hover:bg-[#1C1C26] border-[#2A2A38] text-blue-300 transition-colors shadow-xs group/setlist"
                             >
-                              {availableLinkedVersions.map((lv) => {
-                                const lMeta = getLanguageMeta(lv.language);
-                                return (
-                                  <option key={lv.id} value={lv.id} className="bg-[#141418] text-white">
-                                    {lMeta.code} • {lv.title}
-                                  </option>
-                                );
-                              })}
-                            </select>
-                            <ChevronDown className="w-3 h-3 text-indigo-400 pointer-events-none absolute right-2 top-1/2 -translate-y-1/2" />
+                              <div className="flex items-center gap-1.5 min-w-0 pr-2">
+                                <div
+                                  className="cursor-grab active:cursor-grabbing text-blue-400/60 hover:text-blue-300 p-0.5 rounded shrink-0"
+                                  title="Glisser-déposer pour déplacer toute la liste"
+                                >
+                                  <GripVertical className="w-3.5 h-3.5" />
+                                </div>
+                                <ListMusic className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                                <span className="truncate">{item.setlistName}</span>
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleMoveSetlist(item.setlistName, item.setlistId, 'up');
+                                  }}
+                                  disabled={!canSetlistMoveUp}
+                                  className="p-1 rounded text-gray-400 hover:text-white disabled:opacity-20 cursor-pointer transition-colors"
+                                  title="Déplacer toute la liste vers le haut"
+                                >
+                                  <ArrowUp className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleMoveSetlist(item.setlistName, item.setlistId, 'down');
+                                  }}
+                                  disabled={!canSetlistMoveDown}
+                                  className="p-1 rounded text-gray-400 hover:text-white disabled:opacity-20 cursor-pointer transition-colors"
+                                  title="Déplacer toute la liste vers le bas"
+                                >
+                                  <ArrowDown className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRemoveSetlistFromQueue(item.setlistName, item.setlistId);
+                                  }}
+                                  className="text-[10px] text-gray-500 hover:text-red-400 font-normal px-1.5 py-0.5 rounded hover:bg-red-500/10 transition-colors shrink-0 cursor-pointer ml-1"
+                                  title={`Retirer tous les chants de la setlist "${item.setlistName}"`}
+                                >
+                                  Retirer
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          <div
+                            draggable={isIndividualItem}
+                            onDragStart={(e) => {
+                              if (isIndividualItem) handleDragStart(e, idx);
+                            }}
+                            onDragOver={(e) => handleDragOver(e, idx)}
+                            onDrop={(e) => handleDrop(e, idx)}
+                            onDragEnd={() => {
+                              setDraggedIndex(null);
+                              setDragOverIndex(null);
+                            }}
+                            onClick={() => {
+                              setLiveDirectBible(null);
+                              setActiveSongIndex(idx);
+                              setActiveSlideIndex(0);
+                              setActivePupitreTab('songs');
+                            }}
+                            className={`flex items-center justify-between p-2.5 rounded-xl border transition-all cursor-pointer group select-none ${
+                              isBeingDragged ? 'opacity-40 border-dashed border-gray-500' : ''
+                            } ${
+                              isDraggedOver ? 'ring-2 ring-blue-500 bg-blue-950/40 border-blue-400' : ''
+                            } ${
+                              isActive
+                                ? isBible
+                                  ? 'bg-amber-950/40 border-amber-500/70 text-white shadow-md'
+                                  : 'bg-blue-950/40 border-blue-500/70 text-white shadow-md'
+                                : isBible
+                                ? 'bg-[#181824] hover:bg-[#202030] border-amber-500/30 hover:border-amber-500/60 text-gray-200'
+                                : isIndividualItem
+                                ? 'bg-[#181822] hover:bg-[#1E1E2C] border-emerald-500/25 hover:border-emerald-500/40 text-gray-200'
+                                : 'bg-[#18181D] hover:bg-[#202026] border-[#26262E] text-gray-300'
+                            }`}
+                            title={
+                              isBible 
+                                ? "Verset individuel - Glisser pour déplacer dans la file" 
+                                : isIndividualItem
+                                ? "Chant séparé - Glisser ou utiliser les flèches pour déplacer"
+                                : `Chant de "${item.setlistName}" - Ordre fixé par le responsable de louange`
+                            }
+                          >
+                            <div className="flex items-center gap-2 min-w-0 pr-2 flex-1">
+                              {/* Poignée de déplacement drag & drop réservée aux éléments individuels */}
+                              {isIndividualItem && (
+                                <div
+                                  className="cursor-grab active:cursor-grabbing text-gray-500 hover:text-gray-300 p-0.5 rounded shrink-0"
+                                  title="Glisser-déposer pour réordonner cet élément"
+                                >
+                                  <GripVertical className="w-3.5 h-3.5" />
+                                </div>
+                              )}
+
+                              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold font-mono shrink-0 ${
+                                isActive 
+                                  ? isBible ? 'bg-amber-500 text-black font-extrabold' : 'bg-blue-600 text-white' 
+                                  : isBible ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : isIndividualItem ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-[#25252D] text-gray-400'
+                              }`}>
+                                {idx + 1}
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                {isBible ? (
+                                  <>
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span className="text-[9px] font-bold font-mono uppercase px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0">
+                                        Verset
+                                      </span>
+                                      <p className="font-bold text-xs truncate leading-snug text-amber-200 flex items-center gap-1">
+                                        <BookOpen className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                                        <span>{item.bibleData!.referenceText}</span>
+                                        <span className="text-[9px] font-mono px-1 py-0.2 bg-black/40 rounded border border-amber-500/30 text-amber-300">
+                                          {item.bibleData!.version}
+                                        </span>
+                                      </p>
+                                    </div>
+                                    <p className="text-[10px] text-gray-400 truncate italic mt-0.5">
+                                      {item.bibleData!.verses[0]?.text || item.bibleData!.text}
+                                    </p>
+                                  </>
+                                ) : (
+                                  <>
+                                    <div className="flex items-center gap-1.5 min-w-0">
+                                      {isIndividualItem && (
+                                        <span className="text-[9px] font-bold font-mono uppercase px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shrink-0">
+                                          Séparé
+                                        </span>
+                                      )}
+                                      <p className="font-semibold text-xs truncate leading-snug">{song!.title}</p>
+                                    </div>
+                                    {song!.artist && <p className="text-[10px] text-gray-500 truncate">{song!.artist}</p>}
+                                  </>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
+                              {/* Boutons de réordonnancement et suppression pour les éléments individuels */}
+                              {isIndividualItem ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleMoveSong(idx, 'up');
+                                    }}
+                                    disabled={idx === 0}
+                                    className="p-1 rounded text-gray-400 hover:text-white disabled:opacity-20 cursor-pointer transition-colors"
+                                    title="Déplacer vers le haut"
+                                  >
+                                    <ArrowUp className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleMoveSong(idx, 'down');
+                                    }}
+                                    disabled={idx === queueItems.length - 1}
+                                    className="p-1 rounded text-gray-400 hover:text-white disabled:opacity-20 cursor-pointer transition-colors"
+                                    title="Déplacer vers le bas"
+                                  >
+                                    <ArrowDown className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleRemoveSong(idx);
+                                    }}
+                                    className="p-1 rounded text-gray-400 hover:text-red-400 cursor-pointer transition-colors"
+                                    title={isBible ? "Retirer ce verset de la file" : "Retirer ce chant de la file"}
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </>
+                              ) : (
+                                /* Chant appartenant à une setlist : ordre et contenu protégés */
+                                <div
+                                  className="p-1 text-gray-500 hover:text-gray-400 cursor-help"
+                                  title={`Chant de "${item.setlistName}" — l'ordre et le contenu sont gérés par le responsable de louange`}
+                                >
+                                  <Lock className="w-3.5 h-3.5 opacity-60" />
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => setShowBilingualModal(true)}
-                            className="px-2 py-1 rounded-lg bg-indigo-950/50 hover:bg-indigo-900/50 border border-indigo-500/40 text-[11px] font-medium text-indigo-300 flex items-center gap-1 cursor-pointer"
-                            title="Lier ou choisir une version traduite"
-                          >
-                            <Globe className="w-3 h-3 text-indigo-400" />
-                            <span>{secondarySong ? `${getLanguageMeta(secondarySong.language).code} • ${secondarySong.title}` : 'Lier une traduction'}</span>
-                          </button>
-                        )}
-
-                        {/* Bouton pour ouvrir la recherche dans tout le répertoire */}
-                        <button
-                          type="button"
-                          onClick={() => setShowBilingualModal(true)}
-                          className="p-1 rounded-lg bg-[#181824] hover:bg-[#202030] text-indigo-300 border border-indigo-500/40 transition-colors cursor-pointer"
-                          title="Lier un autre chant du répertoire pour la projection bilingue"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                        </button>
-
-                        {/* Choix du format : Sous-titres intercalés OU 2 Colonnes */}
-                        <div className="flex items-center rounded-lg bg-[#16161E] border border-[#2B2B38] p-0.5 text-[11px]">
-                          <button
-                            type="button"
-                            onClick={() => handleSetBilingualFormat('stacked')}
-                            className={`px-2 py-0.5 rounded-md font-semibold transition-colors cursor-pointer ${
-                              bilingualFormat === 'stacked'
-                                ? 'bg-indigo-600 text-white shadow-xs'
-                                : 'text-gray-400 hover:text-white'
-                            }`}
-                            title="Sous-titres : paroles originales en grand, traduction sous chaque ligne"
-                          >
-                            Sous-titres
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleSetBilingualFormat('columns')}
-                            className={`px-2 py-0.5 rounded-md font-semibold transition-colors cursor-pointer ${
-                              bilingualFormat === 'columns'
-                                ? 'bg-indigo-600 text-white shadow-xs'
-                                : 'text-gray-400 hover:text-white'
-                            }`}
-                            title="2 Colonnes : original à gauche, traduction à droite"
-                          >
-                            2 Colonnes
-                          </button>
-                        </div>
-                      </div>
-                    )}
+                        </React.Fragment>
+                      );
+                    })}
                   </div>
                 )}
               </div>
-
-              {currentSlides.length === 0 ? (
-                <div className="text-center py-10 text-gray-600 text-xs">
-                  Sélectionnez un élément dans la file pour afficher ses sections.
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 max-h-[460px] overflow-y-auto pr-1 custom-scrollbar">
-                  {currentSlides.map((slide, sIdx) => {
-                    const isCurrent = sIdx === clampedSlideIndex;
-                    const isBibleSlide = slide.itemType === 'bible';
-
-                    return (
-                      <button
-                        key={slide.id || sIdx}
-                        type="button"
-                        onClick={() => {
-                          if (liveDirectBible) {
-                            setLiveDirectSlideIndex(sIdx);
-                          } else {
-                            setActiveSlideIndex(sIdx);
-                          }
-                          setIsBlackout(false);
-                        }}
-                        className={`text-left p-3.5 rounded-xl border flex flex-col justify-between min-h-[110px] transition-all cursor-pointer relative overflow-hidden group ${
-                          isCurrent
-                            ? isBibleSlide
-                              ? 'bg-amber-950/50 border-amber-400 ring-2 ring-amber-500/40 text-white shadow-lg shadow-amber-950/50'
-                              : 'bg-blue-950/50 border-blue-400 ring-2 ring-blue-500/40 text-white shadow-lg shadow-blue-950/50'
-                            : 'bg-[#16161B] hover:bg-[#1E1E24] border-[#2A2A33] text-gray-300 hover:text-white'
-                        }`}
-                      >
-                        {/* En-tête de la slide card */}
-                        <div className="flex items-center justify-between w-full mb-2">
-                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                            isCurrent 
-                              ? isBibleSlide ? 'bg-amber-500 text-black font-extrabold' : 'bg-blue-600 text-white' 
-                              : 'bg-[#22222A] text-gray-400 group-hover:text-blue-300'
-                          }`}>
-                            {slide.sectionTitle || `Slide ${sIdx + 1}`}
-                          </span>
-                          <span className="text-[10px] font-mono text-gray-500">
-                            #{sIdx + 1}
-                          </span>
-                        </div>
-
-                        {/* Lignes de paroles ou verset */}
-                        <div className="space-y-0.5 flex-1">
-                          {slide.lines.slice(0, 2).map((line, lIdx) => (
-                            <p key={lIdx} className="text-xs leading-snug line-clamp-1 opacity-90 font-medium">
-                              {line}
-                            </p>
-                          ))}
-                          {slide.isBilingual && slide.secondaryLines && slide.secondaryLines.length > 0 && (
-                            <div className="pt-1 border-t border-indigo-500/20 mt-1 space-y-0.5">
-                              {slide.secondaryLines.slice(0, 2).map((sLine, slIdx) => (
-                                <p key={slIdx} className="text-[11px] leading-snug line-clamp-1 text-cyan-300 italic opacity-85">
-                                  {sLine}
-                                </p>
-                              ))}
-                            </div>
-                          )}
-                          {!slide.isBilingual && slide.lines.length > 2 && (
-                            <p className="text-[10px] text-gray-500 italic">+{slide.lines.length - 2} ligne(s)</p>
-                          )}
-                        </div>
-
-                        {isCurrent && (
-                          <div className="absolute top-1 right-1">
-                            <span className="flex h-2 w-2 relative">
-                              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${isBibleSlide ? 'bg-amber-400' : 'bg-blue-400'}`} />
-                              <span className={`relative inline-flex rounded-full h-2 w-2 ${isBibleSlide ? 'bg-amber-500' : 'bg-blue-500'}`} />
-                            </span>
-                          </div>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-
+            )}
+          </div>
         </div>
-
       </div>
 
       {/* Modal de sélection d'arrière-plan et filtre sombre */}
@@ -3058,6 +3119,102 @@ export const PresentationManager: React.FC = () => {
                     );
                   })}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal d'ajout d'un chant séparé (hors-setlist) */}
+      {isAddSongModalOpen && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
+          onClick={() => setIsAddSongModalOpen(false)}
+        >
+          <div 
+            className="w-full max-w-lg bg-[#14141A] border border-[#2B2B38] rounded-2xl shadow-2xl p-5 flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-[#22222E]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                  <Music className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Ajouter un chant séparé</h3>
+                  <p className="text-[11px] text-gray-400">
+                    Chant individuel hors-liste (librement repositionnable et retirable)
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddSongModalOpen(false)}
+                className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-[#202028] transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Barre de recherche */}
+            <div className="pt-3 pb-2">
+              <div className="relative">
+                <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={songModalSearch}
+                  onChange={(e) => setSongModalSearch(e.target.value)}
+                  placeholder="Rechercher par titre, artiste, paroles..."
+                  className="w-full bg-[#1A1A24] border border-[#303042] rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500"
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            {/* Liste des chants */}
+            <div className="space-y-1.5 overflow-y-auto custom-scrollbar flex-1 min-h-0 py-2">
+              {filteredModalSongs.length === 0 ? (
+                <div className="text-center py-8 text-gray-500 text-xs">
+                  Aucun chant trouvé pour "{songModalSearch}"
+                </div>
+              ) : (
+                filteredModalSongs.map((song) => {
+                  const lMeta = getLanguageMeta(song.language);
+                  return (
+                    <div
+                      key={song.id}
+                      onClick={() => handleAddIndividualSong(song)}
+                      className="p-2.5 rounded-xl border border-[#252532] hover:border-emerald-500/50 bg-[#16161F] hover:bg-[#1E1E2B] transition-all flex items-center justify-between gap-3 cursor-pointer group"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold border ${lMeta.badgeClass}`}>
+                            {lMeta.code}
+                          </span>
+                          <span className="text-xs font-semibold text-white group-hover:text-emerald-300 transition-colors truncate">
+                            {song.title}
+                          </span>
+                        </div>
+                        {song.artist && (
+                          <div className="text-[10px] text-gray-400 mt-0.5 truncate pl-7">
+                            {song.artist}
+                          </div>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAddIndividualSong(song);
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-emerald-600/20 group-hover:bg-emerald-600 text-emerald-300 group-hover:text-white border border-emerald-500/40 text-xs font-bold transition-all flex items-center gap-1 shrink-0 cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Ajouter</span>
+                      </button>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
         </div>

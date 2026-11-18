@@ -18,6 +18,10 @@ import { OfflineIndicator } from './components/OfflineIndicator';
 import { PresentationDisplay } from './components/PresentationDisplay';
 import { PresentationManager } from './components/PresentationManager';
 
+import { LoginPage } from './components/LoginPage';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { MelobookLogo } from './components/MelobookLogo';
+
 const viewVariants = {
   initial: {
     opacity: 0,
@@ -45,7 +49,7 @@ const viewVariants = {
 };
 
 const AppContent: React.FC = () => {
-  const { activeTab } = useApp();
+  const { activeTab, isGuest } = useApp();
 
   return (
     <div className="min-h-screen bg-[#0A0A0B] text-[#E0E0E0] flex flex-col font-sans selection:bg-blue-600/30 selection:text-blue-200">
@@ -61,25 +65,48 @@ const AppContent: React.FC = () => {
             exit="exit"
             className="w-full min-h-full"
           >
-            {activeTab === 'repertoire' && <SongList />}
+            {(activeTab === 'repertoire' || (isGuest && (activeTab === 'editor' || activeTab === 'groups' || activeTab === 'settings'))) && <SongList />}
             {activeTab === 'setlists' && <SetlistManager />}
             {activeTab === 'stage' && <SongReader />}
             {activeTab === 'presentation' && <PresentationManager />}
-            {activeTab === 'editor' && <SongEditor />}
-            {activeTab === 'groups' && <GroupManager />}
-            {activeTab === 'settings' && <SettingsView />}
+            {!isGuest && activeTab === 'editor' && <SongEditor />}
+            {!isGuest && activeTab === 'groups' && <GroupManager />}
+            {!isGuest && activeTab === 'settings' && <SettingsView />}
           </motion.div>
         </AnimatePresence>
       </main>
 
-      <AuthModal />
-      <MiniPianoPopup />
-      <MetronomePopup />
-      <Tuner />
-      <SnackbarNotification />
-      <OfflineIndicator />
+      <div className="no-print">
+        <AuthModal />
+        <MiniPianoPopup />
+        <MetronomePopup />
+        <Tuner />
+        <SnackbarNotification />
+        <OfflineIndicator />
+      </div>
     </div>
   );
+};
+
+const AppRoot: React.FC = () => {
+  const { currentUser, authLoading, needsLibraryOnboarding, isGuest } = useApp();
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen w-full bg-[#09090B] text-[#E0E0E0] flex flex-col items-center justify-center gap-4">
+        <div className="p-3 rounded-2xl bg-[#141417] border border-[#222225] shadow-xl">
+          <MelobookLogo className="w-11 h-11 animate-pulse" />
+        </div>
+        <div className="text-xs text-gray-400">Chargement de votre espace...</div>
+      </div>
+    );
+  }
+
+  if (!isGuest && (!currentUser || needsLibraryOnboarding)) {
+    return <LoginPage />;
+  }
+
+  return <AppContent />;
 };
 
 export default function App() {
@@ -89,10 +116,12 @@ export default function App() {
   );
 
   return (
-    <AppProvider>
-      <MidiProvider>
-        {isPresentation ? <PresentationDisplay /> : <AppContent />}
-      </MidiProvider>
-    </AppProvider>
+    <ErrorBoundary>
+      <AppProvider>
+        <MidiProvider>
+          {isPresentation ? <PresentationDisplay /> : <AppRoot />}
+        </MidiProvider>
+      </AppProvider>
+    </ErrorBoundary>
   );
 }

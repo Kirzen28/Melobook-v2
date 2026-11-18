@@ -232,7 +232,7 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
 
   return (
     <div 
-      className={`fixed inset-0 ${isFullscreen ? 'top-0 z-50' : 'top-16 z-30'} bg-[#0A0A0B] flex flex-col text-[#E0E0E0] overflow-hidden transition-all`}
+      className={`fixed inset-0 ${isFullscreen ? 'top-0 z-50' : 'top-16 z-30'} bg-[#0A0A0B] flex flex-col text-[#E0E0E0] overflow-hidden transition-all print:static print:inset-auto print:top-0 print:w-full print:h-auto print:overflow-visible print:bg-white print:text-black`}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
@@ -319,7 +319,7 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
       </div>
 
       {/* Embedded Active Song Reader with animated transition */}
-      <div className="flex-1 min-h-0 relative overflow-hidden bg-[#0A0A0B]">
+      <div className="flex-1 min-h-0 relative overflow-hidden bg-[#0A0A0B] print:static print:overflow-visible print:h-auto print:w-full print:bg-white">
         <AnimatePresence initial={false} custom={direction}>
           {currentSong && (
             <motion.div
@@ -333,7 +333,7 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
                 x: { type: 'spring', stiffness: 320, damping: 32, mass: 0.8 },
                 opacity: { duration: 0.2, ease: 'easeInOut' }
               }}
-              className="w-full h-full absolute inset-0 flex flex-col overflow-hidden"
+              className="w-full h-full absolute inset-0 flex flex-col overflow-hidden print:static print:inset-auto print:overflow-visible print:h-auto print:w-full"
             >
               <SongReader
                 song={currentSong}

@@ -207,12 +207,14 @@ interface MediaProjectionModuleProps {
   activeMedia: MediaPresentationState | null;
   onProjectMedia: (media: MediaPresentationState) => void;
   onStopMedia: () => void;
+  className?: string;
 }
 
 export const MediaProjectionModule: React.FC<MediaProjectionModuleProps> = ({
   activeMedia,
   onProjectMedia,
   onStopMedia,
+  className,
 }) => {
   // Onglet de média : Vidéo | Image | Audio
   const [selectedMediaType, setSelectedMediaType] = useState<MediaType>('video');
@@ -623,7 +625,7 @@ export const MediaProjectionModule: React.FC<MediaProjectionModuleProps> = ({
   };
 
   return (
-    <div className="bg-[#121215] border border-[#222226] rounded-2xl p-4 sm:p-5 shadow-md flex flex-col gap-4 text-gray-200">
+    <div className={className ? `flex flex-col gap-4 text-gray-200 ${className}` : "bg-[#121215] border border-[#222226] rounded-2xl p-4 sm:p-5 shadow-md flex flex-col gap-4 text-gray-200"}>
       
       {/* 1. Bandeau de statut en direct si un média est actif */}
       {activeMedia?.isActive ? (

@@ -43,7 +43,7 @@ export const AssignMembersModal: React.FC<AssignMembersModalProps> = ({
 
   // Selected group to modify
   const [selectedGroupId, setSelectedGroupId] = useState<string>(
-    targetGroupId || currentGroup?.id || 'default-group'
+    targetGroupId || currentGroup?.id || groups[0]?.id || ''
   );
 
   useEffect(() => {
@@ -61,15 +61,8 @@ export const AssignMembersModal: React.FC<AssignMembersModalProps> = ({
   // Current assigned UIDs for this target group
   const assignedUidsSet = useMemo(() => {
     const list = activeTargetGroup?.members || [];
-    if (activeTargetGroup?.id === 'default-group') {
-      const valid = list.filter(m => allUsers.some(u => u.uid === m));
-      if (valid.length === 0) {
-        return new Set<string>(allUsers.map(u => u.uid));
-      }
-      return new Set<string>(valid);
-    }
     return new Set<string>(list.filter(m => allUsers.some(u => u.uid === m)));
-  }, [activeTargetGroup?.id, activeTargetGroup?.members, allUsers]);
+  }, [activeTargetGroup?.members, allUsers]);
 
   // Multi-select state: track selected user UIDs in UI
   const [selectedUids, setSelectedUids] = useState<Set<string>>(new Set());
@@ -380,14 +373,18 @@ export const AssignMembersModal: React.FC<AssignMembersModalProps> = ({
                       {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
                     </div>
 
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden ${
                       isAdmin 
                         ? 'bg-blue-600/30 text-blue-300 border border-blue-500/40' 
                         : isLeader
                         ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/40'
                         : 'bg-[#22222A] text-gray-300 border border-[#333]'
                     }`}>
-                      {u.displayName ? u.displayName.charAt(0).toUpperCase() : 'U'}
+                      {u.photoURL ? (
+                        <img src={u.photoURL} alt={u.displayName || 'Avatar'} className="w-full h-full object-cover" />
+                      ) : (
+                        u.displayName ? u.displayName.charAt(0).toUpperCase() : 'U'
+                      )}
                     </div>
 
                     <div className="min-w-0">

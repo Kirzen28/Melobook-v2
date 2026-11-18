@@ -390,6 +390,7 @@ export interface SectionTypeConfig {
   badgeBorder: string;
   badgeText: string;
   borderAccent: string;
+  cardBorder: string;
 }
 
 export const SECTION_TYPES_CONFIG: Record<string, SectionTypeConfig> = {
@@ -398,84 +399,96 @@ export const SECTION_TYPES_CONFIG: Record<string, SectionTypeConfig> = {
     badgeBg: 'bg-blue-600/20',
     badgeBorder: 'border-blue-500/40',
     badgeText: 'text-blue-300',
-    borderAccent: 'border-l-blue-500'
+    borderAccent: 'border-l-blue-500',
+    cardBorder: 'border-blue-500/60 hover:border-blue-400'
   },
   chorus: {
     label: 'Refrain',
     badgeBg: 'bg-amber-600/20',
     badgeBorder: 'border-amber-500/40',
     badgeText: 'text-amber-300',
-    borderAccent: 'border-l-amber-500'
+    borderAccent: 'border-l-amber-500',
+    cardBorder: 'border-amber-500/60 hover:border-amber-400'
   },
   pre_chorus: {
     label: 'Pré refrain',
     badgeBg: 'bg-pink-600/20',
     badgeBorder: 'border-pink-500/40',
     badgeText: 'text-pink-300',
-    borderAccent: 'border-l-pink-500'
+    borderAccent: 'border-l-pink-500',
+    cardBorder: 'border-pink-500/60 hover:border-pink-400'
   },
   bridge: {
     label: 'Pont',
     badgeBg: 'bg-purple-600/20',
     badgeBorder: 'border-purple-500/40',
     badgeText: 'text-purple-300',
-    borderAccent: 'border-l-purple-500'
+    borderAccent: 'border-l-purple-500',
+    cardBorder: 'border-purple-500/60 hover:border-purple-400'
   },
   intro: {
     label: 'Intro',
     badgeBg: 'bg-cyan-600/20',
     badgeBorder: 'border-cyan-500/40',
     badgeText: 'text-cyan-300',
-    borderAccent: 'border-l-cyan-500'
+    borderAccent: 'border-l-cyan-500',
+    cardBorder: 'border-cyan-500/60 hover:border-cyan-400'
   },
   outro: {
     label: 'Outro',
     badgeBg: 'bg-rose-600/20',
     badgeBorder: 'border-rose-500/40',
     badgeText: 'text-rose-300',
-    borderAccent: 'border-l-rose-500'
+    borderAccent: 'border-l-rose-500',
+    cardBorder: 'border-rose-500/60 hover:border-rose-400'
   },
   solo: {
     label: 'Solo',
     badgeBg: 'bg-orange-600/20',
     badgeBorder: 'border-orange-500/40',
     badgeText: 'text-orange-300',
-    borderAccent: 'border-l-orange-500'
+    borderAccent: 'border-l-orange-500',
+    cardBorder: 'border-orange-500/60 hover:border-orange-400'
   },
   interlude: {
     label: 'Interlude',
     badgeBg: 'bg-indigo-600/20',
     badgeBorder: 'border-indigo-500/40',
     badgeText: 'text-indigo-300',
-    borderAccent: 'border-l-indigo-500'
+    borderAccent: 'border-l-indigo-500',
+    cardBorder: 'border-indigo-500/60 hover:border-indigo-400'
   },
   instrumental: {
     label: 'Instrumental',
     badgeBg: 'bg-emerald-600/20',
     badgeBorder: 'border-emerald-500/40',
     badgeText: 'text-emerald-300',
-    borderAccent: 'border-l-emerald-500'
+    borderAccent: 'border-l-emerald-500',
+    cardBorder: 'border-emerald-500/60 hover:border-emerald-400'
   },
   tag: {
     label: 'Tag',
     badgeBg: 'bg-fuchsia-600/20',
     badgeBorder: 'border-fuchsia-500/40',
     badgeText: 'text-fuchsia-300',
-    borderAccent: 'border-l-fuchsia-500'
+    borderAccent: 'border-l-fuchsia-500',
+    cardBorder: 'border-fuchsia-500/60 hover:border-fuchsia-400'
   },
   finale: {
     label: 'Finale',
     badgeBg: 'bg-red-600/20',
     badgeBorder: 'border-red-500/40',
     badgeText: 'text-red-300',
-    borderAccent: 'border-l-red-500'
+    borderAccent: 'border-l-red-500',
+    cardBorder: 'border-red-500/60 hover:border-red-400'
   },
   general: {
     label: 'Autre',
     badgeBg: 'bg-gray-600/20',
     badgeBorder: 'border-gray-500/40',
     badgeText: 'text-gray-300',
-    borderAccent: 'border-l-gray-500'
+    borderAccent: 'border-l-gray-500',
+    cardBorder: 'border-gray-500/60 hover:border-gray-400'
   }
 };
 
@@ -552,7 +565,8 @@ export function getSectionTypeConfig(type: string, customLabel?: string): Sectio
     badgeBg: 'bg-teal-600/20',
     badgeBorder: 'border-teal-500/40',
     badgeText: 'text-teal-300',
-    borderAccent: 'border-l-teal-500'
+    borderAccent: 'border-l-teal-500',
+    cardBorder: 'border-teal-500/60 hover:border-teal-400'
   };
 }
 

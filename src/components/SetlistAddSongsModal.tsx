@@ -9,6 +9,7 @@ import {
   saveHiddenCategories 
 } from '../utils/categoryUtils';
 import { parseArtistsString } from '../utils/artistUtils';
+import { getSongSearchScore } from '../utils/songSearchUtils';
 import { PRESET_LANGUAGES } from '../utils/languageUtils';
 import { VoiceSearchControl } from './VoiceSearchControl';
 import { 
@@ -327,21 +328,22 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
         }
       }
 
-      // Search query
+      // Search query avec tolérance aux accents et aux fautes de frappe
+      let searchScore = 0;
       if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const matchTitle = song.title.toLowerCase().includes(q);
-        const matchArtist = (song.artist || '').toLowerCase().includes(q);
-        const matchLyrics = (song.contentChordPro || '').toLowerCase().includes(q);
-        const matchLanguage = (song.language || '').toLowerCase().includes(q);
-        const matchTags = song.tags?.some(t => t.toLowerCase().includes(q));
-        if (!matchTitle && !matchArtist && !matchLyrics && !matchTags && !matchLanguage) {
-          return false;
-        }
+        searchScore = getSongSearchScore(song, searchQuery);
+        if (searchScore <= 0) return false;
       }
 
       return true;
-    }).sort((a, b) => a.title.localeCompare(b.title, 'fr', { sensitivity: 'base' }));
+    }).sort((a, b) => {
+      if (searchQuery.trim()) {
+        const scoreA = getSongSearchScore(a, searchQuery);
+        const scoreB = getSongSearchScore(b, searchQuery);
+        if (scoreB !== scoreA) return scoreB - scoreA;
+      }
+      return a.title.localeCompare(b.title, 'fr', { sensitivity: 'base' });
+    });
   }, [songs, selectedKeys, selectedLanguages, selectedCategories, selectedAuthors, searchQuery]);
 
   // Bulk actions for filtered items

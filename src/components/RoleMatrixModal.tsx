@@ -436,53 +436,9 @@ export const RoleMatrixModal: React.FC<RoleMatrixModalProps> = ({
         </div>
 
         {/* Corps déroulant */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
-          
-          {/* Cartes de synthèse des 5 rôles */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-            {ROLES_INFO.map(r => {
-              const isCurrent = currentRole === r.role;
-              const IconComp = r.icon;
-              return (
-                <div 
-                  key={r.role}
-                  className={`p-3 rounded-xl border transition-all flex flex-col justify-between ${
-                    isCurrent 
-                      ? `${r.bgHighlight} border-blue-500 ring-1 ring-blue-500/40` 
-                      : 'bg-[#16161E] border-[#262634]'
-                  }`}
-                >
-                  <div>
-                    <div className="flex items-center justify-between gap-1.5 mb-2">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-base">{r.emoji}</span>
-                        <span className="font-bold text-xs text-white truncate">{r.label}</span>
-                      </div>
-                      <IconComp className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                    </div>
-
-                    <div className="mb-2">
-                      <span className={`text-[9px] uppercase font-bold px-1.5 py-0.5 rounded border ${r.tagStyle}`}>
-                        {r.role}
-                      </span>
-                    </div>
-
-                    <p className="text-[11px] text-gray-300 leading-snug mb-2 font-normal">
-                      {r.summary}
-                    </p>
-                  </div>
-
-                  <div className="pt-2 border-t border-[#22222E] text-[10px] text-gray-400 italic">
-                    <span className="text-gray-500 block not-italic font-semibold">Idéal pour :</span>
-                    {r.forWhom}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
           {/* Barre de filtres et recherche */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-2">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
             {/* Onglets de catégories */}
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs scrollbar-thin">
               {categories.map(cat => {
@@ -535,42 +491,49 @@ export const RoleMatrixModal: React.FC<RoleMatrixModalProps> = ({
           {/* Tableau Comparatif Principal */}
           <div className="rounded-xl border border-[#262634] overflow-hidden bg-[#14141B] shadow-sm">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse min-w-[760px]">
+              <table className="w-full text-left text-xs border-collapse min-w-[820px]">
                 <thead>
                   <tr className="border-b border-[#242432] bg-[#181822]">
-                    <th className="py-3 px-4 font-bold text-gray-300 w-2/5">
-                      Fonctionnalité & Droit d’accès
-                    </th>
-                    <th className="py-3 px-3 font-bold text-center text-blue-300 border-l border-[#242432] w-1/8 bg-blue-500/5">
-                      <div className="flex flex-col items-center gap-0.5">
-                        <span className="text-sm">👑</span>
-                        <span>Admin</span>
+                    <th className="py-3 px-4 font-bold text-gray-300 w-[32%] align-top">
+                      <div>Fonctionnalité & Droit d’accès</div>
+                      <div className="text-[10px] font-normal text-gray-400 mt-1">
+                        Survolez un rôle pour voir le résumé complet
                       </div>
                     </th>
-                    <th className="py-3 px-3 font-bold text-center text-emerald-300 border-l border-[#242432] w-1/8 bg-emerald-500/5">
-                      <div className="flex flex-col items-center gap-0.5">
-                        <span className="text-sm">⚡</span>
-                        <span>Responsable</span>
-                      </div>
-                    </th>
-                    <th className="py-3 px-3 font-bold text-center text-amber-300 border-l border-[#242432] w-1/8 bg-amber-500/5">
-                      <div className="flex flex-col items-center gap-0.5">
-                        <span className="text-sm">✍️</span>
-                        <span>Éditeur</span>
-                      </div>
-                    </th>
-                    <th className="py-3 px-3 font-bold text-center text-purple-300 border-l border-[#242432] w-1/8 bg-purple-500/5">
-                      <div className="flex flex-col items-center gap-0.5">
-                        <span className="text-sm">🎵</span>
-                        <span>Membre</span>
-                      </div>
-                    </th>
-                    <th className="py-3 px-3 font-bold text-center text-cyan-300 border-l border-[#242432] w-1/8 bg-cyan-500/5">
-                      <div className="flex flex-col items-center gap-0.5">
-                        <span className="text-sm">🖥️</span>
-                        <span>Régie</span>
-                      </div>
-                    </th>
+                    {ROLES_INFO.map((r) => {
+                      const isCurrent = currentRole === r.role;
+                      const headerColor =
+                        r.role === 'admin'
+                          ? 'text-blue-300 bg-blue-500/5'
+                          : r.role === 'leader'
+                          ? 'text-emerald-300 bg-emerald-500/5'
+                          : r.role === 'editor'
+                          ? 'text-amber-300 bg-amber-500/5'
+                          : r.role === 'member'
+                          ? 'text-purple-300 bg-purple-500/5'
+                          : 'text-cyan-300 bg-cyan-500/5';
+                      return (
+                        <th
+                          key={r.role}
+                          title={r.summary}
+                          className={`py-3 px-2.5 font-bold text-center border-l border-[#242432] align-top ${headerColor} ${
+                            isCurrent ? 'ring-1 ring-inset ring-blue-500/50 bg-blue-500/10' : ''
+                          }`}
+                        >
+                          <div className="flex flex-col items-center gap-1">
+                            <span className="text-sm leading-none">{r.emoji}</span>
+                            <span className="leading-tight">
+                              {r.role === 'admin' ? 'Admin' : r.role === 'viewer' ? 'Régie' : r.label}
+                            </span>
+                            {isCurrent && (
+                              <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-600/30 text-blue-200 border border-blue-400/40 font-semibold">
+                                Vous
+                              </span>
+                            )}
+                          </div>
+                        </th>
+                      );
+                    })}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#20202C]">
@@ -605,19 +568,19 @@ export const RoleMatrixModal: React.FC<RoleMatrixModalProps> = ({
                                 </div>
                               )}
                             </td>
-                            <td className="py-3 px-3 text-center align-middle border-l border-[#22222E] bg-blue-500/2">
+                            <td className={`py-3 px-3 text-center align-middle border-l border-[#22222E] ${currentRole === 'admin' ? 'bg-blue-500/10' : 'bg-blue-500/2'}`}>
                               {renderBadge(row.admin)}
                             </td>
-                            <td className="py-3 px-3 text-center align-middle border-l border-[#22222E] bg-emerald-500/2">
+                            <td className={`py-3 px-3 text-center align-middle border-l border-[#22222E] ${currentRole === 'leader' ? 'bg-blue-500/10' : 'bg-emerald-500/2'}`}>
                               {renderBadge(row.leader)}
                             </td>
-                            <td className="py-3 px-3 text-center align-middle border-l border-[#22222E] bg-amber-500/2">
+                            <td className={`py-3 px-3 text-center align-middle border-l border-[#22222E] ${currentRole === 'editor' ? 'bg-blue-500/10' : 'bg-amber-500/2'}`}>
                               {renderBadge(row.editor)}
                             </td>
-                            <td className="py-3 px-3 text-center align-middle border-l border-[#22222E] bg-purple-500/2">
+                            <td className={`py-3 px-3 text-center align-middle border-l border-[#22222E] ${currentRole === 'member' ? 'bg-blue-500/10' : 'bg-purple-500/2'}`}>
                               {renderBadge(row.member)}
                             </td>
-                            <td className="py-3 px-3 text-center align-middle border-l border-[#22222E] bg-cyan-500/2">
+                            <td className={`py-3 px-3 text-center align-middle border-l border-[#22222E] ${currentRole === 'viewer' ? 'bg-blue-500/10' : 'bg-cyan-500/2'}`}>
                               {renderBadge(row.viewer)}
                             </td>
                           </tr>

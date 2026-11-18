@@ -31,6 +31,15 @@ async function startServer() {
 
   app.use(express.json({ limit: '10mb' }));
 
+  // Serve FFmpeg WASM core files locally
+  app.use('/api/ffmpeg-core', express.static(path.resolve('./node_modules/@ffmpeg/core/dist/esm'), {
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith('.wasm')) {
+        res.setHeader('Content-Type', 'application/wasm');
+      }
+    }
+  }));
+
   // Health check
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok', serverTime: new Date().toISOString() });

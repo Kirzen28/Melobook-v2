@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { Song, Setlist } from '../types';
-import { parseDurationToSeconds, formatSetlistDuration, getSongDuration, stripParentheses } from '../utils/chordUtils';
+import { parseDurationToSeconds, formatSetlistDuration, getSongDuration, stripParentheses, getYouTubeEmbedUrl, getSpotifyEmbedUrl } from '../utils/chordUtils';
 import { generateSetlistPdf, DEFAULT_PDF_OPTIONS } from '../utils/pdfExport';
 import { SongImportModal } from './SongImportModal';
 import { SetlistPdfModal } from './SetlistPdfModal';
@@ -16,6 +16,7 @@ import {
   saveHiddenCategories 
 } from '../utils/categoryUtils';
 import { parseArtistsString } from '../utils/artistUtils';
+import { getSongSearchScore } from '../utils/songSearchUtils';
 import { 
   Search, 
   Plus, 
@@ -24,6 +25,7 @@ import {
   Trash2, 
   ListPlus, 
   Music, 
+  Music2, 
   Tag, 
   User, 
   Check, 
@@ -50,8 +52,6 @@ import {
   Download,
   Loader2,
   Users,
-  Library,
-  KeyRound,
   Eye,
   ListMusic,
   ArrowRight,
@@ -59,7 +59,9 @@ import {
   Copyright,
   Play,
   Radio,
-  ExternalLink
+  ExternalLink,
+  Minimize2,
+  Maximize2
 } from 'lucide-react';
 
 export const SongList: React.FC = () => {
@@ -79,30 +81,8 @@ export const SongList: React.FC = () => {
     importSong,
     songCardMetadata,
     autoDetectSongLanguages,
-    canManageSongs,
-    currentGroup,
-    groups,
-    switchGroup,
-    joinGroup
+    canManageSongs
   } = useApp();
-
-  const [isGroupDropdownOpen, setIsGroupDropdownOpen] = useState(false);
-  const [isJoinCodeModalOpen, setIsJoinCodeModalOpen] = useState(false);
-  const [inviteCodeInput, setInviteCodeInput] = useState('');
-  const [joinCodeStatus, setJoinCodeStatus] = useState<string | null>(null);
-  const groupDropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (groupDropdownRef.current && !groupDropdownRef.current.contains(e.target as Node)) {
-        setIsGroupDropdownOpen(false);
-      }
-    };
-    if (isGroupDropdownOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-  }, [isGroupDropdownOpen]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'title' | 'artist' | 'tempo' | 'duration' | 'recent'>('title');
@@ -217,6 +197,81 @@ export const SongList: React.FC = () => {
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [exportNotification, setExportNotification] = useState<string | null>(null);
   const [songToExportPdf, setSongToExportPdf] = useState<Song | null>(null);
+
+  // Quick Media Popup State (YouTube & Spotify)
+  const [quickMediaSong, setQuickMediaSong] = useState<Song | null>(null);
+  const [quickYoutubeInput, setQuickYoutubeInput] = useState('');
+  const [quickSpotifyInput, setQuickSpotifyInput] = useState('');
+  const [activeQuickEditSource, setActiveQuickEditSource] = useState<'youtube' | 'spotify' | null>(null);
+  const [isSavingQuickMedia, setIsSavingQuickMedia] = useState(false);
+
+  // Floating Media Player State in SongList
+  const [floatingPlayer, setFloatingPlayer] = useState<{
+    song: Song;
+    source: 'youtube' | 'spotify';
+  } | null>(null);
+  const [isFloatingPlayerMinimized, setIsFloatingPlayerMinimized] = useState(false);
+
+  const handleOpenQuickMediaPopup = (song: Song) => {
+    setQuickMediaSong(song);
+    setQuickYoutubeInput(song.youtubeUrl || '');
+    setQuickSpotifyInput(song.spotifyUrl || '');
+    if (!song.youtubeUrl) {
+      setActiveQuickEditSource('youtube');
+    } else if (!song.spotifyUrl) {
+      setActiveQuickEditSource('spotify');
+    } else {
+      setActiveQuickEditSource(null);
+    }
+  };
+
+  const handleSaveYoutubeLink = async () => {
+    if (!quickMediaSong) return;
+    setIsSavingQuickMedia(true);
+    try {
+      const url = quickYoutubeInput.trim();
+      await updateSong(quickMediaSong.id, { youtubeUrl: url });
+      setQuickMediaSong(prev => prev ? { ...prev, youtubeUrl: url } : null);
+      if (!quickMediaSong.spotifyUrl) {
+        setActiveQuickEditSource('spotify');
+      } else {
+        setActiveQuickEditSource(null);
+      }
+      showNotification('Lien YouTube enregistré');
+    } catch (err) {
+      console.error(err);
+      showNotification('Erreur lors de l’enregistrement');
+    } finally {
+      setIsSavingQuickMedia(false);
+    }
+  };
+
+  const handleSaveSpotifyLink = async () => {
+    if (!quickMediaSong) return;
+    setIsSavingQuickMedia(true);
+    try {
+      const url = quickSpotifyInput.trim();
+      await updateSong(quickMediaSong.id, { spotifyUrl: url });
+      setQuickMediaSong(prev => prev ? { ...prev, spotifyUrl: url } : null);
+      setActiveQuickEditSource(null);
+      showNotification('Lien Spotify enregistré');
+    } catch (err) {
+      console.error(err);
+      showNotification('Erreur lors de l’enregistrement');
+    } finally {
+      setIsSavingQuickMedia(false);
+    }
+  };
+
+  const handleLaunchPlayer = (source: 'youtube' | 'spotify') => {
+    if (!quickMediaSong) return;
+    setFloatingPlayer({
+      song: quickMediaSong,
+      source
+    });
+    setIsFloatingPlayerMinimized(false);
+    setQuickMediaSong(null);
+  };
 
   // External YouTube, Spotify & Audio Link Modal State
   const [audioLinkSong, setAudioLinkSong] = useState<Song | null>(null);
@@ -620,26 +675,29 @@ export const SongList: React.FC = () => {
 
   // Filtered & Sorted Songs
   const filteredSongs = useMemo(() => {
-    return songs.filter(song => {
+    const isSearching = !!searchQuery.trim();
+    const matched: { song: Song; searchScore: number }[] = [];
+
+    for (const song of songs) {
       // Key filter (support single or multiple selection with checkboxes)
       if (selectedKeys.length > 0) {
         const songKey = (song.key || '').trim().toUpperCase();
         const effectiveKey = songKey || 'Sans tonalité';
         const hasMatch = selectedKeys.some(k => effectiveKey.toUpperCase() === k.toUpperCase());
-        if (!hasMatch) return false;
+        if (!hasMatch) continue;
       }
       // Language filter (support single or multiple selection with checkboxes)
       if (selectedLanguages.length > 0) {
         const songLang = (song.language || 'Français').trim();
         const effectiveLang = songLang || 'Non spécifiée';
         const hasMatch = selectedLanguages.some(l => effectiveLang.toLowerCase() === l.toLowerCase());
-        if (!hasMatch) return false;
+        if (!hasMatch) continue;
       }
       // Categories filter (support single or multiple selection - union match)
       if (selectedCategories.length > 0) {
         const songCats = (song.tags || []).map(t => t.trim().toLowerCase());
         const hasMatch = selectedCategories.some(cat => songCats.includes(cat.trim().toLowerCase()));
-        if (!hasMatch) return false;
+        if (!hasMatch) continue;
       }
       // Authors filter (support single or multiple selection with checkboxes)
       if (selectedAuthors.length > 0) {
@@ -648,24 +706,25 @@ export const SongList: React.FC = () => {
         const hasMatch = selectedAuthors.some(author => 
           artists.some(a => a.toLowerCase() === author.toLowerCase())
         );
-        if (!hasMatch) return false;
+        if (!hasMatch) continue;
       }
-      // Search query
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const matchTitle = song.title.toLowerCase().includes(q);
-        const matchArtist = song.artist.toLowerCase().includes(q);
-        const matchLyrics = song.contentChordPro.toLowerCase().includes(q);
-        const matchLanguage = (song.language || '').toLowerCase().includes(q);
-        const matchTags = song.tags?.some(t => t.toLowerCase().includes(q));
-        const matchCcli = (song.ccli || '').toLowerCase().includes(q);
-        const matchCopyright = (song.copyright || '').toLowerCase().includes(q);
-        if (!matchTitle && !matchArtist && !matchLyrics && !matchTags && !matchLanguage && !matchCcli && !matchCopyright) {
-          return false;
-        }
+      // Search query avec tolérance aux accents et aux fautes de frappe
+      let searchScore = 0;
+      if (isSearching) {
+        searchScore = getSongSearchScore(song, searchQuery);
+        if (searchScore <= 0) continue;
       }
-      return true;
-    }).sort((a, b) => {
+
+      matched.push({ song, searchScore });
+    }
+
+    matched.sort((itemA, itemB) => {
+      // Si recherche active, trier par pertinence (chanson la plus proche en premier)
+      if (isSearching && itemB.searchScore !== itemA.searchScore) {
+        return itemB.searchScore - itemA.searchScore;
+      }
+      const a = itemA.song;
+      const b = itemB.song;
       if (sortBy === 'title') return (a.title || '').localeCompare(b.title || '', 'fr', { sensitivity: 'base' });
       if (sortBy === 'artist') {
         const artistA = (a.artist || '').trim();
@@ -679,6 +738,8 @@ export const SongList: React.FC = () => {
       if (sortBy === 'recent') return (b.createdAt || '').localeCompare(a.createdAt || '');
       return 0;
     });
+
+    return matched.map(m => m.song);
   }, [songs, selectedKeys, selectedLanguages, selectedCategories, selectedAuthors, searchQuery, sortBy]);
 
   // Group songs alphabetically by first letter of title or author
@@ -1495,19 +1556,6 @@ export const SongList: React.FC = () => {
               >
                 {stripParentheses(song.title)}
               </h3>
-              {(song.youtubeUrl || song.audioUrl) && (
-                <span
-                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold shrink-0 border ${
-                    song.youtubeUrl
-                      ? 'bg-red-500/15 border-red-500/40 text-red-400'
-                      : 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400'
-                  }`}
-                  title={song.youtubeUrl ? `Lien YouTube configuré : ${song.youtubeUrl}` : `Lien Audio configuré : ${song.audioUrl}`}
-                >
-                  <Play className="w-2.5 h-2.5 fill-current" />
-                  <span className="hidden sm:inline">{song.youtubeUrl ? 'YouTube' : 'Audio'}</span>
-                </span>
-              )}
             </div>
           </div>
 
@@ -1517,31 +1565,32 @@ export const SongList: React.FC = () => {
 
             {/* Buttons in the right corner */}
             <div className="flex items-center gap-1 shrink-0">
-              {/* Lien YouTube / Audio externe */}
+              {/* Bouton Lecteur YouTube / Spotify harmonisé */}
               <button
                 type="button"
+                id={`btn-media-player-${song.id}`}
                 onClick={(e) => {
                   if (isMultiSelectMode) return;
                   e.stopPropagation();
-                  handleOpenAudioLinkModal(song);
+                  handleOpenQuickMediaPopup(song);
                 }}
-                className={`p-1 sm:p-1.5 rounded transition-colors flex items-center justify-center cursor-pointer group border ${
-                  (song.youtubeUrl || song.audioUrl)
-                    ? 'bg-red-500/15 hover:bg-red-500/25 text-red-400 border-red-500/40 hover:border-red-400 shadow-xs'
-                    : 'bg-[#1C1C1E] hover:bg-red-500/15 text-gray-400 hover:text-red-400 border-[#333] hover:border-red-500/40'
+                className={`p-1 sm:p-1.5 rounded bg-[#1C1C1E] border border-[#333] transition-colors flex items-center justify-center cursor-pointer group ${
+                  (song.youtubeUrl || song.spotifyUrl)
+                    ? 'hover:bg-blue-500/15 text-gray-300 hover:text-blue-300 hover:border-blue-500/50'
+                    : 'hover:bg-[#28282C] text-gray-400 hover:text-gray-200 hover:border-gray-500'
                 }`}
                 title={
-                  (song.youtubeUrl || song.audioUrl)
-                    ? "Lien YouTube/Audio disponible (cliquer pour écouter ou modifier)"
-                    : "Ajouter un lien YouTube ou Audio"
+                  song.youtubeUrl || song.spotifyUrl
+                    ? `Lecteurs (${[song.youtubeUrl && 'YouTube', song.spotifyUrl && 'Spotify'].filter(Boolean).join(', ')})`
+                    : "Écouter le chant (lecteurs YouTube / Spotify)"
                 }
-                aria-label="Lien YouTube ou Audio"
+                aria-label="Lecteurs multimédias"
               >
-                {(song.youtubeUrl || song.audioUrl) ? (
-                  <Play className="w-3.5 h-3.5 fill-current text-red-400 group-hover:scale-110 transition-transform" />
-                ) : (
-                  <Radio className="w-3.5 h-3.5 text-gray-400 group-hover:text-red-400 group-hover:scale-110 transition-transform" />
-                )}
+                <Play className={`w-3.5 h-3.5 group-hover:scale-110 transition-transform ${
+                  (song.youtubeUrl || song.spotifyUrl)
+                    ? 'text-blue-400 fill-blue-400/20'
+                    : 'text-gray-400'
+                }`} />
               </button>
 
               {/* Export PDF button */}
@@ -1592,101 +1641,12 @@ export const SongList: React.FC = () => {
     <div className="max-w-7xl mx-auto px-3 sm:px-6 py-6 pb-12 text-[#E0E0E0]">
       
       {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
-            Répertoire de Chants
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-wrap">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-2 sm:gap-2.5">
+            <Music2 className="w-5 h-5 sm:w-6 sm:h-6 text-blue-500 shrink-0" />
+            <span>Répertoire de Chants</span>
           </h1>
-
-          {/* Library Switcher Dropdown */}
-          <div className="relative" ref={groupDropdownRef}>
-            <button
-              type="button"
-              onClick={() => setIsGroupDropdownOpen(!isGroupDropdownOpen)}
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#18181D] hover:bg-[#222228] border border-[#2E2E36] hover:border-blue-500/50 text-xs font-semibold transition-all cursor-pointer shadow-xs"
-              title="Cliquer pour changer de bibliothèque"
-            >
-              <Library className="w-3.5 h-3.5 text-blue-400" />
-              <span className="text-gray-200 max-w-[160px] sm:max-w-[220px] truncate">
-                {currentGroup?.name || 'Bibliothèque Principale'}
-              </span>
-              <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform ${isGroupDropdownOpen ? 'rotate-180 text-blue-400' : ''}`} />
-            </button>
-
-            {isGroupDropdownOpen && (
-              <div className="absolute left-0 mt-2 w-72 sm:w-80 bg-[#141418] border border-[#2E2E38] rounded-xl shadow-2xl p-2.5 z-50 animate-in fade-in zoom-in-95 duration-100">
-                <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400 border-b border-[#24242C] flex items-center justify-between">
-                  <span>Bibliothèques disponibles</span>
-                  <span className="font-mono text-blue-400">{groups.length}</span>
-                </div>
-
-                <div className="max-h-56 overflow-y-auto space-y-1 py-1.5 pr-0.5 custom-scrollbar">
-                  {groups.map((g) => {
-                    const isActive = currentGroup?.id === g.id;
-                    return (
-                      <button
-                        key={g.id}
-                        type="button"
-                        onClick={() => {
-                          switchGroup(g.id);
-                          setIsGroupDropdownOpen(false);
-                        }}
-                        className={`w-full text-left p-2 rounded-lg border text-xs transition-all flex items-center justify-between gap-2 cursor-pointer ${
-                          isActive
-                            ? 'bg-blue-600/20 border-blue-500/50 text-white'
-                            : 'bg-[#18181C] hover:bg-[#202026] border-transparent text-gray-300'
-                        }`}
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="font-semibold truncate flex items-center gap-1.5">
-                            <span className="truncate">{g.name}</span>
-                            {isActive && (
-                              <span className="shrink-0 px-1.5 py-0.2 rounded text-[9px] font-bold bg-blue-500 text-white">
-                                Actif
-                              </span>
-                            )}
-                          </div>
-                          {g.description && (
-                            <p className="text-[10px] text-gray-500 truncate mt-0.5">{g.description}</p>
-                          )}
-                        </div>
-                        <span className="text-[10px] font-mono text-gray-400 shrink-0">
-                          {g.inviteCode}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <div className="pt-2 border-t border-[#24242C] flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsGroupDropdownOpen(false);
-                      setIsJoinCodeModalOpen(true);
-                    }}
-                    className="flex-1 py-1.5 px-2 rounded-lg bg-[#202026] hover:bg-[#2A2A34] text-blue-400 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                  >
-                    <KeyRound className="w-3.5 h-3.5" />
-                    <span>Entrer un code</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsGroupDropdownOpen(false);
-                      setActiveTab('groups');
-                    }}
-                    className="py-1.5 px-2.5 rounded-lg bg-[#202026] hover:bg-[#2A2A34] text-gray-200 text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5"
-                    title="Gérer et supprimer des bibliothèques"
-                  >
-                    <Library className="w-3.5 h-3.5 text-blue-400" />
-                    <span>Gérer</span>
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
         </div>
 
         {/* Action Buttons: Importer Dropdown & Nouveau Chant - visibles uniquement si l'utilisateur a les droits */}
@@ -1793,102 +1753,6 @@ export const SongList: React.FC = () => {
       </div>
 
 
-
-      {/* Modal: Entrer un code d'invitation pour consulter une bibliothèque */}
-      {isJoinCodeModalOpen && (
-        <div
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 animate-in fade-in duration-150"
-          onClick={() => {
-            setIsJoinCodeModalOpen(false);
-            setJoinCodeStatus(null);
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-sm bg-[#141416] border border-[#2A2A2D] rounded-xl shadow-2xl p-4 animate-in zoom-in-95 duration-100 text-xs"
-          >
-            <div className="flex items-center justify-between pb-2 mb-3 border-b border-[#222226]">
-              <div className="flex items-center gap-2 font-bold text-white text-sm">
-                <KeyRound className="w-4 h-4 text-blue-400" />
-                <span>Code d'invitation de la bibliothèque</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsJoinCodeModalOpen(false);
-                  setJoinCodeStatus(null);
-                }}
-                className="text-gray-400 hover:text-white p-1 rounded hover:bg-[#222228]"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <p className="text-gray-400 mb-3">
-              Entrez le code d'invitation à 6 caractères pour charger et consulter cette bibliothèque de chants.
-            </p>
-
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                if (!inviteCodeInput.trim()) return;
-                const ok = await joinGroup(inviteCodeInput.trim());
-                if (ok) {
-                  setJoinCodeStatus('success');
-                  setInviteCodeInput('');
-                  setTimeout(() => {
-                    setIsJoinCodeModalOpen(false);
-                    setJoinCodeStatus(null);
-                  }, 1200);
-                } else {
-                  setJoinCodeStatus('error');
-                }
-              }}
-              className="space-y-3"
-            >
-              <input
-                type="text"
-                placeholder="Ex: LOUAN7"
-                value={inviteCodeInput}
-                onChange={(e) => setInviteCodeInput(e.target.value.toUpperCase())}
-                className="w-full bg-[#1C1C1E] border border-[#333] focus:border-blue-500 rounded-lg px-3 py-2 text-center font-mono font-bold text-sm tracking-widest text-blue-400 placeholder-gray-600 focus:outline-none"
-                maxLength={8}
-                autoFocus
-                required
-              />
-
-              {joinCodeStatus === 'success' && (
-                <div className="p-2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-center font-semibold">
-                  Bibliothèque chargée !
-                </div>
-              )}
-
-              {joinCodeStatus === 'error' && (
-                <div className="p-2 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 text-center font-semibold">
-                  Code introuvable. Vérifiez le code fourni.
-                </div>
-              )}
-
-              <div className="flex items-center gap-2 pt-1">
-                <button
-                  type="submit"
-                  disabled={!inviteCodeInput.trim()}
-                  className="flex-1 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold shadow-xs disabled:opacity-50 cursor-pointer"
-                >
-                  Charger la bibliothèque
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsJoinCodeModalOpen(false)}
-                  className="px-3 py-2 rounded-lg bg-[#1C1C1E] text-gray-300 hover:text-white"
-                >
-                  Annuler
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* Search & Filter Controls Bar */}
       <div className="bg-[#111112] border border-[#222224] rounded-lg p-2.5 mb-3 flex flex-col md:flex-row items-center gap-2.5">
@@ -2618,7 +2482,7 @@ export const SongList: React.FC = () => {
         /* Vue Liste - Une seule chanson par ligne maximum */
         <div className="relative">
           {/* Top Quick Letters Ribbon */}
-          {(sortBy === 'title' || sortBy === 'artist') && (
+          {(sortBy === 'title' || sortBy === 'artist') && !searchQuery.trim() && (
             <div className="flex items-center gap-1 overflow-x-auto pb-2 mb-4 scrollbar-none border-b border-[#222224]">
               <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider shrink-0 mr-1.5 flex items-center gap-1">
                 <span>Lettres :</span>
@@ -2644,7 +2508,7 @@ export const SongList: React.FC = () => {
           )}
 
           {/* Vertical Alphabet Jump Bar */}
-          {(sortBy === 'title' || sortBy === 'artist') && (
+          {(sortBy === 'title' || sortBy === 'artist') && !searchQuery.trim() && (
             <div 
               className="fixed right-1 sm:right-2 top-24 bottom-16 z-30 flex flex-col justify-center items-center select-none pointer-events-auto"
               aria-label="Barre alphabétique"
@@ -2682,7 +2546,7 @@ export const SongList: React.FC = () => {
 
           {/* Single-Column List of Chants - Une chanson par ligne maximum */}
           <div className="space-y-4 pr-6 sm:pr-8 w-full">
-            {(sortBy === 'title' || sortBy === 'artist') ? (
+            {(sortBy === 'title' || sortBy === 'artist') && !searchQuery.trim() ? (
               alphabeticalGroups.map((group) => (
                 <div
                   key={group.letter}
@@ -4826,6 +4690,482 @@ export const SongList: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Petit Pop-up de sélection et configuration rapide YouTube / Spotify */}
+      {quickMediaSong && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-xs animate-in fade-in duration-150"
+          onClick={() => setQuickMediaSong(null)}
+        >
+          <div 
+            className="w-full max-w-sm sm:max-w-md bg-[#16161A] border border-[#2E2E38] rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="p-3.5 sm:p-4 border-b border-[#24242C] bg-[#1A1A20] flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center shrink-0">
+                  <Play className="w-4 h-4 fill-current" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-bold text-white tracking-tight truncate">
+                    Lecteur & Liens Multimédias
+                  </h3>
+                  <p className="text-xs text-gray-400 truncate">
+                    {quickMediaSong.title} {quickMediaSong.artist ? `• ${quickMediaSong.artist}` : ''}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setQuickMediaSong(null)}
+                className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#262630] transition-colors cursor-pointer"
+                title="Fermer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Contenu : Design identique à la capture d'écran */}
+            <div className="p-4 space-y-3.5">
+              {/* En-tête : ÉCOUTER LE CHANT + LECTEURS */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-[11px] font-bold text-gray-200 tracking-wider uppercase">
+                  <Play className="w-3.5 h-3.5 text-blue-400 fill-blue-400/20" />
+                  <span>Écouter le chant</span>
+                </div>
+                <span className="text-[10px] text-gray-400 font-medium bg-[#1F1F27] px-2.5 py-0.5 rounded-full border border-[#2D2D38] tracking-wider">
+                  Lecteurs
+                </span>
+              </div>
+
+              {/* Cartes 2 colonnes YouTube & Spotify (Design identique) */}
+              <div className="grid grid-cols-2 gap-2.5">
+                {/* Carte YouTube */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (quickMediaSong.youtubeUrl) {
+                      handleLaunchPlayer('youtube');
+                    } else {
+                      setActiveQuickEditSource(activeQuickEditSource === 'youtube' ? null : 'youtube');
+                    }
+                  }}
+                  className="flex items-center gap-2 p-2.5 rounded-xl bg-gradient-to-br from-red-600/25 via-red-900/15 to-[#16161C] hover:from-red-600/35 hover:via-red-900/25 border border-red-500/40 hover:border-red-400 text-white font-bold text-xs transition-all cursor-pointer group shadow-md shadow-red-950/30 hover:shadow-red-950/50 active:scale-98 text-left"
+                  title={quickMediaSong.youtubeUrl ? "Lancer le lecteur YouTube" : "Ajouter un lien YouTube"}
+                >
+                  <div className="w-7 h-7 rounded-lg bg-red-600/20 border border-red-500/30 flex items-center justify-center text-red-500 shrink-0 group-hover:scale-110 group-hover:bg-red-600/30 transition-transform shadow-xs">
+                    <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                    </svg>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-bold text-xs text-white group-hover:text-red-200 transition-colors">
+                      YouTube
+                    </div>
+                    <div className="text-[10px] text-red-300/80 font-medium truncate flex items-center gap-1">
+                      {quickMediaSong.youtubeUrl ? (
+                        <>
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
+                          <span>Lecteur prêt</span>
+                        </>
+                      ) : (
+                        <span>+ Lier la vidéo</span>
+                      )}
+                    </div>
+                  </div>
+                </button>
+
+                {/* Carte Spotify */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (quickMediaSong.spotifyUrl) {
+                      handleLaunchPlayer('spotify');
+                    } else {
+                      setActiveQuickEditSource(activeQuickEditSource === 'spotify' ? null : 'spotify');
+                    }
+                  }}
+                  className="flex items-center gap-2 p-2.5 rounded-xl bg-gradient-to-br from-emerald-600/25 via-emerald-900/15 to-[#16161C] hover:from-emerald-600/35 hover:via-emerald-900/25 border border-emerald-500/40 hover:border-emerald-400 text-white font-bold text-xs transition-all cursor-pointer group shadow-md shadow-emerald-950/30 hover:shadow-emerald-950/50 active:scale-98 text-left"
+                  title={quickMediaSong.spotifyUrl ? "Lancer le lecteur Spotify" : "Ajouter un lien Spotify"}
+                >
+                  <div className="w-7 h-7 rounded-lg bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0 group-hover:scale-110 group-hover:bg-emerald-600/30 transition-transform shadow-xs">
+                    <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                      <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+                    </svg>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-bold text-xs text-white group-hover:text-emerald-200 transition-colors">
+                      Spotify
+                    </div>
+                    <div className="text-[10px] text-emerald-300/80 font-medium truncate flex items-center gap-1">
+                      {quickMediaSong.spotifyUrl ? (
+                        <>
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                          <span>Lecteur prêt</span>
+                        </>
+                      ) : (
+                        <span>+ Lier le morceau</span>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              </div>
+
+              {/* Raccourcis de modification ou ouverture externe si des liens existent */}
+              {(quickMediaSong.youtubeUrl || quickMediaSong.spotifyUrl) && (
+                <div className="flex items-center justify-between text-[11px] px-1 text-gray-400 pt-1 border-t border-[#222228]">
+                  <div className="flex items-center gap-2">
+                    {quickMediaSong.youtubeUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setActiveQuickEditSource(activeQuickEditSource === 'youtube' ? null : 'youtube')}
+                        className="text-red-400/90 hover:text-red-300 hover:underline cursor-pointer flex items-center gap-1"
+                      >
+                        <Pen className="w-2.5 h-2.5" />
+                        <span>Modifier YouTube</span>
+                      </button>
+                    )}
+                    {quickMediaSong.youtubeUrl && quickMediaSong.spotifyUrl && <span>•</span>}
+                    {quickMediaSong.spotifyUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setActiveQuickEditSource(activeQuickEditSource === 'spotify' ? null : 'spotify')}
+                        className="text-emerald-400/90 hover:text-emerald-300 hover:underline cursor-pointer flex items-center gap-1"
+                      >
+                        <Pen className="w-2.5 h-2.5" />
+                        <span>Modifier Spotify</span>
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {quickMediaSong.youtubeUrl && (
+                      <a
+                        href={quickMediaSong.youtubeUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-gray-400 hover:text-white flex items-center gap-0.5 hover:underline"
+                        title="Ouvrir sur YouTube"
+                      >
+                        <span>YouTube</span>
+                        <ExternalLink className="w-2.5 h-2.5" />
+                      </a>
+                    )}
+                    {quickMediaSong.spotifyUrl && (
+                      <a
+                        href={quickMediaSong.spotifyUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-gray-400 hover:text-white flex items-center gap-0.5 hover:underline"
+                        title="Ouvrir sur Spotify"
+                      >
+                        <span>Spotify</span>
+                        <ExternalLink className="w-2.5 h-2.5" />
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Champ de saisie rapide s'il n'y a pas de lien ou si l'utilisateur clique pour lier/modifier */}
+              {activeQuickEditSource && (
+                <div className="p-3 rounded-xl bg-[#121216] border border-[#262630] space-y-2 animate-in slide-in-from-top-1 duration-150">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-gray-200 flex items-center gap-1.5">
+                      {activeQuickEditSource === 'youtube' ? (
+                        <>
+                          <span className="w-2 h-2 rounded-full bg-red-500" />
+                          <span>Lien YouTube</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                          <span>Lien Spotify</span>
+                        </>
+                      )}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setActiveQuickEditSource(null)}
+                      className="text-[11px] text-gray-400 hover:text-white cursor-pointer"
+                    >
+                      Fermer
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="url"
+                      placeholder={
+                        activeQuickEditSource === 'youtube'
+                          ? "https://www.youtube.com/watch?v=..."
+                          : "https://open.spotify.com/track/..."
+                      }
+                      value={activeQuickEditSource === 'youtube' ? quickYoutubeInput : quickSpotifyInput}
+                      onChange={(e) => {
+                        if (activeQuickEditSource === 'youtube') setQuickYoutubeInput(e.target.value);
+                        else setQuickSpotifyInput(e.target.value);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          if (activeQuickEditSource === 'youtube') handleSaveYoutubeLink();
+                          else handleSaveSpotifyLink();
+                        }
+                      }}
+                      className="flex-1 bg-[#1A1A20] border border-[#333] focus:border-blue-500 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-500 outline-none"
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (activeQuickEditSource === 'youtube') handleSaveYoutubeLink();
+                        else handleSaveSpotifyLink();
+                      }}
+                      disabled={
+                        isSavingQuickMedia ||
+                        (activeQuickEditSource === 'youtube' ? !quickYoutubeInput.trim() : !quickSpotifyInput.trim())
+                      }
+                      className={`px-3 py-1.5 rounded-lg text-white text-xs font-bold transition-all cursor-pointer shrink-0 disabled:opacity-50 ${
+                        activeQuickEditSource === 'youtube'
+                          ? 'bg-red-600 hover:bg-red-500'
+                          : 'bg-emerald-600 hover:bg-emerald-500'
+                      }`}
+                    >
+                      {isSavingQuickMedia ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Enregistrer'}
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[10px] text-gray-400 pt-0.5">
+                    {activeQuickEditSource === 'youtube' ? (
+                      <a
+                        href={`https://www.youtube.com/results?search_query=${encodeURIComponent([quickMediaSong.title, quickMediaSong.artist].filter(Boolean).join(' '))}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-red-400 hover:underline flex items-center gap-1"
+                      >
+                        <Search className="w-2.5 h-2.5" />
+                        <span>Chercher sur YouTube</span>
+                      </a>
+                    ) : (
+                      <a
+                        href={`https://open.spotify.com/search/${encodeURIComponent([quickMediaSong.title, quickMediaSong.artist].filter(Boolean).join(' '))}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-emerald-400 hover:underline flex items-center gap-1"
+                      >
+                        <Search className="w-2.5 h-2.5" />
+                        <span>Chercher sur Spotify</span>
+                      </a>
+                    )}
+
+                    {(activeQuickEditSource === 'youtube' ? quickMediaSong.youtubeUrl : quickMediaSong.spotifyUrl) && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (activeQuickEditSource === 'youtube') {
+                            setQuickYoutubeInput('');
+                            await updateSong(quickMediaSong.id, { youtubeUrl: '' });
+                            setQuickMediaSong(prev => prev ? { ...prev, youtubeUrl: '' } : null);
+                          } else {
+                            setQuickSpotifyInput('');
+                            await updateSong(quickMediaSong.id, { spotifyUrl: '' });
+                            setQuickMediaSong(prev => prev ? { ...prev, spotifyUrl: '' } : null);
+                          }
+                          showNotification('Lien retiré');
+                        }}
+                        className="text-gray-500 hover:text-red-400 transition-colors cursor-pointer"
+                      >
+                        Retirer ce lien
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-3 border-t border-[#24242C] bg-[#16161A] flex justify-end">
+              <button
+                type="button"
+                onClick={() => setQuickMediaSong(null)}
+                className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-gray-300 hover:text-white hover:bg-[#24242E] border border-[#333] transition-colors cursor-pointer"
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Lecteur Multimédia Flottant en bas de page pour SongList */}
+      {floatingPlayer && (
+        isFloatingPlayerMinimized ? (
+          <div className={`no-print fixed bottom-3 right-3 sm:bottom-5 sm:right-5 z-50 flex items-center gap-2 p-1.5 pl-3 rounded-full bg-[#16161A]/95 shadow-2xl backdrop-blur-md animate-in fade-in duration-150 border ${
+            floatingPlayer.source === 'spotify' ? 'border-emerald-500/50' : 'border-red-500/50'
+          }`}>
+            <span className={`w-2 h-2 rounded-full animate-ping shrink-0 ${
+              floatingPlayer.source === 'spotify' ? 'bg-emerald-400' : 'bg-red-500'
+            }`} />
+            <span className="text-xs font-bold text-white max-w-[130px] truncate">{floatingPlayer.song.title}</span>
+            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+              floatingPlayer.source === 'spotify' 
+                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' 
+                : 'bg-red-500/20 text-red-300 border border-red-500/30'
+            }`}>
+              {floatingPlayer.source === 'spotify' ? 'Spotify' : 'YouTube'}
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsFloatingPlayerMinimized(false)}
+              className="p-1 rounded-full text-gray-300 hover:text-white hover:bg-[#282830] transition-colors cursor-pointer"
+              title="Agrandir le lecteur"
+            >
+              <Maximize2 className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setFloatingPlayer(null)}
+              className="p-1 rounded-full text-gray-400 hover:text-white hover:bg-[#282830] transition-colors cursor-pointer"
+              title="Fermer le lecteur"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        ) : (
+          <div className="no-print fixed bottom-3 right-3 sm:bottom-5 sm:right-5 z-50 w-[calc(100vw-24px)] sm:w-96 max-w-sm bg-[#16161A]/95 border border-[#333] shadow-2xl rounded-2xl p-3 backdrop-blur-md animate-in fade-in slide-in-from-bottom-3 duration-200">
+            <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#282830]">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                  floatingPlayer.source === 'spotify' 
+                    ? 'bg-emerald-600/20 text-emerald-400' 
+                    : 'bg-red-600/20 text-red-400'
+                }`}>
+                  {floatingPlayer.source === 'spotify' ? (
+                    <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+                  ) : (
+                    <Play className="w-3.5 h-3.5 fill-current" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-bold text-white truncate">{floatingPlayer.song.title}</div>
+                  <div className="text-[10px] text-gray-400 truncate">
+                    {floatingPlayer.source === 'spotify' ? 'Lecteur Spotify' : 'Lecteur YouTube'}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setIsFloatingPlayerMinimized(true)}
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#25252D] transition-colors cursor-pointer"
+                  title="Réduire"
+                >
+                  <Minimize2 className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFloatingPlayer(null)}
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#25252D] transition-colors cursor-pointer"
+                  title="Fermer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Switch source si les deux liens existent */}
+            {floatingPlayer.song.youtubeUrl && floatingPlayer.song.spotifyUrl && (
+              <div className="flex items-center gap-1 mb-2 p-1 bg-[#101014] rounded-lg border border-[#25252E]">
+                <button
+                  type="button"
+                  onClick={() => setFloatingPlayer(prev => prev ? { ...prev, source: 'youtube' } : null)}
+                  className={`flex-1 py-1 px-2 rounded-md text-[10px] font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer ${
+                    floatingPlayer.source === 'youtube'
+                      ? 'bg-red-600/30 text-red-200 border border-red-500/40'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  <span>YouTube</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFloatingPlayer(prev => prev ? { ...prev, source: 'spotify' } : null)}
+                  className={`flex-1 py-1 px-2 rounded-md text-[10px] font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer ${
+                    floatingPlayer.source === 'spotify'
+                      ? 'bg-emerald-600/30 text-emerald-200 border border-emerald-500/40'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  <span>Spotify</span>
+                </button>
+              </div>
+            )}
+
+            {/* Player content */}
+            {floatingPlayer.source === 'spotify' && (
+              <div className="rounded-xl overflow-hidden border border-[#2A2A32] bg-[#121212] shadow-md">
+                {getSpotifyEmbedUrl(floatingPlayer.song.spotifyUrl) ? (
+                  <iframe
+                    src={getSpotifyEmbedUrl(floatingPlayer.song.spotifyUrl)!}
+                    title={`Spotify: ${floatingPlayer.song.title}`}
+                    className="w-full h-[152px] border-0"
+                    allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="p-4 text-center text-xs text-gray-400">
+                    <p className="mb-2">Lien Spotify externe :</p>
+                    <a
+                      href={floatingPlayer.song.spotifyUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-semibold"
+                    >
+                      <span>Ouvrir sur Spotify</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {floatingPlayer.source === 'youtube' && (() => {
+              const query = [floatingPlayer.song.title, floatingPlayer.song.artist].filter(Boolean).join(' ');
+              const embedUrl = floatingPlayer.song.youtubeUrl
+                ? getYouTubeEmbedUrl(floatingPlayer.song.youtubeUrl)
+                : `https://www.youtube-nocookie.com/embed?listType=search&list=${encodeURIComponent(query)}&autoplay=1`;
+
+              if (embedUrl) {
+                return (
+                  <div className="rounded-lg overflow-hidden border border-[#2A2A32] bg-black aspect-video shadow-md">
+                    <iframe
+                      src={embedUrl}
+                      title={floatingPlayer.song.title}
+                      className="w-full h-full border-0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  </div>
+                );
+              }
+              return (
+                <div className="p-3 bg-[#111114] rounded-lg text-center">
+                  <a
+                    href={floatingPlayer.song.youtubeUrl || `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-semibold"
+                  >
+                    <Play className="w-3.5 h-3.5 fill-current" />
+                    <span>Ouvrir sur YouTube</span>
+                  </a>
+                </div>
+              );
+            })()}
+          </div>
+        )
       )}
 
     </div>

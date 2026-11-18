@@ -1,35 +1,378 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Users collection
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Core primitives
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isBootstrappedAdmin() {
+      return isSignedIn()
+        && request.auth.token.email == 'kriveravelasquez@rivera-marketing.com'
+        && request.auth.token.email_verified == true;
+    }
+
+    // Master Gate helpers for per-library isolation
+    function groupPath(groupId) {
+      return /databases/$(database)/documents/groups/$(groupId);
+    }
+
+    function groupData(groupId) {
+      return get(groupPath(groupId)).data;
+    }
+
+    function isLibraryMember(groupId) {
+      return isSignedIn()
+        && exists(groupPath(groupId))
+        && (
+          groupData(groupId).ownerId == request.auth.uid ||
+          (groupData(groupId).members is list && request.auth.uid in groupData(groupId).members)
+        );
+    }
+
+    function libraryRole(groupId) {
+      let g = groupData(groupId);
+      return g.ownerId == request.auth.uid
+        ? 'admin'
+        : (g.memberRoles is map ? g.memberRoles.get(request.auth.uid, 'member') : 'member');
+    }
+
+    function isLibraryAdmin(groupId) {
+      return isLibraryMember(groupId) && libraryRole(groupId) == 'admin';
+    }
+
+    function canEditLibrarySongs(groupId) {
+      return isLibraryMember(groupId) && libraryRole(groupId) in ['admin', 'leader', 'editor'];
+    }
+
+    function canEditLibrarySetlists(groupId) {
+      return isLibraryMember(groupId) && libraryRole(groupId) in ['admin', 'leader'];
+    }
+
+    function isGuestReadableLibrary(groupId) {
+      return exists(groupPath(groupId)) && groupData(groupId).guestEnabled == true;
+    }
+
+    // Validation Blueprints
+    function isValidUserProfile(data) {
+      return data.keys().hasAll(['uid', 'email', 'displayName', 'currentGroupId', 'role'])
+        && data.keys().hasOnly(['uid', 'email', 'displayName', 'photoURL', 'currentGroupId', 'role', 'createdAt', 'updatedAt'])
+        && data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128
+        && data.email is string && data.email.size() <= 256
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 120
+        && (!('photoURL' in data) || data.photoURL == null || (data.photoURL is string && data.photoURL.size() <= 2048))
+        && (data.currentGroupId == null || (data.currentGroupId is string && data.currentGroupId.size() <= 128))
+        && data.role in ['admin', 'leader', 'member', 'editor', 'viewer'];
+    }
+
+    function isValidGroup(data) {
+      return data.keys().hasAll(['id', 'name', 'ownerId', 'members', 'inviteCode'])
+        && data.keys().hasOnly(['id', 'name', 'description', 'ownerId', 'members', 'memberRoles', 'inviteCode', 'guestEnabled', 'guestCode', 'createdAt', 'updatedAt'])
+        && data.id is string && data.id.size() >= 1 && data.id.size() <= 128
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 120
+        && (!('description' in data) || (data.description is string && data.description.size() <= 500))
+        && data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128
+        && data.members is list && data.members.size() >= 1 && data.members.size() <= 500
+        && data.members[0] is string
+        && (!('memberRoles' in data) || data.memberRoles is map)
+        && data.inviteCode is string && data.inviteCode.size() >= 3 && data.inviteCode.size() <= 32
+        && (!('guestEnabled' in data) || data.guestEnabled is bool)
+        && (!('guestCode' in data) || data.guestCode == null || (data.guestCode is string && data.guestCode.size() >= 4 && data.guestCode.size() <= 32));
+    }
+
+    function isValidLibraryInvite(data) {
+      return data.keys().hasAll(['inviteCode', 'groupId', 'name', 'ownerId'])
+        && data.keys().hasOnly(['inviteCode', 'groupId', 'name', 'ownerId', 'createdAt'])
+        && data.inviteCode is string && data.inviteCode.size() >= 3 && data.inviteCode.size() <= 32
+        && data.groupId is string && data.groupId.size() >= 1 && data.groupId.size() <= 128
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 120
+        && data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128;
+    }
+
+    function isValidGuestInvite(data) {
+      return data.keys().hasAll(['guestCode', 'groupId', 'name', 'ownerId', 'guestEnabled'])
+        && data.keys().hasOnly(['guestCode', 'groupId', 'name', 'ownerId', 'guestEnabled', 'createdAt', 'updatedAt'])
+        && data.guestCode is string && data.guestCode.size() >= 4 && data.guestCode.size() <= 32
+        && data.groupId is string && data.groupId.size() >= 1 && data.groupId.size() <= 128
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 120
+        && data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128
+        && data.guestEnabled is bool;
+    }
+
+    function isValidLibraryMember(data) {
+      return data.keys().hasAll(['uid', 'displayName', 'role'])
+        && data.keys().hasOnly(['uid', 'displayName', 'photoURL', 'role', 'joinedAt'])
+        && data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 120
+        && (!('photoURL' in data) || data.photoURL == null || (data.photoURL is string && data.photoURL.size() <= 2048))
+        && data.role in ['admin', 'leader', 'member', 'editor', 'viewer'];
+    }
+
+    function isValidSong(data, groupId) {
+      return data.keys().hasAll(['id', 'groupId', 'title', 'contentChordPro'])
+        && data.keys().hasOnly([
+          'id', 'groupId', 'title', 'artist', 'key', 'tempo', 'bpm', 'timeSignature',
+          'duration', 'durationMode', 'ccli', 'copyright', 'youtubeUrl', 'audioUrl',
+          'spotifyUrl', 'contentChordPro', 'content', 'folderId', 'capo', 'tags',
+          'language', 'linkedSongIds', 'notes', 'createdAt', 'updatedAt'
+        ])
+        && data.id is string && data.id.size() >= 1 && data.id.size() <= 128
+        && data.groupId == groupId
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 240
+        && (!('artist' in data) || (data.artist is string && data.artist.size() <= 200))
+        && (!('key' in data) || (data.key is string && data.key.size() <= 24))
+        && (!('tempo' in data) || data.tempo is number)
+        && (!('bpm' in data) || data.bpm is number)
+        && (!('timeSignature' in data) || (data.timeSignature is string && data.timeSignature.size() <= 20))
+        && (!('duration' in data) || (data.duration is string && data.duration.size() <= 32))
+        && (!('durationMode' in data) || data.durationMode in ['auto', 'custom'])
+        && (!('ccli' in data) || (data.ccli is string && data.ccli.size() <= 64))
+        && (!('copyright' in data) || (data.copyright is string && data.copyright.size() <= 500))
+        && (!('youtubeUrl' in data) || (data.youtubeUrl is string && data.youtubeUrl.size() <= 1000))
+        && (!('audioUrl' in data) || (data.audioUrl is string && data.audioUrl.size() <= 1000))
+        && (!('spotifyUrl' in data) || (data.spotifyUrl is string && data.spotifyUrl.size() <= 1000))
+        && data.contentChordPro is string && data.contentChordPro.size() <= 100000
+        && (!('content' in data) || (data.content is string && data.content.size() <= 100000))
+        && (!('folderId' in data) || data.folderId == null || (data.folderId is string && data.folderId.size() <= 128))
+        && (!('capo' in data) || data.capo is number)
+        && (!('tags' in data) || (data.tags is list && data.tags.size() <= 50))
+        && (!('language' in data) || (data.language is string && data.language.size() <= 40))
+        && (!('linkedSongIds' in data) || (data.linkedSongIds is list && data.linkedSongIds.size() <= 50))
+        && (!('notes' in data) || (data.notes is string && data.notes.size() <= 5000));
+    }
+
+    function isValidSetlist(data, groupId) {
+      return data.keys().hasAll(['id', 'groupId', 'name', 'songIds'])
+        && data.keys().hasOnly(['id', 'groupId', 'name', 'date', 'songIds', 'songOverrides', 'notes', 'targetDuration', 'createdAt'])
+        && data.id is string && data.id.size() >= 1 && data.id.size() <= 128
+        && data.groupId == groupId
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 200
+        && (!('date' in data) || (data.date is string && data.date.size() <= 64))
+        && data.songIds is list && data.songIds.size() <= 200
+        && (!('songOverrides' in data) || data.songOverrides is map)
+        && (!('notes' in data) || (data.notes is string && data.notes.size() <= 5000))
+        && (!('targetDuration' in data) || data.targetDuration is number);
+    }
+
+    function isValidSetlistHistory(data, groupId) {
+      return data.keys().hasAll(['id', 'groupId', 'setlistName', 'eventType', 'date'])
+        && data.keys().hasOnly([
+          'id', 'groupId', 'setlistId', 'setlistName', 'eventType', 'date',
+          'playedAt', 'durationMinutes', 'location', 'notes', 'songIds',
+          'songsSnapshot', 'playedByUid', 'playedByName', 'createdAt'
+        ])
+        && data.id is string && data.id.size() >= 1 && data.id.size() <= 128
+        && data.groupId == groupId
+        && data.setlistName is string && data.setlistName.size() >= 1 && data.setlistName.size() <= 200
+        && data.eventType in ['rehearsal', 'concert', 'service', 'other']
+        && data.date is string && data.date.size() >= 1 && data.date.size() <= 64
+        && (!('songIds' in data) || (data.songIds is list && data.songIds.size() <= 200))
+        && (!('songsSnapshot' in data) || (data.songsSnapshot is list && data.songsSnapshot.size() <= 200))
+        && (!('notes' in data) || (data.notes is string && data.notes.size() <= 5000));
+    }
+
+    function isValidCustomPad(data, groupId) {
+      return data.keys().hasAll(['id', 'groupId', 'name', 'rootSemitone', 'rootKey'])
+        && data.keys().hasOnly([
+          'id', 'groupId', 'name', 'rootSemitone', 'rootKey', 'audioUrl',
+          'audioData', 'fileSize', 'duration', 'createdBy', 'createdByName', 'createdAt'
+        ])
+        && data.id is string && data.id.size() >= 1 && data.id.size() <= 128
+        && data.groupId == groupId
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 120
+        && data.rootSemitone is number
+        && data.rootKey is string && data.rootKey.size() >= 1 && data.rootKey.size() <= 16
+        && (!('audioUrl' in data) || (data.audioUrl is string && data.audioUrl.size() <= 750000));
+    }
+
+    // Users collection (PII isolated strictly to owner or bootstrapped admin)
     match /users/{userId} {
-      allow read, write: if true;
+      allow get: if isValidId(userId) && (isOwner(userId) || isBootstrappedAdmin());
+      allow list: if false;
+      allow create: if isValidId(userId)
+        && isOwner(userId)
+        && isValidUserProfile(incoming())
+        && incoming().uid == request.auth.uid;
+      allow update: if isValidId(userId)
+        && (isOwner(userId) || isBootstrappedAdmin())
+        && isValidUserProfile(incoming())
+        && incoming().uid == existing().uid;
+      allow delete: if isValidId(userId) && (isOwner(userId) || isBootstrappedAdmin());
     }
 
-    // Groups collection
+    // Direct lookup table for joining a library by inviteCode (get only, no list)
+    match /library_invites/{inviteCode} {
+      allow get: if isSignedIn() && isValidId(inviteCode);
+      allow list: if false;
+      allow create: if isSignedIn()
+        && isValidId(inviteCode)
+        && isValidLibraryInvite(incoming())
+        && incoming().ownerId == request.auth.uid;
+      allow update: if isSignedIn()
+        && isValidId(inviteCode)
+        && existing().ownerId == request.auth.uid
+        && isValidLibraryInvite(incoming())
+        && incoming().ownerId == existing().ownerId
+        && incoming().groupId == existing().groupId;
+      allow delete: if isSignedIn() && isValidId(inviteCode) && existing().ownerId == request.auth.uid;
+    }
+
+    // Direct lookup table for read-only guest access by guestCode (get only, no list)
+    match /guest_invites/{guestCode} {
+      allow get: if isValidId(guestCode);
+      allow list: if false;
+      allow create: if isSignedIn()
+        && isValidId(guestCode)
+        && isValidGuestInvite(incoming())
+        && incoming().ownerId == request.auth.uid;
+      allow update: if isSignedIn()
+        && isValidId(guestCode)
+        && existing().ownerId == request.auth.uid
+        && isValidGuestInvite(incoming())
+        && incoming().ownerId == existing().ownerId
+        && incoming().groupId == existing().groupId;
+      allow delete: if isSignedIn() && isValidId(guestCode) && existing().ownerId == request.auth.uid;
+    }
+
+    // Libraries (groups) & per-library isolated subcollection databases
     match /groups/{groupId} {
-      allow read, write: if true;
-    }
+      allow get: if isValidId(groupId) && (isSignedIn() || existing().guestEnabled == true);
+      allow list: if isSignedIn() && (
+        resource.data.ownerId == request.auth.uid ||
+        request.auth.uid in resource.data.members
+      );
+      allow create: if isSignedIn()
+        && isValidId(groupId)
+        && isValidGroup(incoming())
+        && incoming().id == groupId
+        && incoming().ownerId == request.auth.uid
+        && request.auth.uid in incoming().members;
+      allow update: if isSignedIn()
+        && isValidId(groupId)
+        && isValidGroup(incoming())
+        && incoming().id == existing().id
+        && incoming().ownerId == existing().ownerId
+        && (
+          // Action 1: Library owner manages all library settings including guest mode & roles
+          (
+            existing().ownerId == request.auth.uid
+            && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'description', 'inviteCode', 'guestEnabled', 'guestCode', 'members', 'memberRoles', 'updatedAt'])
+          ) ||
+          // Action 2: Library admin (non-owner) manages library metadata, members, or roles (cannot change guest mode)
+          (
+            (existing().memberRoles is map && existing().memberRoles.get(request.auth.uid, 'member') == 'admin')
+            && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'description', 'inviteCode', 'members', 'memberRoles', 'updatedAt'])
+          ) ||
+          // Action 3: Authenticated user joins this library by adding only themselves to members
+          (
+            !(request.auth.uid in existing().members)
+            && request.auth.uid in incoming().members
+            && incoming().members.hasAll(existing().members)
+            && incoming().members.size() == existing().members.size() + 1
+            && incoming().diff(existing()).affectedKeys().hasOnly(['members'])
+          )
+        );
+      allow delete: if isSignedIn() && isValidId(groupId) && existing().ownerId == request.auth.uid;
 
-    // Songs collection
-    match /songs/{songId} {
-      allow read, write: if true;
-    }
+      // Per-library members subcollection
+      match /members/{memberId} {
+        allow read: if isLibraryMember(groupId);
+        allow create: if isLibraryMember(groupId)
+          && isValidId(memberId)
+          && isValidLibraryMember(incoming())
+          && incoming().uid == memberId
+          && (
+            isLibraryAdmin(groupId) ||
+            (memberId == request.auth.uid && incoming().role == 'member') ||
+            (groupData(groupId).ownerId == request.auth.uid && memberId == request.auth.uid && incoming().role == 'admin')
+          );
+        allow update: if isLibraryMember(groupId)
+          && isValidId(memberId)
+          && isValidLibraryMember(incoming())
+          && incoming().uid == existing().uid
+          && (
+            isLibraryAdmin(groupId) ||
+            (memberId == request.auth.uid && incoming().role == existing().role)
+          );
+        allow delete: if isLibraryMember(groupId)
+          && isValidId(memberId)
+          && (isLibraryAdmin(groupId) || memberId == request.auth.uid);
+      }
 
-    // Folders collection
-    match /folders/{folderId} {
-      allow read, write: if true;
-    }
+      // Per-library songs database (read-only guest access allowed only if owner enabled guestEnabled)
+      match /songs/{songId} {
+        allow read: if isLibraryMember(groupId) || isGuestReadableLibrary(groupId);
+        allow create: if canEditLibrarySongs(groupId)
+          && isValidId(songId)
+          && isValidSong(incoming(), groupId);
+        allow update: if canEditLibrarySongs(groupId)
+          && isValidId(songId)
+          && isValidSong(incoming(), groupId)
+          && incoming().groupId == existing().groupId;
+        allow delete: if canEditLibrarySongs(groupId) && isValidId(songId);
+      }
 
-    // Setlists collection
-    match /setlists/{setlistId} {
-      allow read, write: if true;
-    }
+      // Per-library setlists database
+      match /setlists/{setlistId} {
+        allow read: if isLibraryMember(groupId) || isGuestReadableLibrary(groupId);
+        allow create: if canEditLibrarySetlists(groupId)
+          && isValidId(setlistId)
+          && isValidSetlist(incoming(), groupId);
+        allow update: if canEditLibrarySetlists(groupId)
+          && isValidId(setlistId)
+          && isValidSetlist(incoming(), groupId)
+          && incoming().groupId == existing().groupId;
+        allow delete: if canEditLibrarySetlists(groupId) && isValidId(setlistId);
+      }
 
-    // Setlist history collection
-    match /setlist_history/{historyId} {
-      allow read, write: if true;
+      // Per-library setlist history database (members only)
+      match /setlist_history/{historyId} {
+        allow read: if isLibraryMember(groupId);
+        allow create: if isLibraryMember(groupId)
+          && isValidId(historyId)
+          && isValidSetlistHistory(incoming(), groupId);
+        allow update: if canEditLibrarySetlists(groupId)
+          && isValidId(historyId)
+          && isValidSetlistHistory(incoming(), groupId)
+          && incoming().groupId == existing().groupId;
+        allow delete: if canEditLibrarySetlists(groupId) && isValidId(historyId);
+      }
+
+      // Per-library custom pads database
+      match /custom_pads/{padId} {
+        allow read: if isLibraryMember(groupId) || isGuestReadableLibrary(groupId);
+        allow create: if isLibraryMember(groupId)
+          && isValidId(padId)
+          && isValidCustomPad(incoming(), groupId);
+        allow update: if isLibraryMember(groupId)
+          && isValidId(padId)
+          && isValidCustomPad(incoming(), groupId)
+          && incoming().groupId == existing().groupId;
+        allow delete: if isLibraryMember(groupId)
+          && isValidId(padId)
+          && (canEditLibrarySongs(groupId) || existing().createdBy == request.auth.uid);
+      }
     }
   }
 }
-

@@ -12,6 +12,7 @@ export interface UserProfile {
   displayName: string;
   currentGroupId: string | null;
   role: UserRole;
+  photoURL?: string;
   createdAt?: any;
 }
 
@@ -20,7 +21,10 @@ export interface Group {
   name: string;
   ownerId: string;
   members: string[]; // array of UIDs
+  memberRoles?: Record<string, UserRole>;
   inviteCode: string;
+  guestEnabled?: boolean;
+  guestCode?: string;
   description?: string;
   createdAt?: any;
 }
@@ -209,5 +213,20 @@ export interface BiblePassageData {
   referenceText: string; // e.g. 'Jean 3:16' ou 'Psaume 23:1-3'
   text: string;
   verses: BibleVerseItem[];
+}
+
+export interface CustomPad {
+  id: string;
+  groupId: string;
+  name: string;
+  rootSemitone: number; // 0 for C, 1 for C#, etc.
+  rootKey: string; // "C", "D", "G", etc.
+  audioUrl?: string; // URL in Storage or data URL
+  audioData?: string; // Base64 audio data if stored directly
+  fileSize?: number;
+  duration?: number;
+  createdAt?: any;
+  createdBy?: string;
+  createdByName?: string;
 }
 

@@ -23,7 +23,6 @@ import {
   Radio,
   Zap,
   RefreshCw,
-  LayoutGrid,
   Gauge,
   Clock,
   Tag,
@@ -555,9 +554,6 @@ export const SettingsView: React.FC = () => {
     selectedSong,
     stageSettings,
     updateStageSettings,
-    songCardMetadata,
-    updateSongCardMetadata,
-    currentUser,
     songs,
     setlists,
     isOffline,
@@ -580,17 +576,15 @@ export const SettingsView: React.FC = () => {
   const [isMobilePreviewFullscreen, setIsMobilePreviewFullscreen] = useState(false);
   const [selectedPreviewElement, setSelectedPreviewElement] = useState<PointNClickSelection | null>(null);
 
-  // État des catégories pliables / dépliables sur tous les appareils (plié par défaut)
+  // État des catégories pliables / dépliables sur tous les appareils
   type SettingsCategory = 
     | 'display'
-    | 'song_cards'
     | 'midi'
     | 'duplicates'
     | 'offline';
 
   const [openCategories, setOpenCategories] = useState<Record<SettingsCategory, boolean>>({
     display: false,      // Plié par défaut sur tous les appareils
-    song_cards: false,
     midi: false,
     duplicates: false,
     offline: false,
@@ -608,7 +602,6 @@ export const SettingsView: React.FC = () => {
     const nextState = allCollapsed;
     setOpenCategories({
       display: nextState,
-      song_cards: nextState,
       midi: nextState,
       duplicates: nextState,
       offline: nextState,
@@ -1570,7 +1563,7 @@ export const SettingsView: React.FC = () => {
           </button>
           <div>
             <div className="flex items-center gap-2">
-              <Sliders className="w-5 h-5 text-purple-400" />
+              <Sliders className="w-5 h-5 text-blue-500" />
               <h1 className="text-base sm:text-lg font-bold text-white tracking-tight">
                 Réglages
               </h1>
@@ -1869,250 +1862,6 @@ export const SettingsView: React.FC = () => {
                   <span>Ouvrir en Plein Écran</span>
                 </button>
               </div>
-            </div>
-          </div>
-
-          {/* 3. CARTES DE CHANTS - VISIBILITE DES METADONNEES DANS LA BIBLIOTHEQUE */}
-          <div className="bg-[#111112] border border-[#222224] rounded-xl overflow-hidden shadow-sm transition-colors hover:border-[#303036]">
-            {/* Header / Trigger */}
-            <div 
-              onClick={() => toggleCategory('song_cards')}
-              className="w-full text-left p-3.5 sm:p-4.5 flex items-center justify-between gap-3 cursor-pointer transition-colors hover:bg-[#151518]/50 select-none"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 shrink-0">
-                  <LayoutGrid className="w-4 h-4" />
-                </div>
-                <h2 className="text-sm font-bold text-white truncate">
-                  Cartes des Chants
-                </h2>
-              </div>
-
-              <div className="flex items-center gap-2 shrink-0">
-                <div className={`p-1.5 rounded-lg bg-[#18181C] border border-[#2B2B30] text-gray-400 transition-transform duration-200 ${openCategories.song_cards ? 'rotate-180 text-blue-400 border-blue-500/30' : ''}`}>
-                  <ChevronDown className="w-4 h-4" />
-                </div>
-              </div>
-            </div>
-
-            {/* Content (Collapsible on all devices) */}
-            <div className={`p-4 sm:p-5 pt-0 sm:pt-0 ${openCategories.song_cards ? 'block' : 'hidden'}`}>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-
-
-              {/* BPM et Tempo */}
-              <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex items-center justify-between gap-2.5">
-                <div className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded bg-blue-500/20 border border-blue-500/40 text-blue-300 text-[10px] font-bold flex items-center justify-center shrink-0">
-                    <Gauge className="w-3 h-3 text-blue-400" />
-                  </span>
-                  <span className="text-xs font-bold text-gray-200">BPM et Tempo</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const next = !songCardMetadata?.showTempo;
-                    updateSongCardMetadata({ showTempo: next });
-                    notify(next ? 'BPM activé sur les cartes' : 'BPM masqué sur les cartes');
-                  }}
-                  className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border ${
-                    songCardMetadata?.showTempo
-                      ? 'bg-blue-600 text-white border-blue-500 shadow-xs hover:bg-blue-500'
-                      : 'metadata-toggle-btn-inactive bg-[#121214] text-gray-400 border-[#2B2B30] hover:text-white'
-                  }`}
-                  title={songCardMetadata?.showTempo ? 'Cliquer pour masquer le BPM' : 'Cliquer pour afficher le BPM'}
-                >
-                  {songCardMetadata?.showTempo ? (
-                    <>
-                      <Eye className="w-3.5 h-3.5 shrink-0" />
-                      <span>Visible</span>
-                    </>
-                  ) : (
-                    <>
-                      <EyeOff className="w-3.5 h-3.5 shrink-0" />
-                      <span>Masqué</span>
-                    </>
-                  )}
-                </button>
-              </div>
-
-
-
-              {/* Categories */}
-              <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex items-center justify-between gap-2.5">
-                <div className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded bg-blue-500/20 border border-blue-500/40 text-blue-300 text-[10px] font-bold flex items-center justify-center shrink-0">
-                    <Tag className="w-3 h-3 text-blue-400" />
-                  </span>
-                  <span className="text-xs font-bold text-gray-200">Catégories</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const next = !songCardMetadata?.showCategories;
-                    updateSongCardMetadata({ showCategories: next });
-                    notify(next ? 'Catégories activées sur les cartes' : 'Catégories masquées sur les cartes');
-                  }}
-                  className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border ${
-                    songCardMetadata?.showCategories
-                      ? 'bg-blue-600 text-white border-blue-500 shadow-xs hover:bg-blue-500'
-                      : 'metadata-toggle-btn-inactive bg-[#121214] text-gray-400 border-[#2B2B30] hover:text-white'
-                  }`}
-                  title={songCardMetadata?.showCategories ? 'Cliquer pour masquer les catégories' : 'Cliquer pour afficher les catégories'}
-                >
-                  {songCardMetadata?.showCategories ? (
-                    <>
-                      <Eye className="w-3.5 h-3.5 shrink-0" />
-                      <span>Visible</span>
-                    </>
-                  ) : (
-                    <>
-                      <EyeOff className="w-3.5 h-3.5 shrink-0" />
-                      <span>Masquée</span>
-                    </>
-                  )}
-                </button>
-              </div>
-
-              {/* N° CCLI */}
-              <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex items-center justify-between gap-2.5">
-                <div className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded bg-blue-500/20 border border-blue-500/40 text-blue-300 text-[10px] font-bold flex items-center justify-center shrink-0">
-                    <Shield className="w-3 h-3 text-blue-400" />
-                  </span>
-                  <span className="text-xs font-bold text-gray-200">Numéro CCLI</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const next = !songCardMetadata?.showCcli;
-                    updateSongCardMetadata({ showCcli: next });
-                    notify(next ? 'N° CCLI activé sur les cartes' : 'N° CCLI masqué sur les cartes');
-                  }}
-                  className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border ${
-                    songCardMetadata?.showCcli
-                      ? 'bg-blue-600 text-white border-blue-500 shadow-xs hover:bg-blue-500'
-                      : 'metadata-toggle-btn-inactive bg-[#121214] text-gray-400 border-[#2B2B30] hover:text-white'
-                  }`}
-                  title={songCardMetadata?.showCcli ? 'Cliquer pour masquer le CCLI' : 'Cliquer pour afficher le CCLI'}
-                >
-                  {songCardMetadata?.showCcli ? (
-                    <>
-                      <Eye className="w-3.5 h-3.5 shrink-0" />
-                      <span>Visible</span>
-                    </>
-                  ) : (
-                    <>
-                      <EyeOff className="w-3.5 h-3.5 shrink-0" />
-                      <span>Masqué</span>
-                    </>
-                  )}
-                </button>
-              </div>
-
-              {/* Copyright */}
-              <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex items-center justify-between gap-2.5">
-                <div className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[10px] font-bold flex items-center justify-center shrink-0">
-                    <Copyright className="w-3 h-3 text-emerald-400" />
-                  </span>
-                  <span className="text-xs font-bold text-gray-200">Copyright & Droits</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const next = !songCardMetadata?.showCopyright;
-                    updateSongCardMetadata({ showCopyright: next });
-                    notify(next ? 'Copyright activé sur les cartes' : 'Copyright masqué sur les cartes');
-                  }}
-                  className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border ${
-                    songCardMetadata?.showCopyright
-                      ? 'bg-blue-600 text-white border-blue-500 shadow-xs hover:bg-blue-500'
-                      : 'metadata-toggle-btn-inactive bg-[#121214] text-gray-400 border-[#2B2B30] hover:text-white'
-                  }`}
-                  title={songCardMetadata?.showCopyright ? 'Cliquer pour masquer le copyright' : 'Cliquer pour afficher le copyright'}
-                >
-                  {songCardMetadata?.showCopyright ? (
-                    <>
-                      <Eye className="w-3.5 h-3.5 shrink-0" />
-                      <span>Visible</span>
-                    </>
-                  ) : (
-                    <>
-                      <EyeOff className="w-3.5 h-3.5 shrink-0" />
-                      <span>Masqué</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {/* Apercu en direct de la vignette de chant */}
-            <div className="mt-4 pt-3 border-t border-[#222224]">
-              <div className="text-[11px] text-gray-400 mb-2 font-medium flex items-center justify-between">
-                <span>Aperçu de la vignette de chant</span>
-                <span className="text-[10px] text-gray-500">
-                  {!songCardMetadata?.showKey && !songCardMetadata?.showTempo && !songCardMetadata?.showDuration && !songCardMetadata?.showCategories && !songCardMetadata?.showCcli && !songCardMetadata?.showCopyright
-                    ? 'Métadonnées masquées par défaut'
-                    : 'Métadonnées actives'}
-                </span>
-              </div>
-              <div className="p-3 rounded-lg bg-[#151518] border border-[#2A2A2E] max-w-xs">
-                <div>
-                  <div className="flex items-start gap-2 mb-1">
-                    <span className="w-5 h-5 rounded border border-[#444] bg-[#1C1C1E] flex items-center justify-center text-[10px] text-gray-400 shrink-0 mt-0.5">
-                      ✓
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-xs font-bold text-white truncate">Chant exemple</div>
-                      <div className="text-[11px] text-gray-400 truncate">Artiste de louange</div>
-                    </div>
-                  </div>
-                  {songCardMetadata?.showCategories && (
-                    <div className="flex items-center gap-1 mt-1.5 pl-7">
-                      <span className="text-[9px] px-1.5 py-0.5 rounded border border-[#333] bg-[#1C1C1E] text-gray-400 flex items-center gap-1">
-                        <Tag className="w-2 h-2 text-blue-400" />
-                        Adoration
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {((songCardMetadata?.showKey) || (songCardMetadata?.showTempo) || (songCardMetadata?.showDuration) || (songCardMetadata?.showCcli) || (songCardMetadata?.showCopyright)) && (
-                  <div className="flex items-center gap-1 flex-wrap mt-2 pt-1.5 border-t border-[#1C1C1F]">
-                    {songCardMetadata?.showKey && (
-                      <span className="px-1.5 py-0.5 rounded border border-amber-500/50 bg-amber-500/20 text-amber-300 text-[9px] font-bold">
-                        C
-                      </span>
-                    )}
-                    {songCardMetadata?.showTempo && (
-                      <span className="px-1.5 py-0.5 rounded bg-[#1C1C1E] border border-[#222224] text-gray-400 text-[9px] font-medium flex items-center gap-1">
-                        <Gauge className="w-2.5 h-2.5 text-blue-400" />
-                        128
-                      </span>
-                    )}
-                    {songCardMetadata?.showDuration && (
-                      <span className="px-1.5 py-0.5 rounded bg-cyan-950/50 border border-cyan-500/30 text-cyan-300 text-[9px] font-medium flex items-center gap-1 font-mono">
-                        <Clock className="w-2.5 h-2.5 text-cyan-400" />
-                        03:45
-                      </span>
-                    )}
-                    {songCardMetadata?.showCcli && (
-                      <span className="px-1.5 py-0.5 rounded bg-blue-950/50 border border-blue-500/30 text-blue-300 text-[9px] font-medium flex items-center gap-1 font-mono">
-                        <Shield className="w-2.5 h-2.5 text-blue-400" />
-                        #7117726
-                      </span>
-                    )}
-                    {songCardMetadata?.showCopyright && (
-                      <span className="px-1.5 py-0.5 rounded bg-[#1C1C1E] border border-[#222224] text-gray-400 text-[9px] font-medium flex items-center gap-1 truncate max-w-[130px]">
-                        <Copyright className="w-2.5 h-2.5 text-gray-500 shrink-0" />
-                        <span className="truncate">© Bethel</span>
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
             </div>
           </div>
 

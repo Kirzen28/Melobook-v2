@@ -33,6 +33,7 @@ import { MetronomeStageControl } from './MetronomeStageControl';
 import { MidiStatusIndicator } from './MidiStatusIndicator';
 import { useMidi } from '../context/MidiContext';
 import { VocalArrangementSelector } from './editor/VocalArrangementSelector';
+import { KeySelectorKeypad } from './KeySelectorKeypad';
 import { metronomeAudio } from '../utils/metronomeAudio';
 import { 
   Play, 
@@ -54,6 +55,7 @@ import {
   Music, 
   Music2,
   FileEdit,
+  FileText,
   ArrowUp,
   ArrowUpDown,
   Sparkles,
@@ -160,6 +162,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
     updateDisplaySettings,
     setActiveTab, 
     activeTab,
+    setEditorSubTab,
     currentUser,
     currentGroup,
     setActiveSetlistIndex,
@@ -251,13 +254,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
   }, []);
 
   // Mode Bilingue (2 colonnes : normale à gauche, version traduite à droite)
-  const [isBilingualMode, setIsBilingualMode] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem('melobook_bilingual_mode') === 'true';
-    } catch {
-      return false;
-    }
-  });
+  const [isBilingualMode, setIsBilingualMode] = useState<boolean>(false);
   const [selectedTranslatedSongId, setSelectedTranslatedSongId] = useState<string | null>(null);
   const [showAddTranslationModal, setShowAddTranslationModal] = useState(false);
   const [bilingualSearchQuery, setBilingualSearchQuery] = useState('');
@@ -355,6 +352,9 @@ export const SongReader: React.FC<SongReaderProps> = ({
   const scrollAnimRef = useRef<number | null>(null);
   const lastScrollTimeRef = useRef<number>(performance.now());
   const scrollPosRef = useRef<number>(0);
+  const isAutoScrollingRef = useRef<boolean>(false);
+  const [scrollSpeedMultiplier, setScrollSpeedMultiplier] = useState<number>(1);
+  const [showFloatingAutoScroll, setShowFloatingAutoScroll] = useState<boolean>(false);
 
   // Parse ChordPro
   const parsedData = useMemo(() => {
@@ -432,6 +432,10 @@ export const SongReader: React.FC<SongReaderProps> = ({
 
   // Base parameters
   const catalogBaseKey = (parsedData?.hasExplicitKey && parsedData.key) || song?.key || parsedData?.key || 'C';
+  const isSongOriginallyMinor = useMemo(() => {
+    const raw = (song?.key || catalogBaseKey || 'C').trim();
+    return raw.endsWith('m') || raw.toLowerCase().includes('min');
+  }, [song?.key, catalogBaseKey]);
   const effectiveBaseKey = setlistOverride?.key || catalogBaseKey;
   const effectiveTransposeOffset = stageSettings.transposeOffset !== 0
     ? stageSettings.transposeOffset
@@ -459,17 +463,21 @@ export const SongReader: React.FC<SongReaderProps> = ({
   }, [effectiveDuration, song?.contentChordPro, effectiveTempo, song?.timeSignature]);
 
   const handleToggleAutoScroll = useCallback(() => {
-    if (!stageSettings.isAutoScrolling && containerRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
-      // Si on est déjà tout en bas (à moins de 10px de la fin), on repart du début du chant
-      if (scrollTop + clientHeight >= scrollHeight - 10) {
-        containerRef.current.scrollTop = 0;
-        scrollPosRef.current = 0;
-      } else {
-        scrollPosRef.current = scrollTop;
+    const nextState = !stageSettings.isAutoScrolling;
+    if (nextState) {
+      setShowFloatingAutoScroll(true);
+      if (containerRef.current) {
+        const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
+        // Si on est déjà tout en bas (à moins de 10px de la fin), on repart du début du chant
+        if (scrollTop + clientHeight >= scrollHeight - 10) {
+          containerRef.current.scrollTop = 0;
+          scrollPosRef.current = 0;
+        } else {
+          scrollPosRef.current = scrollTop;
+        }
       }
     }
-    updateStageSettings({ isAutoScrolling: !stageSettings.isAutoScrolling });
+    updateStageSettings({ isAutoScrolling: nextState });
   }, [stageSettings.isAutoScrolling, updateStageSettings]);
   const effectiveNotes = setlistOverride?.notes !== undefined ? setlistOverride.notes : (song?.notes || '');
   const personalCapo = stageSettings.capo || 0;
@@ -714,7 +722,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
   const zoomPercentage = Math.round(((displaySettings.typography?.lyricsSize || 18) / 18) * 100);
 
   const handleSetZoomPercentage = (newPct: number) => {
-    const clampedPct = Math.max(65, Math.min(175, newPct));
+    const clampedPct = Math.max(60, Math.min(180, Math.round(newPct / 10) * 10));
     const factor = clampedPct / 100;
 
     // Scale all typography elements proportionally
@@ -1122,6 +1130,14 @@ export const SongReader: React.FC<SongReaderProps> = ({
 
   const currentKeyDisplay = transposedKeyDisplay || baseKeyDisplay;
 
+  // Sync auto-scrolling ref and open floating widget when started
+  useEffect(() => {
+    isAutoScrollingRef.current = stageSettings.isAutoScrolling;
+    if (stageSettings.isAutoScrolling) {
+      setShowFloatingAutoScroll(true);
+    }
+  }, [stageSettings.isAutoScrolling]);
+
   // Auto-Scroll Loop : vitesse calculée précisément selon la durée du chant
   useEffect(() => {
     if (!stageSettings.isAutoScrolling) {
@@ -1145,7 +1161,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
     lastScrollTimeRef.current = performance.now();
 
     const scrollStep = (time: number) => {
-      const delta = (time - lastScrollTimeRef.current) / 1000;
+      const delta = Math.min(0.1, (time - lastScrollTimeRef.current) / 1000);
       lastScrollTimeRef.current = time;
 
       if (containerRef.current) {
@@ -1158,8 +1174,8 @@ export const SongReader: React.FC<SongReaderProps> = ({
         }
 
         const durationSec = Math.max(10, songDurationSeconds);
-        // Vitesse en pixels par seconde calée précisément sur la durée totale du chant
-        const pxPerSecond = totalScrollable / durationSec;
+        // Vitesse en pixels par seconde calée précisément sur la durée totale du chant * multiplicateur
+        const pxPerSecond = (totalScrollable / durationSec) * scrollSpeedMultiplier;
 
         scrollPosRef.current += pxPerSecond * delta;
         containerRef.current.scrollTop = scrollPosRef.current;
@@ -1186,13 +1202,15 @@ export const SongReader: React.FC<SongReaderProps> = ({
         scrollAnimRef.current = null;
       }
     };
-  }, [stageSettings.isAutoScrolling, songDurationSeconds, updateStageSettings]);
+  }, [stageSettings.isAutoScrolling, songDurationSeconds, scrollSpeedMultiplier, updateStageSettings]);
 
-  // Manual scroll progress tracker
+  // Manual scroll progress tracker (ne pas écraser les sous-pixels pendant le défilement auto)
   const handleScroll = () => {
     if (containerRef.current) {
       const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
-      scrollPosRef.current = scrollTop;
+      if (!isAutoScrollingRef.current || Math.abs(scrollTop - scrollPosRef.current) > 25) {
+        scrollPosRef.current = scrollTop;
+      }
       const totalScrollable = Math.max(1, scrollHeight - clientHeight);
       const progress = Math.min(100, Math.round((scrollTop / totalScrollable) * 100)) || 0;
       setScrollProgress(progress);
@@ -1408,15 +1426,16 @@ export const SongReader: React.FC<SongReaderProps> = ({
       return (
         <div 
           key={sIdx}
-          className={`rounded-lg ${cardPaddingClass} transition-all ${isTranslatedCol ? 'bg-[#121217]/60' : ''}`}
+          data-section-card="true"
+          className={`rounded-lg ${cardPaddingClass} transition-all ${isTranslatedCol ? 'bg-[#121217]/60' : ''} print:break-inside-avoid print:page-break-inside-avoid print:p-0 print:mb-3 print:bg-transparent print:border-none print:shadow-none`}
           style={getSectionBorderStyles(secColor, displaySettings.sectionBorders)}
         >
           {hasVisibleHeader && (
-            <div className={`flex items-center justify-between gap-2 ${headerMarginClass} flex-wrap`}>
+            <div className={`flex items-center justify-between gap-2 ${headerMarginClass} flex-wrap print:mb-1 print:gap-1.5`}>
               <div className="flex items-center gap-1.5 flex-wrap">
                 {isSectionHeaderVisible && sectionTitle ? (
                   <span
-                    className="inline-block font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border shadow-xs text-left select-none"
+                    className="inline-block font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border shadow-xs text-left select-none print:px-2 print:py-0.5 print:bg-neutral-100 print:text-neutral-900 print:border-neutral-300 print:text-[9.5pt] print:shadow-none"
                     style={{
                       fontSize: `${displaySettings.typography.headerSize}px`,
                       color: secColor,
@@ -1430,7 +1449,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
 
                 {sectionRepeat > 1 && (
                   <span 
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded border bg-emerald-950/40 border-emerald-500/50 text-emerald-300 font-bold font-mono select-none"
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded border bg-emerald-950/40 border-emerald-500/50 text-emerald-300 font-bold font-mono select-none print:bg-neutral-100 print:border-neutral-400 print:text-neutral-900 print:text-[9.5pt]"
                     style={{ fontSize: `${Math.max(10, Math.round((displaySettings.typography?.headerSize || 12) * 0.9))}px` }}
                     title={`Répété ${sectionRepeat} fois`}
                   >
@@ -1439,7 +1458,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                         width: `${Math.max(11, Math.round((displaySettings.typography?.headerSize || 12) * 0.9))}px`,
                         height: `${Math.max(11, Math.round((displaySettings.typography?.headerSize || 12) * 0.9))}px` 
                       }}
-                      className="text-emerald-400 shrink-0" 
+                      className="text-emerald-400 shrink-0 print:text-neutral-800" 
                     />
                     <span>x{sectionRepeat}</span>
                   </span>
@@ -1447,7 +1466,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
               </div>
 
               {!isTranslatedCol && metaVis.vocalArrangement && (
-                <div className="flex items-center gap-1.5 flex-wrap ml-auto">
+                <div className="no-print flex items-center gap-1.5 flex-wrap ml-auto">
                   <VocalArrangementSelector
                     vocals={section.vocals || (section.vocal ? [section.vocal] : [])}
                     onChange={(newVocals) => handleUpdateSectionVocals(sIdx, newVocals)}
@@ -1459,14 +1478,14 @@ export const SongReader: React.FC<SongReaderProps> = ({
             </div>
           )}
 
-          <div className={`${linesSpacingClass} font-chord leading-relaxed`}>
+          <div className={`${linesSpacingClass} font-chord leading-relaxed print:space-y-1.5`}>
             {section.lines.map((line: any, lIdx: number) => {
               if (line.type === 'empty') {
-                return <div key={lIdx} className="h-3" />;
+                return <div key={lIdx} className="h-3 print:h-2" />;
               }
 
               return (
-                <div key={lIdx} className="flex flex-wrap items-end gap-x-0.5">
+                <div key={lIdx} className="flex flex-wrap items-end gap-x-0.5 print:leading-tight">
                   {line.items.map((item: any, iIdx: number) => {
                     const displayedChord = item.chord 
                       ? transposeChord(item.chord, semitonesOffset, stageSettings.notation) 
@@ -1486,7 +1505,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                                 });
                               }
                             }}
-                            className={`chord-badge font-mono font-bold hover:underline select-none leading-none mb-1 pr-1 text-left inline-flex items-center cursor-pointer transition-all active:scale-95 group/chord ${
+                            className={`chord-badge font-mono font-bold hover:underline select-none leading-none mb-1 pr-1 text-left inline-flex items-center cursor-pointer transition-all active:scale-95 group/chord print:cursor-default print:hover:no-underline print:text-blue-800 print:mb-0.5 ${
                               displayedChord ? 'opacity-100' : 'opacity-0 pointer-events-none'
                             }`}
                             style={{ 
@@ -1500,7 +1519,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                         )}
                         
                         <span 
-                          className="text-[#E0E0E0] font-sans tracking-normal whitespace-pre"
+                          className="text-[#E0E0E0] font-sans tracking-normal whitespace-pre print:text-black print:font-normal"
                           style={{ fontSize: `${displaySettings.typography.lyricsSize}px` }}
                         >
                           {item.lyrics || (item.chord ? ' ' : '')}
@@ -1554,7 +1573,10 @@ export const SongReader: React.FC<SongReaderProps> = ({
     : (isFullscreen ? 'fixed inset-0 top-0 z-50' : 'fixed inset-0 top-16 md:top-16 z-30');
 
   return (
-    <div className={`${containerClasses} flex flex-col ${themeClasses} select-none transition-colors`}>
+    <div 
+      data-song-reader-root="true"
+      className={`${containerClasses} flex flex-col ${themeClasses} select-none transition-colors print:static print:inset-auto print:top-0 print:w-full print:h-auto print:bg-white print:text-black print:overflow-visible`}
+    >
       
       {/* Flash écran contour rythmé (métronome) */}
       {flashActive && (
@@ -1609,9 +1631,9 @@ export const SongReader: React.FC<SongReaderProps> = ({
               </button>
             </div>
 
-            {/* Actions principales mises en valeur en haut : Éditer & Exporter en PDF */}
+            {/* Actions principales : Éditer le chant & Exporter PDF */}
             <div className="mb-3.5 pb-3 border-b border-[#282830]">
-              <div className={`grid ${canManageSongs ? 'grid-cols-2' : 'grid-cols-1'} gap-2.5`}>
+              <div className={`grid ${canManageSongs ? 'grid-cols-2' : 'grid-cols-1'} gap-2`}>
                 {canManageSongs && (
                   <button
                     type="button"
@@ -1619,18 +1641,15 @@ export const SongReader: React.FC<SongReaderProps> = ({
                       setShowSettingsDrawer(false);
                       setActiveTab('editor');
                     }}
-                    className="flex items-center gap-2.5 p-2.5 rounded-xl bg-gradient-to-br from-amber-500/20 via-amber-600/10 to-[#18181F] hover:from-amber-500/30 hover:via-amber-600/20 border border-amber-500/40 hover:border-amber-400 text-left transition-all cursor-pointer group shadow-md shadow-amber-950/30 active:scale-98"
+                    className="flex items-center gap-2 p-2 sm:p-2.5 rounded-xl bg-gradient-to-br from-amber-500/20 via-amber-600/10 to-[#18181F] hover:from-amber-500/30 hover:via-amber-600/20 border border-amber-500/40 hover:border-amber-400 text-left transition-all cursor-pointer group shadow-md shadow-amber-950/30 active:scale-98"
                     title="Éditer le chant dans l'éditeur"
                   >
-                    <div className="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0 group-hover:scale-110 transition-transform shadow-xs">
-                      <FileEdit className="w-4 h-4" />
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0 group-hover:scale-110 transition-transform shadow-xs">
+                      <FileEdit className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="font-bold text-xs text-white group-hover:text-amber-200 transition-colors">
-                        Éditer
-                      </div>
-                      <div className="text-[10px] text-amber-300/80 truncate">
-                        Modifier le chant
+                      <div className="font-bold text-[11px] sm:text-xs text-white group-hover:text-amber-200 transition-colors leading-tight">
+                        Éditer le chant
                       </div>
                     </div>
                   </button>
@@ -1642,18 +1661,15 @@ export const SongReader: React.FC<SongReaderProps> = ({
                     setShowSettingsDrawer(false);
                     setShowPdfModal(true);
                   }}
-                  className="flex items-center gap-2.5 p-2.5 rounded-xl bg-gradient-to-br from-emerald-500/20 via-teal-600/10 to-[#18181F] hover:from-emerald-500/30 hover:via-teal-600/20 border border-emerald-500/40 hover:border-emerald-400 text-left transition-all cursor-pointer group shadow-md shadow-emerald-950/30 active:scale-98"
-                  title="Exporter le chant au format PDF"
+                  className="flex items-center gap-2 p-2 sm:p-2.5 rounded-xl bg-gradient-to-br from-emerald-500/20 via-teal-600/10 to-[#18181F] hover:from-emerald-500/30 hover:via-teal-600/20 border border-emerald-500/40 hover:border-emerald-400 text-left transition-all cursor-pointer group shadow-md shadow-emerald-950/30 active:scale-98"
+                  title="Exporter le chant (PDF ou ChordPro)"
                 >
-                  <div className="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0 group-hover:scale-110 transition-transform shadow-xs">
-                    <FileDown className="w-4 h-4" />
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0 group-hover:scale-110 transition-transform shadow-xs">
+                    <FileDown className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="font-bold text-xs text-white group-hover:text-emerald-200 transition-colors">
-                      Exporter PDF
-                    </div>
-                    <div className="text-[10px] text-emerald-300/80 truncate">
-                      Partage & impression
+                    <div className="font-bold text-[11px] sm:text-xs text-white group-hover:text-emerald-200 transition-colors leading-tight">
+                      Exporter
                     </div>
                   </div>
                 </button>
@@ -1661,51 +1677,45 @@ export const SongReader: React.FC<SongReaderProps> = ({
             </div>
 
             {/* Pad d'accompagnement (Tonic Pad) */}
-            <div className="mb-3 rounded-2xl bg-[#131720]/80 border border-[#222938] p-2 sm:p-2.5 transition-all">
+            <div className="mb-3 rounded-xl bg-gradient-to-br from-sky-500/20 via-sky-600/10 to-[#18181F] hover:from-sky-500/25 hover:via-sky-600/15 border border-sky-500/40 hover:border-sky-400 p-2 sm:p-2.5 transition-all shadow-md shadow-sky-950/30">
               <button
                 type="button"
                 onClick={togglePadCollapse}
-                className="w-full flex items-center justify-between text-left cursor-pointer group rounded-xl p-1 hover:bg-[#1A202E]/60 transition-colors"
+                className="w-full flex items-center justify-between text-left cursor-pointer group rounded-lg p-0.5 transition-colors"
                 aria-expanded={!isPadCollapsed}
                 title={isPadCollapsed ? "Déplier le module Pad" : "Replier le module Pad"}
               >
                 <div className="flex items-center gap-2 min-w-0">
-                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+                  <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center shrink-0 transition-transform group-hover:scale-110 shadow-xs ${
                     isPadPlaying 
                       ? 'bg-sky-400 text-black shadow-md shadow-sky-400/30' 
-                      : 'bg-[#1A202C] text-sky-400 border border-[#2B3547]'
+                      : 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
                   }`}>
-                    <Radio className={`w-3.5 h-3.5 ${isPadPlaying ? 'animate-pulse' : ''}`} />
+                    <Radio className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isPadPlaying ? 'animate-pulse' : ''}`} />
                   </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[11px] font-bold text-gray-200 group-hover:text-white uppercase tracking-wider transition-colors">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-bold text-[11px] sm:text-xs text-white group-hover:text-sky-200 transition-colors leading-tight">
                         Pad d'accompagnement
                       </span>
                       {isPadPlaying && (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/30">
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-sky-500/30 text-sky-200 border border-sky-400/50">
                           <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-ping" />
                           Actif • {CHROMATIC_NOTES[activePadSemitone]?.label}
                         </span>
                       )}
                     </div>
-                    <div className="text-[10px] text-gray-400 truncate">
-                      {isPadCollapsed ? 'Module replié (cliquer pour déplier)' : 'Nappe sonore continue pour le chant'}
-                    </div>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-[10px] text-sky-400/90 font-mono font-bold bg-sky-950/40 border border-sky-500/30 px-1.5 py-0.5 rounded">
-                    Tonalité {baseKeyDisplay}
-                  </span>
-                  <div className="w-6 h-6 rounded-lg bg-[#181D27] group-hover:bg-[#222836] border border-[#2A3344] flex items-center justify-center text-gray-400 group-hover:text-white transition-all">
+                  <div className="w-6 h-6 rounded-lg bg-sky-500/20 group-hover:bg-sky-500/30 border border-sky-500/30 flex items-center justify-center text-sky-300 group-hover:text-white transition-all shadow-xs">
                     {isPadCollapsed ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
                   </div>
                 </div>
               </button>
 
-              <div className={isPadCollapsed ? 'hidden' : 'mt-2.5'}>
+              <div className={isPadCollapsed ? 'hidden' : 'mt-2.5 pt-2.5 border-t border-sky-500/20'}>
                 <PadControl 
                   songKey={parsedData.key || song.key} 
                   transposeOffset={effectiveTransposeOffset}
@@ -1714,181 +1724,175 @@ export const SongReader: React.FC<SongReaderProps> = ({
               </div>
             </div>
 
-            {/* Accords */}
-            <div className="flex items-center justify-between mb-2.5">
-              <span className="text-gray-400 flex items-center gap-1.5">
-                <Eye className="w-3.5 h-3.5 text-amber-400" />
-                <span>Accords</span>
-              </span>
-              <div className="inline-flex items-center p-0.5 rounded-lg bg-[#1A1A20] border border-[#2B2B34]">
-                <button
-                  type="button"
-                  onClick={() => updateStageSettings({ showChords: true })}
-                  className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
-                    stageSettings.showChords
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  <Eye className="w-3 h-3" />
-                  <span>Affichés</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => updateStageSettings({ showChords: false })}
-                  className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
-                    !stageSettings.showChords
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  <EyeOff className="w-3 h-3" />
-                  <span>Masqués</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Mode Bilingue 2 colonnes */}
-            <div className="flex items-center justify-between mb-2.5">
-              <span className="text-gray-400 flex items-center gap-1.5">
-                <Columns className="w-3.5 h-3.5 text-indigo-400" />
-                <span>Mode bilingue (2 colonnes)</span>
-              </span>
-              <button
-                type="button"
-                onClick={handleToggleBilingualMode}
-                className={`px-3 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
-                  isBilingualMode
-                    ? 'bg-indigo-600 text-white shadow-xs'
-                    : 'bg-[#1A1A20] text-gray-400 hover:text-white border border-[#2B2B34]'
-                }`}
-              >
-                {isBilingualMode ? 'Actif' : 'Désactivé'}
-              </button>
-            </div>
-
-            {/* Taille du texte */}
-            <div className="flex items-center justify-between mb-2.5">
-              <span className="text-gray-400 flex items-center gap-1.5">
+            {/* Section Affichage & Lecture */}
+            <div className="border-t border-[#282830] pt-3 mb-2.5">
+              <div className="text-[11px] font-bold text-gray-300 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
                 <SlidersHorizontal className="w-3.5 h-3.5 text-blue-400" />
-                <span>Taille</span>
-              </span>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleSetZoomPercentage(zoomPercentage - 5)}
-                  disabled={zoomPercentage <= 65}
-                  className="p-1 rounded bg-[#202026] hover:bg-[#282832] text-gray-300 disabled:opacity-30 border border-[#30303A] cursor-pointer transition-colors"
-                  title="Réduire (-5%)"
-                >
-                  <Minus className="w-3.5 h-3.5" />
-                </button>
-                <span className="font-mono font-bold text-blue-400 text-xs w-10 text-center">
-                  {zoomPercentage}%
-                </span>
-                <button
-                  type="button"
-                  onClick={() => handleSetZoomPercentage(zoomPercentage + 5)}
-                  disabled={zoomPercentage >= 175}
-                  className="p-1 rounded bg-[#202026] hover:bg-[#282832] text-gray-300 disabled:opacity-30 border border-[#30303A] cursor-pointer transition-colors"
-                  title="Agrandir (+5%)"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={handleResetZoom}
-                  className="text-[10px] text-blue-400 hover:text-blue-300 cursor-pointer transition-colors shrink-0"
-                  title="Rétablir à 100%"
-                >
-                  Reset
-                </button>
+                <span>Affichage & Lecture</span>
               </div>
-            </div>
 
-            {/* Slider zoom */}
-            <div className="mb-3">
-              <input
-                type="range"
-                min="65"
-                max="175"
-                step="5"
-                value={zoomPercentage}
-                onChange={(e) => handleSetZoomPercentage(Number(e.target.value))}
-                className="w-full h-2 bg-[#26262E] rounded-lg appearance-none cursor-pointer accent-blue-500"
-              />
-              <div className="flex justify-between text-[9px] text-gray-600 mt-0.5 px-0.5">
-                <span>65%</span>
-                <span>100%</span>
-                <span>175%</span>
+              <div className="space-y-2">
+                {/* Accords */}
+                <div className="flex items-center justify-between p-2 rounded-xl bg-[#141418] border border-[#23232C] hover:border-[#2E2E3A] transition-colors">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-7 h-7 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
+                      <Eye className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold text-gray-200">Accords</div>
+                    </div>
+                  </div>
+                  <div className="inline-flex items-center p-0.5 rounded-lg bg-[#0E0E12] border border-[#262630] shadow-inner">
+                    <button
+                      type="button"
+                      onClick={() => updateStageSettings({ showChords: true })}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                        stageSettings.showChords
+                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-xs font-bold'
+                          : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      <Eye className="w-3 h-3" />
+                      <span>Affichés</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateStageSettings({ showChords: false })}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                        !stageSettings.showChords
+                          ? 'bg-[#24242E] text-white shadow-xs font-bold'
+                          : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      <EyeOff className="w-3 h-3" />
+                      <span>Masqués</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Taille du texte */}
+                <div className="flex items-center justify-between p-2 rounded-xl bg-[#141418] border border-[#23232C] hover:border-[#2E2E3A] transition-colors">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-7 h-7 rounded-lg bg-blue-500/15 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0">
+                      <SlidersHorizontal className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold text-gray-200">Taille du texte</div>
+                    </div>
+                  </div>
+                  <div className="inline-flex items-center p-0.5 rounded-lg bg-[#0E0E12] border border-[#262630] gap-1 shadow-inner">
+                    <button
+                      type="button"
+                      onClick={() => handleSetZoomPercentage(zoomPercentage - 10)}
+                      disabled={zoomPercentage <= 60}
+                      className="w-6 h-6 rounded-md bg-[#1C1C24] hover:bg-[#282834] flex items-center justify-center text-gray-300 disabled:opacity-30 transition-colors cursor-pointer"
+                      title="Réduire (-10%)"
+                    >
+                      <Minus className="w-3.5 h-3.5" />
+                    </button>
+                    <span className="font-mono font-bold text-blue-400 text-xs w-9 text-center">
+                      {zoomPercentage}%
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleSetZoomPercentage(zoomPercentage + 10)}
+                      disabled={zoomPercentage >= 180}
+                      className="w-6 h-6 rounded-md bg-[#1C1C24] hover:bg-[#282834] flex items-center justify-center text-gray-300 disabled:opacity-30 transition-colors cursor-pointer"
+                      title="Agrandir (+10%)"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                    {zoomPercentage !== 100 && (
+                      <button
+                        type="button"
+                        onClick={handleResetZoom}
+                        className="text-[9px] font-bold text-blue-400 hover:text-blue-300 px-1 py-0.5 rounded hover:bg-blue-950/40 transition-colors"
+                        title="Rétablir à 100%"
+                      >
+                        100%
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Défilement automatique */}
+                <div className="flex items-center justify-between p-2 rounded-xl bg-[#141418] border border-[#23232C] hover:border-[#2E2E3A] transition-colors">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+                      stageSettings.isAutoScrolling 
+                        ? 'bg-amber-500/20 border border-amber-500/40 text-amber-400' 
+                        : 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-400'
+                    }`}>
+                      <Play className="w-3.5 h-3.5 fill-current" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-bold text-gray-200">Défilement auto</span>
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!stageSettings.isAutoScrolling) {
+                        setShowSettingsDrawer(false);
+                      }
+                      handleToggleAutoScroll();
+                    }}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0 shadow-sm active:scale-95 ${
+                      stageSettings.isAutoScrolling
+                        ? 'bg-amber-500 hover:bg-amber-400 text-black shadow-amber-500/25 ring-1 ring-amber-400/40'
+                        : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-emerald-950/40 ring-1 ring-emerald-400/40'
+                    }`}
+                    title={stageSettings.isAutoScrolling ? "Mettre en pause le défilement" : `Lancer le défilement calé sur la durée (${effectiveDuration})`}
+                  >
+                    {stageSettings.isAutoScrolling ? (
+                      <>
+                        <Pause className="w-3.5 h-3.5 fill-current" />
+                        <span>Pause</span>
+                      </>
+                    ) : (
+                      <>
+                        <Play className="w-3.5 h-3.5 fill-current" />
+                        <span>Play</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
-            </div>
-
-            {/* Séparateur */}
-            <div className="border-t border-[#282830] mb-2.5" />
-
-            {/* Défilement automatique */}
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5 min-w-0">
-                <Play className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                <span className="text-gray-400 font-medium">Défilement</span>
-                <span className="text-[10px] font-mono text-gray-500 ml-0.5 truncate" title={`Vitesse calée sur la durée du chant (${effectiveDuration})`}>
-                  ({effectiveDuration})
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={handleToggleAutoScroll}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0 shadow-xs ${
-                  stageSettings.isAutoScrolling
-                    ? 'bg-amber-600 hover:bg-amber-500 text-white ring-1 ring-amber-400/40'
-                    : 'bg-emerald-600 hover:bg-emerald-500 text-white ring-1 ring-emerald-400/30'
-                }`}
-                title={stageSettings.isAutoScrolling ? "Mettre en pause le défilement" : `Lancer le défilement calé sur la durée (${effectiveDuration})`}
-              >
-                {stageSettings.isAutoScrolling ? (
-                  <>
-                    <Pause className="w-3.5 h-3.5" />
-                    <span>Pause</span>
-                  </>
-                ) : (
-                  <>
-                    <Play className="w-3.5 h-3.5" />
-                    <span>Play</span>
-                  </>
-                )}
-              </button>
             </div>
 
             {/* Écouter le chant (Recherche rapide YouTube & Spotify / Lecteur intégré) */}
-            <div className="border-t border-[#282830] mt-3 pt-2.5">
-              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center justify-between">
-                <span>Écouter le chant</span>
-                <span className="text-[10px] text-gray-500 font-normal">Lecteur intégré & liens</span>
+            <div className="border-t border-[#282830] mt-3.5 pt-3">
+              <div className="text-[11px] font-bold text-gray-300 uppercase tracking-wider mb-2.5 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <Play className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Écouter le chant</span>
+                </span>
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <a
-                  href={`https://www.youtube.com/results?search_query=${encodeURIComponent([parsedData.title || song.title, parsedData.artist || song.artist].filter(Boolean).join(' '))}`}
-                  onClick={(e) => {
-                    if (effectiveYoutubeUrl) {
-                      e.preventDefault();
-                      setActiveAudioSource('youtube');
-                      setShowSettingsDrawer(false);
-                      setShowAudioPlayer(true);
-                      setIsAudioPlayerMinimized(false);
-                    }
+              <div className="grid grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveAudioSource('youtube');
+                    setShowSettingsDrawer(false);
+                    setShowAudioPlayer(true);
+                    setIsAudioPlayerMinimized(false);
                   }}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg bg-[#1C1C22] hover:bg-[#FF0000]/15 text-gray-200 hover:text-[#FF4E4E] border border-[#2E2E36] hover:border-[#FF0000]/40 text-xs font-semibold transition-all cursor-pointer group shadow-xs"
-                  title={effectiveYoutubeUrl ? "Écouter la vidéo YouTube dans le petit lecteur" : `Rechercher « ${song.title} » sur YouTube (nouvel onglet / application)`}
+                  className="flex items-center gap-2 p-2.5 rounded-xl bg-gradient-to-br from-red-600/25 via-red-900/15 to-[#16161C] hover:from-red-600/35 hover:via-red-900/25 border border-red-500/40 hover:border-red-400 text-white font-bold text-xs transition-all cursor-pointer group shadow-md shadow-red-950/30 hover:shadow-red-950/50 active:scale-98 text-left"
+                  title="Lancer le lecteur YouTube"
                 >
-                  <svg className="w-3.5 h-3.5 text-red-500 fill-current shrink-0 group-hover:scale-110 transition-transform" viewBox="0 0 24 24">
-                    <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-                  </svg>
-                  <span>YouTube</span>
-                  {effectiveYoutubeUrl && <span className="w-1.5 h-1.5 rounded-full bg-red-500" title="Lecteur prêt" />}
-                </a>
+                  <div className="w-7 h-7 rounded-lg bg-red-600/20 border border-red-500/30 flex items-center justify-center text-red-500 shrink-0 group-hover:scale-110 group-hover:bg-red-600/30 transition-transform shadow-xs">
+                    <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                    </svg>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-bold text-xs text-white group-hover:text-red-200 transition-colors">
+                      YouTube
+                    </div>
+                  </div>
+                </button>
 
                 <a
                   href={`https://open.spotify.com/search/${encodeURIComponent([parsedData.title || song.title, parsedData.artist || song.artist].filter(Boolean).join(' '))}`}
@@ -1906,69 +1910,43 @@ export const SongReader: React.FC<SongReaderProps> = ({
                   }}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg bg-[#1C1C22] hover:bg-[#1DB954]/15 text-gray-200 hover:text-[#1ED760] border border-[#2E2E36] hover:border-[#1DB954]/40 text-xs font-semibold transition-all cursor-pointer group shadow-xs"
+                  className="flex items-center gap-2 p-2.5 rounded-xl bg-gradient-to-br from-emerald-600/25 via-emerald-900/15 to-[#16161C] hover:from-emerald-600/35 hover:via-emerald-900/25 border border-emerald-500/40 hover:border-emerald-400 text-white font-bold text-xs transition-all cursor-pointer group shadow-md shadow-emerald-950/30 hover:shadow-emerald-950/50 active:scale-98"
                   title={hasSpotifyEmbed ? "Écouter sur le petit lecteur Spotify sans quitter l'app" : "Configurer le petit lecteur Spotify (sans quitter l'app)"}
                 >
-                  <svg className="w-3.5 h-3.5 text-emerald-400 fill-current shrink-0 group-hover:scale-110 transition-transform" viewBox="0 0 24 24">
-                    <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
-                  </svg>
-                  <span>Spotify</span>
-                  {hasSpotifyEmbed ? (
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" title="Lecteur prêt" />
-                  ) : (
-                    <span className="text-[9px] text-emerald-400/80 font-normal ml-0.5">+ Lecteur</span>
-                  )}
-                </a>
-              </div>
-
-              {/* Enregistrement configuré & bouton petit lecteur */}
-              {hasAudioLink && (
-                <div className="mt-2.5 pt-2 border-t border-[#25252D]">
-                  <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 flex items-center justify-between">
-                    <span>Enregistrement configuré</span>
-                    <div className="flex items-center gap-1">
-                      {effectiveYoutubeUrl && (
-                        <span className="text-[9px] text-red-400 font-semibold bg-red-950/40 px-1.5 py-0.5 rounded border border-red-500/30">
-                          YouTube
-                        </span>
-                      )}
-                      {hasSpotifyEmbed && (
-                        <span className="text-[9px] text-emerald-400 font-semibold bg-emerald-950/40 px-1.5 py-0.5 rounded border border-emerald-500/30">
-                          Spotify
-                        </span>
-                      )}
-                      {effectiveAudioUrl && !effectiveYoutubeUrl && !hasSpotifyEmbed && (
-                        <span className="text-[9px] text-blue-400 font-semibold bg-blue-950/40 px-1.5 py-0.5 rounded border border-blue-500/30">
-                          Audio
-                        </span>
-                      )}
+                  <div className="w-7 h-7 rounded-lg bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0 group-hover:scale-110 group-hover:bg-emerald-600/30 transition-transform shadow-xs">
+                    <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                      <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+                    </svg>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-bold text-xs text-white group-hover:text-emerald-200 transition-colors">
+                      Spotify
                     </div>
                   </div>
+                </a>
+                {effectiveAudioUrl && !effectiveYoutubeUrl && !hasSpotifyEmbed && (
                   <button
                     type="button"
                     onClick={() => {
-                      if (hasSpotifyEmbed && !effectiveYoutubeUrl) {
-                        setActiveAudioSource('spotify');
-                      } else if (effectiveYoutubeUrl) {
-                        setActiveAudioSource('youtube');
-                      } else if (effectiveAudioUrl) {
-                        setActiveAudioSource('audio');
-                      }
+                      setActiveAudioSource('audio');
                       setShowSettingsDrawer(false);
                       setShowAudioPlayer(true);
                       setIsAudioPlayerMinimized(false);
                     }}
-                    className={`w-full flex items-center justify-center gap-2 py-1.5 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-xs active:scale-98 ${
-                      hasSpotifyEmbed && !effectiveYoutubeUrl
-                        ? 'bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40'
-                        : 'bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/40'
-                    }`}
+                    className="flex items-center gap-2 p-2.5 rounded-xl bg-gradient-to-br from-blue-600/25 via-blue-900/15 to-[#16161C] hover:from-blue-600/35 hover:via-blue-900/25 border border-blue-500/40 hover:border-blue-400 text-white font-bold text-xs transition-all cursor-pointer group shadow-md shadow-blue-950/30 hover:shadow-blue-950/50 active:scale-98 col-span-2"
+                    title="Écouter le fichier audio MP3 dans le lecteur"
                   >
-                    <Play className="w-3.5 h-3.5 fill-current" />
-                    <span>Écouter le chant (petit lecteur)</span>
+                    <div className="w-7 h-7 rounded-lg bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0 group-hover:scale-110 group-hover:bg-blue-600/30 transition-transform shadow-xs">
+                      <Music className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="min-w-0 flex-1 text-left">
+                      <div className="font-bold text-xs text-white group-hover:text-blue-200 transition-colors">
+                        Fichier Audio (MP3)
+                      </div>
+                    </div>
                   </button>
-                </div>
-              )}
+                )}
+              </div>
 
               {/* Panneau de configuration rapide Spotify */}
               {showSpotifyConfig && (
@@ -2035,13 +2013,91 @@ export const SongReader: React.FC<SongReaderProps> = ({
       <div 
         ref={containerRef}
         onScroll={handleScroll}
-        className={`flex-1 overflow-y-auto ${isWideLayout ? 'px-3 sm:px-6 lg:px-8' : 'px-3 sm:px-8 md:px-12'} pt-2 sm:pt-4 pb-28 sm:pb-32 scroll-smooth print-sheet`}
+        className={`flex-1 overflow-y-auto ${isWideLayout ? 'px-3 sm:px-6 lg:px-8' : 'px-3 sm:px-8 md:px-12'} pt-2 sm:pt-4 pb-28 sm:pb-32 ${stageSettings.isAutoScrolling ? 'scroll-auto' : 'scroll-smooth'} print-sheet print:p-0 print:m-0 print:overflow-visible print:h-auto print:w-full print:max-w-none`}
         style={{ 
-          lineHeight: displaySettings.typography.lineSpacing 
+          lineHeight: displaySettings.typography.lineSpacing,
+          scrollBehavior: stageSettings.isAutoScrolling ? 'auto' : undefined
         }}
       >
-        <div className={isWideLayout ? 'w-full max-w-none' : 'max-w-4xl mx-auto'}>
+        <div className={`${isWideLayout ? 'w-full max-w-none' : 'max-w-4xl mx-auto'} print:w-full print:max-w-none`}>
           
+          {/* En-tête d'impression spécifique A4 (Invisible à l'écran, actif uniquement à l'impression papier) */}
+          <div className="hidden print:block w-full mb-4 pb-3 border-b-2 border-neutral-900 break-inside-avoid text-black">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <h1 className="text-2xl font-bold tracking-tight text-black leading-tight">
+                  {stripParentheses(parsedData.title || song.title)}
+                </h1>
+                {song.artist && (
+                  <p className="text-sm font-semibold text-neutral-700 italic mt-0.5">
+                    {song.artist}
+                  </p>
+                )}
+              </div>
+              {isInSetlist && (currentSetlist?.name || setlistContextName) && (
+                <div className="text-right shrink-0">
+                  <span className="text-xs font-bold text-neutral-800 uppercase tracking-wider">
+                    {setlistContextName || currentSetlist?.name}
+                  </span>
+                  {setlistPosition && (
+                    <span className="text-xs text-neutral-600 ml-1.5 font-mono">
+                      (Chant {setlistPosition.current}/{setlistPosition.total})
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Badges métadonnées formatés pour papier A4 */}
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 mt-2.5 pt-2 border-t border-neutral-300 text-xs text-neutral-900">
+              <div className="flex items-center gap-1">
+                <span className="font-semibold text-neutral-500 uppercase text-[10px] tracking-wider">Tonalité :</span>
+                <span className="font-mono font-bold text-black text-sm">{baseKeyDisplay}</span>
+                {effectiveTransposeOffset !== 0 && (
+                  <span className="text-neutral-600 font-mono text-[11px]">
+                    ({effectiveTransposeOffset > 0 ? `+${effectiveTransposeOffset}` : effectiveTransposeOffset})
+                  </span>
+                )}
+              </div>
+              {effectiveCapo > 0 && (
+                <div className="flex items-center gap-1">
+                  <span className="font-semibold text-neutral-500 uppercase text-[10px] tracking-wider">Capo :</span>
+                  <span className="font-mono font-bold text-black">{effectiveCapo}</span>
+                </div>
+              )}
+              <div className="flex items-center gap-1">
+                <span className="font-semibold text-neutral-500 uppercase text-[10px] tracking-wider">Tempo :</span>
+                <span className="font-mono font-bold text-black">{effectiveTempo} BPM</span>
+              </div>
+              {(song.timeSignature || parsedData.timeSignature) && (
+                <div className="flex items-center gap-1">
+                  <span className="font-semibold text-neutral-500 uppercase text-[10px] tracking-wider">Mesure :</span>
+                  <span className="font-mono font-bold text-black">{song.timeSignature || parsedData.timeSignature}</span>
+                </div>
+              )}
+              {effectiveDuration && (
+                <div className="flex items-center gap-1">
+                  <span className="font-semibold text-neutral-500 uppercase text-[10px] tracking-wider">Durée :</span>
+                  <span className="font-mono font-bold text-black">{effectiveDuration}</span>
+                </div>
+              )}
+              {song.language && (
+                <div className="flex items-center gap-1">
+                  <span className="font-semibold text-neutral-500 uppercase text-[10px] tracking-wider">Langue :</span>
+                  <span className="text-neutral-900 font-medium">{song.language}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Note / consigne si présente */}
+            {metaVis.notes && effectiveNotes && (
+              <div className="mt-2 text-xs italic text-neutral-800 bg-neutral-100 p-2 rounded border border-neutral-300">
+                <strong className="not-italic font-semibold text-neutral-900 mr-1">Note :</strong>
+                {effectiveNotes}
+              </div>
+            )}
+          </div>
+
           {/* Song Sheet Header : Mode Ultra-Compact ou Déplié */}
           {isHeaderCollapsed ? (
             <div className="no-print border-b border-[#222224] pb-2 mb-2 sm:mb-3">
@@ -2142,22 +2198,6 @@ export const SongReader: React.FC<SongReaderProps> = ({
                         </button>
                       )}
 
-                      {/* Bouton direct Mode Bilingue en compact */}
-                      <button
-                        type="button"
-                        id="btn-song-bilingual-compact"
-                        onClick={handleToggleBilingualMode}
-                        className={`p-1.5 rounded-lg border text-xs font-medium flex items-center justify-center transition-colors shrink-0 cursor-pointer ${
-                          isBilingualMode
-                            ? 'bg-indigo-600 border-indigo-500 text-white shadow-xs'
-                            : 'bg-[#1C1C1E] hover:bg-indigo-950/40 text-indigo-300 border-[#333]'
-                        }`}
-                        title={isBilingualMode ? "Quitter le mode bilingue" : "Mode bilingue (2 colonnes)"}
-                        aria-label="Mode bilingue"
-                      >
-                        <Columns className="w-3.5 h-3.5" />
-                      </button>
-
                       <button
                         type="button"
                         onClick={() => setShowSettingsDrawer(!showSettingsDrawer)}
@@ -2177,7 +2217,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
               </div>
             </div>
           ) : (
-            <div className="border-b border-[#222224] pb-2 sm:pb-3 mb-2.5 sm:mb-4">
+            <div className="no-print border-b border-[#222224] pb-2 sm:pb-3 mb-2.5 sm:mb-4">
               <div className="flex items-start justify-between gap-2 sm:gap-3 mb-1.5 sm:mb-2">
                 {/* Left: Title & Artist */}
                 <div className="flex-1 min-w-0 pr-1 sm:pr-2">
@@ -2216,24 +2256,6 @@ export const SongReader: React.FC<SongReaderProps> = ({
                             <span className="leading-none text-[11px] font-bold tracking-tight">{lMeta.code}</span>
                           </button>
 
-                          {/* Bouton direct Mode Bilingue (2 colonnes) */}
-                          <button
-                            type="button"
-                            id="btn-song-bilingual"
-                            onClick={handleToggleBilingualMode}
-                            className={`inline-flex items-center justify-center gap-1.5 px-2 py-0.5 rounded-md border text-xs font-bold transition-all shadow-xs hover:brightness-110 active:scale-95 cursor-pointer ${
-                              isBilingualMode
-                                ? 'bg-indigo-600 border-indigo-500 text-white shadow-indigo-500/20 ring-1 ring-indigo-400'
-                                : 'bg-[#181822] hover:bg-indigo-950/40 border-indigo-500/40 text-indigo-300'
-                            }`}
-                            title={isBilingualMode ? "Désactiver le mode bilingue" : "Activer le mode bilingue (2 colonnes : chant original à gauche, version traduite à droite)"}
-                          >
-                            <Columns className="w-3.5 h-3.5 shrink-0" />
-                            <span className="leading-none text-[11px] font-bold tracking-tight">
-                              {isBilingualMode ? 'Bilingue (2 col.)' : 'Bilingue'}
-                            </span>
-                          </button>
-
                           {showLanguageMenu && (
                             <>
                               <div 
@@ -2241,33 +2263,6 @@ export const SongReader: React.FC<SongReaderProps> = ({
                                 onClick={() => setShowLanguageMenu(false)} 
                               />
                               <div className="absolute left-0 top-full mt-1.5 z-50 w-76 max-w-[calc(100vw-32px)] bg-[#18181C] border border-[#2E2E36] rounded-xl shadow-2xl p-2.5 backdrop-blur-md">
-                                {/* Option Mode Bilingue 2 colonnes */}
-                                <div className="mb-2.5 p-2 rounded-lg bg-indigo-950/40 border border-indigo-500/30 flex items-center justify-between">
-                                  <div className="min-w-0 pr-2">
-                                    <div className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-1">
-                                      <Columns className="w-3 h-3" />
-                                      <span>Mode bilingue (2 colonnes)</span>
-                                    </div>
-                                    <div className="text-[11px] text-gray-300 truncate">
-                                      Normale à gauche • Traduite à droite
-                                    </div>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      handleToggleBilingualMode();
-                                      setShowLanguageMenu(false);
-                                    }}
-                                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-colors cursor-pointer shrink-0 ${
-                                      isBilingualMode
-                                        ? 'bg-indigo-600 text-white shadow-xs'
-                                        : 'bg-[#202028] hover:bg-[#282834] text-indigo-300 border border-indigo-500/40'
-                                    }`}
-                                  >
-                                    {isBilingualMode ? 'Actif' : 'Activer'}
-                                  </button>
-                                </div>
-
                                 {/* Bannière mode setlist si actif */}
                                 {(isInSetlist || isSetlistMode) && currentSetlist && (
                                   <div className="mb-2.5 p-2 rounded-lg bg-blue-950/40 border border-blue-500/30 flex items-center justify-between">
@@ -2417,23 +2412,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                         )}
                       </div>
 
-                      {/* Bouton Mode Bilingue 2 colonnes */}
-                      <button
-                        type="button"
-                        id="btn-bilingual-mode"
-                        onClick={handleToggleBilingualMode}
-                        className={`inline-flex items-center justify-center gap-1.5 px-2.5 py-0.5 rounded-md border text-xs font-bold transition-all shadow-xs hover:brightness-110 active:scale-95 cursor-pointer ${
-                          isBilingualMode
-                            ? 'bg-indigo-600 border-indigo-400 text-white shadow-indigo-600/30 ring-1 ring-indigo-400/50'
-                            : 'bg-[#18181E] hover:bg-[#22222A] text-gray-300 hover:text-white border-[#2E2E38]'
-                        }`}
-                        title={isBilingualMode ? "Quitter le mode bilingue 2 colonnes" : "Activer le mode bilingue (version normale à gauche, version traduite à droite)"}
-                      >
-                        <Columns className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                        <span className="leading-none text-[11px] font-semibold">
-                          {isBilingualMode ? 'Bilingue actif' : 'Mode bilingue'}
-                        </span>
-                      </button>
+
                     </div>
                   );
                 })()}
@@ -2450,28 +2429,6 @@ export const SongReader: React.FC<SongReaderProps> = ({
                         {effectiveDuration}
                       </span>
                     </div>
-                  )}
-
-                  {/* Play icon button if audio link available */}
-                  {hasAudioLink && (
-                    <button
-                      type="button"
-                      id="btn-song-play-audio"
-                      onClick={() => {
-                        setShowAudioPlayer(!showAudioPlayer);
-                        setIsAudioPlayerMinimized(false);
-                      }}
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md border text-xs font-bold transition-all shadow-xs cursor-pointer ${
-                        showAudioPlayer
-                          ? 'bg-red-600 border-red-500 text-white shadow-red-500/25 ring-2 ring-red-400/40'
-                          : 'bg-red-500/15 hover:bg-red-500/25 text-red-400 border-red-500/40 hover:border-red-400'
-                      }`}
-                      style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
-                      title={`Écouter l'enregistrement (${effectiveYoutubeUrl ? 'YouTube' : 'Audio'})`}
-                    >
-                      <Play className="w-3 h-3 fill-current" />
-                      <span className="text-xs">{showAudioPlayer ? 'Lecteur actif' : 'Écouter'}</span>
-                    </button>
                   )}
                 </div>
               </div>
@@ -2518,70 +2475,15 @@ export const SongReader: React.FC<SongReaderProps> = ({
               )}
             </div>
 
-            {/* Ligne Artiste, Catégories, CCLI & Copyright */}
-            {((metaVis.artist && song.artist) || (metaVis.tags && song.tags && song.tags.length > 0) || (metaVis.ccli && effectiveCcli) || (metaVis.copyright && effectiveCopyright)) && (
+            {/* Ligne Artiste */}
+            {metaVis.artist && song.artist && (
               <div className="w-full flex items-center gap-1.5 sm:gap-2 flex-wrap mb-1.5 sm:mb-2 text-xs">
-                {metaVis.artist && song.artist && (
-                  <div 
-                    className="text-gray-300 font-medium break-words shrink-0"
-                    style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
-                  >
-                    {song.artist}
-                  </div>
-                )}
-
-                {metaVis.tags && song.tags && song.tags.length > 0 && (
-                  <div 
-                    className={`w-full sm:w-auto flex items-center gap-1 sm:gap-1.5 flex-wrap ${metaVis.artist && song.artist ? 'sm:border-l sm:border-[#2A2A2E] sm:pl-2' : ''}`}
-                    style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
-                  >
-                    {song.tags.map((cat, idx) => (
-                      <span
-                        key={idx}
-                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-[#18181C] border border-[#2A2A30] text-gray-300 font-medium shadow-xs"
-                        style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
-                      >
-                        <Tag className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-blue-400" />
-                        <span>{cat}</span>
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                {metaVis.ccli && effectiveCcli && (
-                  <div 
-                    className={`flex items-center gap-1 ${(metaVis.artist && song.artist) || (metaVis.tags && song.tags && song.tags.length > 0) ? 'sm:border-l sm:border-[#2A2A2E] sm:pl-2' : ''}`}
-                    style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
-                  >
-                    <a
-                      href={`https://songselect.ccli.com/Songs/${effectiveCcli.replace(/\D/g, '') || effectiveCcli}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-[#18181C] hover:bg-[#222228] border border-[#2A2A30] hover:border-blue-500/50 text-gray-300 transition-colors group cursor-pointer shadow-xs"
-                      style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
-                      title={`Numéro CCLI : #${effectiveCcli} (Cliquer pour ouvrir sur SongSelect)`}
-                    >
-                      <Shield className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-blue-400 group-hover:scale-110 transition-transform" />
-                      <span className="text-blue-300 font-mono font-semibold" style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}>CCLI #{effectiveCcli}</span>
-                    </a>
-                  </div>
-                )}
-
-                {metaVis.copyright && effectiveCopyright && (
-                  <div 
-                    className={`flex items-center gap-1 ${((metaVis.artist && song.artist) || (metaVis.tags && song.tags && song.tags.length > 0) || (metaVis.ccli && effectiveCcli)) ? 'sm:border-l sm:border-[#2A2A2E] sm:pl-2' : ''}`}
-                    style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
-                  >
-                    <span
-                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-[#18181C] border border-[#2A2A30] text-gray-400 max-w-[260px] sm:max-w-md truncate shadow-xs"
-                      style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
-                      title={`Copyright : ${effectiveCopyright}`}
-                    >
-                      <Copyright className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-gray-500 shrink-0" />
-                      <span className="truncate">{effectiveCopyright}</span>
-                    </span>
-                  </div>
-                )}
+                <div 
+                  className="text-gray-300 font-medium break-words shrink-0"
+                  style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
+                >
+                  {song.artist}
+                </div>
               </div>
             )}
 
@@ -2635,75 +2537,17 @@ export const SongReader: React.FC<SongReaderProps> = ({
                     />
                     <div 
                       style={keyPopoverStyle}
-                      className="absolute top-full mt-1.5 z-50 w-72 max-w-[calc(100vw-24px)] bg-[#16161A] border border-[#2E2E36] rounded-xl shadow-2xl p-2.5 backdrop-blur-md animate-in fade-in zoom-in-95 duration-100 box-border"
+                      className="absolute top-full mt-1.5 z-50 animate-in fade-in zoom-in-95 duration-100 box-border"
                     >
-                      <div className="text-[11px] font-semibold text-gray-400 pb-2 mb-2 border-b border-[#282830] flex items-center justify-between">
-                        <span>Choisir la tonalité</span>
-                        <span className="text-[10px] text-blue-400 font-mono">Actuelle : {baseKeyDisplay}</span>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2 text-xs">
-                        {/* Colonne Gauche : Majeur */}
-                        <div>
-                          <div className="text-[10px] font-bold text-blue-400 uppercase tracking-wider px-1 pb-1 mb-1 border-b border-[#282830] text-center">
-                            Majeur
-                          </div>
-                          <div className="grid grid-cols-1 gap-1 max-h-56 overflow-y-auto pr-0.5 custom-scrollbar">
-                            {MAJOR_KEYS.map((k) => {
-                              const isSelected = baseKey === k;
-                              const displayLabel = stageSettings.notation === 'latin' ? (LATIN_NOTES[k] || k) : k;
-                              return (
-                                <button
-                                  key={k}
-                                  type="button"
-                                  onClick={() => {
-                                    handleSetBaseKey(k);
-                                    setShowKeyMenu(false);
-                                  }}
-                                  className={`w-full py-1 px-2 rounded-md font-mono font-bold text-xs transition-colors flex items-center justify-between cursor-pointer ${
-                                    isSelected
-                                      ? 'bg-blue-600 text-white shadow-xs'
-                                      : 'text-gray-300 hover:bg-[#25252D] hover:text-white'
-                                  }`}
-                                >
-                                  <span>{displayLabel}</span>
-                                  {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-
-                        {/* Colonne Droite : Mineur */}
-                        <div className="border-l border-[#282830] pl-2">
-                          <div className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider px-1 pb-1 mb-1 border-b border-[#282830] text-center">
-                            Mineur
-                          </div>
-                          <div className="grid grid-cols-1 gap-1 max-h-56 overflow-y-auto pr-0.5 custom-scrollbar">
-                            {MINOR_KEYS.map((k) => {
-                              const isSelected = baseKey === k;
-                              const displayLabel = stageSettings.notation === 'latin' ? (LATIN_NOTES[k] || k) : k;
-                              return (
-                                <button
-                                  key={k}
-                                  type="button"
-                                  onClick={() => {
-                                    handleSetBaseKey(k);
-                                    setShowKeyMenu(false);
-                                  }}
-                                  className={`w-full py-1 px-2 rounded-md font-mono font-bold text-xs transition-colors flex items-center justify-between cursor-pointer ${
-                                    isSelected
-                                      ? 'bg-indigo-600 text-white shadow-xs'
-                                      : 'text-gray-300 hover:bg-[#25252D] hover:text-white'
-                                  }`}
-                                >
-                                  <span>{displayLabel}</span>
-                                  {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      </div>
+                      <KeySelectorKeypad
+                        currentKey={baseKey}
+                        onKeyChange={(targetKey) => {
+                          handleSetBaseKey(targetKey);
+                        }}
+                        onClose={() => setShowKeyMenu(false)}
+                        modeLock={isSongOriginallyMinor ? 'minor' : 'major'}
+                        title="Tonalité :"
+                      />
                     </div>
                   </>
                 )}
@@ -3218,7 +3062,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
             {/* Note / Instructions Section (Lecture seule) */}
             {metaVis.notes && effectiveNotes ? (
               <div 
-                className="mt-2 p-2 rounded-lg bg-[#111112] border border-[#222224] flex items-start gap-2.5 transition-all text-xs"
+                className="no-print mt-2 p-2 rounded-lg bg-[#111112] border border-[#222224] flex items-start gap-2.5 transition-all text-xs"
                 style={{ fontSize: `${Math.max(11, displaySettings.typography.metadataSize)}px` }}
               >
                 <div className="text-gray-300 font-sans italic flex-1">
@@ -3233,7 +3077,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
         {/* Structured ChordPro Sections : Standard ou Mode Bilingue */}
         {!isBilingualMode ? (
           <div 
-            className={getColumnsGridClass(numColumns)}
+            className={`${getColumnsGridClass(numColumns)} ${numColumns > 1 ? 'print:grid print:grid-cols-2 print:gap-x-6 print:gap-y-3' : 'print:flex print:flex-col print:gap-3'}`}
             style={{ 
               gap: `${currentSectionSpacing}px`, 
               rowGap: `${currentSectionSpacing}px` 
@@ -3288,16 +3132,17 @@ export const SongReader: React.FC<SongReaderProps> = ({
               return (
                 <div 
                   key={sIdx}
-                  className={`rounded-lg ${cardPaddingClass} transition-all`}
+                  data-section-card="true"
+                  className={`rounded-lg ${cardPaddingClass} transition-all print:break-inside-avoid print:page-break-inside-avoid print:p-0 print:mb-3 print:bg-transparent print:border-none print:shadow-none`}
                   style={getSectionBorderStyles(secColor, displaySettings.sectionBorders)}
                 >
                   {/* Section Title Header & Vocal Arrangement Pastille & Repeat Badge (Lecture seule) */}
                   {hasVisibleHeader && (
-                    <div className={`flex items-center justify-between gap-2 ${headerMarginClass} flex-wrap`}>
+                    <div className={`flex items-center justify-between gap-2 ${headerMarginClass} flex-wrap print:mb-1 print:gap-1.5`}>
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {isSectionHeaderVisible && sectionTitle ? (
                           <span
-                            className="inline-block font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border shadow-xs text-left select-none"
+                            className="inline-block font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border shadow-xs text-left select-none print:px-2 print:py-0.5 print:bg-neutral-100 print:text-neutral-900 print:border-neutral-300 print:text-[9.5pt] print:shadow-none"
                             style={{
                               fontSize: `${displaySettings.typography.headerSize}px`,
                               color: secColor,
@@ -3312,7 +3157,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                         {/* Section Repeat Badge (Lecture seule) */}
                         {sectionRepeat > 1 && (
                           <span 
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded border bg-emerald-950/40 border-emerald-500/50 text-emerald-300 font-bold font-mono select-none"
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded border bg-emerald-950/40 border-emerald-500/50 text-emerald-300 font-bold font-mono select-none print:bg-neutral-100 print:border-neutral-400 print:text-neutral-900 print:text-[9.5pt]"
                             style={{ fontSize: `${Math.max(10, Math.round((displaySettings.typography?.headerSize || 12) * 0.9))}px` }}
                             title={`Répété ${sectionRepeat} fois`}
                           >
@@ -3321,7 +3166,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                                 width: `${Math.max(11, Math.round((displaySettings.typography?.headerSize || 12) * 0.9))}px`,
                                 height: `${Math.max(11, Math.round((displaySettings.typography?.headerSize || 12) * 0.9))}px` 
                               }}
-                              className="text-emerald-400 shrink-0" 
+                              className="text-emerald-400 shrink-0 print:text-neutral-800" 
                             />
                             <span>x{sectionRepeat}</span>
                           </span>
@@ -3330,7 +3175,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
 
                       {/* Pastilles Arrangement Vocal dans le coin supérieur droit */}
                       {metaVis.vocalArrangement && (
-                        <div className="flex items-center gap-1.5 flex-wrap ml-auto">
+                        <div className="no-print flex items-center gap-1.5 flex-wrap ml-auto">
                           <VocalArrangementSelector
                             vocals={section.vocals || (section.vocal ? [section.vocal] : [])}
                             onChange={(newVocals) => handleUpdateSectionVocals(sIdx, newVocals)}
@@ -3343,14 +3188,14 @@ export const SongReader: React.FC<SongReaderProps> = ({
                   )}
 
                   {/* Section Lines */}
-                  <div className={`${linesSpacingClass} font-chord leading-relaxed`}>
+                  <div className={`${linesSpacingClass} font-chord leading-relaxed print:space-y-1.5`}>
                     {section.lines.map((line, lIdx) => {
                       if (line.type === 'empty') {
-                        return <div key={lIdx} className="h-3" />;
+                        return <div key={lIdx} className="h-3 print:h-2" />;
                       }
 
                       return (
-                        <div key={lIdx} className="flex flex-wrap items-end gap-x-0.5">
+                        <div key={lIdx} className="flex flex-wrap items-end gap-x-0.5 print:leading-tight">
                           {line.items.map((item, iIdx) => {
                             const displayedChord = item.chord 
                               ? transposeChord(item.chord, visualChordTransposeSemitones, stageSettings.notation) 
@@ -3371,7 +3216,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                                         });
                                       }
                                     }}
-                                    className={`chord-badge font-mono font-bold hover:underline select-none leading-none mb-1 pr-1 text-left inline-flex items-center cursor-pointer transition-all active:scale-95 group/chord ${
+                                    className={`chord-badge font-mono font-bold hover:underline select-none leading-none mb-1 pr-1 text-left inline-flex items-center cursor-pointer transition-all active:scale-95 group/chord print:cursor-default print:hover:no-underline print:text-blue-800 print:mb-0.5 ${
                                       displayedChord ? 'opacity-100' : 'opacity-0 pointer-events-none'
                                     }`}
                                     style={{ 
@@ -3390,7 +3235,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                                 
                                 {/* Syllable / Lyric */}
                                 <span 
-                                  className="text-[#E0E0E0] font-sans tracking-normal whitespace-pre"
+                                  className="text-[#E0E0E0] font-sans tracking-normal whitespace-pre print:text-black print:font-normal"
                                   style={{ fontSize: `${displaySettings.typography.lyricsSize}px` }}
                                 >
                                   {item.lyrics || (item.chord ? ' ' : '')}
@@ -3643,23 +3488,23 @@ export const SongReader: React.FC<SongReaderProps> = ({
 
           {/* Song Sheet Legal Footer: CCLI & Copyright */}
           {((metaVis.ccli && effectiveCcli) || (metaVis.copyright && effectiveCopyright)) && (
-            <div className="mt-8 pt-4 border-t border-[#222226] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs text-gray-400 print:text-gray-700">
+            <div className="mt-8 pt-4 border-t border-[#222226] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs text-gray-400 print:text-neutral-600 print:border-neutral-300 print:mt-4 print:pt-2 print:break-inside-avoid">
               {metaVis.copyright && effectiveCopyright && (
-                <div className="flex items-center gap-2 text-gray-400 min-w-0">
-                  <Copyright className="w-3.5 h-3.5 text-gray-500 shrink-0" />
+                <div className="flex items-center gap-2 text-gray-400 min-w-0 print:text-neutral-600">
+                  <Copyright className="w-3.5 h-3.5 text-gray-500 shrink-0 print:text-neutral-600" />
                   <span className="truncate">{effectiveCopyright}</span>
                 </div>
               )}
               {metaVis.ccli && effectiveCcli && (
-                <div className="flex items-center gap-2 shrink-0 sm:ml-auto">
-                  <Shield className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                <div className="flex items-center gap-2 shrink-0 sm:ml-auto print:text-neutral-600">
+                  <Shield className="w-3.5 h-3.5 text-blue-400 shrink-0 print:text-neutral-600" />
                   <span>
                     Chant CCLI N°{' '}
                     <a
                       href={`https://songselect.ccli.com/Songs/${effectiveCcli.replace(/\D/g, '') || effectiveCcli}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="font-mono font-bold text-blue-400 hover:underline"
+                      className="font-mono font-bold text-blue-400 hover:underline print:text-neutral-900"
                     >
                       {effectiveCcli}
                     </a>
@@ -3671,6 +3516,104 @@ export const SongReader: React.FC<SongReaderProps> = ({
 
         </div>
       </div>
+
+      {/* Floating Auto-Scroll Control Widget (toujours disponible lors de l'activation) */}
+      {(showFloatingAutoScroll || stageSettings.isAutoScrolling) && (
+        <div className="no-print fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 p-1.5 pl-3 rounded-2xl bg-[#16161C]/95 border border-[#33333F] shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-3 duration-200 text-xs max-w-[calc(100vw-32px)]">
+          {/* Status Indicator & Progress */}
+          <div className="flex items-center gap-2 shrink-0">
+            <span className={`w-2 h-2 rounded-full shrink-0 ${
+              stageSettings.isAutoScrolling ? 'bg-amber-400 animate-ping' : 'bg-gray-500'
+            }`} />
+            <div className="flex flex-col min-w-0">
+              <span className="font-bold text-white text-[11px] flex items-center gap-1.5 leading-tight">
+                <span>Défilement</span>
+                <span className="text-[10px] font-mono text-emerald-400 font-semibold bg-emerald-950/60 border border-emerald-500/30 px-1 rounded">
+                  {scrollProgress}%
+                </span>
+              </span>
+              <span className="text-[9px] text-gray-400 font-mono leading-tight">
+                {stageSettings.isAutoScrolling ? 'En cours' : 'En pause'} • {effectiveDuration}
+              </span>
+            </div>
+          </div>
+
+          {/* Multiplicateur de vitesse */}
+          <div className="flex items-center bg-[#101014] border border-[#262630] rounded-lg p-0.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => setScrollSpeedMultiplier(prev => Math.max(0.5, Number((prev - 0.25).toFixed(2))))}
+              className="w-5 h-5 rounded flex items-center justify-center text-gray-400 hover:text-white hover:bg-[#202028] transition-colors font-bold text-xs cursor-pointer"
+              title="Ralentir (-0.25x)"
+            >
+              -
+            </button>
+            <span className="text-[10px] font-mono font-bold text-blue-400 min-w-[28px] text-center px-0.5">
+              {scrollSpeedMultiplier}x
+            </span>
+            <button
+              type="button"
+              onClick={() => setScrollSpeedMultiplier(prev => Math.min(3, Number((prev + 0.25).toFixed(2))))}
+              className="w-5 h-5 rounded flex items-center justify-center text-gray-400 hover:text-white hover:bg-[#202028] transition-colors font-bold text-xs cursor-pointer"
+              title="Accélérer (+0.25x)"
+            >
+              +
+            </button>
+          </div>
+
+          {/* Bouton bascule Pause / Reprendre */}
+          <button
+            type="button"
+            onClick={handleToggleAutoScroll}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs transition-all cursor-pointer shadow-md active:scale-95 shrink-0 ${
+              stageSettings.isAutoScrolling
+                ? 'bg-amber-500 hover:bg-amber-400 text-black shadow-amber-500/25 ring-1 ring-amber-400/40'
+                : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-950/40 ring-1 ring-emerald-400/40'
+            }`}
+            title={stageSettings.isAutoScrolling ? "Mettre en pause le défilement" : "Reprendre le défilement"}
+          >
+            {stageSettings.isAutoScrolling ? (
+              <>
+                <Pause className="w-3.5 h-3.5 fill-current" />
+                <span>Pause</span>
+              </>
+            ) : (
+              <>
+                <Play className="w-3.5 h-3.5 fill-current" />
+                <span>Reprendre</span>
+              </>
+            )}
+          </button>
+
+          {/* Revenir au début */}
+          <button
+            type="button"
+            onClick={() => {
+              if (containerRef.current) {
+                containerRef.current.scrollTop = 0;
+                scrollPosRef.current = 0;
+              }
+            }}
+            className="p-1.5 rounded-lg bg-[#202028] hover:bg-[#2A2A36] text-gray-300 hover:text-white transition-colors cursor-pointer shrink-0"
+            title="Revenir au début du chant"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Arrêter et désactiver */}
+          <button
+            type="button"
+            onClick={() => {
+              updateStageSettings({ isAutoScrolling: false });
+              setShowFloatingAutoScroll(false);
+            }}
+            className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#202028] transition-colors cursor-pointer shrink-0"
+            title="Désactiver et fermer le défilement"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* Floating Bottom Quick Controls (Scroll Reset & Setlist Navigation) */}
       <div className="no-print fixed bottom-4 right-4 z-40 flex items-center gap-2">
@@ -3712,9 +3655,10 @@ export const SongReader: React.FC<SongReaderProps> = ({
         )}
       </div>
 
-      {/* PDF Export & Share Modal */}
-      {showPdfModal && song && (
-        <SetlistPdfModal
+      {/* Modals & Popups (Hidden in Print) */}
+      <div className="no-print">
+        {showPdfModal && song && (
+          <SetlistPdfModal
           setlist={{
             id: 'single-song',
             groupId: song.groupId,
@@ -3725,6 +3669,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
           }}
           songs={[song]}
           mode="song"
+          allowCover={isInSetlist}
           onClose={() => setShowPdfModal(false)}
         />
       )}
@@ -3911,42 +3856,6 @@ export const SongReader: React.FC<SongReaderProps> = ({
 
               {/* Contenu : Mode Bilingue et Liste des versions */}
               <div className="p-3 sm:p-4 space-y-3 max-h-[calc(80vh-90px)] overflow-y-auto custom-scrollbar">
-                {/* Carte Mode Bilingue (2 colonnes) */}
-                <div className="p-3 rounded-xl bg-indigo-950/40 border border-indigo-500/40 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-8 h-8 rounded-lg bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center text-indigo-300 shrink-0">
-                      <Columns className="w-4 h-4" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                        <span>Mode bilingue (2 colonnes)</span>
-                        {isBilingualMode && (
-                          <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-indigo-500/30 text-indigo-300 border border-indigo-500/40">
-                            Actif
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-[10px] text-gray-300 truncate">
-                        Chant original à gauche • Version traduite à droite
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      handleToggleBilingualMode();
-                      setShowSetlistVersionModal(false);
-                      showFeedbackToast(isBilingualMode ? 'Mode bilingue désactivé' : 'Mode bilingue activé');
-                    }}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0 ${
-                      isBilingualMode
-                        ? 'bg-[#202028] hover:bg-[#282834] text-gray-300 border border-gray-600'
-                        : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-md'
-                    }`}
-                  >
-                    {isBilingualMode ? 'Désactiver' : 'Activer'}
-                  </button>
-                </div>
 
                 {linkedVersions.length > 0 ? (
                   <>
@@ -3968,22 +3877,8 @@ export const SongReader: React.FC<SongReaderProps> = ({
                               </span>
                             </div>
 
-                            {/* Boutons : « Bilingue », « Afficher » et « Remplacer » */}
+                            {/* Boutons : « Afficher » et « Remplacer » */}
                             <div className="flex items-center gap-1.5 shrink-0">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setSelectedTranslatedSongId(lv.id);
-                                  setIsBilingualMode(true);
-                                  setShowSetlistVersionModal(false);
-                                  showFeedbackToast(`Mode bilingue activé avec « ${lv.title} » à droite.`);
-                                }}
-                                className="px-2 sm:px-2.5 py-1.5 rounded-lg bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 hover:text-white text-xs font-semibold border border-indigo-500/40 transition-colors cursor-pointer flex items-center gap-1"
-                                title="Afficher en 2 colonnes (mode bilingue)"
-                              >
-                                <Columns className="w-3 h-3" />
-                                <span>Bilingue</span>
-                              </button>
                               <button
                                 type="button"
                                 onClick={() => handleViewOnlyVersion(lv)}
@@ -4072,17 +3967,18 @@ export const SongReader: React.FC<SongReaderProps> = ({
           </div>
         );
       })()}
+      </div>
 
       {/* Floating Toast Feedback for setlist modifications */}
       {feedbackToast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-[#1A1A20]/95 border border-emerald-500/40 text-emerald-300 px-4 py-2.5 rounded-xl shadow-2xl backdrop-blur-md text-xs font-semibold flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
+        <div className="no-print fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-[#1A1A20]/95 border border-emerald-500/40 text-emerald-300 px-4 py-2.5 rounded-xl shadow-2xl backdrop-blur-md text-xs font-semibold flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
           <Check className="w-4 h-4 text-emerald-400 shrink-0" />
           <span>{feedbackToast}</span>
         </div>
       )}
 
       {/* Floating Audio, YouTube & Spotify Player */}
-      {showAudioPlayer && hasAudioLink && (
+      {showAudioPlayer && (
         isAudioPlayerMinimized ? (
           <div className={`no-print fixed bottom-3 right-3 sm:bottom-6 sm:right-6 z-50 flex items-center gap-2 p-1.5 pl-3 rounded-full bg-[#16161A]/95 shadow-2xl backdrop-blur-md animate-in fade-in duration-150 border ${
             activeAudioSource === 'spotify' ? 'border-emerald-500/50' : 'border-red-500/50'
@@ -4096,7 +3992,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' 
                 : 'bg-red-500/20 text-red-300 border border-red-500/30'
             }`}>
-              {activeAudioSource === 'spotify' ? 'Spotify' : (effectiveYoutubeUrl ? 'YouTube' : 'Audio')}
+              {activeAudioSource === 'spotify' ? 'Spotify' : (activeAudioSource === 'youtube' ? 'YouTube' : 'Audio')}
             </span>
             <button
               type="button"
@@ -4151,13 +4047,13 @@ export const SongReader: React.FC<SongReaderProps> = ({
                     <ExternalLink className="w-3.5 h-3.5" />
                   </a>
                 )}
-                {activeAudioSource === 'youtube' && effectiveYoutubeUrl && (
+                {activeAudioSource === 'youtube' && (
                   <a
-                    href={effectiveYoutubeUrl}
+                    href={effectiveYoutubeUrl || `https://www.youtube.com/results?search_query=${encodeURIComponent([parsedData.title || song.title, parsedData.artist || song.artist].filter(Boolean).join(' '))}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#25252D] transition-colors"
-                    title="Ouvrir dans un nouvel onglet"
+                    title="Ouvrir sur YouTube (nouvel onglet)"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
                   </a>
@@ -4254,25 +4150,48 @@ export const SongReader: React.FC<SongReaderProps> = ({
             )}
 
             {/* Video Embed YouTube */}
-            {activeAudioSource === 'youtube' && effectiveYoutubeUrl && (() => {
-              const embedUrl = getYouTubeEmbedUrl(effectiveYoutubeUrl);
+            {activeAudioSource === 'youtube' && (() => {
+              const query = [parsedData.title || song.title, parsedData.artist || song.artist].filter(Boolean).join(' ');
+              const embedUrl = effectiveYoutubeUrl 
+                ? getYouTubeEmbedUrl(effectiveYoutubeUrl) 
+                : `https://www.youtube-nocookie.com/embed?listType=search&list=${encodeURIComponent(query)}&autoplay=1`;
+              
               if (embedUrl) {
                 return (
-                  <div className="rounded-lg overflow-hidden border border-[#2A2A32] bg-black aspect-video mb-2">
-                    <iframe
-                      src={embedUrl}
-                      title={song.title}
-                      className="w-full h-full border-0"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                    />
+                  <div>
+                    <div className="rounded-lg overflow-hidden border border-[#2A2A32] bg-black aspect-video mb-2 shadow-md">
+                      <iframe
+                        src={embedUrl}
+                        title={song.title}
+                        className="w-full h-full border-0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
+                    </div>
+                    {!effectiveYoutubeUrl && (
+                      <div className="flex items-center justify-between text-[10px] text-gray-400 px-1 mb-1">
+                        <span className="flex items-center gap-1 text-red-400 font-medium">
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
+                          Recherche automatique YouTube
+                        </span>
+                        <a
+                          href={`https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-gray-400 hover:text-white hover:underline flex items-center gap-0.5"
+                        >
+                          <span>Voir sur YouTube</span>
+                          <ExternalLink className="w-2.5 h-2.5" />
+                        </a>
+                      </div>
+                    )}
                   </div>
                 );
               }
               return (
                 <div className="p-3 bg-[#111114] rounded-lg text-center mb-2">
                   <a
-                    href={effectiveYoutubeUrl}
+                    href={`https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-semibold"

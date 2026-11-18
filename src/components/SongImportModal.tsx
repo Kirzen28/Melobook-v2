@@ -23,6 +23,7 @@ import {
 import { EXTERNAL_SONGS_DATABASE, ExternalSongItem } from '../data/externalSongsDatabase';
 import { Song } from '../types';
 import { parseChordPro } from '../utils/chordUtils';
+import { normalizeSearchString } from '../utils/songSearchUtils';
 
 interface SongImportModalProps {
   isOpen: boolean;
@@ -170,7 +171,7 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
 
   // Local database search (only active when user has typed a query)
   const localFilteredResults = useMemo(() => {
-    const q = searchQuery.toLowerCase().trim();
+    const q = normalizeSearchString(searchQuery);
     if (!q) return [];
     return EXTERNAL_SONGS_DATABASE.filter(song => {
       // Source filter
@@ -178,10 +179,10 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
         return false;
       }
       return (
-        song.title.toLowerCase().includes(q) ||
-        song.artist.toLowerCase().includes(q) ||
-        song.snippet.toLowerCase().includes(q) ||
-        song.tags.some(t => t.toLowerCase().includes(q))
+        normalizeSearchString(song.title).includes(q) ||
+        normalizeSearchString(song.artist).includes(q) ||
+        normalizeSearchString(song.snippet).includes(q) ||
+        song.tags.some(t => normalizeSearchString(t).includes(q))
       );
     });
   }, [searchQuery, selectedSource]);

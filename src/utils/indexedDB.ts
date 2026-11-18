@@ -1,13 +1,15 @@
-import { Song, Setlist } from '../types';
+import { Song, Setlist, CustomPad } from '../types';
 
 const DB_NAME = 'melobook_offline_db';
-const DB_VERSION = 1;
+const DB_VERSION = 3;
 
 const STORES = {
   SONGS: 'songs',
   SETLISTS: 'setlists',
   OFFLINE_QUEUE: 'offline_queue',
-  META: 'meta'
+  META: 'meta',
+  CUSTOM_PADS: 'custom_pads',
+  AUDIO_BLOBS: 'audio_blobs'
 } as const;
 
 let dbPromise: Promise<IDBDatabase> | null = null;
@@ -58,6 +60,18 @@ export function openIndexedDB(): Promise<IDBDatabase> {
         // 4. Store pour les métadonnées (dernière synchro, flags)
         if (!db.objectStoreNames.contains(STORES.META)) {
           db.createObjectStore(STORES.META, { keyPath: 'key' });
+        }
+
+        // 5. Store pour les pads audio d'accompagnement
+        if (!db.objectStoreNames.contains(STORES.CUSTOM_PADS)) {
+          const padStore = db.createObjectStore(STORES.CUSTOM_PADS, { keyPath: 'id' });
+          padStore.createIndex('groupId', 'groupId', { unique: false });
+        }
+
+        // 6. Store pour les blobs / fichiers audio convertis (cache persistant hors-ligne)
+        if (!db.objectStoreNames.contains(STORES.AUDIO_BLOBS)) {
+          const audioStore = db.createObjectStore(STORES.AUDIO_BLOBS, { keyPath: 'key' });
+          audioStore.createIndex('cachedAt', 'cachedAt', { unique: false });
         }
       };
 
@@ -379,21 +393,177 @@ export async function getOfflineStorageStats(): Promise<{
 }
 
 /**
+ * Enregistre un pad audio personnalisé dans IndexedDB pour lecture immédiate hors-ligne.
+ */
+export async function saveCustomPadToIndexedDB(pad: CustomPad): Promise<void> {
+  if (!pad || !pad.id) return;
+  const db = await openIndexedDB();
+
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([STORES.CUSTOM_PADS], 'readwrite');
+    const store = transaction.objectStore(STORES.CUSTOM_PADS);
+    store.put(pad);
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+  });
+}
+
+/**
+ * Récupère tous les pads audio personnalisés depuis IndexedDB.
+ */
+export async function getAllCustomPadsFromIndexedDB(groupId?: string): Promise<CustomPad[]> {
+  const db = await openIndexedDB();
+
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([STORES.CUSTOM_PADS], 'readonly');
+    const store = transaction.objectStore(STORES.CUSTOM_PADS);
+    const request = store.getAll();
+
+    request.onsuccess = () => {
+      const results: CustomPad[] = request.result || [];
+      if (groupId) {
+        resolve(results.filter((p) => p.groupId === groupId));
+      } else {
+        resolve(results);
+      }
+    };
+    request.onerror = () => reject(request.error);
+  });
+}
+
+/**
+ * Supprime un pad audio d'IndexedDB.
+ */
+export async function deleteCustomPadFromIndexedDB(id: string): Promise<void> {
+  if (!id) return;
+  const db = await openIndexedDB();
+
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([STORES.CUSTOM_PADS], 'readwrite');
+    const store = transaction.objectStore(STORES.CUSTOM_PADS);
+    store.delete(id);
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+  });
+}
+
+export interface CachedAudioEntry {
+  key: string;
+  blob: Blob;
+  size: number;
+  mimeType: string;
+  fileName?: string;
+  cachedAt: number;
+}
+
+/**
+ * Sauvegarde un fichier ou tampon audio converti dans le cache local IndexedDB.
+ * Permet d'éviter de ré-encoder ou de re-télécharger l'audio dans les sessions futures.
+ */
+export async function saveAudioBlobToIndexedDB(
+  key: string,
+  data: Blob | ArrayBuffer,
+  meta?: { fileName?: string; mimeType?: string }
+): Promise<void> {
+  if (!key || !data) return;
+  const db = await openIndexedDB();
+
+  const blob = data instanceof Blob ? data : new Blob([data], { type: meta?.mimeType || 'audio/mp3' });
+  const entry: CachedAudioEntry = {
+    key,
+    blob,
+    size: blob.size,
+    mimeType: meta?.mimeType || blob.type || 'audio/mp3',
+    fileName: meta?.fileName,
+    cachedAt: Date.now()
+  };
+
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([STORES.AUDIO_BLOBS], 'readwrite');
+    const store = transaction.objectStore(STORES.AUDIO_BLOBS);
+    store.put(entry);
+
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+  });
+}
+
+/**
+ * Récupère un fichier audio mis en cache sous forme de Blob depuis IndexedDB.
+ */
+export async function getAudioBlobFromIndexedDB(key: string): Promise<Blob | null> {
+  if (!key) return null;
+  const db = await openIndexedDB();
+
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([STORES.AUDIO_BLOBS], 'readonly');
+    const store = transaction.objectStore(STORES.AUDIO_BLOBS);
+    const request = store.get(key);
+
+    request.onsuccess = () => {
+      const result = request.result as CachedAudioEntry | undefined;
+      resolve(result?.blob || null);
+    };
+    request.onerror = () => reject(request.error);
+  });
+}
+
+/**
+ * Récupère un fichier audio mis en cache sous forme d'ArrayBuffer pour décodage direct Web Audio.
+ */
+export async function getAudioArrayBufferFromIndexedDB(key: string): Promise<ArrayBuffer | null> {
+  const blob = await getAudioBlobFromIndexedDB(key);
+  if (!blob) return null;
+  return blob.arrayBuffer();
+}
+
+/**
+ * Supprime un fichier audio spécifique du cache local IndexedDB.
+ */
+export async function deleteAudioBlobFromIndexedDB(key: string): Promise<void> {
+  if (!key) return;
+  const db = await openIndexedDB();
+
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([STORES.AUDIO_BLOBS], 'readwrite');
+    const store = transaction.objectStore(STORES.AUDIO_BLOBS);
+    store.delete(key);
+
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+  });
+}
+
+/**
  * Vide intégralement le cache IndexedDB de l'application.
  */
 export async function clearIndexedDB(): Promise<void> {
   const db = await openIndexedDB();
 
   return new Promise((resolve, reject) => {
-    const transaction = db.transaction(
-      [STORES.SONGS, STORES.SETLISTS, STORES.OFFLINE_QUEUE, STORES.META],
-      'readwrite'
-    );
+    const storesToClear: string[] = [
+      STORES.SONGS,
+      STORES.SETLISTS,
+      STORES.OFFLINE_QUEUE,
+      STORES.META,
+      STORES.CUSTOM_PADS
+    ];
+    if (db.objectStoreNames.contains(STORES.AUDIO_BLOBS)) {
+      storesToClear.push(STORES.AUDIO_BLOBS);
+    }
+
+    const transaction = db.transaction(storesToClear, 'readwrite');
 
     transaction.objectStore(STORES.SONGS).clear();
     transaction.objectStore(STORES.SETLISTS).clear();
     transaction.objectStore(STORES.OFFLINE_QUEUE).clear();
     transaction.objectStore(STORES.META).clear();
+    if (transaction.objectStoreNames.contains(STORES.CUSTOM_PADS)) {
+      transaction.objectStore(STORES.CUSTOM_PADS).clear();
+    }
+    if (transaction.objectStoreNames.contains(STORES.AUDIO_BLOBS)) {
+      transaction.objectStore(STORES.AUDIO_BLOBS).clear();
+    }
 
     transaction.oncomplete = () => resolve();
     transaction.onerror = () => reject(transaction.error);

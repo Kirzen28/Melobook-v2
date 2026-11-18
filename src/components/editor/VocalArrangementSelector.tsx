@@ -211,30 +211,16 @@ export const VocalArrangementSelector: React.FC<VocalArrangementSelectorProps> =
           })}
 
           {canEdit && (
-            <div className="inline-flex items-center gap-0.5">
-              <button
-                ref={buttonRef}
-                type="button"
-                onClick={() => setIsOpen(!isOpen)}
-                className="p-1 rounded-md text-gray-400 hover:text-purple-300 hover:bg-[#1F1F24] border border-transparent hover:border-[#333] transition-colors cursor-pointer"
-                title="Modifier les voix pour cette section"
-                aria-label="Modifier les voix"
-              >
-                <Plus className="w-3 h-3" />
-              </button>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleClearAll();
-                }}
-                className="p-1 rounded-md text-gray-400 hover:text-rose-400 hover:bg-rose-500/15 border border-transparent hover:border-rose-500/30 transition-colors cursor-pointer"
-                title="Retirer toutes les voix pour cette section"
-                aria-label="Retirer toutes les voix"
-              >
-                <Trash2 className="w-3 h-3" />
-              </button>
-            </div>
+            <button
+              ref={buttonRef}
+              type="button"
+              onClick={() => setIsOpen(!isOpen)}
+              className="p-1 rounded-md text-gray-400 hover:text-purple-300 hover:bg-[#1F1F24] border border-transparent hover:border-[#333] transition-colors cursor-pointer"
+              title="Modifier les voix pour cette section"
+              aria-label="Modifier les voix"
+            >
+              <Plus className="w-3 h-3" />
+            </button>
           )}
         </div>
       ) : canEdit ? (
@@ -258,7 +244,7 @@ export const VocalArrangementSelector: React.FC<VocalArrangementSelectorProps> =
       {isOpen && canEdit && (
         <div
           ref={popoverRef}
-          className="absolute right-0 top-full mt-1.5 z-50 w-72 max-w-[calc(100vw-2rem)] bg-[#141417] border border-[#2E2E36] rounded-xl shadow-2xl p-3 backdrop-blur-md animate-in fade-in zoom-in-95 duration-100 box-border text-xs"
+          className="absolute right-0 top-full mt-1.5 z-[100] w-72 max-w-[calc(100vw-2rem)] bg-[#141417] border border-[#2E2E36] rounded-xl shadow-2xl p-3 backdrop-blur-md animate-in fade-in zoom-in-95 duration-100 box-border text-xs"
         >
           {/* Header */}
           <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-[#26262E]">

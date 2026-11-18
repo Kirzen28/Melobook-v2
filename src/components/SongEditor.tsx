@@ -27,6 +27,7 @@ import {
 } from '../utils/visualEditorUtils';
 import { VisualSectionCard } from './editor/VisualSectionCard';
 import { ChordPickerModal } from './editor/ChordPickerModal';
+import { KeySelectorKeypad } from './KeySelectorKeypad';
 import { LanguageVersionModal } from './LanguageVersionModal';
 import { 
   PRESET_LANGUAGES, 
@@ -47,6 +48,7 @@ import {
   ChevronLeft, 
   Sparkles, 
   Music, 
+  Music2,
   Eye, 
   FileEdit, 
   Plus, 
@@ -69,7 +71,7 @@ import {
   Loader2,
   Shield,
   Copyright,
-  Radio
+  Undo2
 } from 'lucide-react';
 
 const SAMPLE_TEMPLATE = `{title: Mon Nouveau Chant}
@@ -121,6 +123,8 @@ export const SongEditor: React.FC = () => {
     createSong, 
     updateSong, 
     setActiveTab,
+    editorSubTab,
+    setEditorSubTab,
     showNotification,
     canManageSongs
   } = useApp();
@@ -133,8 +137,57 @@ export const SongEditor: React.FC = () => {
   const [artistSearchQuery, setArtistSearchQuery] = useState('');
   const [customArtists, setCustomArtists] = useState<string[]>(() => getCustomArtists());
   const artistDropdownRef = useRef<HTMLDivElement>(null);
+  const keyPickerRef = useRef<HTMLDivElement>(null);
   const [key, setKey] = useState(selectedSong?.key || 'C');
+  const [isKeyPickerOpen, setIsKeyPickerOpen] = useState(false);
   const [tempo, setTempo] = useState<number>(selectedSong?.bpm || selectedSong?.tempo || 100);
+
+  // Parse current key into Root (C..B), Accidental (b, #, none), and Mode (Major, Minor)
+  const parsedKey = useMemo(() => {
+    const raw = (key || 'C').trim();
+    const match = raw.match(/^([A-Ga-g])([#♯b♭]?)(m|min|maj|M)?/i);
+    const root = match ? match[1].toUpperCase() : 'C';
+    let accidental: '' | '#' | 'b' = '';
+    if (match) {
+      if (match[2] === '#' || match[2] === '♯') accidental = '#';
+      else if (match[2] === 'b' || match[2] === '♭') accidental = 'b';
+    }
+    const isMinor = match ? (Boolean(match[3]) && match[3].toLowerCase().startsWith('m') && match[3] !== 'M') : false;
+    return { root, accidental, isMinor };
+  }, [key]);
+
+  const handleKeyUpdate = (newRoot: string, newAccidental: '' | '#' | 'b', newIsMinor: boolean) => {
+    const newKey = `${newRoot}${newAccidental}${newIsMinor ? 'm' : ''}`;
+    setKey(newKey);
+    setContentChordPro(visualSectionsToChordPro(visualSections, {
+      title,
+      artist,
+      key: newKey,
+      tempo: Number(bpm || tempo) || 100,
+      bpm: Number(bpm || tempo) || 100,
+      timeSignature,
+      duration,
+      capo,
+      ccli,
+      copyright,
+      youtubeUrl,
+      audioUrl,
+      spotifyUrl
+    }));
+  };
+
+  const handleSelectRoot = (note: string) => {
+    handleKeyUpdate(note, parsedKey.accidental, parsedKey.isMinor);
+  };
+
+  const handleToggleAccidental = (acc: '#' | 'b') => {
+    const nextAcc = parsedKey.accidental === acc ? '' : acc;
+    handleKeyUpdate(parsedKey.root, nextAcc, parsedKey.isMinor);
+  };
+
+  const handleSelectMode = (isMinor: boolean) => {
+    handleKeyUpdate(parsedKey.root, parsedKey.accidental, isMinor);
+  };
   const [bpm, setBpm] = useState<number>(selectedSong?.bpm || selectedSong?.tempo || 100);
   const [timeSignature, setTimeSignature] = useState(selectedSong?.timeSignature || '4/4');
   const [duration, setDuration] = useState(selectedSong?.duration ? formatDurationToMMSS(selectedSong.duration) : '03:30');
@@ -159,12 +212,61 @@ export const SongEditor: React.FC = () => {
   const [spotifyUrl, setSpotifyUrl] = useState(selectedSong?.spotifyUrl || '');
   const [notes, setNotes] = useState(selectedSong?.notes || '');
   const [contentChordPro, setContentChordPro] = useState(selectedSong?.contentChordPro || SAMPLE_TEMPLATE);
-  const [showPreviewPane, setShowPreviewPane] = useState(true);
 
   // Visual Structured Sections
   const [visualSections, setVisualSections] = useState<VisualSection[]>(() => {
     return chordProToVisualSections(selectedSong?.contentChordPro || SAMPLE_TEMPLATE);
   });
+
+  // Undo history management
+  const undoStackRef = useRef<VisualSection[][]>([]);
+  const [canUndo, setCanUndo] = useState(false);
+  const lastTypingTimeRef = useRef<number>(0);
+
+  const pushHistory = (sections: VisualSection[]) => {
+    try {
+      const snapshot: VisualSection[] = JSON.parse(JSON.stringify(sections));
+      undoStackRef.current = [...undoStackRef.current.slice(-30), snapshot];
+      setCanUndo(true);
+    } catch (e) {
+      console.error('Failed to create history snapshot', e);
+    }
+  };
+
+  const handleUndo = () => {
+    if (undoStackRef.current.length === 0) return;
+    const previous = undoStackRef.current.pop();
+    setCanUndo(undoStackRef.current.length > 0);
+    if (previous) {
+      setVisualSections(previous);
+      setContentChordPro(visualSectionsToChordPro(previous, {
+        title,
+        artist,
+        key,
+        tempo,
+        timeSignature,
+        duration,
+        capo
+      }));
+      showNotification('Action annulée', 'info');
+    }
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
+        const active = document.activeElement;
+        const isTextInput = active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement;
+        if (!isTextInput) {
+          e.preventDefault();
+          handleUndo();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [title, artist, key, tempo, timeSignature, duration, capo]);
 
   // Collapsed Sections state for folding/unfolding section bodies in the editor
   const [collapsedSectionIds, setCollapsedSectionIds] = useState<Set<string>>(new Set());
@@ -233,6 +335,7 @@ export const SongEditor: React.FC = () => {
 
   // Add section dropdown state
   const [isAddSectionDropdownOpen, setIsAddSectionDropdownOpen] = useState(false);
+  const [activeInsertSectionIndex, setActiveInsertSectionIndex] = useState<number | null>(null);
   const addSectionDropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdowns on outside click
@@ -243,6 +346,9 @@ export const SongEditor: React.FC = () => {
       }
       if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(e.target as Node)) {
         setIsCategoryDropdownOpen(false);
+      }
+      if (keyPickerRef.current && !keyPickerRef.current.contains(e.target as Node)) {
+        setIsKeyPickerOpen(false);
       }
       if (addSectionDropdownRef.current && !addSectionDropdownRef.current.contains(e.target as Node)) {
         setIsAddSectionDropdownOpen(false);
@@ -471,6 +577,12 @@ export const SongEditor: React.FC = () => {
 
   // Update a section in Visual Mode and sync ChordPro text
   const handleUpdateSection = (updatedSection: VisualSection) => {
+    const now = Date.now();
+    if (now - lastTypingTimeRef.current > 1000) {
+      pushHistory(visualSections);
+    }
+    lastTypingTimeRef.current = now;
+
     const updatedSections = visualSections.map(sec => 
       sec.id === updatedSection.id ? updatedSection : sec
     );
@@ -497,6 +609,7 @@ export const SongEditor: React.FC = () => {
 
   // Add a new section
   const handleAddNewSection = (type: VisualSection['type'] = 'verse', customTitle?: string, afterIndex?: number) => {
+    pushHistory(visualSections);
     const newSection: VisualSection = {
       id: generateId('sec'),
       type,
@@ -537,6 +650,7 @@ export const SongEditor: React.FC = () => {
   const handleDuplicateSection = (sectionId: string) => {
     const sourceIndex = visualSections.findIndex(s => s.id === sectionId);
     if (sourceIndex === -1) return;
+    pushHistory(visualSections);
     const source = visualSections[sourceIndex];
 
     const duplicatedLines: VisualLine[] = source.lines.map(l => ({
@@ -554,6 +668,7 @@ export const SongEditor: React.FC = () => {
       type: source.type,
       title: source.title,
       vocals: [...source.vocals],
+      repeat: source.repeat || 1,
       lines: duplicatedLines
     };
 
@@ -564,8 +679,47 @@ export const SongEditor: React.FC = () => {
     setContentChordPro(visualSectionsToChordPro(renumbered, { title, artist, key, tempo, timeSignature, duration, capo }));
   };
 
+  // Split section at cursor: keep head in current section, create new section with tail
+  const handleSplitSection = (sectionId: string, headLines: VisualLine[], tailLines: VisualLine[]) => {
+    const sourceIndex = visualSections.findIndex(s => s.id === sectionId);
+    if (sourceIndex === -1) return;
+    pushHistory(visualSections);
+    const source = visualSections[sourceIndex];
+
+    const updatedSource: VisualSection = {
+      ...source,
+      lines: headLines.length > 0 ? headLines : [{
+        id: generateId('line'),
+        type: 'lyrics',
+        items: [{ id: generateId('it'), chord: '', lyrics: '' }]
+      }]
+    };
+
+    const newSection: VisualSection = {
+      id: generateId('sec'),
+      type: source.type,
+      title: source.title,
+      vocals: [...(source.vocals || [])],
+      repeat: 1,
+      lines: tailLines.length > 0 ? tailLines : [{
+        id: generateId('line'),
+        type: 'lyrics',
+        items: [{ id: generateId('it'), chord: '', lyrics: '' }]
+      }]
+    };
+
+    const updated = [...visualSections];
+    updated[sourceIndex] = updatedSource;
+    updated.splice(sourceIndex + 1, 0, newSection);
+    const renumbered = recomputeSectionTitles(updated);
+    setVisualSections(renumbered);
+    setContentChordPro(visualSectionsToChordPro(renumbered, { title, artist, key, tempo, timeSignature, duration, capo }));
+    showNotification('Section scindée avec succès', 'success');
+  };
+
   // Delete a section
   const handleDeleteSection = (sectionId: string) => {
+    pushHistory(visualSections);
     const updated = visualSections.filter(s => s.id !== sectionId);
     const renumbered = recomputeSectionTitles(updated);
     setVisualSections(renumbered);
@@ -575,6 +729,7 @@ export const SongEditor: React.FC = () => {
   // Move section by index
   const handleMoveSection = (fromIndex: number, toIndex: number) => {
     if (toIndex < 0 || toIndex >= visualSections.length) return;
+    pushHistory(visualSections);
     const updated = [...visualSections];
     const [moved] = updated.splice(fromIndex, 1);
     updated.splice(toIndex, 0, moved);
@@ -621,6 +776,7 @@ export const SongEditor: React.FC = () => {
   const handleSaveChordFromPicker = (newChord: string) => {
     const { sectionId, lineId, itemId, charOffset } = chordPickerState;
     if (!sectionId || !lineId) return;
+    pushHistory(visualSections);
 
     const updatedSections = visualSections.map(sec => {
       if (sec.id !== sectionId) return sec;
@@ -655,6 +811,7 @@ export const SongEditor: React.FC = () => {
   const handleDeleteChordFromPicker = () => {
     const { sectionId, lineId, itemId } = chordPickerState;
     if (!sectionId || !lineId || !itemId) return;
+    pushHistory(visualSections);
 
     const updatedSections = visualSections.map(sec => {
       if (sec.id !== sectionId) return sec;
@@ -695,11 +852,15 @@ export const SongEditor: React.FC = () => {
 
     const resolvedBpm = Number(bpm || tempo) || 100;
 
+    const resolvedKey = key.trim().endsWith('m')
+      ? key.trim().slice(0, -1).toUpperCase() + 'm'
+      : key.trim().toUpperCase();
+
     // Ensure ChordPro content is up to date from visual sections
     const finalChordPro = visualSectionsToChordPro(visualSections, {
       title: title.trim(),
       artist: artist.trim(),
-      key: key.trim().toUpperCase(),
+      key: resolvedKey,
       tempo: resolvedBpm,
       bpm: resolvedBpm,
       timeSignature,
@@ -715,7 +876,7 @@ export const SongEditor: React.FC = () => {
     const songData: Partial<Song> = {
       title: title.trim(),
       artist: artist.trim(),
-      key: key.trim().toUpperCase(),
+      key: resolvedKey,
       tempo: resolvedBpm,
       bpm: resolvedBpm,
       timeSignature,
@@ -750,11 +911,6 @@ export const SongEditor: React.FC = () => {
     }
   };
 
-  // Live parsed preview
-  const livePreviewData = parseChordPro(
-    visualSectionsToChordPro(visualSections, { title, artist, key, tempo, timeSignature, duration, capo, ccli, copyright, youtubeUrl, audioUrl, spotifyUrl })
-  );
-
   if (!canManageSongs) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-16 text-center text-[#E0E0E0]">
@@ -780,966 +936,976 @@ export const SongEditor: React.FC = () => {
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-6 py-6 pb-16 text-[#E0E0E0]">
       
-      {/* Bandeau en haut : Mode Éditeur */}
-      <div className="mb-4 flex items-center justify-between px-3.5 sm:px-4 py-2.5 rounded-xl bg-[#18181C] border border-amber-500/30 text-xs shadow-xs">
-        <button
-          type="button"
-          onClick={() => {
-            if (selectedSong) {
-              setActiveTab('stage');
-            } else {
-              setActiveTab('repertoire');
-            }
-          }}
-          className="flex items-center gap-1 text-xs text-gray-400 hover:text-white transition-colors cursor-pointer px-2.5 py-1 rounded-md hover:bg-[#25252A]"
-          title={selectedSong ? "Quitter le mode éditeur et afficher le chant en direct" : "Quitter le mode éditeur et retourner au répertoire"}
-        >
-          <ChevronLeft className="w-3.5 h-3.5" />
-          <span>Quitter l'éditeur</span>
-        </button>
-
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-md bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0">
-            <FileEdit className="w-3.5 h-3.5" />
+      {/* Bandeau en haut : Mode Éditeur (Aligné à gauche, clair & bouton quitter intuitif) */}
+      <div className="mb-4 flex items-center justify-between gap-3 px-3.5 sm:px-4 py-3 rounded-2xl bg-[#141418] border border-amber-500/25 shadow-md shadow-black/40 flex-wrap">
+        {/* Gauche : Statut Mode Éditeur & Titre du chant */}
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0 shadow-inner">
+            <FileEdit className="w-4 h-4" />
           </div>
-          <span className="font-bold text-amber-400 uppercase tracking-wider text-xs">
-            Mode Éditeur
-          </span>
+          <div className="min-w-0 flex flex-col">
+            <div className="flex items-center gap-2">
+              <span className="font-extrabold text-amber-400 uppercase tracking-wider text-xs sm:text-sm leading-none">
+                Mode Éditeur
+              </span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 font-semibold hidden xs:inline-block">
+                {selectedSong ? 'Modification' : 'Nouveau chant'}
+              </span>
+            </div>
+            {title && (
+              <span className="text-[11px] text-gray-400 truncate max-w-[220px] sm:max-w-md mt-0.5 font-medium">
+                {title} {artist ? `• ${artist}` : ''}
+              </span>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Top Header & Save Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
-        <div className="min-w-0 flex-1">
-          <h1 className="text-xl sm:text-2xl font-bold text-white break-words">
-            {selectedSong ? selectedSong.title : 'Nouveau Chant'}
-          </h1>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          {/* Toggle Live Preview pane */}
+        {/* Droite : Bouton Quitter intuitif */}
+        <div className="flex items-center gap-2 ml-auto">
           <button
             type="button"
-            onClick={() => setShowPreviewPane(!showPreviewPane)}
-            className={`hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${
-              showPreviewPane
-                ? 'bg-[#1C1C1E] text-blue-400 border-blue-500/40'
-                : 'bg-[#111113] text-gray-400 border-[#222225] hover:text-gray-200'
-            }`}
-            title="Afficher ou masquer l'aperçu scène"
+            onClick={() => {
+              if (selectedSong) {
+                setActiveTab('stage');
+              } else {
+                setActiveTab('repertoire');
+              }
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1E1E24] hover:bg-[#282830] text-gray-300 hover:text-white border border-white/10 hover:border-white/20 text-xs font-semibold shadow-xs transition-all active:scale-95 cursor-pointer"
+            title={selectedSong ? "Quitter le mode éditeur et afficher le chant en direct" : "Quitter le mode éditeur et retourner au répertoire"}
           >
-            <Eye className="w-3.5 h-3.5" />
-            <span>Aperçu</span>
+            <ChevronLeft className="w-4 h-4 text-gray-400 group-hover:text-white" />
+            <span>Quitter l'éditeur</span>
           </button>
         </div>
       </div>
 
-      {/* Metadata Form Grid */}
-      <div className="bg-[#111113] border border-[#222225] rounded-xl p-3 sm:p-3.5 mb-4 shadow-sm space-y-2.5">
-        {/* Row 1: Titre, Artiste & Paramètres musicaux */}
-        <div className="grid grid-cols-12 gap-2.5 items-start">
-          
-          {/* Titre */}
-          <div className="col-span-12 sm:col-span-7 lg:col-span-4">
-            <label className="block text-[11px] font-semibold text-gray-400 mb-1">
-              Titre du chant *
-            </label>
-            <input
-              type="text"
-              placeholder="Entrez le titre du chant"
-              value={title}
-              onChange={(e) => handleTitleChange(e.target.value)}
-              className="w-full h-8 bg-[#1C1C1E] border border-[#333] hover:border-[#444] rounded-lg px-2.5 text-xs text-white focus:outline-none focus:border-blue-500 font-semibold transition-colors"
-              required
-            />
+      {/* Navigation entre les 2 parties du mode Éditeur */}
+      <div className="mb-5 p-1.5 rounded-2xl bg-[#141418] border border-[#26262E] grid grid-cols-2 gap-2 shadow-lg">
+        <button
+          type="button"
+          id="tab-editor-data"
+          onClick={() => setEditorSubTab('data')}
+          className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer ${
+            editorSubTab === 'data'
+              ? 'bg-gradient-to-r from-amber-500/25 via-amber-600/15 to-[#1C1814] text-amber-300 border border-amber-500/50 shadow-md shadow-amber-950/40 ring-1 ring-amber-500/20'
+              : 'text-gray-400 hover:text-gray-200 hover:bg-[#1B1B20] border border-transparent'
+          }`}
+        >
+          <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${
+            editorSubTab === 'data' ? 'bg-amber-500/20 text-amber-400' : 'bg-[#222228] text-gray-400'
+          }`}>
+            <FileText className="w-3.5 h-3.5" />
           </div>
+          <span className="leading-tight">Éditer les données</span>
+        </button>
 
-          {/* Artiste ou Auteur (Multi-sélection & création rapide) */}
-          <div className="col-span-12 sm:col-span-5 lg:col-span-4 relative" ref={artistDropdownRef}>
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-[11px] font-semibold text-gray-400 flex items-center gap-1.5 truncate">
-                <Users className="w-3 h-3 text-purple-400" />
-                <span>Artiste(s) ou Auteur(s)</span>
-              </label>
-              {selectedArtists.length > 0 && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedArtists([]);
-                    setArtist('');
-                  }}
-                  className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors"
-                  title="Effacer les artistes"
-                >
-                  Effacer
-                </button>
-              )}
-            </div>
-
-            <div
-              id="song-artist-select"
-              onClick={() => setIsArtistDropdownOpen(!isArtistDropdownOpen)}
-              className={`min-h-[32px] w-full bg-[#1C1C1E] border ${
-                isArtistDropdownOpen ? 'border-purple-500 ring-1 ring-purple-500/30' : 'border-[#333] hover:border-[#444]'
-              } rounded-lg px-2 py-1 flex flex-wrap items-center gap-1 cursor-pointer transition-colors`}
-            >
-              {selectedArtists.length === 0 ? (
-                <span className="text-gray-500 text-xs truncate">Choisir ou créer un artiste...</span>
-              ) : (
-                selectedArtists.map((art) => (
-                  <span
-                    key={art}
-                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-600/20 text-purple-300 border border-purple-500/30 text-[10px] font-medium"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <span className="truncate max-w-[130px]">{art}</span>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleRemoveArtist(art);
-                      }}
-                      className="hover:text-white transition-colors"
-                      title={`Retirer ${art}`}
-                    >
-                      <X className="w-2.5 h-2.5" />
-                    </button>
-                  </span>
-                ))
-              )}
-              <ChevronDown className={`w-3.5 h-3.5 text-gray-400 ml-auto shrink-0 transition-transform duration-200 ${isArtistDropdownOpen ? 'rotate-180' : ''}`} />
-            </div>
-
-            {isArtistDropdownOpen && (
-              <div className="absolute left-0 right-0 top-full mt-1 bg-[#141416] border border-[#2A2A2D] rounded-xl shadow-2xl z-50 p-2.5 text-xs animate-in fade-in duration-100 min-w-[260px]">
-                {/* Search & Quick Creation Field */}
-                <div className="flex items-center gap-1.5 mb-2">
-                  <div className="relative flex-1">
-                    <Search className="w-3 h-3 text-gray-400 absolute left-2 top-2" />
-                    <input
-                      id="artist-search-input"
-                      type="text"
-                      placeholder="Rechercher ou créer un artiste..."
-                      value={artistSearchQuery}
-                      onChange={(e) => setArtistSearchQuery(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          handleCreateArtist(artistSearchQuery);
-                        }
-                      }}
-                      className="w-full bg-[#1C1C1E] border border-[#333] rounded-md pl-7 pr-2 py-1 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
-                      autoFocus
-                    />
-                  </div>
-                  {artistSearchQuery.trim() && (
-                    <button
-                      type="button"
-                      onClick={() => handleCreateArtist(artistSearchQuery)}
-                      className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer"
-                      title="Ajouter immédiatement cet artiste"
-                    >
-                      <Plus className="w-3 h-3" />
-                      <span>Ajouter</span>
-                    </button>
-                  )}
-                </div>
-
-                {/* Quick Add Prompt if current search query isn't in existing artists */}
-                {artistSearchQuery.trim() && !allAvailableArtists.some(a => a.toLowerCase() === artistSearchQuery.trim().toLowerCase()) && (
-                  <button
-                    type="button"
-                    onClick={() => handleCreateArtist(artistSearchQuery)}
-                    className="w-full mb-1.5 p-2 rounded-lg bg-purple-950/40 border border-purple-800/40 hover:bg-purple-900/50 hover:border-purple-600/50 cursor-pointer flex items-center justify-between text-purple-200 transition-colors text-left"
-                  >
-                    <div className="flex items-center gap-1.5 truncate">
-                      <Plus className="w-3.5 h-3.5 text-purple-400 shrink-0" />
-                      <span className="truncate">Créer <strong className="text-white font-semibold">« {artistSearchQuery.trim()} »</strong></span>
-                    </div>
-                    <span className="text-[10px] bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded font-mono ml-2 shrink-0">Entrée ↵</span>
-                  </button>
-                )}
-
-                {/* List of Artists */}
-                <div className="max-h-48 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
-                  {filteredArtistsList.length === 0 ? (
-                    <div className="py-4 text-center text-gray-500 text-xs">
-                      Aucun artiste existant ne correspond.
-                    </div>
-                  ) : (
-                    filteredArtistsList.map((art) => {
-                      const isSelected = selectedArtists.some(a => a.toLowerCase() === art.toLowerCase());
-                      return (
-                        <div
-                          key={art}
-                          onClick={() => handleToggleArtist(art)}
-                          className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg cursor-pointer transition-colors ${
-                            isSelected
-                              ? 'bg-purple-600/15 text-purple-200 font-medium'
-                              : 'hover:bg-[#1C1C1E] text-gray-300'
-                          }`}
-                        >
-                          <span className="truncate">{art}</span>
-                          <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${
-                            isSelected 
-                              ? 'bg-purple-600 border-purple-500 text-white' 
-                              : 'border-[#444] bg-[#1C1C1E]'
-                          }`}>
-                            {isSelected && <Check className="w-3 h-3 stroke-[2.5]" />}
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-
-                {/* Footer Count & Summary */}
-                <div className="mt-2 pt-1.5 border-t border-[#222] flex items-center justify-between text-[10px] text-gray-500">
-                  <span>{filteredArtistsList.length} artiste(s) suggéré(s)</span>
-                  <span className="text-purple-400 font-medium">{selectedArtists.length} sélectionné(s)</span>
-                </div>
-              </div>
-            )}
+        <button
+          type="button"
+          id="tab-editor-chords"
+          onClick={() => setEditorSubTab('chords')}
+          className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer ${
+            editorSubTab === 'chords'
+              ? 'bg-gradient-to-r from-blue-500/25 via-indigo-600/15 to-[#141620] text-blue-300 border border-blue-500/50 shadow-md shadow-blue-950/40 ring-1 ring-blue-500/20'
+              : 'text-gray-400 hover:text-gray-200 hover:bg-[#1B1B20] border border-transparent'
+          }`}
+        >
+          <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${
+            editorSubTab === 'chords' ? 'bg-blue-500/20 text-blue-400' : 'bg-[#222228] text-gray-400'
+          }`}>
+            <Music2 className="w-3.5 h-3.5" />
           </div>
-
-          {/* Paramètres musicaux : Tonalité, BPM, Mesure & Durée */}
-          <div className="col-span-12 lg:col-span-4 grid grid-cols-4 gap-2">
-            <div>
-              <label className="block text-[11px] font-semibold text-gray-400 mb-1 truncate text-center">
-                Tonalité
-              </label>
-              <select
-                value={key}
-                onChange={(e) => setKey(e.target.value)}
-                className="w-full h-8 bg-[#1C1C1E] border border-[#333] hover:border-[#444] rounded-lg px-1 text-xs text-blue-400 font-bold focus:outline-none focus:border-blue-500 cursor-pointer text-center transition-colors"
-              >
-                {['C', 'C#', 'Db', 'D', 'D#', 'Eb', 'E', 'F', 'F#', 'Gb', 'G', 'G#', 'Ab', 'A', 'A#', 'Bb', 'B', 'Am', 'Em', 'Dm', 'Bm', 'F#m'].map(k => (
-                  <option key={k} value={k} className="bg-[#111112] text-gray-200">{k}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-semibold text-gray-400 mb-1 truncate text-center">
-                BPM
-              </label>
-              <input
-                type="number"
-                min={30}
-                max={260}
-                value={bpm}
-                onChange={(e) => {
-                  const val = parseInt(e.target.value, 10) || 100;
-                  setBpm(val);
-                  setTempo(val);
-                }}
-                className="w-full h-8 bg-[#1C1C1E] border border-[#333] hover:border-emerald-500/50 focus:border-emerald-500 rounded-lg px-1 text-xs text-emerald-400 focus:outline-none text-center font-mono font-bold transition-colors"
-                title="Battements par minute (BPM)"
-                placeholder="100"
-              />
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-semibold text-gray-400 mb-1 truncate text-center">
-                Mesure
-              </label>
-              <select
-                value={timeSignature}
-                onChange={(e) => setTimeSignature(e.target.value)}
-                className="w-full h-8 bg-[#1C1C1E] border border-[#333] hover:border-[#444] rounded-lg px-1 text-xs text-emerald-400 font-bold focus:outline-none focus:border-blue-500 cursor-pointer text-center transition-colors"
-              >
-                {['4/4', '3/4', '6/8', '2/4', '12/8', '5/4'].map(ts => (
-                  <option key={ts} value={ts} className="bg-[#111112] text-gray-200">{ts}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-semibold text-gray-400 mb-1 truncate text-center">
-                Durée
-              </label>
-              <input
-                type="text"
-                placeholder="03:30"
-                value={duration}
-                onChange={(e) => setDuration(e.target.value)}
-                onBlur={() => {
-                  if (duration.trim()) {
-                    setDuration(formatDurationToMMSS(duration));
-                  }
-                }}
-                className="w-full h-8 bg-[#1C1C1E] border border-[#333] hover:border-[#444] focus:border-cyan-400 rounded-lg px-1 text-xs text-cyan-300 font-mono font-bold focus:outline-none text-center transition-colors"
-              />
-            </div>
-          </div>
-
-        </div>
-
-        {/* Row 2: Langue, Catégories & Notes de scène */}
-        <div className="grid grid-cols-12 gap-2.5 items-start pt-2 border-t border-[#1F1F23]">
-          
-          {/* Langue & Relations */}
-          <div className="col-span-12 sm:col-span-6 lg:col-span-3">
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-[11px] font-semibold text-gray-400 flex items-center gap-1.5">
-                <Globe className="w-3 h-3 text-blue-400" />
-                <span>Langue & Versions</span>
-              </label>
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={handleAutoDetectLanguage}
-                  className="text-[10px] text-emerald-400 hover:text-emerald-300 font-medium flex items-center gap-1 transition-colors px-1.5 py-0.5 rounded bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 cursor-pointer"
-                  title="Deviner la langue automatiquement grâce au titre et aux paroles"
-                >
-                  <Sparkles className="w-2.5 h-2.5" />
-                  <span>Deviner</span>
-                </button>
-                {selectedSong && (
-                  <button
-                    type="button"
-                    onClick={() => setIsLanguageModalOpen(true)}
-                    className="text-[10px] text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1 transition-colors"
-                  >
-                    <Link className="w-2.5 h-2.5" />
-                    <span>Relations</span>
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <select
-              value={language}
-              onChange={(e) => {
-                setLanguage(e.target.value);
-                setIsLanguageManual(true);
-              }}
-              className="w-full h-8 bg-[#1C1C1E] border border-[#333] hover:border-[#444] rounded-lg px-2.5 text-xs text-white focus:outline-none focus:border-blue-500 cursor-pointer font-medium transition-colors"
-            >
-              {PRESET_LANGUAGES.map(lang => (
-                <option key={lang.code} value={lang.name} className="bg-[#111112]">
-                  {lang.name}
-                </option>
-              ))}
-            </select>
-
-            {!isLanguageManual && detectedLangInfo && (
-              <p className="text-[10px] text-emerald-400/80 mt-1 flex items-center gap-1">
-                <Sparkles className="w-2.5 h-2.5 shrink-0 text-emerald-400" />
-                <span>Devinée d'après {detectedLangInfo.detectedFrom === 'title' ? 'le titre' : detectedLangInfo.detectedFrom === 'content' ? 'les paroles' : 'le titre et les paroles'}</span>
-              </p>
-            )}
-
-            {/* Inline linked versions shortcuts if song exists */}
-            {selectedSong && (() => {
-              const linked = getLinkedSongVersions(selectedSong, songs);
-              if (linked.length === 0) return null;
-              return (
-                <div className="mt-1.5 flex flex-wrap items-center gap-1">
-                  <span className="text-[10px] text-gray-500">Liées :</span>
-                  {linked.map(ls => {
-                    const lMeta = getLanguageMeta(ls.language);
-                    return (
-                      <button
-                        key={ls.id}
-                        type="button"
-                        onClick={() => setSelectedSong(ls)}
-                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-[#18181C] hover:bg-[#252528] text-gray-300 border border-[#2E2E34] hover:border-blue-500/40 transition-colors"
-                        title={`Basculer sur ${ls.title} - ${lMeta.name}`}
-                      >
-                        <span className={`font-bold ${lMeta.badgeClass.split(' ')[0]}`}>{lMeta.code}</span>
-                        <span className="truncate max-w-[90px]">{ls.title}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              );
-            })()}
-          </div>
-
-          {/* Multi-Categories Dropdown */}
-          <div className="col-span-12 sm:col-span-6 lg:col-span-4 relative" ref={categoryDropdownRef}>
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-[11px] font-semibold text-gray-400 flex items-center gap-1.5">
-                <Tag className="w-3 h-3 text-blue-400" />
-                <span>Catégories</span>
-              </label>
-              {categories.length > 0 && (
-                <span className="text-[10px] text-blue-400 font-semibold">
-                  {categories.length} sélectionnée{categories.length > 1 ? 's' : ''}
-                </span>
-              )}
-            </div>
-
-            <div 
-              onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}
-              className="w-full min-h-[32px] bg-[#1C1C1E] border border-[#333] hover:border-[#444] rounded-lg px-2 py-1 text-xs text-gray-200 cursor-pointer flex flex-wrap items-center gap-1 transition-colors"
-            >
-              {categories.length === 0 ? (
-                <span className="text-gray-500 text-xs">Ajouter des catégories...</span>
-              ) : (
-                categories.map((cat) => (
-                  <span
-                    key={cat}
-                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-600/20 text-blue-300 border border-blue-500/30 text-[10px] font-medium"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <span>{cat}</span>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleToggleCategory(cat);
-                      }}
-                      className="hover:text-white transition-colors"
-                      title="Retirer"
-                    >
-                      <X className="w-2.5 h-2.5" />
-                    </button>
-                  </span>
-                ))
-              )}
-              <ChevronDown className={`w-3.5 h-3.5 text-gray-400 ml-auto shrink-0 transition-transform ${isCategoryDropdownOpen ? 'rotate-180' : ''}`} />
-            </div>
-
-            {isCategoryDropdownOpen && (
-              <div className="absolute left-0 right-0 top-full mt-1 bg-[#141416] border border-[#2A2A2D] rounded-xl shadow-2xl z-50 p-2.5 text-xs animate-in fade-in duration-100">
-                <div className="flex items-center gap-1.5 mb-2">
-                  <input
-                    type="text"
-                    placeholder="Rechercher ou créer une catégorie..."
-                    value={categorySearchQuery}
-                    onChange={(e) => setCategorySearchQuery(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleCreateCategory();
-                      }
-                    }}
-                    className="flex-1 bg-[#1C1C1E] border border-[#333] rounded-md px-2 py-1 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
-                    autoFocus
-                  />
-                  {categorySearchQuery.trim() && (
-                    <button
-                      type="button"
-                      onClick={handleCreateCategory}
-                      className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold whitespace-nowrap transition-colors"
-                    >
-                      <Plus className="w-3 h-3" />
-                      <span>Créer</span>
-                    </button>
-                  )}
-                </div>
-
-                <div className="max-h-48 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
-                  {filteredCategoryList.map((cat) => {
-                    const isSelected = categories.includes(cat);
-                    return (
-                      <div
-                        key={cat}
-                        onClick={() => handleToggleCategory(cat)}
-                        className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg cursor-pointer transition-colors ${
-                          isSelected
-                            ? 'bg-blue-600/15 text-blue-300 font-medium'
-                            : 'hover:bg-[#1C1C1E] text-gray-300'
-                        }`}
-                      >
-                        <span className="truncate">{cat}</span>
-                        <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${
-                          isSelected 
-                            ? 'bg-blue-600 border-blue-500 text-white' 
-                            : 'border-[#444] bg-[#1C1C1E]'
-                        }`}>
-                          {isSelected && <Check className="w-3 h-3 stroke-[2.5]" />}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Note de scène */}
-          <div className="col-span-12 lg:col-span-5">
-            <div className="flex items-center gap-1 mb-1">
-              <label className="text-[11px] font-semibold text-gray-400 flex items-center gap-1.5">
-                <Music className="w-3 h-3 text-amber-400" />
-                <span>Note de scène</span>
-              </label>
-            </div>
-            <input
-              type="text"
-              placeholder="ex: Solo de guitare après le pont, fin douce..."
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className="w-full h-8 bg-[#1C1C1E] border border-[#333] hover:border-[#444] rounded-lg px-2.5 text-xs text-blue-300 focus:outline-none focus:border-blue-500 transition-colors"
-            />
-          </div>
-
-        </div>
-
-        {/* Row 3: Métadonnées CCLI & Copyright */}
-        <div className="grid grid-cols-12 gap-2.5 items-start pt-2 border-t border-[#1F1F23]">
-          {/* CCLI */}
-          <div className="col-span-12 sm:col-span-5 lg:col-span-4">
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-[11px] font-semibold text-gray-400 flex items-center gap-1.5">
-                <Shield className="w-3 h-3 text-blue-400" />
-                <span>N° CCLI (SongSelect)</span>
-              </label>
-              {ccli.trim() && (
-                <a
-                  href={`https://songselect.ccli.com/Songs/${ccli.trim().replace(/\D/g, '') || ccli.trim()}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[10px] text-blue-400 hover:text-blue-300 font-medium hover:underline flex items-center gap-0.5"
-                  title="Consulter sur CCLI SongSelect"
-                >
-                  <span>SongSelect ↗</span>
-                </a>
-              )}
-            </div>
-            <input
-              type="text"
-              placeholder="ex: 7117726"
-              value={ccli}
-              onChange={(e) => setCcli(e.target.value)}
-              className="w-full h-8 bg-[#1C1C1E] border border-[#333] hover:border-[#444] rounded-lg px-2.5 text-xs text-blue-300 font-mono font-medium focus:outline-none focus:border-blue-500 transition-colors"
-            />
-          </div>
-
-          {/* Copyright */}
-          <div className="col-span-12 sm:col-span-7 lg:col-span-8">
-            <div className="flex items-center gap-1 mb-1">
-              <label className="text-[11px] font-semibold text-gray-400 flex items-center gap-1.5">
-                <Copyright className="w-3 h-3 text-emerald-400" />
-                <span>Mentions Copyright & Droits d'auteur</span>
-              </label>
-            </div>
-            <input
-              type="text"
-              placeholder="ex: © 2018 Bethel Music Publishing / Fellow Ships Music"
-              value={copyright}
-              onChange={(e) => setCopyright(e.target.value)}
-              className="w-full h-8 bg-[#1C1C1E] border border-[#333] hover:border-[#444] rounded-lg px-2.5 text-xs text-gray-200 focus:outline-none focus:border-blue-500 transition-colors"
-            />
-          </div>
-        </div>
-
-        {/* Row 4: Liens d'enregistrement externes (YouTube, Spotify & Audio) */}
-        <div className="grid grid-cols-12 gap-2.5 items-start pt-2 border-t border-[#1F1F23]">
-          {/* Lien YouTube */}
-          <div className="col-span-12 sm:col-span-4">
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-[11px] font-semibold text-gray-400 flex items-center gap-1.5">
-                <svg className="w-3 h-3 text-red-500 fill-current shrink-0" viewBox="0 0 24 24">
-                  <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-                </svg>
-                <span>Lien YouTube</span>
-              </label>
-              {youtubeUrl.trim() && (
-                <a
-                  href={youtubeUrl.trim()}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[10px] text-red-400 hover:text-red-300 font-medium hover:underline flex items-center gap-0.5"
-                  title="Tester le lien YouTube"
-                >
-                  <span>Tester ↗</span>
-                </a>
-              )}
-            </div>
-            <input
-              type="url"
-              placeholder="https://www.youtube.com/watch?v=..."
-              value={youtubeUrl}
-              onChange={(e) => setYoutubeUrl(e.target.value)}
-              className="w-full h-8 bg-[#1C1C1E] border border-[#333] hover:border-[#444] rounded-lg px-2.5 text-xs text-red-300 placeholder-gray-500 font-mono focus:outline-none focus:border-red-500 transition-colors"
-            />
-          </div>
-
-          {/* Lien Spotify */}
-          <div className="col-span-12 sm:col-span-4">
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-[11px] font-semibold text-gray-400 flex items-center gap-1.5">
-                <svg className="w-3 h-3 text-emerald-400 fill-current shrink-0" viewBox="0 0 24 24">
-                  <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
-                </svg>
-                <span>Lien Spotify (morceau/album)</span>
-              </label>
-              {spotifyUrl.trim() && (
-                <a
-                  href={spotifyUrl.trim()}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[10px] text-emerald-400 hover:text-emerald-300 font-medium hover:underline flex items-center gap-0.5"
-                  title="Tester le lien Spotify"
-                >
-                  <span>Tester ↗</span>
-                </a>
-              )}
-            </div>
-            <input
-              type="url"
-              placeholder="https://open.spotify.com/track/..."
-              value={spotifyUrl}
-              onChange={(e) => setSpotifyUrl(e.target.value)}
-              className="w-full h-8 bg-[#1C1C1E] border border-[#333] hover:border-[#444] rounded-lg px-2.5 text-xs text-emerald-300 placeholder-gray-500 font-mono focus:outline-none focus:border-emerald-500 transition-colors"
-            />
-          </div>
-
-          {/* Lien Audio externe */}
-          <div className="col-span-12 sm:col-span-4">
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-[11px] font-semibold text-gray-400 flex items-center gap-1.5">
-                <Music className="w-3 h-3 text-blue-400 shrink-0" />
-                <span>Lien Audio (MP3 / flux)</span>
-              </label>
-              {audioUrl.trim() && (
-                <a
-                  href={audioUrl.trim()}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[10px] text-blue-400 hover:text-blue-300 font-medium hover:underline flex items-center gap-0.5"
-                  title="Tester le lien audio"
-                >
-                  <span>Tester ↗</span>
-                </a>
-              )}
-            </div>
-            <input
-              type="url"
-              placeholder="https://domaine.com/audio.mp3"
-              value={audioUrl}
-              onChange={(e) => setAudioUrl(e.target.value)}
-              className="w-full h-8 bg-[#1C1C1E] border border-[#333] hover:border-[#444] rounded-lg px-2.5 text-xs text-blue-300 placeholder-gray-500 font-mono focus:outline-none focus:border-blue-500 transition-colors"
-            />
-          </div>
-        </div>
-
-        {/* Row 5: Raccourcis d'écoute & recherche rapide (YouTube & Spotify) */}
-        <div className="pt-2.5 border-t border-[#1F1F23] flex items-center justify-between flex-wrap gap-2 text-xs">
-          <div className="flex items-center gap-1.5 text-gray-400 text-[11px]">
-            <Radio className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-            <span className="font-medium text-gray-300">Écouter & Rechercher :</span>
-            <span className="text-gray-500 hidden sm:inline text-[10px]">Recherche directe avec titre & artiste</span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <a
-              href={`https://www.youtube.com/results?search_query=${encodeURIComponent([title.trim(), artist.trim()].filter(Boolean).join(' ') || 'musique')}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#18181C] hover:bg-[#FF0000]/15 text-gray-300 hover:text-[#FF4E4E] border border-[#2E2E34] hover:border-[#FF0000]/40 font-semibold text-xs transition-all active:scale-95 shadow-xs cursor-pointer group"
-              title={`Rechercher « ${[title.trim(), artist.trim()].filter(Boolean).join(' - ') || 'ce chant'} » sur YouTube`}
-            >
-              <svg className="w-3.5 h-3.5 text-red-500 group-hover:scale-110 transition-transform fill-current shrink-0" viewBox="0 0 24 24">
-                <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-              </svg>
-              <span>YouTube</span>
-            </a>
-
-            <a
-              href={`https://open.spotify.com/search/${encodeURIComponent([title.trim(), artist.trim()].filter(Boolean).join(' ') || 'musique')}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#18181C] hover:bg-[#1DB954]/15 text-gray-300 hover:text-[#1ED760] border border-[#2E2E34] hover:border-[#1DB954]/40 font-semibold text-xs transition-all active:scale-95 shadow-xs cursor-pointer group"
-              title={`Rechercher « ${[title.trim(), artist.trim()].filter(Boolean).join(' - ') || 'ce chant'} » sur Spotify`}
-            >
-              <svg className="w-3.5 h-3.5 text-emerald-400 group-hover:scale-110 transition-transform fill-current shrink-0" viewBox="0 0 24 24">
-                <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
-              </svg>
-              <span>Spotify</span>
-            </a>
-          </div>
-        </div>
+          <span className="leading-tight">Éditer les accords</span>
+        </button>
       </div>
 
-      {/* Main Workspace: Visual Editor / ChordPro Code + Live Preview */}
-      <div className={`grid grid-cols-1 ${showPreviewPane ? 'lg:grid-cols-12' : 'lg:grid-cols-1'} gap-6`}>
-        
-        {/* Left Column: Visual Sections List */}
-        <div className={`${showPreviewPane ? 'lg:col-span-7' : 'lg:col-span-12'} space-y-5`}>
+      {/* Accessible hidden select preserving exact selector compatibility */}
+      <select
+        value={key}
+        onChange={(e) => setKey(e.target.value)}
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden="true"
+      >
+        {['C', 'C#', 'Db', 'D', 'D#', 'Eb', 'E', 'F', 'F#', 'Gb', 'G', 'G#', 'Ab', 'A', 'A#', 'Bb', 'B', 'Am', 'Em', 'Dm', 'Bm', 'F#m'].map(k => (
+          <option key={k} value={k}>{k}</option>
+        ))}
+      </select>
+
+      {/* 1. PARTIE DONNÉES DU CHANT */}
+      {editorSubTab === 'data' && (
+        <div className="space-y-4 sm:space-y-5 animate-in fade-in duration-150">
           
-          {/* VISUAL SECTIONS INTERACTIVE BUILDER */}
-          <div className="space-y-4">
-            
-            {/* Quick Add Section Dropdown & Global Folding Bar */}
-              <div className="flex items-center justify-between p-3 rounded-xl bg-[#111113] border border-[#222225] gap-3 flex-wrap">
-                <div className="flex items-center gap-2" ref={addSectionDropdownRef}>
-                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                      Ajouter :
-                    </span>
-                    
-                    <div className="relative">
-                      <button
-                        type="button"
-                        onClick={() => setIsAddSectionDropdownOpen(!isAddSectionDropdownOpen)}
-                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/40 text-xs font-semibold transition-all shadow-sm active:scale-95"
+          {/* Groupe 1 : Informations principales */}
+          <div className="bg-[#121215] border border-[#222227] rounded-2xl p-4 sm:p-5 shadow-sm space-y-4">
+            <div className="pb-2.5 border-b border-[#1E1E24]">
+              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-gray-200">
+                Informations principales
+              </h3>
+            </div>
+
+            <div className="grid grid-cols-12 gap-3.5 sm:gap-4 items-start">
+              {/* Titre */}
+              <div className="col-span-12 sm:col-span-6">
+                <label className="block text-xs sm:text-[13px] font-semibold text-gray-300 mb-1.5">
+                  Titre du chant <span className="text-rose-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Entrez le titre du chant"
+                  value={title}
+                  onChange={(e) => handleTitleChange(e.target.value)}
+                  className="w-full h-10 bg-[#1A1A1E] border border-[#33333A] hover:border-[#4B4B55] focus:border-blue-500 rounded-xl px-3.5 text-sm text-white font-medium focus:outline-none focus:ring-1 focus:ring-blue-500/30 transition-all shadow-2xs"
+                  required
+                />
+              </div>
+
+              {/* Artiste ou Auteur (Multi-sélection & création rapide) */}
+              <div className="col-span-12 sm:col-span-6 relative" ref={artistDropdownRef}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs sm:text-[13px] font-semibold text-gray-300 flex items-center gap-1.5 truncate">
+                    <Users className="w-3.5 h-3.5 text-purple-400" />
+                    <span>Artiste(s) ou Auteur(s)</span>
+                  </label>
+                  {selectedArtists.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedArtists([]);
+                        setArtist('');
+                      }}
+                      className="text-xs text-gray-400 hover:text-white transition-colors cursor-pointer"
+                      title="Effacer tous les artistes"
+                    >
+                      Effacer tout
+                    </button>
+                  )}
+                </div>
+
+                <div
+                  id="song-artist-select"
+                  onClick={() => setIsArtistDropdownOpen(!isArtistDropdownOpen)}
+                  className={`min-h-[40px] w-full bg-[#1A1A1E] border ${
+                    isArtistDropdownOpen ? 'border-purple-500 ring-2 ring-purple-500/25' : 'border-[#33333A] hover:border-[#4B4B55]'
+                  } rounded-xl px-3 py-1.5 flex flex-wrap items-center gap-1.5 cursor-pointer transition-all shadow-2xs`}
+                >
+                  {selectedArtists.length === 0 ? (
+                    <span className="text-gray-400 text-sm truncate">Choisir ou créer un artiste...</span>
+                  ) : (
+                    selectedArtists.map((art) => (
+                      <span
+                        key={art}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-600/20 text-purple-200 border border-purple-500/35 text-xs font-medium"
+                        onClick={(e) => e.stopPropagation()}
                       >
-                        <Plus className="w-3.5 h-3.5 text-blue-400" />
-                        <span>Choisir une section...</span>
-                        <ChevronDown className={`w-3.5 h-3.5 text-blue-400/80 transition-transform ${isAddSectionDropdownOpen ? 'rotate-180' : ''}`} />
-                      </button>
+                        <span className="truncate max-w-[160px]">{art}</span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveArtist(art);
+                          }}
+                          className="hover:text-white transition-colors p-0.5 rounded cursor-pointer"
+                          title={`Retirer ${art}`}
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))
+                  )}
+                  <ChevronDown className={`w-4 h-4 text-gray-400 ml-auto shrink-0 transition-transform duration-200 ${isArtistDropdownOpen ? 'rotate-180' : ''}`} />
+                </div>
 
-                      {isAddSectionDropdownOpen && (
-                        <div className="absolute left-0 top-full mt-1.5 z-40 w-64 bg-[#18181C] border border-[#2E2E36] rounded-xl shadow-2xl p-1.5 backdrop-blur-md max-h-80 overflow-y-auto custom-scrollbar">
-                          <div className="px-2 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider border-b border-[#282830] mb-1">
-                            Types de section
-                          </div>
-                          
-                          <div className="space-y-0.5">
-                            {STANDARD_SECTION_TYPES.map(({ key, label }) => {
-                              const conf = SECTION_TYPES_CONFIG[key] || {
-                                badgeBg: 'bg-gray-600/20',
-                                badgeBorder: 'border-gray-500/30',
-                                badgeText: 'text-gray-300'
-                              };
-                              return (
-                                <button
-                                  key={key}
-                                  type="button"
-                                  onClick={() => {
-                                    handleAddNewSection(key as any);
-                                    setIsAddSectionDropdownOpen(false);
-                                  }}
-                                  className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs hover:bg-[#232329] text-gray-200 transition-colors text-left group"
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <span className={`w-2 h-2 rounded-full ${conf.badgeBg.replace('/20', '')}`} />
-                                    <span className="font-medium group-hover:text-white">{label}</span>
-                                  </div>
-                                  <span className={`text-[10px] px-1.5 py-0.5 rounded border ${conf.badgeBg} ${conf.badgeBorder} ${conf.badgeText}`}>
-                                    + Ajouter
-                                  </span>
-                                </button>
-                              );
-                            })}
-                          </div>
-
-                          {/* Custom Sections Saved */}
-                          {customSectionList.length > 0 && (
-                            <div className="pt-2 mt-1 border-t border-[#25252D]">
-                              <div className="px-2 py-1 text-[10px] font-bold text-teal-400 uppercase tracking-wider mb-1">
-                                Sections personnalisées
-                              </div>
-                              <div className="space-y-0.5">
-                                {customSectionList.map((customName) => (
-                                  <button
-                                    key={customName}
-                                    type="button"
-                                    onClick={() => {
-                                      handleAddNewSection(customName, customName);
-                                      setIsAddSectionDropdownOpen(false);
-                                    }}
-                                    className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs hover:bg-[#232329] text-teal-200 transition-colors text-left"
-                                  >
-                                    <span className="font-medium">{customName}</span>
-                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-teal-600/20 border border-teal-500/30 text-teal-300">
-                                      + Ajouter
-                                    </span>
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Option to create a new custom section */}
-                          <div className="pt-1.5 mt-1 border-t border-[#25252D]">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setIsAddSectionDropdownOpen(false);
-                                setShowCustomSectionModal(true);
-                              }}
-                              className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-semibold text-amber-300 hover:text-amber-200 hover:bg-amber-600/15 border border-dashed border-amber-500/30 transition-colors text-left"
-                            >
-                              <Plus className="w-3.5 h-3.5 text-amber-400" />
-                              <span>Créer une section personnalisée...</span>
-                            </button>
-                          </div>
-                        </div>
+                {isArtistDropdownOpen && (
+                  <div className="absolute left-0 right-0 top-full mt-1.5 bg-[#141417] border border-[#2E2E36] rounded-xl shadow-2xl z-50 p-3 text-sm animate-in fade-in duration-100 min-w-[280px]">
+                    {/* Champ de recherche & création rapide */}
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="relative flex-1">
+                        <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-2.5" />
+                        <input
+                          id="artist-search-input"
+                          type="text"
+                          placeholder="Rechercher ou créer un artiste..."
+                          value={artistSearchQuery}
+                          onChange={(e) => setArtistSearchQuery(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleCreateArtist(artistSearchQuery);
+                            }
+                          }}
+                          className="w-full bg-[#1A1A1E] border border-[#33333A] rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
+                          autoFocus
+                        />
+                      </div>
+                      {artistSearchQuery.trim() && (
+                        <button
+                          type="button"
+                          onClick={() => handleCreateArtist(artistSearchQuery)}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer"
+                          title="Ajouter immédiatement cet artiste"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Ajouter</span>
+                        </button>
                       )}
                     </div>
+
+                    {/* Invitation d'ajout rapide si l'artiste n'existe pas */}
+                    {artistSearchQuery.trim() && !allAvailableArtists.some(a => a.toLowerCase() === artistSearchQuery.trim().toLowerCase()) && (
+                      <button
+                        type="button"
+                        onClick={() => handleCreateArtist(artistSearchQuery)}
+                        className="w-full mb-2 p-2 rounded-lg bg-purple-950/40 border border-purple-800/40 hover:bg-purple-900/50 hover:border-purple-600/50 cursor-pointer flex items-center justify-between text-purple-200 transition-colors text-left"
+                      >
+                        <div className="flex items-center gap-1.5 truncate">
+                          <Plus className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                          <span className="truncate">Créer <strong className="text-white font-semibold">« {artistSearchQuery.trim()} »</strong></span>
+                        </div>
+                        <span className="text-[10px] bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded font-mono ml-2 shrink-0">Entrée ↵</span>
+                      </button>
+                    )}
+
+                    {/* Liste des artistes */}
+                    <div className="max-h-48 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
+                      {filteredArtistsList.length === 0 ? (
+                        <div className="py-4 text-center text-gray-500 text-xs">
+                          Aucun artiste existant ne correspond.
+                        </div>
+                      ) : (
+                        filteredArtistsList.map((art) => {
+                          const isSelected = selectedArtists.some(a => a.toLowerCase() === art.toLowerCase());
+                          return (
+                            <div
+                              key={art}
+                              onClick={() => handleToggleArtist(art)}
+                              className={`flex items-center justify-between px-3 py-1.5 rounded-lg cursor-pointer transition-colors ${
+                                isSelected
+                                  ? 'bg-purple-600/15 text-purple-200 font-medium'
+                                  : 'hover:bg-[#1C1C1E] text-gray-300'
+                              }`}
+                            >
+                              <span className="truncate">{art}</span>
+                              <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${
+                                isSelected 
+                                  ? 'bg-purple-600 border-purple-500 text-white' 
+                                  : 'border-[#444] bg-[#1C1C1E]'
+                              }`}>
+                                {isSelected && <Check className="w-3 h-3 stroke-[2.5]" />}
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+
+                    {/* Footer résumé */}
+                    <div className="mt-2 pt-1.5 border-t border-[#222] flex items-center justify-between text-xs text-gray-500">
+                      <span>{filteredArtistsList.length} artiste(s) suggéré(s)</span>
+                      <span className="text-purple-400 font-medium">{selectedArtists.length} sélectionné(s)</span>
+                    </div>
                   </div>
-
-                {/* Global Fold / Unfold Actions & Section Count */}
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center bg-[#18181C] border border-[#2B2B30] rounded-lg p-0.5 text-xs">
-                    <button
-                      type="button"
-                      onClick={handleCollapseAllSections}
-                      className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-colors ${
-                        collapsedSectionIds.size === visualSections.length && visualSections.length > 0
-                          ? 'bg-blue-600 text-white'
-                          : 'text-gray-400 hover:text-white hover:bg-[#252528]'
-                      }`}
-                      title="Replier toutes les sections pour réorganiser ou dupliquer facilement"
-                    >
-                      <ChevronsUp className="w-3.5 h-3.5" />
-                      <span>Tout replier</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={handleExpandAllSections}
-                      className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-colors ${
-                        collapsedSectionIds.size === 0
-                          ? 'bg-blue-600 text-white'
-                          : 'text-gray-400 hover:text-white hover:bg-[#252528]'
-                      }`}
-                      title="Déplier toutes les sections pour voir paroles et accords"
-                    >
-                      <ChevronsDown className="w-3.5 h-3.5" />
-                      <span>Tout déplier</span>
-                    </button>
-                  </div>
-
-                  <div className="text-[11px] font-mono text-gray-400 bg-[#161619] px-2 py-1 rounded-md border border-[#222226]">
-                    {visualSections.length} section{visualSections.length > 1 ? 's' : ''}
-                  </div>
-                </div>
-              </div>
-
-              {/* Sections Cards List */}
-              <div className="space-y-3">
-                {visualSections.map((sec, sIdx) => (
-                  <VisualSectionCard
-                    key={sec.id}
-                    section={sec}
-                    index={sIdx}
-                    totalSections={visualSections.length}
-                    onUpdateSection={handleUpdateSection}
-                    onDuplicateSection={handleDuplicateSection}
-                    onDeleteSection={handleDeleteSection}
-                    onMoveSection={handleMoveSection}
-                    onOpenChordPicker={handleOpenChordPicker}
-                    availableSongChords={songChords}
-                    isDragging={draggedSectionIndex === sIdx}
-                    onDragStart={handleDragStart}
-                    onDragOver={handleDragOver}
-                    onDrop={handleDrop}
-                    isCollapsed={collapsedSectionIds.has(sec.id)}
-                    onToggleCollapse={handleToggleSectionCollapse}
-                    onAddSection={handleAddNewSection}
-                    onOpenCustomSectionModal={() => setShowCustomSectionModal(true)}
-                  />
-                ))}
+                )}
               </div>
             </div>
+          </div>
 
-        </div>
-
-        {/* Right Column: Live Stage Preview */}
-        {showPreviewPane && (
-          <div className="lg:col-span-5 flex flex-col bg-[#111113] border border-[#222225] rounded-xl overflow-hidden shadow-sm sticky top-6 self-start max-h-[85vh]">
-            
-            <div className="bg-[#161619] px-4 py-3 border-b border-[#222225] flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400">
-                  <Eye className="w-3.5 h-3.5" />
-                </div>
-                <span className="text-xs font-bold text-white uppercase tracking-wider">
-                  Aperçu Scène en Direct
-                </span>
-              </div>
-              <span className="text-xs font-mono font-bold text-blue-400 bg-blue-950/40 px-2 py-0.5 rounded border border-blue-800/30">
-                {key} • {tempo} BPM
-              </span>
+          {/* Groupe 2 : Paramètres musicaux */}
+          <div className="bg-[#121215] border border-[#222227] rounded-2xl p-4 sm:p-5 shadow-sm space-y-4">
+            <div className="pb-2.5 border-b border-[#1E1E24]">
+              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-gray-200">
+                Paramètres musicaux
+              </h3>
             </div>
 
-            {/* Stage Preview Content */}
-            <div className="p-4 overflow-y-auto space-y-4 flex-1">
-              <div className="border-b border-[#222225] pb-3 mb-2 space-y-1">
-                <h2 className="text-lg font-bold text-white">{title || 'Titre du chant'}</h2>
-                {artist && <p className="text-xs text-gray-400">{artist}</p>}
-                {(ccli || copyright) && (
-                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                    {ccli && (
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-950/40 border border-blue-500/30 text-blue-300 font-mono text-[10px] font-semibold">
-                        <Shield className="w-2.5 h-2.5 text-blue-400" />
-                        <span>CCLI #{ccli}</span>
-                      </span>
-                    )}
-                    {copyright && (
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#18181C] border border-[#2A2A30] text-gray-400 text-[10px] truncate max-w-full">
-                        <Copyright className="w-2.5 h-2.5 text-gray-500 shrink-0" />
-                        <span className="truncate">{copyright}</span>
-                      </span>
-                    )}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 items-start">
+              {/* Tonalité */}
+              <div className="relative" ref={keyPickerRef}>
+                <label className="block text-xs sm:text-[13px] font-semibold text-gray-300 mb-1.5 text-center">
+                  Tonalité
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setIsKeyPickerOpen(!isKeyPickerOpen)}
+                  className={`w-full h-10 rounded-xl px-2 text-sm font-bold transition-all flex items-center justify-center gap-1.5 border cursor-pointer ${
+                    isKeyPickerOpen
+                      ? 'bg-blue-600 text-white border-blue-500 shadow-md shadow-blue-500/30 ring-2 ring-blue-400/40'
+                      : 'bg-[#1A1A1E] text-blue-400 border-[#33333A] hover:border-blue-500/50 hover:bg-[#222228]'
+                  }`}
+                  title="Cliquer pour afficher ou modifier la tonalité"
+                >
+                  <span className="text-sm font-bold">{key || 'C'}</span>
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isKeyPickerOpen ? 'rotate-180 text-white' : 'text-blue-400'}`} />
+                </button>
+
+                {/* Popover / Clavier tonalités */}
+                {isKeyPickerOpen && (
+                  <div className="absolute left-0 top-full mt-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
+                    <KeySelectorKeypad
+                      currentKey={key || 'C'}
+                      onKeyChange={(newKey) => {
+                        setKey(newKey);
+                        setContentChordPro(visualSectionsToChordPro(visualSections, {
+                          title,
+                          artist,
+                          key: newKey,
+                          tempo: Number(bpm || tempo) || 100,
+                          bpm: Number(bpm || tempo) || 100,
+                          timeSignature,
+                          duration,
+                          capo,
+                          ccli,
+                          copyright,
+                          youtubeUrl,
+                          audioUrl,
+                          spotifyUrl
+                        }));
+                      }}
+                      onClose={() => setIsKeyPickerOpen(false)}
+                      modeLock="both"
+                      title="Tonalité :"
+                    />
                   </div>
                 )}
               </div>
 
-              {livePreviewData.sections.length === 0 ? (
-                <div className="text-center py-12 text-gray-500 text-xs">
-                  Aucun contenu à afficher pour l&apos;instant
-                </div>
-              ) : (
-                livePreviewData.sections.map((sec, sIdx) => (
-                  <div 
-                    key={sIdx}
-                    className={`p-3 rounded-lg ${
-                      sec.type === 'chorus' ? 'bg-[#18181C] border-l-4 border-amber-500' :
-                      sec.type === 'bridge' ? 'bg-[#18181C] border-l-4 border-purple-500' :
-                      sec.type === 'intro' ? 'bg-[#18181C] border-l-4 border-cyan-500' :
-                      'bg-[#141416] border-l-4 border-blue-500'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
-                      <span className="text-[11px] uppercase font-bold text-gray-300">
-                        {sec.title || 'Section'}
-                      </span>
+              {/* BPM */}
+              <div>
+                <label className="block text-xs sm:text-[13px] font-semibold text-gray-300 mb-1.5 text-center">
+                  BPM
+                </label>
+                <input
+                  type="number"
+                  min={30}
+                  max={260}
+                  value={bpm}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value, 10) || 100;
+                    setBpm(val);
+                    setTempo(val);
+                  }}
+                  className="w-full h-10 bg-[#1A1A1E] border border-[#33333A] hover:border-emerald-500/50 focus:border-emerald-500 rounded-xl px-2 text-sm text-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-500/30 text-center font-mono font-bold transition-all shadow-2xs"
+                  title="Battements par minute (BPM)"
+                  placeholder="100"
+                />
+              </div>
 
-                      {sec.vocals && sec.vocals.length > 0 && (
-                        <div className="flex items-center gap-1 flex-wrap">
-                          {sec.vocals.map((voc, vIdx) => {
-                            const vStyle = getVocalBadgeStyle(voc);
-                            return (
-                              <span 
-                                key={vIdx}
-                                className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${vStyle.bg} ${vStyle.border} ${vStyle.text}`}
-                              >
-                                <span>{voc}</span>
-                              </span>
-                            );
-                          })}
-                        </div>
+              {/* Mesure */}
+              <div>
+                <label className="block text-xs sm:text-[13px] font-semibold text-gray-300 mb-1.5 text-center">
+                  Signature rythmique
+                </label>
+                <select
+                  value={timeSignature}
+                  onChange={(e) => setTimeSignature(e.target.value)}
+                  className="w-full h-10 bg-[#1A1A1E] border border-[#33333A] hover:border-[#4B4B55] focus:border-blue-500 rounded-xl px-2 text-sm text-emerald-400 font-bold focus:outline-none focus:ring-1 focus:ring-blue-500/30 cursor-pointer text-center transition-all shadow-2xs"
+                >
+                  {['4/4', '3/4', '6/8', '2/4', '12/8', '5/4'].map(ts => (
+                    <option key={ts} value={ts} className="bg-[#111112] text-gray-200">{ts}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Durée */}
+              <div>
+                <label className="block text-xs sm:text-[13px] font-semibold text-gray-300 mb-1.5 text-center">
+                  Durée estimée
+                </label>
+                <input
+                  type="text"
+                  placeholder="03:30"
+                  value={duration}
+                  onChange={(e) => setDuration(e.target.value)}
+                  onBlur={() => {
+                    if (duration.trim()) {
+                      setDuration(formatDurationToMMSS(duration));
+                    }
+                  }}
+                  className="w-full h-10 bg-[#1A1A1E] border border-[#33333A] hover:border-[#4B4B55] focus:border-cyan-400 rounded-xl px-2 text-sm text-cyan-300 font-mono font-bold focus:outline-none focus:ring-1 focus:ring-cyan-400/30 text-center transition-all shadow-2xs"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Groupe 3 : Classification & Langue */}
+          <div className="bg-[#121215] border border-[#222227] rounded-2xl p-4 sm:p-5 shadow-sm space-y-4">
+            <div className="pb-2.5 border-b border-[#1E1E24]">
+              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-gray-200">
+                Classification & Langue
+              </h3>
+            </div>
+
+            <div className="grid grid-cols-12 gap-3.5 sm:gap-4 items-start">
+              {/* Langue & Relations */}
+              <div className="col-span-12 sm:col-span-6 lg:col-span-4">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs sm:text-[13px] font-semibold text-gray-300 flex items-center gap-1.5">
+                    <Globe className="w-3.5 h-3.5 text-blue-400" />
+                    <span>Langue du chant</span>
+                  </label>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={handleAutoDetectLanguage}
+                      className="text-xs text-emerald-400 hover:text-emerald-300 font-medium flex items-center gap-1 transition-colors px-2 py-0.5 rounded-md bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 cursor-pointer"
+                      title="Deviner la langue automatiquement grâce au titre et aux paroles"
+                    >
+                      <Sparkles className="w-3 h-3" />
+                      <span>Deviner</span>
+                    </button>
+                    {selectedSong && (
+                      <button
+                        type="button"
+                        onClick={() => setIsLanguageModalOpen(true)}
+                        className="text-xs text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1 transition-colors px-1.5 py-0.5 rounded cursor-pointer"
+                      >
+                        <Link className="w-3 h-3" />
+                        <span>Relations</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <select
+                  value={language}
+                  onChange={(e) => {
+                    setLanguage(e.target.value);
+                    setIsLanguageManual(true);
+                  }}
+                  className="w-full h-10 bg-[#1A1A1E] border border-[#33333A] hover:border-[#4B4B55] focus:border-blue-500 rounded-xl px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500/30 cursor-pointer font-medium transition-all shadow-2xs"
+                >
+                  {PRESET_LANGUAGES.map(lang => (
+                    <option key={lang.code} value={lang.name} className="bg-[#111112]">
+                      {lang.name}
+                    </option>
+                  ))}
+                </select>
+
+                {!isLanguageManual && detectedLangInfo && (
+                  <p className="text-xs text-emerald-400/90 mt-1.5 flex items-center gap-1.5">
+                    <Sparkles className="w-3 h-3 shrink-0 text-emerald-400" />
+                    <span>Devinée d'après {detectedLangInfo.detectedFrom === 'title' ? 'le titre' : detectedLangInfo.detectedFrom === 'content' ? 'les paroles' : 'le titre et les paroles'}</span>
+                  </p>
+                )}
+
+                {/* Versions liées */}
+                {selectedSong && (() => {
+                  const linked = getLinkedSongVersions(selectedSong, songs);
+                  if (linked.length === 0) return null;
+                  return (
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      <span className="text-xs text-gray-500">Versions liées :</span>
+                      {linked.map(ls => {
+                        const lMeta = getLanguageMeta(ls.language);
+                        return (
+                          <button
+                            key={ls.id}
+                            type="button"
+                            onClick={() => setSelectedSong(ls)}
+                            className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs bg-[#1A1A1E] hover:bg-[#252528] text-gray-300 border border-[#2E2E34] hover:border-blue-500/40 transition-colors cursor-pointer"
+                            title={`Basculer sur ${ls.title} - ${lMeta.name}`}
+                          >
+                            <span className={`font-bold ${lMeta.badgeClass.split(' ')[0]}`}>{lMeta.code}</span>
+                            <span className="truncate max-w-[120px]">{ls.title}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Multi-Catégories */}
+              <div className="col-span-12 sm:col-span-6 lg:col-span-4 relative" ref={categoryDropdownRef}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs sm:text-[13px] font-semibold text-gray-300 flex items-center gap-1.5">
+                    <Tag className="w-3.5 h-3.5 text-blue-400" />
+                    <span>Catégories & Thèmes</span>
+                  </label>
+                  {categories.length > 0 && (
+                    <span className="text-xs text-blue-400 font-semibold">
+                      {categories.length} sélectionnée{categories.length > 1 ? 's' : ''}
+                    </span>
+                  )}
+                </div>
+
+                <div 
+                  onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}
+                  className={`w-full min-h-[40px] bg-[#1A1A1E] border ${
+                    isCategoryDropdownOpen ? 'border-blue-500 ring-2 ring-blue-500/25' : 'border-[#33333A] hover:border-[#4B4B55]'
+                  } rounded-xl px-3 py-1.5 text-sm text-gray-200 cursor-pointer flex flex-wrap items-center gap-1.5 transition-all shadow-2xs`}
+                >
+                  {categories.length === 0 ? (
+                    <span className="text-gray-400 text-sm">Ajouter des catégories...</span>
+                  ) : (
+                    categories.map((cat) => (
+                      <span
+                        key={cat}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-600/20 text-blue-300 border border-blue-500/30 text-xs font-medium"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <span>{cat}</span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleCategory(cat);
+                          }}
+                          className="hover:text-white transition-colors p-0.5 rounded cursor-pointer"
+                          title="Retirer"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))
+                  )}
+                  <ChevronDown className={`w-4 h-4 text-gray-400 ml-auto shrink-0 transition-transform ${isCategoryDropdownOpen ? 'rotate-180' : ''}`} />
+                </div>
+
+                {isCategoryDropdownOpen && (
+                  <div className="absolute left-0 right-0 top-full mt-1.5 bg-[#141417] border border-[#2E2E36] rounded-xl shadow-2xl z-50 p-3 text-sm animate-in fade-in duration-100">
+                    <div className="flex items-center gap-2 mb-2">
+                      <input
+                        type="text"
+                        placeholder="Rechercher ou créer une catégorie..."
+                        value={categorySearchQuery}
+                        onChange={(e) => setCategorySearchQuery(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleCreateCategory();
+                          }
+                        }}
+                        className="flex-1 bg-[#1A1A1E] border border-[#33333A] rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                        autoFocus
+                      />
+                      {categorySearchQuery.trim() && (
+                        <button
+                          type="button"
+                          onClick={handleCreateCategory}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer"
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>Créer</span>
+                        </button>
                       )}
                     </div>
 
-                    <div className="space-y-1.5 font-mono text-xs leading-relaxed">
-                      {sec.lines.map((line, lIdx) => {
-                        if (line.type === 'empty') {
-                          return <div key={lIdx} className="h-2" />;
-                        }
+                    <div className="max-h-48 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
+                      {filteredCategoryList.map((cat) => {
+                        const isSelected = categories.includes(cat);
                         return (
-                          <div key={lIdx} className="flex flex-wrap items-end gap-x-1">
-                            {line.items.map((it, iIdx) => (
-                              <div key={iIdx} className="inline-flex flex-col">
-                                {it.chord && (
-                                  <span className="text-blue-400 font-bold leading-none mb-1 text-[0.95em]">
-                                    {it.chord}
-                                  </span>
-                                )}
-                                <span className="text-gray-200 font-sans text-sm">{it.lyrics || '\u00A0'}</span>
-                              </div>
-                            ))}
+                          <div
+                            key={cat}
+                            onClick={() => handleToggleCategory(cat)}
+                            className={`flex items-center justify-between px-3 py-1.5 rounded-lg cursor-pointer transition-colors ${
+                              isSelected
+                                ? 'bg-blue-600/15 text-blue-300 font-medium'
+                                : 'hover:bg-[#1A1A1E] text-gray-300'
+                            }`}
+                          >
+                            <span className="truncate">{cat}</span>
+                            <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${
+                              isSelected 
+                                ? 'bg-blue-600 border-blue-500 text-white' 
+                                : 'border-[#444] bg-[#1A1A1E]'
+                            }`}>
+                              {isSelected && <Check className="w-3 h-3 stroke-[2.5]" />}
+                            </div>
                           </div>
                         );
                       })}
                     </div>
                   </div>
-                ))
-              )}
+                )}
+              </div>
+
+              {/* Note de scène */}
+              <div className="col-span-12 lg:col-span-4">
+                <label className="block text-xs sm:text-[13px] font-semibold text-gray-300 mb-1.5 flex items-center gap-1.5">
+                  <Music className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Note de scène</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="ex: Solo de guitare après le pont, fin douce..."
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  className="w-full h-10 bg-[#1A1A1E] border border-[#33333A] hover:border-[#4B4B55] focus:border-blue-500 rounded-xl px-3.5 text-sm text-blue-300 focus:outline-none focus:ring-1 focus:ring-blue-500/30 transition-all shadow-2xs"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Groupe 4 : Droits & Références légales */}
+          <div className="bg-[#121215] border border-[#222227] rounded-2xl p-4 sm:p-5 shadow-sm space-y-4">
+            <div className="pb-2.5 border-b border-[#1E1E24]">
+              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-gray-200">
+                Droits & Références
+              </h3>
             </div>
 
-          </div>
-        )}
+            <div className="grid grid-cols-12 gap-3.5 sm:gap-4 items-start">
+              {/* CCLI */}
+              <div className="col-span-12 sm:col-span-5 lg:col-span-4">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs sm:text-[13px] font-semibold text-gray-300 flex items-center gap-1.5">
+                    <Shield className="w-3.5 h-3.5 text-blue-400" />
+                    <span>N° CCLI (SongSelect)</span>
+                  </label>
+                  {ccli.trim() && (
+                    <a
+                      href={`https://songselect.ccli.com/Songs/${ccli.trim().replace(/\D/g, '') || ccli.trim()}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-blue-400 hover:text-blue-300 font-medium hover:underline flex items-center gap-0.5"
+                      title="Consulter sur CCLI SongSelect"
+                    >
+                      <span>SongSelect ↗</span>
+                    </a>
+                  )}
+                </div>
+                <input
+                  type="text"
+                  placeholder="ex: 7117726"
+                  value={ccli}
+                  onChange={(e) => setCcli(e.target.value)}
+                  className="w-full h-10 bg-[#1A1A1E] border border-[#33333A] hover:border-[#4B4B55] focus:border-blue-500 rounded-xl px-3.5 text-sm text-blue-300 font-mono font-medium focus:outline-none focus:ring-1 focus:ring-blue-500/30 transition-all shadow-2xs"
+                />
+              </div>
 
-      </div>
+              {/* Copyright */}
+              <div className="col-span-12 sm:col-span-7 lg:col-span-8">
+                <label className="block text-xs sm:text-[13px] font-semibold text-gray-300 mb-1.5 flex items-center gap-1.5">
+                  <Copyright className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Mentions Copyright & Droits d'auteur</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="ex: © 2018 Bethel Music Publishing / Fellow Ships Music"
+                  value={copyright}
+                  onChange={(e) => setCopyright(e.target.value)}
+                  className="w-full h-10 bg-[#1A1A1E] border border-[#33333A] hover:border-[#4B4B55] focus:border-blue-500 rounded-xl px-3.5 text-sm text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500/30 transition-all shadow-2xs"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Groupe 5 : Médias & Enregistrements externes */}
+          <div className="bg-[#121215] border border-[#222227] rounded-2xl p-4 sm:p-5 shadow-sm space-y-4">
+            <div className="pb-2.5 border-b border-[#1E1E24]">
+              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-gray-200">
+                Médias & Enregistrements externes
+              </h3>
+            </div>
+
+            <div className="grid grid-cols-12 gap-3.5 sm:gap-4 items-start">
+              {/* Lien YouTube */}
+              <div className="col-span-12 sm:col-span-4">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs sm:text-[13px] font-semibold text-gray-300 flex items-center gap-1.5">
+                    <svg className="w-3.5 h-3.5 text-red-500 fill-current shrink-0" viewBox="0 0 24 24">
+                      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                    </svg>
+                    <span>Lien YouTube</span>
+                  </label>
+                  {youtubeUrl.trim() && (
+                    <a
+                      href={youtubeUrl.trim()}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-red-400 hover:text-red-300 font-medium hover:underline flex items-center gap-0.5"
+                      title="Tester le lien YouTube"
+                    >
+                      <span>Tester ↗</span>
+                    </a>
+                  )}
+                </div>
+                <input
+                  type="url"
+                  placeholder="https://www.youtube.com/watch?v=..."
+                  value={youtubeUrl}
+                  onChange={(e) => setYoutubeUrl(e.target.value)}
+                  className="w-full h-10 bg-[#1A1A1E] border border-[#33333A] hover:border-[#4B4B55] rounded-xl px-3.5 text-sm text-red-300 placeholder-gray-500 font-mono focus:outline-none focus:border-red-500 transition-all shadow-2xs"
+                />
+              </div>
+
+              {/* Lien Spotify */}
+              <div className="col-span-12 sm:col-span-4">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs sm:text-[13px] font-semibold text-gray-300 flex items-center gap-1.5">
+                    <svg className="w-3.5 h-3.5 text-emerald-400 fill-current shrink-0" viewBox="0 0 24 24">
+                      <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+                    </svg>
+                    <span>Lien Spotify</span>
+                  </label>
+                  {spotifyUrl.trim() && (
+                    <a
+                      href={spotifyUrl.trim()}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-emerald-400 hover:text-emerald-300 font-medium hover:underline flex items-center gap-0.5"
+                      title="Tester le lien Spotify"
+                    >
+                      <span>Tester ↗</span>
+                    </a>
+                  )}
+                </div>
+                <input
+                  type="url"
+                  placeholder="https://open.spotify.com/track/..."
+                  value={spotifyUrl}
+                  onChange={(e) => setSpotifyUrl(e.target.value)}
+                  className="w-full h-10 bg-[#1A1A1E] border border-[#33333A] hover:border-[#4B4B55] rounded-xl px-3.5 text-sm text-emerald-300 placeholder-gray-500 font-mono focus:outline-none focus:border-emerald-500 transition-all shadow-2xs"
+                />
+              </div>
+
+              {/* Lien Audio externe */}
+              <div className="col-span-12 sm:col-span-4">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs sm:text-[13px] font-semibold text-gray-300 flex items-center gap-1.5">
+                    <Music className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                    <span>Fichier Audio (MP3 / flux)</span>
+                  </label>
+                  {audioUrl.trim() && (
+                    <a
+                      href={audioUrl.trim()}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-blue-400 hover:text-blue-300 font-medium hover:underline flex items-center gap-0.5"
+                      title="Tester le lien audio"
+                    >
+                      <span>Tester ↗</span>
+                    </a>
+                  )}
+                </div>
+                <input
+                  type="url"
+                  placeholder="https://domaine.com/audio.mp3"
+                  value={audioUrl}
+                  onChange={(e) => setAudioUrl(e.target.value)}
+                  className="w-full h-10 bg-[#1A1A1E] border border-[#33333A] hover:border-[#4B4B55] rounded-xl px-3.5 text-sm text-blue-300 placeholder-gray-500 font-mono focus:outline-none focus:border-blue-500 transition-all shadow-2xs"
+                />
+              </div>
+            </div>
+          </div>
+
+        </div>
+      )}
+
+      {/* 2. PARTIE ACCORDS ET PAROLES (MODE ÉDITEUR SEUL) */}
+      {editorSubTab === 'chords' && (
+        <div className="w-full space-y-4 animate-in fade-in duration-150">
+          {/* VISUAL SECTIONS INTERACTIVE BUILDER */}
+          <div className="space-y-4">
+            {/* Si aucune section, afficher un bouton pour ajouter la première section */}
+            {visualSections.length === 0 ? (
+              <div className="py-12 px-4 rounded-2xl bg-[#111113] border border-dashed border-white/10 text-center">
+                <div className="w-12 h-12 rounded-xl bg-blue-600/15 border border-blue-500/30 text-blue-400 flex items-center justify-center mx-auto mb-3 shadow-inner">
+                  <Plus className="w-6 h-6" />
+                </div>
+                <h3 className="text-sm font-bold text-white mb-1">Aucune section</h3>
+                <p className="text-xs text-gray-400 max-w-sm mx-auto mb-4">
+                  Ce chant ne contient encore aucune section de paroles ou d'accords.
+                </p>
+                <div className="relative inline-block" ref={addSectionDropdownRef}>
+                  <button
+                    type="button"
+                    onClick={() => setIsAddSectionDropdownOpen(!isAddSectionDropdownOpen)}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-md transition-all active:scale-95 cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4 stroke-[2.5]" />
+                    <span>Ajouter une première section</span>
+                    <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isAddSectionDropdownOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {isAddSectionDropdownOpen && (
+                    <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 w-64 bg-[#18181C] border border-[#2E2E36] rounded-xl shadow-2xl p-1.5 backdrop-blur-md max-h-80 overflow-y-auto custom-scrollbar text-left">
+                      <div className="px-2 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider border-b border-[#282830] mb-1">
+                        Choisir le type de section
+                      </div>
+                      <div className="space-y-0.5">
+                        {STANDARD_SECTION_TYPES.map(({ key, label }) => {
+                          const conf = SECTION_TYPES_CONFIG[key] || {
+                            badgeBg: 'bg-gray-600/20',
+                            badgeBorder: 'border-gray-500/30',
+                            badgeText: 'text-gray-300'
+                          };
+                          return (
+                            <button
+                              key={key}
+                              type="button"
+                              onClick={() => {
+                                handleAddNewSection(key as any);
+                                setIsAddSectionDropdownOpen(false);
+                              }}
+                              className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs hover:bg-[#232329] text-gray-200 transition-colors text-left group cursor-pointer"
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className={`w-2 h-2 rounded-full ${conf.badgeBg.replace('/20', '')}`} />
+                                <span className="font-medium group-hover:text-white">{label}</span>
+                              </div>
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded border ${conf.badgeBg} ${conf.badgeBorder} ${conf.badgeText}`}>
+                                + Ajouter
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : null}
+
+            {/* Sections Cards List */}
+            {visualSections.length > 0 && (
+              <div className="space-y-3">
+                {visualSections.map((sec, sIdx) => (
+                  <React.Fragment key={sec.id}>
+                    <VisualSectionCard
+                      section={sec}
+                      index={sIdx}
+                      totalSections={visualSections.length}
+                      onUpdateSection={handleUpdateSection}
+                      onDuplicateSection={handleDuplicateSection}
+                      onDeleteSection={handleDeleteSection}
+                      onMoveSection={handleMoveSection}
+                      onOpenChordPicker={handleOpenChordPicker}
+                      availableSongChords={songChords}
+                      isDragging={draggedSectionIndex === sIdx}
+                      onDragStart={handleDragStart}
+                      onDragOver={handleDragOver}
+                      onDrop={handleDrop}
+                      isCollapsed={collapsedSectionIds.has(sec.id)}
+                      onToggleCollapse={handleToggleSectionCollapse}
+                      onAddSection={handleAddNewSection}
+                      onOpenCustomSectionModal={() => setShowCustomSectionModal(true)}
+                      onSplitSection={handleSplitSection}
+                    />
+
+                    {/* Bouton "+" en bas de chaque section pour insérer une section après */}
+                    <div className="relative py-1 flex items-center justify-center group/add-section">
+                      <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                        <div className="w-full border-t border-dashed border-white/5 group-hover/add-section:border-blue-500/30 transition-colors" />
+                      </div>
+                      
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (activeInsertSectionIndex === sIdx) {
+                              setActiveInsertSectionIndex(null);
+                            } else {
+                              setActiveInsertSectionIndex(sIdx);
+                            }
+                          }}
+                          className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold shadow-md transition-all active:scale-95 cursor-pointer ${
+                            activeInsertSectionIndex === sIdx
+                              ? 'bg-blue-600 text-white ring-2 ring-blue-500/40 shadow-blue-900/50'
+                              : 'bg-[#18181C] hover:bg-blue-600/20 text-gray-400 hover:text-blue-300 border border-white/10 hover:border-blue-500/40'
+                          }`}
+                          title="Ajouter une section à cet endroit"
+                          aria-label="Ajouter une section à cet endroit"
+                        >
+                          <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                          <span className="text-[11px]">Section</span>
+                        </button>
+
+                        {/* Dropdown de choix du type de section pour ce point d'insertion */}
+                        {activeInsertSectionIndex === sIdx && (
+                          <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 w-64 bg-[#18181C] border border-[#2E2E36] rounded-xl shadow-2xl p-1.5 backdrop-blur-md max-h-80 overflow-y-auto custom-scrollbar animate-in fade-in zoom-in-95">
+                            <div className="px-2 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider border-b border-[#282830] mb-1 flex items-center justify-between">
+                              <span>Insérer après cette section</span>
+                              <button
+                                type="button"
+                                onClick={() => setActiveInsertSectionIndex(null)}
+                                className="text-gray-500 hover:text-white"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                            
+                            <div className="space-y-0.5">
+                              {STANDARD_SECTION_TYPES.map(({ key, label }) => {
+                                const conf = SECTION_TYPES_CONFIG[key] || {
+                                  badgeBg: 'bg-gray-600/20',
+                                  badgeBorder: 'border-gray-500/30',
+                                  badgeText: 'text-gray-300'
+                                };
+                                return (
+                                  <button
+                                    key={key}
+                                    type="button"
+                                    onClick={() => {
+                                      handleAddNewSection(key as any, undefined, sIdx);
+                                      setActiveInsertSectionIndex(null);
+                                    }}
+                                    className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs hover:bg-[#232329] text-gray-200 transition-colors text-left group cursor-pointer"
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <span className={`w-2 h-2 rounded-full ${conf.badgeBg.replace('/20', '')}`} />
+                                      <span className="font-medium group-hover:text-white">{label}</span>
+                                    </div>
+                                    <span className={`text-[10px] px-1.5 py-0.5 rounded border ${conf.badgeBg} ${conf.badgeBorder} ${conf.badgeText}`}>
+                                      + Ajouter
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+
+                            {customSectionList.length > 0 && (
+                              <div className="pt-2 mt-1 border-t border-[#25252D]">
+                                <div className="px-2 py-1 text-[10px] font-bold text-teal-400 uppercase tracking-wider mb-1">
+                                  Sections personnalisées
+                                </div>
+                                <div className="space-y-0.5">
+                                  {customSectionList.map((customName) => (
+                                    <button
+                                      key={customName}
+                                      type="button"
+                                      onClick={() => {
+                                        handleAddNewSection(customName, customName, sIdx);
+                                        setActiveInsertSectionIndex(null);
+                                      }}
+                                      className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs hover:bg-[#232329] text-teal-200 transition-colors text-left cursor-pointer"
+                                    >
+                                      <span className="font-medium">{customName}</span>
+                                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-teal-600/20 border border-teal-500/30 text-teal-300">
+                                        + Ajouter
+                                      </span>
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            <div className="pt-1.5 mt-1 border-t border-[#25252D]">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveInsertSectionIndex(null);
+                                  setShowCustomSectionModal(true);
+                                }}
+                                className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-semibold text-amber-300 hover:text-amber-200 hover:bg-amber-600/15 border border-dashed border-amber-500/30 transition-colors text-left cursor-pointer"
+                              >
+                                <Plus className="w-3.5 h-3.5 text-amber-400" />
+                                <span>Créer une section personnalisée...</span>
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </React.Fragment>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Interactive Chord Picker Modal */}
       <ChordPickerModal
@@ -1852,30 +2018,50 @@ export const SongEditor: React.FC = () => {
         </div>
       )}
 
-      {/* Bouton d'action flottant (Mettre à jour / Enregistrer - bas à droite, icône uniquement) */}
-      <button
-        type="button"
-        id="btn-editor-floating-save"
-        onClick={handleSave}
-        disabled={isSaving}
-        className={`fixed bottom-6 right-6 sm:bottom-8 sm:right-8 z-40 w-13 h-13 sm:w-14 sm:h-14 rounded-full flex items-center justify-center transition-all duration-200 active:scale-90 cursor-pointer shadow-2xl ${
-          saveSuccess
-            ? 'bg-emerald-600 hover:bg-emerald-500 text-white border-2 border-emerald-300 ring-4 ring-emerald-500/25 scale-105 shadow-emerald-950/60'
-            : isSaving
-            ? 'bg-blue-600/80 text-white border-2 border-blue-300/40 ring-4 ring-blue-500/20 cursor-wait shadow-blue-950/50'
-            : 'bg-blue-600 hover:bg-blue-500 text-white border-2 border-blue-400/50 hover:scale-110 shadow-blue-950/60 ring-4 ring-blue-500/20'
-        } disabled:opacity-75`}
-        title={saveSuccess ? "Enregistré avec succès !" : selectedSong ? "Mettre à jour" : "Enregistrer le chant"}
-        aria-label={selectedSong ? "Mettre à jour le chant" : "Enregistrer le chant"}
-      >
-        {saveSuccess ? (
-          <Check className="w-6 h-6 stroke-[3]" />
-        ) : isSaving ? (
-          <Loader2 className="w-6 h-6 animate-spin" />
-        ) : (
-          <Save className="w-6 h-6" />
-        )}
-      </button>
+      {/* Boutons d'actions flottants (Annuler & Mettre à jour / Enregistrer - bas à droite, icônes uniquement) */}
+      <div className="fixed bottom-6 right-6 sm:bottom-8 sm:right-8 z-40 flex items-center gap-2.5">
+        {/* Bouton Annuler (icône uniquement) */}
+        <button
+          type="button"
+          id="btn-editor-floating-undo"
+          onClick={handleUndo}
+          disabled={!canUndo}
+          className={`w-12 h-12 sm:w-13 sm:h-13 rounded-full flex items-center justify-center transition-all duration-200 active:scale-90 shadow-2xl border-2 backdrop-blur-md ${
+            canUndo
+              ? 'bg-[#18181C]/90 hover:bg-[#25252C] text-gray-200 hover:text-white border-white/20 hover:border-white/40 cursor-pointer hover:scale-105 ring-4 ring-white/5'
+              : 'bg-[#141417]/60 text-gray-600 border-white/5 cursor-not-allowed opacity-40'
+          }`}
+          title="Annuler la dernière action (Ctrl+Z)"
+          aria-label="Annuler la dernière action (Ctrl+Z)"
+        >
+          <Undo2 className="w-5 h-5 sm:w-5.5 sm:h-5.5" />
+        </button>
+
+        {/* Bouton d'action flottant (Mettre à jour / Enregistrer) */}
+        <button
+          type="button"
+          id="btn-editor-floating-save"
+          onClick={handleSave}
+          disabled={isSaving}
+          className={`w-13 h-13 sm:w-14 sm:h-14 rounded-full flex items-center justify-center transition-all duration-200 active:scale-90 cursor-pointer shadow-2xl ${
+            saveSuccess
+              ? 'bg-emerald-600 hover:bg-emerald-500 text-white border-2 border-emerald-300 ring-4 ring-emerald-500/25 scale-105 shadow-emerald-950/60'
+              : isSaving
+              ? 'bg-blue-600/80 text-white border-2 border-blue-300/40 ring-4 ring-blue-500/20 cursor-wait shadow-blue-950/50'
+              : 'bg-blue-600 hover:bg-blue-500 text-white border-2 border-blue-400/50 hover:scale-110 shadow-blue-950/60 ring-4 ring-blue-500/20'
+          } disabled:opacity-75`}
+          title={saveSuccess ? "Enregistré avec succès !" : selectedSong ? "Mettre à jour" : "Enregistrer le chant"}
+          aria-label={selectedSong ? "Mettre à jour le chant" : "Enregistrer le chant"}
+        >
+          {saveSuccess ? (
+            <Check className="w-6 h-6 stroke-[3]" />
+          ) : isSaving ? (
+            <Loader2 className="w-6 h-6 animate-spin" />
+          ) : (
+            <Save className="w-6 h-6" />
+          )}
+        </button>
+      </div>
 
     </div>
   );

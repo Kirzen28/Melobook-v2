@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { 
   UserProfile, 
   Group, 
@@ -17,16 +17,22 @@ import {
   UserRole,
   SyncStatus,
   NotificationType,
-  AppNotification
+  AppNotification,
+  CustomPad
 } from '../types';
 import { DEFAULT_DISPLAY_SETTINGS, DEFAULT_SONG_METADATA_VISIBILITY } from '../utils/displayDefaults';
 import { 
   auth, 
   db, 
+  storage,
+  storageRef,
+  uploadBytes,
+  getDownloadURL,
+  updateProfile,
   collection, 
   doc, 
   getDoc, 
-  getDocs,
+  getDocs, 
   limit,
   setDoc, 
   addDoc, 
@@ -36,7 +42,10 @@ import {
   where, 
   onSnapshot, 
   signOut,
-  serverTimestamp
+  serverTimestamp,
+  arrayUnion,
+  OperationType,
+  handleFirestoreError
 } from '../firebase';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { SAMPLE_SONGS, SAMPLE_SETLISTS, SAMPLE_SETLIST_HISTORY } from '../data/sampleSongs';
@@ -52,54 +61,42 @@ import {
   clearAllLocalCaches,
   getOfflineStorageStats 
 } from '../utils/pwaCache';
-import { deleteSongFromIndexedDB, deleteSetlistFromIndexedDB } from '../utils/indexedDB';
+import { 
+  deleteSongFromIndexedDB, 
+  deleteSetlistFromIndexedDB,
+  saveCustomPadToIndexedDB,
+  getAllCustomPadsFromIndexedDB,
+  deleteCustomPadFromIndexedDB
+} from '../utils/indexedDB';
+import { padAudio } from '../utils/padAudio';
 
-const DEFAULT_ADMIN_USER: UserProfile = {
-  uid: 'admin-kriveravelasquez',
-  email: 'kriveravelasquez@rivera-marketing.com',
-  displayName: 'Kevin Rivera',
-  currentGroupId: 'default-group',
-  role: 'admin'
+const stripUndefined = <T extends Record<string, any>>(obj: T): T => {
+  const result: Record<string, any> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (v !== undefined) {
+      result[k] = v;
+    }
+  }
+  return result as T;
 };
 
-const SAMPLE_USERS: UserProfile[] = [
-  DEFAULT_ADMIN_USER,
-  {
-    uid: 'user-sarah-m',
-    email: 'sarah.vocal@melobook.app',
-    displayName: 'Sarah Morel',
-    currentGroupId: 'default-group',
-    role: 'leader'
-  },
-  {
-    uid: 'user-julien-p',
-    email: 'julien.editor@melobook.app',
-    displayName: 'Julien Éditeur',
-    currentGroupId: 'default-group',
-    role: 'editor'
-  },
-  {
-    uid: 'user-lucas-g',
-    email: 'lucas.guitare@melobook.app',
-    displayName: 'Lucas Bernard',
-    currentGroupId: 'default-group',
-    role: 'member'
-  },
-  {
-    uid: 'user-emma-v',
-    email: 'emma.violon@melobook.app',
-    displayName: 'Emma Laurent',
-    currentGroupId: 'default-group',
-    role: 'member'
-  },
-  {
-    uid: 'user-thomas-b',
-    email: 'thomas.regie@melobook.app',
-    displayName: 'Thomas Régie',
-    currentGroupId: 'default-group',
-    role: 'viewer'
+const generateInviteCode = (): string => {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
   }
-];
+  return code;
+};
+
+const generateGuestCode = (): string => {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = 'GST';
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+};
 
 const DEFAULT_GROUP: Group = {
   id: 'default-group',
@@ -127,6 +124,17 @@ const DEFAULT_STAGE_SETTINGS: StageSettings = {
 interface AppContextType {
   currentUser: UserProfile | null;
   firebaseUser: FirebaseUser | null;
+  authLoading: boolean;
+  isGuest: boolean;
+  enterGuestMode: (guestCode: string) => Promise<Group>;
+  exitGuestMode: () => void;
+  toggleLibraryGuestMode: (groupId: string, enabled: boolean) => Promise<boolean>;
+  regenerateGuestCode: (groupId: string) => Promise<string | null>;
+  needsLibraryOnboarding: boolean;
+  setNeedsLibraryOnboarding: (needs: boolean) => void;
+  setSignupInProgress: (inProgress: boolean) => void;
+  completeSignupCreateLibrary: (libraryName: string, libraryDescription?: string, displayNameOverride?: string) => Promise<Group>;
+  completeSignupJoinLibrary: (libraryIdentifier: string, displayNameOverride?: string) => Promise<Group>;
   groups: Group[];
   currentGroup: Group | null;
   // Aliases Bibliothèque
@@ -136,6 +144,8 @@ interface AppContextType {
   setlists: Setlist[];
   activeTab: 'repertoire' | 'setlists' | 'stage' | 'groups' | 'editor' | 'settings' | 'tuner' | 'presentation';
   setActiveTab: (tab: 'repertoire' | 'setlists' | 'stage' | 'groups' | 'editor' | 'settings' | 'tuner' | 'presentation') => void;
+  editorSubTab: 'data' | 'chords';
+  setEditorSubTab: (tab: 'data' | 'chords') => void;
   selectedSong: Song | null;
   setSelectedSong: (song: Song | null) => void;
   selectedSetlist: Setlist | null;
@@ -250,11 +260,18 @@ interface AppContextType {
   bulkRemoveMembersFromGroup: (groupId: string, memberUids: string[]) => Promise<boolean>;
   bulkDeleteUserAccounts: (userIds: string[]) => Promise<boolean>;
   setAdminByEmail: (targetEmail: string, role?: UserRole) => Promise<void>;
-  
-  loginDemoUser: (role?: UserRole) => void;
-  loginLocalUser: (customEmail: string, customName?: string, role?: UserRole) => void;
   handleSignOut: () => Promise<void>;
   seedDemoDataToFirestore: () => Promise<void>;
+
+  // Profile picture management
+  uploadProfilePicture: (fileOrBlob: Blob | File) => Promise<string>;
+  removeProfilePicture: () => Promise<void>;
+
+  // Custom Pads management
+  customPads: CustomPad[];
+  createCustomPad: (padData: Omit<CustomPad, 'id' | 'groupId' | 'createdAt'>) => Promise<string>;
+  deleteCustomPad: (id: string) => Promise<void>;
+  uploadPadAudio: (file: File) => Promise<string>;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -268,49 +285,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return saved as any;
       }
     }
-    return 'groups';
+    return 'repertoire';
   });
 
-  const setActiveTab = useCallback((tab: 'repertoire' | 'setlists' | 'stage' | 'groups' | 'editor' | 'settings' | 'tuner' | 'presentation') => {
-    setActiveTabState(tab);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('songbook_active_tab', tab);
-    }
+  // Auth & Guest state - par défaut le visiteur arrive sur la page de connexion
+  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
+  const [authLoading, setAuthLoading] = useState<boolean>(true);
+  const [isGuest, setIsGuest] = useState<boolean>(false);
+  const [needsLibraryOnboarding, setNeedsLibraryOnboarding] = useState<boolean>(false);
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const signupInProgressRef = useRef<boolean>(false);
+  const setSignupInProgress = useCallback((inProgress: boolean) => {
+    signupInProgressRef.current = inProgress;
   }, []);
 
-  const [selectedSong, setSelectedSong] = useState<Song | null>(SAMPLE_SONGS[0]);
+  const setActiveTab = useCallback((tab: 'repertoire' | 'setlists' | 'stage' | 'groups' | 'editor' | 'settings' | 'tuner' | 'presentation') => {
+    const resolvedTab = isGuest && (tab === 'editor' || tab === 'groups' || tab === 'settings')
+      ? 'repertoire'
+      : tab;
+    setActiveTabState(resolvedTab);
+    if (!isGuest && typeof window !== 'undefined') {
+      localStorage.setItem('songbook_active_tab', resolvedTab);
+    }
+  }, [isGuest]);
+
+  useEffect(() => {
+    if (isGuest && (activeTab === 'editor' || activeTab === 'groups' || activeTab === 'settings')) {
+      setActiveTabState('repertoire');
+    }
+  }, [isGuest, activeTab]);
+
+  const [editorSubTab, setEditorSubTab] = useState<'data' | 'chords'>('data');
+  const [selectedSong, setSelectedSong] = useState<Song | null>(null);
   const [selectedSetlist, setSelectedSetlist] = useState<Setlist | null>(null);
   const [activeSetlistIndex, setActiveSetlistIndex] = useState<number>(0);
-  
-  // Auth state - par défaut l'administrateur propriétaire est configuré
-  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('songbook_user');
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          if (parsed?.uid) {
-            return parsed;
-          }
-        } catch (e) {}
-      }
-    }
-    return DEFAULT_ADMIN_USER;
-  });
 
-  const [allUsers, setAllUsers] = useState<UserProfile[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('songbook_all_users');
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-        } catch (e) {}
-      }
-    }
-    return SAMPLE_USERS;
-  });
+  const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isPianoOpen, setIsPianoOpen] = useState(false);
   const [isMetronomeOpen, setIsMetronomeOpen] = useState(false);
@@ -386,166 +396,83 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // Registre de toutes les bibliothèques du système
-  const [allGroups, setAllGroups] = useState<Group[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('songbook_all_groups');
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-        } catch (e) {}
-      }
-    }
-    return [DEFAULT_GROUP];
-  });
+  // Registre des bibliothèques de l'utilisateur connecté
+  const [allGroups, setAllGroups] = useState<Group[]>([]);
 
-  // Sauvegarde locale du registre des bibliothèques
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('songbook_all_groups', JSON.stringify(allGroups));
-    }
-  }, [allGroups]);
-
-  // Registre des identifiants de bibliothèques déverrouillées en mode invité (par code d'invitation)
-  const [guestJoinedGroupIds, setGuestJoinedGroupIds] = useState<string[]>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem('songbook_guest_joined_group_ids');
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed)) return parsed;
-        }
-      } catch (e) {}
-    }
-    return [];
-  });
+  const [guestJoinedGroupIds, setGuestJoinedGroupIds] = useState<string[]>([]);
 
   const recordGuestJoinedGroup = useCallback((groupId: string) => {
-    setGuestJoinedGroupIds(prev => {
-      if (prev.includes(groupId)) return prev;
-      const next = [...prev, groupId];
-      try {
-        localStorage.setItem('songbook_guest_joined_group_ids', JSON.stringify(next));
-      } catch (e) {}
-      return next;
-    });
+    setGuestJoinedGroupIds(prev => (prev.includes(groupId) ? prev : [...prev, groupId]));
   }, []);
 
-  // Règle d'accès stricte : Les membres ET les administrateurs ne peuvent voir et choisir
-  // QUE les bibliothèques dont ils font explicitement partie (propriétaire ou dans members).
-  // La bibliothèque générale par défaut (default-group) reste toujours accessible à tous.
-  // Les bibliothèques déverrouillées via code d'invitation sont également accessibles aux invités.
+  // Règle d'isolation stricte : chaque bibliothèque est totalement privée aux utilisateurs qui en sont membres ou propriétaires.
   const isMemberOfLibrary = useCallback((group: Group, user: UserProfile | null): boolean => {
-    if (group.id === 'default-group') {
-      return true;
-    }
-    // Accès déverrouillé par code d'invitation (mode invité sans compte ou utilisateur connecté)
-    if (guestJoinedGroupIds.includes(group.id)) {
-      return true;
-    }
     if (!user || !user.uid) {
       return false;
     }
     const uid = user.uid;
-    // Le créateur ou propriétaire fait toujours partie de sa bibliothèque
     if (group.ownerId === uid) {
       return true;
     }
-    // Présence confirmée dans le tableau des membres de la bibliothèque
     if (Array.isArray(group.members) && group.members.includes(uid)) {
       return true;
     }
     return false;
-  }, [guestJoinedGroupIds]);
+  }, []);
 
-  // Liste des bibliothèques visibles par l'utilisateur connecté
+  const [currentGroup, setCurrentGroup] = useState<Group | null>(null);
+
+  // Liste des bibliothèques visibles par l'utilisateur connecté (ou invité actif)
   const groups = useMemo(() => {
-    return allGroups.filter(g => isMemberOfLibrary(g, currentUser));
-  }, [allGroups, currentUser?.uid, isMemberOfLibrary]);
-
-  const [currentGroup, setCurrentGroup] = useState<Group | null>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const savedId = localStorage.getItem('songbook_current_group_id');
-        if (savedId && savedId !== 'default-group') {
-          return { ...DEFAULT_GROUP, id: savedId, name: 'Chargement de la bibliothèque...' };
-        }
-      } catch (e) {}
+    if (isGuest) {
+      return currentGroup && currentGroup.guestEnabled ? [currentGroup] : [];
     }
-    return DEFAULT_GROUP;
-  });
+    return allGroups.filter(g => isMemberOfLibrary(g, currentUser));
+  }, [isGuest, currentGroup, allGroups, currentUser, isMemberOfLibrary]);
 
   // Si la bibliothèque active ne fait pas partie des bibliothèques autorisées, basculer automatiquement
   useEffect(() => {
+    if (isGuest) return;
     if (groups.length > 0) {
       const isCurrentAuthorized = currentGroup && groups.some(g => g.id === currentGroup.id);
       if (!isCurrentAuthorized) {
-        const fallbackGroup = groups[0];
+        const preferredId = currentUser?.currentGroupId;
+        const fallbackGroup = (preferredId && groups.find(g => g.id === preferredId)) || groups[0];
         setCurrentGroup(fallbackGroup);
         if (typeof window !== 'undefined') {
           localStorage.setItem('songbook_current_group_id', fallbackGroup.id);
         }
       }
     }
-  }, [groups, currentGroup?.id]);
-  const [songs, setSongs] = useState<Song[]>(() => {
-    const deletedIds = getDeletedSongIds();
-    const saved = localStorage.getItem('songbook_cached_songs');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const loaded = parsed.map((s: Song) => {
-            const resolvedDuration = s.duration || getSongDuration(s) || SAMPLE_SONGS.find(sm => sm.id === s.id || sm.title.toLowerCase() === s.title?.toLowerCase())?.duration;
-            const resolvedLanguage = (s.language && s.language.trim())
-              ? s.language
-              : detectSongLanguage(s.title, s.contentChordPro || s.content);
-            const base = resolvedDuration ? { ...s, duration: resolvedDuration } : s;
-            return { ...base, language: resolvedLanguage };
-          });
-          const missingSamples = SAMPLE_SONGS.filter(sm => !deletedIds.has(sm.id) && !loaded.some((ls: Song) => ls.id === sm.id)).map(sm => ({
-            ...sm,
-            language: (sm.language && sm.language.trim()) ? sm.language : detectSongLanguage(sm.title, sm.contentChordPro || sm.content)
-          }));
-          return [...loaded, ...missingSamples];
-        }
-      } catch (e) {}
-    }
-    return SAMPLE_SONGS.filter(sm => !deletedIds.has(sm.id)).map(sm => ({
-      ...sm,
-      language: (sm.language && sm.language.trim()) ? sm.language : detectSongLanguage(sm.title, sm.contentChordPro || sm.content)
-    }));
-  });
-  const [setlists, setSetlists] = useState<Setlist[]>(() => {
-    const deletedSetlistIds = getDeletedSetlistIds();
-    const saved = localStorage.getItem('songbook_cached_setlists');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const missingSamples = SAMPLE_SETLISTS.filter(st => !deletedSetlistIds.has(st.id) && !parsed.some((ps: Setlist) => ps.id === st.id));
-          return [...parsed, ...missingSamples];
-        }
-      } catch (e) {}
-    }
-    return SAMPLE_SETLISTS.filter(st => !deletedSetlistIds.has(st.id));
-  });
+  }, [isGuest, groups, currentGroup?.id, currentUser?.currentGroupId]);
 
-  const [setlistHistory, setSetlistHistory] = useState<SetlistHistoryRecord[]>(() => {
-    const deletedHistoryIds = getDeletedHistoryIds();
-    const saved = localStorage.getItem('songbook_cached_setlist_history');
-    if (saved) {
+  const [songs, setSongs] = useState<Song[]>([]);
+  const [setlists, setSetlists] = useState<Setlist[]>([]);
+  const [setlistHistory, setSetlistHistory] = useState<SetlistHistoryRecord[]>([]);
+  const [customPads, setCustomPads] = useState<CustomPad[]>([]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && currentGroup?.id && !isGuest) {
       try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const missingSamples = SAMPLE_SETLIST_HISTORY.filter(sh => !deletedHistoryIds.has(sh.id) && !parsed.some((ph: SetlistHistoryRecord) => ph.id === sh.id));
-          return [...parsed, ...missingSamples];
-        }
+        localStorage.setItem(`songbook_cached_custom_pads_${currentGroup.id}`, JSON.stringify(customPads));
       } catch (e) {}
     }
-    return SAMPLE_SETLIST_HISTORY.filter(sh => !deletedHistoryIds.has(sh.id));
-  });
+  }, [customPads, currentGroup?.id, isGuest]);
+
+  // Initial hydration from IndexedDB for custom audio pads of current library
+  useEffect(() => {
+    if (!currentGroup?.id || isGuest) return;
+    getAllCustomPadsFromIndexedDB(currentGroup.id).then(stored => {
+      if (stored && stored.length > 0) {
+        setCustomPads(prev => {
+          const padMap = new Map<string, CustomPad>();
+          stored.forEach(p => padMap.set(p.id, p));
+          prev.forEach(p => padMap.set(p.id, p));
+          return Array.from(padMap.values());
+        });
+      }
+    }).catch(() => {});
+  }, [currentGroup?.id]);
 
   // Stage view custom settings
   const [stageSettings, setStageSettings] = useState<StageSettings>(() => {
@@ -736,12 +663,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [refreshOfflineStats, showNotification]);
 
-  // Hydratation initiale depuis IndexedDB pour disponibilité instantanée hors-ligne
+  // Hydratation initiale depuis IndexedDB pour disponibilité instantanée hors-ligne (scopée par bibliothèque)
   useEffect(() => {
     let isMounted = true;
     const hydrateFromIndexedDB = async () => {
+      if (!currentGroup?.id || isGuest) return;
       try {
-        const targetGroup = currentGroup?.id || 'default-group';
+        const targetGroup = currentGroup.id;
         const [cachedSongs, cachedSetlists] = await Promise.all([
           getAllCachedSongs(targetGroup),
           getAllCachedSetlists(targetGroup)
@@ -756,10 +684,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setSongs(prev => {
             const songMap = new Map<string, Song>();
             cachedSongs.forEach(s => {
-              if (!deletedSongIds.has(s.id)) songMap.set(s.id, s);
+              if (!deletedSongIds.has(s.id) && s.groupId === targetGroup) songMap.set(s.id, s);
             });
             prev.forEach(s => {
-              if (!deletedSongIds.has(s.id)) songMap.set(s.id, s);
+              if (!deletedSongIds.has(s.id) && s.groupId === targetGroup) songMap.set(s.id, s);
             });
             return Array.from(songMap.values());
           });
@@ -769,10 +697,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setSetlists(prev => {
             const stMap = new Map<string, Setlist>();
             cachedSetlists.forEach(st => {
-              if (!deletedSetlistIds.has(st.id)) stMap.set(st.id, st);
+              if (!deletedSetlistIds.has(st.id) && st.groupId === targetGroup) stMap.set(st.id, st);
             });
             prev.forEach(st => {
-              if (!deletedSetlistIds.has(st.id)) stMap.set(st.id, st);
+              if (!deletedSetlistIds.has(st.id) && st.groupId === targetGroup) stMap.set(st.id, st);
             });
             return Array.from(stMap.values());
           });
@@ -875,12 +803,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Sauvegarde globale de l ensemble du repertoire dans IndexedDB et le cache SW
   useEffect(() => {
+    if (isGuest) return;
     if (songs.length > 0 || setlists.length > 0) {
       cacheAllDataInWorker(songs, setlists).then(() => {
         refreshOfflineStats();
       });
     }
-  }, [songs, setlists, refreshOfflineStats]);
+  }, [isGuest, songs, setlists, refreshOfflineStats]);
 
   // Deep linking for song shared via QR Code or direct link
   useEffect(() => {
@@ -909,7 +838,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Deep linking for group shared via URL or QR Code (?group=... or ?code=...)
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || isGuest) return;
 
     try {
       const params = new URLSearchParams(window.location.search);
@@ -995,309 +924,685 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [stageSettings.theme]);
 
-  // Save cache to localStorage for true offline support
+  // Save cache to localStorage scoped strictly per library ID
   useEffect(() => {
-    localStorage.setItem('songbook_cached_songs', JSON.stringify(songs));
-  }, [songs]);
+    if (currentGroup?.id && !isGuest) {
+      localStorage.setItem(`songbook_cached_songs_${currentGroup.id}`, JSON.stringify(songs));
+    }
+  }, [songs, currentGroup?.id, isGuest]);
 
   useEffect(() => {
-    localStorage.setItem('songbook_cached_setlists', JSON.stringify(setlists));
-  }, [setlists]);
+    if (currentGroup?.id && !isGuest) {
+      localStorage.setItem(`songbook_cached_setlists_${currentGroup.id}`, JSON.stringify(setlists));
+    }
+  }, [setlists, currentGroup?.id, isGuest]);
 
   useEffect(() => {
-    localStorage.setItem('songbook_cached_setlist_history', JSON.stringify(setlistHistory));
-  }, [setlistHistory]);
+    if (currentGroup?.id && !isGuest) {
+      localStorage.setItem(`songbook_cached_setlist_history_${currentGroup.id}`, JSON.stringify(setlistHistory));
+    }
+  }, [setlistHistory, currentGroup?.id, isGuest]);
 
   useEffect(() => {
-    if (currentUser) {
+    if (currentUser && !isGuest) {
       localStorage.setItem('songbook_user', JSON.stringify(currentUser));
     } else {
       localStorage.removeItem('songbook_user');
     }
-  }, [currentUser]);
+  }, [currentUser, isGuest]);
 
-  // Auth Listener
+  // Ref vers completeSignupCreateLibrary pour utilisation sûre dans onAuthStateChanged
+  const completeSignupCreateLibraryRef = useRef<((libraryName: string, libraryDescription?: string, displayNameOverride?: string) => Promise<Group>) | null>(null);
+
+  // Auth Listener & Initial Library Discovery
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setFirebaseUser(user);
       if (user) {
-        // Fetch or create user doc in Firestore
+        setIsGuest(false);
+        if (signupInProgressRef.current) {
+          setAuthLoading(false);
+          return;
+        }
         try {
           const userRef = doc(db, 'users', user.uid);
-          const snap = await getDoc(userRef);
-          if (snap.exists()) {
-            const data = snap.data() as UserProfile;
-            setCurrentUser(data);
-          } else {
-            const email = (user.email || '').toLowerCase().trim();
-            let role: UserRole = 'member';
-            
-            // Propriétaire ou administrateur préconfiguré
-            if (email === 'kriveravelasquez@rivera-marketing.com') {
-              role = 'admin';
-            } else {
-              try {
-                // Vérifier si l'adresse est pré-autorisée comme administrateur
-                const adminEmailDoc = await getDoc(doc(db, 'admin_emails', email));
-                if (adminEmailDoc.exists()) {
-                  role = 'admin';
-                } else {
-                  // Si aucun utilisateur n'existe encore dans la base, le 1er inscrit devient admin
-                  const usersSnap = await getDocs(query(collection(db, 'users'), limit(1)));
-                  if (usersSnap.empty) {
-                    role = 'admin';
-                  }
-                }
-              } catch (e) {
-                console.warn('Admin check note:', e);
-              }
-            }
+          const [snap, memberGroupsSnap, ownerGroupsSnap] = await Promise.all([
+            getDoc(userRef).catch(() => null),
+            getDocs(query(collection(db, 'groups'), where('members', 'array-contains', user.uid))).catch(() => null),
+            getDocs(query(collection(db, 'groups'), where('ownerId', '==', user.uid))).catch(() => null)
+          ]);
 
-            const newUser: UserProfile = {
+          const groupMap = new Map<string, Group>();
+          memberGroupsSnap?.forEach(d => {
+            groupMap.set(d.id, { id: d.id, ...d.data() } as Group);
+          });
+          ownerGroupsSnap?.forEach(d => {
+            groupMap.set(d.id, { id: d.id, ...d.data() } as Group);
+          });
+
+          const data = snap?.exists() ? (snap.data() as Partial<UserProfile>) : {};
+
+          // Fallback : si currentGroupId est enregistré sur le profil mais non retourné par la liste
+          if (data.currentGroupId && !groupMap.has(data.currentGroupId)) {
+            try {
+              const curGroupSnap = await getDoc(doc(db, 'groups', data.currentGroupId));
+              if (curGroupSnap.exists()) {
+                const cg = { id: curGroupSnap.id, ...curGroupSnap.data() } as Group;
+                if (cg.ownerId === user.uid || (Array.isArray(cg.members) && cg.members.includes(user.uid))) {
+                  groupMap.set(cg.id, cg);
+                }
+              }
+            } catch {}
+          }
+
+          const userGroups = Array.from(groupMap.values());
+
+          if (userGroups.length > 0) {
+            const preferredGroup = userGroups.find(g => g.id === data.currentGroupId) || userGroups[0];
+            const roleInGroup: UserRole = preferredGroup.ownerId === user.uid
+              ? 'admin'
+              : (preferredGroup.memberRoles?.[user.uid] || (data.role as UserRole) || 'member');
+            const mergedUser: UserProfile = stripUndefined({
               uid: user.uid,
-              email: user.email || '',
-              displayName: user.displayName || user.email?.split('@')[0] || 'Musicien',
-              currentGroupId: 'default-group',
-              role
-            };
-            await setDoc(userRef, newUser);
-            setCurrentUser(newUser);
+              email: data.email || user.email || '',
+              displayName: data.displayName || user.displayName || user.email?.split('@')[0] || 'Musicien',
+              photoURL: data.photoURL || user.photoURL || undefined,
+              currentGroupId: preferredGroup.id,
+              role: roleInGroup
+            });
+            if (!snap || !snap.exists()) {
+              setDoc(userRef, {
+                ...mergedUser,
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp()
+              }, { merge: true }).catch(() => {});
+            }
+            setAllGroups(userGroups);
+            setCurrentGroup(preferredGroup);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('songbook_current_group_id', preferredGroup.id);
+            }
+            setCurrentUser(mergedUser);
+            setNeedsLibraryOnboarding(false);
+          } else if (completeSignupCreateLibraryRef.current) {
+            // Compte déjà créé sans bibliothèque (ex. compte existant antérieur) : créer sa bibliothèque personnelle et entrer directement
+            await completeSignupCreateLibraryRef.current('Ma bibliothèque', 'Bibliothèque personnelle');
+          } else {
+            setAllGroups([]);
+            setCurrentGroup(null);
+            setCurrentUser(null);
+            setNeedsLibraryOnboarding(true);
           }
         } catch (e) {
-          console.warn('Firestore user fetch note:', e);
+          console.warn('Firestore user/library fetch note:', e);
+          let restored = false;
+          if (typeof window !== 'undefined') {
+            try {
+              const cachedUserRaw = localStorage.getItem('songbook_user');
+              const cachedGroupId = localStorage.getItem('songbook_current_group_id');
+              if (cachedUserRaw) {
+                const parsedUser = JSON.parse(cachedUserRaw) as UserProfile;
+                if (parsedUser?.uid === user.uid) {
+                  const fallbackGroupId = parsedUser.currentGroupId || cachedGroupId || `lib_${user.uid.slice(0, 8)}`;
+                  const fallbackGroup: Group = {
+                    id: fallbackGroupId,
+                    name: 'Ma bibliothèque',
+                    ownerId: user.uid,
+                    members: [user.uid],
+                    memberRoles: { [user.uid]: parsedUser.role || 'admin' },
+                    inviteCode: generateInviteCode()
+                  };
+                  setAllGroups([fallbackGroup]);
+                  setCurrentGroup(fallbackGroup);
+                  setCurrentUser(parsedUser);
+                  setNeedsLibraryOnboarding(false);
+                  restored = true;
+                }
+              }
+            } catch {}
+          }
+          if (!restored) {
+            setNeedsLibraryOnboarding(true);
+          }
+        } finally {
+          setAuthLoading(false);
         }
       } else {
-        // Aucun compte connecté via Firebase
-        setCurrentUser(prev => {
-          if (prev?.uid) {
-            return prev;
-          }
-          return DEFAULT_ADMIN_USER;
-        });
+        setCurrentUser(null);
+        setNeedsLibraryOnboarding(false);
+        setAllGroups([]);
+        setCurrentGroup(null);
+        setSongs([]);
+        setSetlists([]);
+        setSetlistHistory([]);
+        setCustomPads([]);
+        setAllUsers([]);
+        setSelectedSong(null);
+        setSelectedSetlist(null);
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('songbook_user');
+          localStorage.removeItem('songbook_current_group_id');
+        }
+        setAuthLoading(false);
       }
     });
 
     return () => unsubscribe();
   }, []);
 
-  // Synchronisation en temps réel de tous les utilisateurs pour l'administration des rôles
-  useEffect(() => {
-    try {
-      const qAllUsers = query(collection(db, 'users'));
-      const unsubUsers = onSnapshot(qAllUsers, (snap) => {
-        const uList: UserProfile[] = [];
-        const seenUids = new Set<string>();
-        snap.forEach(d => {
-          const data = d.data() as Partial<UserProfile>;
-          const resolvedUid = data.uid || d.id;
-          if (resolvedUid && !seenUids.has(resolvedUid)) {
-            seenUids.add(resolvedUid);
-            uList.push({ ...data, uid: resolvedUid } as UserProfile);
-          }
-        });
-        if (uList.length > 0) {
-          setAllUsers(uList);
-          localStorage.setItem('songbook_all_users', JSON.stringify(uList));
-        } else {
-          setAllUsers(SAMPLE_USERS);
-        }
-      }, (err) => {
-        console.warn('Users snapshot note:', err);
-      });
-      return () => unsubUsers();
-    } catch (e) {
-      console.warn('Users sync init error:', e);
+  // Compléter l'inscription en créant une nouvelle bibliothèque isolée
+  const completeSignupCreateLibrary = useCallback(async (
+    libraryName: string,
+    libraryDescription = '',
+    displayNameOverride?: string
+  ): Promise<Group> => {
+    const user = auth.currentUser;
+    if (!user) {
+      throw new Error('Vous devez être connecté pour créer une bibliothèque.');
     }
+
+    const cleanName = libraryName.trim();
+    if (!cleanName) {
+      throw new Error('Veuillez saisir un nom pour votre bibliothèque.');
+    }
+
+    const uid = user.uid;
+    const cleanEmail = (user.email || '').toLowerCase().trim();
+    const finalDisplayName = (displayNameOverride || user.displayName || cleanEmail.split('@')[0] || 'Musicien').trim();
+    const newId = 'lib_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 6);
+    const inviteCode = generateInviteCode();
+
+    const newGroup: Group = {
+      id: newId,
+      name: cleanName,
+      description: libraryDescription.trim(),
+      ownerId: uid,
+      members: [uid],
+      memberRoles: { [uid]: 'admin' },
+      inviteCode
+    };
+
+    const userProfile: UserProfile = stripUndefined({
+      uid,
+      email: cleanEmail,
+      displayName: finalDisplayName,
+      photoURL: user.photoURL || undefined,
+      currentGroupId: newId,
+      role: 'admin'
+    });
+
+    const memberEntry = stripUndefined({
+      uid,
+      displayName: finalDisplayName,
+      photoURL: user.photoURL || undefined,
+      role: 'admin' as UserRole
+    });
+
+    try {
+      await setDoc(doc(db, 'groups', newId), {
+        ...newGroup,
+        createdAt: serverTimestamp()
+      });
+      await setDoc(doc(db, 'library_invites', inviteCode), {
+        inviteCode,
+        groupId: newId,
+        name: cleanName,
+        ownerId: uid,
+        createdAt: serverTimestamp()
+      });
+      await setDoc(doc(db, 'groups', newId, 'members', uid), {
+        ...memberEntry,
+        joinedAt: serverTimestamp()
+      });
+      await setDoc(doc(db, 'users', uid), {
+        ...userProfile,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, `groups/${newId}`);
+    }
+
+    setSongs([]);
+    setSetlists([]);
+    setSetlistHistory([]);
+    setCustomPads([]);
+    setSelectedSong(null);
+    setSelectedSetlist(null);
+    setAllGroups(prev => [...prev.filter(g => g.id !== newId), newGroup]);
+    setCurrentGroup(newGroup);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('songbook_current_group_id', newId);
+    }
+    setCurrentUser(userProfile);
+    setNeedsLibraryOnboarding(false);
+    setActiveTab('repertoire');
+
+    showNotification({
+      title: 'Bibliothèque créée',
+      message: `Identifiant à partager : ${inviteCode}`,
+      type: 'success',
+      duration: 4500
+    });
+
+    return newGroup;
+  }, [setActiveTab, showNotification]);
+
+  useEffect(() => {
+    completeSignupCreateLibraryRef.current = completeSignupCreateLibrary;
+  }, [completeSignupCreateLibrary]);
+
+  // Compléter l'inscription en rejoignant une bibliothèque existante via son identifiant
+  const completeSignupJoinLibrary = useCallback(async (
+    libraryIdentifier: string,
+    displayNameOverride?: string
+  ): Promise<Group> => {
+    const user = auth.currentUser;
+    if (!user) {
+      throw new Error('Vous devez être connecté pour rejoindre une bibliothèque.');
+    }
+
+    const rawInput = libraryIdentifier.trim();
+    const upperCode = rawInput.toUpperCase();
+    if (!rawInput) {
+      throw new Error("Veuillez saisir l'identifiant de la bibliothèque.");
+    }
+
+    let matchedGroup: Group | null = null;
+
+    // 1. Chercher par code d'invitation dans /library_invites/{code}
+    if (/^[a-zA-Z0-9_\-]+$/.test(upperCode)) {
+      try {
+        const inviteSnap = await getDoc(doc(db, 'library_invites', upperCode));
+        if (inviteSnap.exists()) {
+          const targetGroupId = inviteSnap.data()?.groupId;
+          if (targetGroupId) {
+            const groupSnap = await getDoc(doc(db, 'groups', targetGroupId));
+            if (groupSnap.exists()) {
+              matchedGroup = { id: groupSnap.id, ...groupSnap.data() } as Group;
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Invite lookup note:', e);
+      }
+
+      // 2. Fallback : recherche directe par identifiant technique /groups/{id}
+      if (!matchedGroup) {
+        try {
+          const directSnap = await getDoc(doc(db, 'groups', rawInput));
+          if (directSnap.exists()) {
+            matchedGroup = { id: directSnap.id, ...directSnap.data() } as Group;
+          }
+        } catch (e) {
+          console.warn('Direct group lookup note:', e);
+        }
+      }
+    }
+
+    if (!matchedGroup) {
+      throw new Error(`Aucune bibliothèque trouvée avec l'identifiant « ${rawInput} ». Vérifiez l'identifiant ou créez votre propre bibliothèque.`);
+    }
+
+    const uid = user.uid;
+    const cleanEmail = (user.email || '').toLowerCase().trim();
+    const finalDisplayName = (displayNameOverride || user.displayName || cleanEmail.split('@')[0] || 'Musicien').trim();
+    const roleInLibrary: UserRole = matchedGroup.ownerId === uid
+      ? 'admin'
+      : (matchedGroup.memberRoles?.[uid] || 'member');
+
+    try {
+      if (!matchedGroup.members?.includes(uid)) {
+        await updateDoc(doc(db, 'groups', matchedGroup.id), {
+          members: arrayUnion(uid)
+        });
+        matchedGroup = {
+          ...matchedGroup,
+          members: [...(matchedGroup.members || []), uid]
+        };
+      }
+
+      const memberEntry = stripUndefined({
+        uid,
+        displayName: finalDisplayName,
+        photoURL: user.photoURL || undefined,
+        role: roleInLibrary
+      });
+      await setDoc(doc(db, 'groups', matchedGroup.id, 'members', uid), {
+        ...memberEntry,
+        joinedAt: serverTimestamp()
+      }, { merge: true });
+
+      const userProfile: UserProfile = stripUndefined({
+        uid,
+        email: cleanEmail,
+        displayName: finalDisplayName,
+        photoURL: user.photoURL || undefined,
+        currentGroupId: matchedGroup.id,
+        role: roleInLibrary
+      });
+      await setDoc(doc(db, 'users', uid), {
+        ...userProfile,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+
+      setSongs([]);
+      setSetlists([]);
+      setSetlistHistory([]);
+      setCustomPads([]);
+      setSelectedSong(null);
+      setSelectedSetlist(null);
+      setAllGroups(prev => [...prev.filter(g => g.id !== matchedGroup!.id), matchedGroup!]);
+      setCurrentGroup(matchedGroup);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('songbook_current_group_id', matchedGroup.id);
+      }
+      setCurrentUser(userProfile);
+      setNeedsLibraryOnboarding(false);
+      setActiveTab('repertoire');
+
+      showNotification({
+        title: `Bibliothèque « ${matchedGroup.name} » rejointe`,
+        message: 'Vous êtes maintenant connecté à la base de données de cette bibliothèque.',
+        type: 'success'
+      });
+
+      return matchedGroup;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `groups/${matchedGroup.id}`);
+    }
+  }, [setActiveTab, showNotification]);
+
+  const blockIfGuest = useCallback((): boolean => {
+    if (!isGuest) return false;
+    showNotification('Action non disponible en mode invité (lecture seule)', 'info');
+    return true;
+  }, [isGuest, showNotification]);
+
+  const enterGuestMode = useCallback(async (guestCode: string): Promise<Group> => {
+    const rawInput = guestCode.trim();
+    const upperCode = rawInput.toUpperCase();
+    if (!rawInput || !/^[a-zA-Z0-9_\-]+$/.test(upperCode)) {
+      throw new Error("Code d'accès invité invalide.");
+    }
+
+    let matchedGroup: Group | null = null;
+    try {
+      const guestSnap = await getDoc(doc(db, 'guest_invites', upperCode));
+      if (guestSnap.exists()) {
+        const inviteData = guestSnap.data();
+        if (inviteData?.guestEnabled === true && inviteData?.groupId) {
+          const groupSnap = await getDoc(doc(db, 'groups', inviteData.groupId));
+          if (groupSnap.exists()) {
+            const candidate = { id: groupSnap.id, ...groupSnap.data() } as Group;
+            if (candidate.guestEnabled === true && candidate.guestCode?.toUpperCase() === upperCode) {
+              matchedGroup = candidate;
+            }
+          }
+        }
+      }
+    } catch (e: any) {
+      if (e?.code === 'permission-denied') {
+        throw new Error("Accès invité refusé ou désactivé pour ce code.");
+      }
+      throw new Error(e?.message || "Impossible de vérifier le code invité.");
+    }
+
+    if (!matchedGroup) {
+      throw new Error("Code invité invalide ou mode invité désactivé par le propriétaire de la bibliothèque.");
+    }
+
+    setSongs([]);
+    setSetlists([]);
+    setSetlistHistory([]);
+    setCustomPads([]);
+    setAllUsers([]);
+    setSelectedSong(null);
+    setSelectedSetlist(null);
+    setCurrentUser(null);
+    setNeedsLibraryOnboarding(false);
+    setIsGuest(true);
+    setAllGroups([matchedGroup]);
+    setCurrentGroup(matchedGroup);
+    setActiveTabState('repertoire');
+
+    showNotification({
+      title: `Mode invité : ${matchedGroup.name}`,
+      message: 'Consultation en lecture seule activée.',
+      type: 'info',
+      duration: 3500
+    });
+
+    return matchedGroup;
+  }, [showNotification]);
+
+  const exitGuestMode = useCallback(() => {
+    setIsGuest(false);
+    setAllGroups([]);
+    setCurrentGroup(null);
+    setSongs([]);
+    setSetlists([]);
+    setSetlistHistory([]);
+    setCustomPads([]);
+    setAllUsers([]);
+    setSelectedSong(null);
+    setSelectedSetlist(null);
   }, []);
 
-  // Sync Data with Firestore based on currentGroup
+  const guestLinkCheckedRef = useRef(false);
   useEffect(() => {
-    const targetGroupId = currentGroup?.id || 'default-group';
+    if (authLoading || guestLinkCheckedRef.current || typeof window === 'undefined') return;
+    if (auth.currentUser || isGuest) return;
+    guestLinkCheckedRef.current = true;
 
-    // 1. Sync Songs
-    const qSongs = query(collection(db, 'songs'), where('groupId', '==', targetGroupId));
-    const unsubSongs = onSnapshot(qSongs, (snapshot) => {
-      const deletedIds = getDeletedSongIds();
+    try {
+      const params = new URLSearchParams(window.location.search);
+      let guestCodeParam = params.get('guestCode') || params.get('guest');
+      if (!guestCodeParam && window.location.hash) {
+        const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+        guestCodeParam = hashParams.get('guestCode') || hashParams.get('guest');
+      }
+      if (guestCodeParam && guestCodeParam.trim()) {
+        enterGuestMode(guestCodeParam).catch((err) => {
+          showNotification(err?.message || 'Lien invité invalide ou désactivé', 'error', 4000);
+        });
+      }
+    } catch (e) {
+      console.warn('Guest deep-link note:', e);
+    }
+  }, [authLoading, isGuest, enterGuestMode, showNotification]);
+
+  // Synchronisation en temps réel des membres de la bibliothèque active uniquement (isolation stricte)
+  useEffect(() => {
+    const targetGroupId = currentGroup?.id;
+    if (!targetGroupId || !currentUser?.uid || isGuest) {
+      setAllUsers([]);
+      return;
+    }
+
+    const membersPath = `groups/${targetGroupId}/members`;
+    const unsubMembers = onSnapshot(collection(db, 'groups', targetGroupId, 'members'), (snap) => {
+      const mList: UserProfile[] = [];
+      snap.forEach(d => {
+        const data = d.data() as Partial<UserProfile>;
+        const uid = data.uid || d.id;
+        mList.push({
+          uid,
+          email: data.email || (uid === currentUser.uid ? currentUser.email : ''),
+          displayName: data.displayName || 'Musicien',
+          photoURL: data.photoURL,
+          currentGroupId: targetGroupId,
+          role: (data.role as UserRole) || 'member'
+        });
+      });
+      setAllUsers(mList);
+    }, (err) => {
+      if (err?.code !== 'unavailable') {
+        console.warn('Library members snapshot note:', membersPath, err.message);
+      }
+    });
+
+    return () => unsubMembers();
+  }, [currentGroup?.id, currentUser?.uid, currentUser?.email, isGuest]);
+
+  // Synchronisation en temps réel de la base de données dédiée de la bibliothèque active (/groups/{groupId}/...)
+  useEffect(() => {
+    const targetGroupId = currentGroup?.id;
+    if (!targetGroupId || (!currentUser?.uid && !isGuest)) {
+      setSongs([]);
+      setSetlists([]);
+      setSetlistHistory([]);
+      setCustomPads([]);
+      setSelectedSong(null);
+      setSelectedSetlist(null);
+      return;
+    }
+
+    if (!isGuest) {
+      // Hydratation immédiate depuis le cache local isolé de CETTE bibliothèque avant réponse Firestore
+      const loadLibraryLocalCache = <T,>(key: string): T[] => {
+        try {
+          const raw = localStorage.getItem(key);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            return Array.isArray(parsed) ? parsed : [];
+          }
+        } catch {}
+        return [];
+      };
+
+      const cachedSongs = loadLibraryLocalCache<Song>(`songbook_cached_songs_${targetGroupId}`);
+      const cachedSetlists = loadLibraryLocalCache<Setlist>(`songbook_cached_setlists_${targetGroupId}`);
+      const cachedHistory = loadLibraryLocalCache<SetlistHistoryRecord>(`songbook_cached_setlist_history_${targetGroupId}`);
+      const cachedPads = loadLibraryLocalCache<CustomPad>(`songbook_cached_custom_pads_${targetGroupId}`);
+
+      setSongs(cachedSongs);
+      setSetlists(cachedSetlists);
+      setSetlistHistory(cachedHistory);
+      setCustomPads(cachedPads);
+      setSelectedSong(cachedSongs[0] || null);
+      setSelectedSetlist(null);
+    }
+
+    // 1. Sync Songs from /groups/{groupId}/songs
+    const unsubSongs = onSnapshot(collection(db, 'groups', targetGroupId, 'songs'), (snapshot) => {
+      const deletedIds = isGuest ? new Set<string>() : getDeletedSongIds();
       const loadedSongs: Song[] = [];
-      if (!snapshot.empty) {
-        snapshot.forEach((d) => {
-          const raw = { id: d.id, ...d.data() } as Song;
-          const resolvedDuration = raw.duration || getSongDuration(raw) || SAMPLE_SONGS.find(sm => sm.id === raw.id || sm.title.toLowerCase() === raw.title?.toLowerCase())?.duration;
-          const resolvedLanguage = (raw.language && raw.language.trim())
-            ? raw.language
-            : detectSongLanguage(raw.title, raw.contentChordPro || raw.content);
-          const withDuration = resolvedDuration ? { ...raw, duration: resolvedDuration } : raw;
-          loadedSongs.push({ ...withDuration, language: resolvedLanguage });
-        });
-      }
+      snapshot.forEach((d) => {
+        const raw = { id: d.id, ...d.data(), groupId: targetGroupId } as Song;
+        if (deletedIds.has(raw.id)) return;
+        const resolvedDuration = raw.duration || getSongDuration(raw);
+        const resolvedLanguage = (raw.language && raw.language.trim())
+          ? raw.language
+          : detectSongLanguage(raw.title, raw.contentChordPro || raw.content);
+        const withDuration = resolvedDuration ? { ...raw, duration: resolvedDuration } : raw;
+        loadedSongs.push({ ...withDuration, language: resolvedLanguage });
+      });
 
-      setSongs(prev => {
-        const songMap = new Map<string, Song>();
-
-        // 1. Preserve only existing songs that belong to this targetGroupId
-        prev.forEach(s => {
-          const sGroup = s.groupId || 'default-group';
-          if (sGroup === targetGroupId && !deletedIds.has(s.id)) {
-            songMap.set(s.id, s);
-          }
-        });
-
-        // 2. Add or update songs loaded from Firestore for this targetGroupId
-        loadedSongs.forEach(s => {
-          if (!deletedIds.has(s.id)) {
-            songMap.set(s.id, s);
-          }
-        });
-
-        // 3. For default group only, make sure sample songs remain present
-        if (targetGroupId === 'default-group') {
-          SAMPLE_SONGS.forEach(s => {
-            if (!deletedIds.has(s.id) && !songMap.has(s.id)) {
-              songMap.set(s.id, s);
-            }
-          });
+      setSongs(loadedSongs);
+      setSelectedSong(prev => {
+        if (prev && loadedSongs.some(s => s.id === prev.id)) {
+          return loadedSongs.find(s => s.id === prev.id) || prev;
         }
-
-        const merged = Array.from(songMap.values());
-        return merged;
+        return loadedSongs[0] || null;
       });
     }, (error) => {
       if (error?.code !== 'unavailable') {
-        console.warn('Firestore songs snapshot notice:', error.message);
+        console.warn('Firestore library songs snapshot notice:', error.message);
       }
     });
 
-    // 2. Sync Setlists
-    const qSetlists = query(collection(db, 'setlists'), where('groupId', '==', targetGroupId));
-    const unsubSetlists = onSnapshot(qSetlists, (snapshot) => {
-      const deletedSetlistIds = getDeletedSetlistIds();
+    // 2. Sync Setlists from /groups/{groupId}/setlists
+    const unsubSetlists = onSnapshot(collection(db, 'groups', targetGroupId, 'setlists'), (snapshot) => {
+      const deletedSetlistIds = isGuest ? new Set<string>() : getDeletedSetlistIds();
       const loadedSetlists: Setlist[] = [];
-      if (!snapshot.empty) {
-        snapshot.forEach((d) => {
-          loadedSetlists.push({ id: d.id, ...d.data() } as Setlist);
-        });
-      }
-
-      setSetlists(prev => {
-        const setlistMap = new Map<string, Setlist>();
-
-        // 1. Preserve only setlists belonging to this targetGroupId
-        prev.forEach(st => {
-          const stGroup = st.groupId || 'default-group';
-          if (stGroup === targetGroupId && !deletedSetlistIds.has(st.id)) {
-            setlistMap.set(st.id, st);
-          }
-        });
-
-        // 2. Add or update setlists from Firestore
-        loadedSetlists.forEach(st => {
-          if (!deletedSetlistIds.has(st.id)) {
-            setlistMap.set(st.id, st);
-          }
-        });
-
-        // 3. For default group only, ensure sample setlists remain present
-        if (targetGroupId === 'default-group') {
-          SAMPLE_SETLISTS.forEach(st => {
-            if (!deletedSetlistIds.has(st.id) && !setlistMap.has(st.id)) {
-              setlistMap.set(st.id, st);
-            }
-          });
+      snapshot.forEach((d) => {
+        if (!deletedSetlistIds.has(d.id)) {
+          loadedSetlists.push({ id: d.id, ...d.data(), groupId: targetGroupId } as Setlist);
         }
-
-        return Array.from(setlistMap.values());
       });
+      setSetlists(loadedSetlists);
     }, (error) => {
       if (error?.code !== 'unavailable') {
-        console.warn('Firestore setlists snapshot notice:', error.message);
+        console.warn('Firestore library setlists snapshot notice:', error.message);
       }
     });
 
-    // 3. Sync Setlist History
-    const qHistory = query(collection(db, 'setlist_history'), where('groupId', '==', targetGroupId));
-    const unsubHistory = onSnapshot(qHistory, (snapshot) => {
-      const deletedHistoryIds = getDeletedHistoryIds();
-      const loadedHistory: SetlistHistoryRecord[] = [];
-      if (!snapshot.empty) {
+    // 3. Sync Setlist History from /groups/{groupId}/setlist_history (members only)
+    let unsubHistory: (() => void) | null = null;
+    if (!isGuest) {
+      unsubHistory = onSnapshot(collection(db, 'groups', targetGroupId, 'setlist_history'), (snapshot) => {
+        const deletedHistoryIds = getDeletedHistoryIds();
+        const loadedHistory: SetlistHistoryRecord[] = [];
         snapshot.forEach((d) => {
-          loadedHistory.push({ id: d.id, ...d.data() } as SetlistHistoryRecord);
-        });
-      }
-
-      setSetlistHistory(prev => {
-        const historyMap = new Map<string, SetlistHistoryRecord>();
-
-        prev.forEach(h => {
-          const hGroup = h.groupId || 'default-group';
-          if (hGroup === targetGroupId && !deletedHistoryIds.has(h.id)) {
-            historyMap.set(h.id, h);
+          if (!deletedHistoryIds.has(d.id)) {
+            loadedHistory.push({ id: d.id, ...d.data(), groupId: targetGroupId } as SetlistHistoryRecord);
           }
         });
-
-        loadedHistory.forEach(h => {
-          if (!deletedHistoryIds.has(h.id)) {
-            historyMap.set(h.id, h);
-          }
-        });
-
-        if (targetGroupId === 'default-group') {
-          SAMPLE_SETLIST_HISTORY.forEach(sh => {
-            if (!deletedHistoryIds.has(sh.id) && !historyMap.has(sh.id)) {
-              historyMap.set(sh.id, sh);
-            }
-          });
+        setSetlistHistory(loadedHistory.sort((a, b) => b.date.localeCompare(a.date)));
+      }, (error) => {
+        if (error?.code !== 'unavailable') {
+          console.warn('Firestore library setlist history snapshot notice:', error.message);
         }
-
-        return Array.from(historyMap.values()).sort((a, b) => b.date.localeCompare(a.date));
       });
+    } else {
+      setSetlistHistory([]);
+    }
+
+    // 4. Sync Custom Audio Pads from /groups/{groupId}/custom_pads
+    const unsubPads = onSnapshot(collection(db, 'groups', targetGroupId, 'custom_pads'), (snapshot) => {
+      const loadedPads: CustomPad[] = [];
+      snapshot.forEach((d) => {
+        const pad = { id: d.id, ...d.data(), groupId: targetGroupId } as CustomPad;
+        loadedPads.push(pad);
+        if (!isGuest) {
+          saveCustomPadToIndexedDB(pad).catch(() => {});
+        }
+      });
+      setCustomPads(loadedPads);
     }, (error) => {
       if (error?.code !== 'unavailable') {
-        console.warn('Firestore setlist history snapshot notice:', error.message);
+        console.warn('Firestore custom pads snapshot notice:', error.message);
+      }
+      if (!isGuest) {
+        getAllCustomPadsFromIndexedDB(targetGroupId).then(cached => {
+          if (cached && cached.length > 0) {
+            setCustomPads(cached);
+          }
+        }).catch(() => {});
       }
     });
 
     return () => {
       unsubSongs();
       unsubSetlists();
-      unsubHistory();
+      if (unsubHistory) unsubHistory();
+      unsubPads();
     };
-  }, [currentGroup?.id]);
+  }, [currentGroup?.id, currentUser?.uid, isGuest]);
 
-  // 4. Sync Groups:
-  // Synchronisation en temps réel de toutes les bibliothèques (indépendant du currentGroup)
+  // Synchronisation en temps réel des bibliothèques dont l'utilisateur connecté est membre
   useEffect(() => {
-    const qGroups = query(collection(db, 'groups'));
+    if (!currentUser?.uid || !auth.currentUser || isGuest) {
+      return;
+    }
 
+    const qGroups = query(collection(db, 'groups'), where('members', 'array-contains', currentUser.uid));
     const unsubGroups = onSnapshot(qGroups, (snapshot) => {
       const loadedGroups: Group[] = [];
-      if (!snapshot.empty) {
-        snapshot.forEach((d) => {
-          loadedGroups.push({ id: d.id, ...d.data() } as Group);
-        });
-      }
-      const seenGroupIds = new Set<string>();
-      const mergedGroups: Group[] = [];
-      for (const g of [...loadedGroups, DEFAULT_GROUP]) {
-        const gid = g.id || 'default-group';
-        if (!seenGroupIds.has(gid)) {
-          seenGroupIds.add(gid);
-          mergedGroups.push(g);
-        }
-      }
-      setAllGroups(mergedGroups);
+      snapshot.forEach((d) => {
+        loadedGroups.push({ id: d.id, ...d.data() } as Group);
+      });
+      setAllGroups(loadedGroups);
 
-      // Reconnect currentGroup if needed without triggering reference loops
       setCurrentGroup(prev => {
-        const targetId = prev?.id || (typeof window !== 'undefined' ? localStorage.getItem('songbook_current_group_id') : 'default-group') || 'default-group';
-        const match = mergedGroups.find(g => g.id === targetId && isMemberOfLibrary(g, currentUser));
+        const targetId = prev?.id || (typeof window !== 'undefined' ? localStorage.getItem('songbook_current_group_id') : null);
+        const match = targetId ? loadedGroups.find(g => g.id === targetId) : undefined;
         if (match) {
-          if (prev && prev.id === match.id && prev.name === match.name && prev.ownerId === match.ownerId) {
-            return prev;
-          }
           return match;
         }
-        const firstAuthorized = mergedGroups.find(g => isMemberOfLibrary(g, currentUser));
-        return firstAuthorized || prev || DEFAULT_GROUP;
+        return loadedGroups[0] || null;
       });
     }, (err) => {
       if (err?.code !== 'unavailable') {
@@ -1306,39 +1611,44 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     return () => unsubGroups();
-  }, [currentUser?.uid, isMemberOfLibrary]);
+  }, [currentUser?.uid, isGuest]);
 
-  // Seed sample songs to Firestore for current group
+  // Seed demo songs into the active library's dedicated database
   const seedDemoDataToFirestore = useCallback(async () => {
-    const groupId = currentGroup?.id || 'default-group';
+    if (blockIfGuest()) return;
+    const groupId = currentGroup?.id;
+    if (!groupId) return;
     try {
-      // 1. Songs
-      for (const song of SAMPLE_SONGS) {
-        const songRef = doc(db, 'songs', song.id);
-        await setDoc(songRef, { ...song, groupId, createdAt: serverTimestamp() });
+      const demoSongs = SAMPLE_SONGS.map(song => ({ ...song, groupId }));
+      const demoSetlists = SAMPLE_SETLISTS.map(st => ({ ...st, groupId }));
+      const demoHistory = SAMPLE_SETLIST_HISTORY.map(rec => ({ ...rec, groupId }));
+
+      for (const song of demoSongs) {
+        await setDoc(doc(db, 'groups', groupId, 'songs', song.id), stripUndefined({ ...song, createdAt: serverTimestamp(), updatedAt: serverTimestamp() }));
       }
-      // 2. Setlists
-      for (const setlist of SAMPLE_SETLISTS) {
-        const setlistRef = doc(db, 'setlists', setlist.id);
-        await setDoc(setlistRef, { ...setlist, groupId, createdAt: serverTimestamp() });
+      for (const setlist of demoSetlists) {
+        await setDoc(doc(db, 'groups', groupId, 'setlists', setlist.id), stripUndefined({ ...setlist, createdAt: serverTimestamp() }));
       }
-      // 3. Setlist History
-      for (const record of SAMPLE_SETLIST_HISTORY) {
-        const historyRef = doc(db, 'setlist_history', record.id);
-        await setDoc(historyRef, { ...record, groupId, createdAt: serverTimestamp() });
+      for (const record of demoHistory) {
+        await setDoc(doc(db, 'groups', groupId, 'setlist_history', record.id), stripUndefined({ ...record, createdAt: serverTimestamp() }));
       }
-      // Update local state directly
-      setSongs(SAMPLE_SONGS.map(s => ({ ...s, groupId })));
-      setSetlists(SAMPLE_SETLISTS.map(st => ({ ...st, groupId })));
-      setSetlistHistory(SAMPLE_SETLIST_HISTORY.map(h => ({ ...h, groupId })));
+      setSongs(demoSongs);
+      setSetlists(demoSetlists);
+      setSetlistHistory(demoHistory);
+      showNotification('Chants de démonstration ajoutés à cette bibliothèque');
     } catch (e) {
       console.error('Error seeding demo data:', e);
     }
-  }, [currentGroup?.id]);
+  }, [currentGroup?.id, showNotification]);
 
-  // Song Actions
+  // Song Actions (scopées dans /groups/{groupId}/songs)
   const createSong = useCallback(async (songData: Omit<Song, 'id' | 'groupId' | 'createdAt' | 'updatedAt'>) => {
-    const groupId = currentGroup?.id || 'default-group';
+    if (blockIfGuest()) return '';
+    const groupId = currentGroup?.id;
+    if (!groupId) {
+      showNotification('Aucune bibliothèque active sélectionnée', 'error');
+      return '';
+    }
     const newId = 'song_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
     const resolvedLanguage = (songData.language && songData.language.trim())
       ? songData.language
@@ -1346,6 +1656,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const newSong: Song = {
       ...songData,
+      contentChordPro: songData.contentChordPro || '',
       language: resolvedLanguage,
       id: newId,
       groupId,
@@ -1353,7 +1664,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updatedAt: new Date().toISOString()
     };
 
-    // Optimistic local update: explicitly add to existing library without replacing
     setSongs(prev => {
       const filtered = prev.filter(s => s.id !== newId);
       return [newSong, ...filtered];
@@ -1362,10 +1672,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     showNotification('Enregistré');
 
-    // Save to Firestore
     try {
-      const docRef = doc(db, 'songs', newId);
-      await setDoc(docRef, { ...newSong, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+      const docRef = doc(db, 'groups', groupId, 'songs', newId);
+      await setDoc(docRef, stripUndefined({ ...newSong, createdAt: serverTimestamp(), updatedAt: serverTimestamp() }));
     } catch (e) {
       console.warn('Saved song locally (Firestore offline/error):', e);
     }
@@ -1373,21 +1682,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return newId;
   }, [currentGroup?.id, showNotification]);
 
-  // Dedicated importSong action that explicitly appends imported songs to the existing library
   const importSong = useCallback(async (songData: Omit<Song, 'id' | 'groupId' | 'createdAt' | 'updatedAt'>) => {
     return await createSong(songData);
   }, [createSong]);
 
   const updateSong = useCallback(async (id: string, songData: Partial<Song>) => {
+    if (blockIfGuest()) return;
+    const existing = songs.find(s => s.id === id);
+    const groupId = existing?.groupId || currentGroup?.id;
+    if (!groupId) return;
+
     const resolvedData: Partial<Song> = { ...songData };
-    if (songData.language !== undefined && (!songData.language || !songData.language.trim())) {
-      const existing = songs.find(s => s.id === id);
+    if ('language' in songData && (!songData.language || !songData.language.trim())) {
       const titleToUse = songData.title || existing?.title;
       const contentToUse = songData.contentChordPro || songData.content || existing?.contentChordPro || existing?.content;
-      resolvedData.language = detectSongLanguage(titleToUse, contentToUse);
+      resolvedData.language = detectSongLanguage(titleToUse, contentToUse) || '';
     }
 
-    // Optimistic local update
     setSongs(prev => prev.map(s => s.id === id ? { ...s, ...resolvedData, updatedAt: new Date().toISOString() } : s));
     if (selectedSong?.id === id) {
       setSelectedSong(prev => prev ? { ...prev, ...resolvedData } : null);
@@ -1396,30 +1707,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotification('Enregistré');
 
     try {
-      const docRef = doc(db, 'songs', id);
-      await updateDoc(docRef, { ...resolvedData, updatedAt: serverTimestamp() });
+      const docRef = doc(db, 'groups', groupId, 'songs', id);
+      await updateDoc(docRef, stripUndefined({ ...resolvedData, updatedAt: serverTimestamp() }));
     } catch (e) {
       console.warn('Updated song locally:', e);
     }
-  }, [selectedSong?.id, showNotification]);
+  }, [songs, currentGroup?.id, selectedSong?.id, showNotification]);
 
-  // Bulk / individual automatic language detection and assignment
   const autoDetectSongLanguages = useCallback(async (songIds?: string[]): Promise<number> => {
+    if (blockIfGuest()) return 0;
     const targetSongs = songIds && songIds.length > 0
       ? songs.filter(s => songIds.includes(s.id))
       : songs;
 
-    const updates: { id: string; language: string }[] = [];
+    const updates: { id: string; groupId: string; language: string }[] = [];
     for (const s of targetSongs) {
+      const gid = s.groupId || currentGroup?.id;
+      if (!gid) continue;
       const detected = detectSongLanguage(s.title, s.contentChordPro || s.content);
       if (detected && detected !== s.language) {
-        updates.push({ id: s.id, language: detected });
+        updates.push({ id: s.id, groupId: gid, language: detected });
       }
     }
 
     if (updates.length === 0) return 0;
 
-    // Optimistic local update
     setSongs(prev => prev.map(s => {
       const found = updates.find(u => u.id === s.id);
       return found ? { ...s, language: found.language, updatedAt: new Date().toISOString() } : s;
@@ -1434,10 +1746,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     showNotification('Enregistré');
 
-    // Persist to Firestore
     for (const u of updates) {
       try {
-        const docRef = doc(db, 'songs', u.id);
+        const docRef = doc(db, 'groups', u.groupId, 'songs', u.id);
         await updateDoc(docRef, { language: u.language, updatedAt: serverTimestamp() });
       } catch (e) {
         console.warn('Updated song language locally (Firestore offline/error):', e);
@@ -1445,9 +1756,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     return updates.length;
-  }, [songs, selectedSong, showNotification]);
+  }, [songs, currentGroup?.id, selectedSong, showNotification]);
 
   const deleteSong = useCallback(async (id: string) => {
+    if (blockIfGuest()) return;
+    const groupId = songs.find(s => s.id === id)?.groupId || currentGroup?.id;
+
     try {
       const currentDeleted = new Set<string>(JSON.parse(localStorage.getItem('songbook_deleted_song_ids') || '[]'));
       currentDeleted.add(id);
@@ -1458,7 +1772,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (selectedSong?.id === id) {
       setSelectedSong(songs.find(s => s.id !== id) || null);
     }
-    // Also remove from any setlists
     setSetlists(prev => prev.map(st => ({
       ...st,
       songIds: st.songIds.filter(sId => sId !== id)
@@ -1466,17 +1779,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     showNotification({ title: 'Supprimé', type: 'info' });
 
-    // Supprimer d'IndexedDB pour garder le cache hors-ligne synchronisé
     deleteSongFromIndexedDB(id).catch(e => console.warn('Suppression chant IndexedDB note:', e));
 
-    try {
-      await deleteDoc(doc(db, 'songs', id));
-    } catch (e) {
-      console.warn('Deleted song locally:', e);
+    if (groupId) {
+      try {
+        await deleteDoc(doc(db, 'groups', groupId, 'songs', id));
+      } catch (e) {
+        console.warn('Deleted song locally:', e);
+      }
     }
-  }, [selectedSong?.id, songs, showNotification]);
+  }, [selectedSong?.id, songs, currentGroup?.id, showNotification]);
 
   const linkSongs = useCallback(async (songId1: string, songId2: string) => {
+    if (blockIfGuest()) return;
     if (!songId1 || !songId2 || songId1 === songId2) return;
 
     setSongs(prev => {
@@ -1514,14 +1829,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const song1 = songs.find(s => s.id === songId1);
       const song2 = songs.find(s => s.id === songId2);
-      if (song1 && song2) {
+      const groupId = song1?.groupId || song2?.groupId || currentGroup?.id;
+      if (song1 && song2 && groupId) {
         const group1 = new Set<string>([songId1, ...(song1.linkedSongIds || [])]);
         const group2 = new Set<string>([songId2, ...(song2.linkedSongIds || [])]);
         const allMerged = Array.from(new Set([...group1, ...group2]));
 
         for (const sId of allMerged) {
           const linksForSong = allMerged.filter(id => id !== sId);
-          await setDoc(doc(db, 'songs', sId), { linkedSongIds: linksForSong, updatedAt: serverTimestamp() }, { merge: true });
+          await updateDoc(doc(db, 'groups', groupId, 'songs', sId), { linkedSongIds: linksForSong, updatedAt: serverTimestamp() });
         }
       }
     } catch (e) {
@@ -1529,9 +1845,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     showNotification('Enregistré');
-  }, [songs, showNotification]);
+  }, [songs, currentGroup?.id, showNotification]);
 
   const unlinkSongs = useCallback(async (songId1: string, songId2: string) => {
+    if (blockIfGuest()) return;
     if (!songId1 || !songId2 || songId1 === songId2) return;
 
     setSongs(prev => {
@@ -1570,25 +1887,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     try {
       const song1 = songs.find(s => s.id === songId1);
-      const peersOf1 = new Set<string>([songId1, ...(song1?.linkedSongIds || [])]);
-
-      if (song1) {
-        const newLinks1 = (song1.linkedSongIds || []).filter(id => id !== songId2);
-        await setDoc(doc(db, 'songs', songId1), { linkedSongIds: newLinks1, updatedAt: serverTimestamp() }, { merge: true });
-      }
-
       const song2 = songs.find(s => s.id === songId2);
-      if (song2) {
-        const newLinks2 = (song2.linkedSongIds || []).filter(id => !peersOf1.has(id));
-        await setDoc(doc(db, 'songs', songId2), { linkedSongIds: newLinks2, updatedAt: serverTimestamp() }, { merge: true });
-      }
+      const groupId = song1?.groupId || song2?.groupId || currentGroup?.id;
+      if (groupId) {
+        const peersOf1 = new Set<string>([songId1, ...(song1?.linkedSongIds || [])]);
 
-      for (const peerId of peersOf1) {
-        if (peerId !== songId1 && peerId !== songId2) {
-          const peer = songs.find(s => s.id === peerId);
-          if (peer && (peer.linkedSongIds || []).includes(songId2)) {
-            const peerLinks = (peer.linkedSongIds || []).filter(id => id !== songId2);
-            await setDoc(doc(db, 'songs', peerId), { linkedSongIds: peerLinks, updatedAt: serverTimestamp() }, { merge: true });
+        if (song1) {
+          const newLinks1 = (song1.linkedSongIds || []).filter(id => id !== songId2);
+          await updateDoc(doc(db, 'groups', groupId, 'songs', songId1), { linkedSongIds: newLinks1, updatedAt: serverTimestamp() });
+        }
+
+        if (song2) {
+          const newLinks2 = (song2.linkedSongIds || []).filter(id => !peersOf1.has(id));
+          await updateDoc(doc(db, 'groups', groupId, 'songs', songId2), { linkedSongIds: newLinks2, updatedAt: serverTimestamp() });
+        }
+
+        for (const peerId of peersOf1) {
+          if (peerId !== songId1 && peerId !== songId2) {
+            const peer = songs.find(s => s.id === peerId);
+            if (peer && (peer.linkedSongIds || []).includes(songId2)) {
+              const peerLinks = (peer.linkedSongIds || []).filter(id => id !== songId2);
+              await updateDoc(doc(db, 'groups', groupId, 'songs', peerId), { linkedSongIds: peerLinks, updatedAt: serverTimestamp() });
+            }
           }
         }
       }
@@ -1597,9 +1917,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     showNotification({ title: 'Dissocié', type: 'info' });
-  }, [songs, showNotification]);
+  }, [songs, currentGroup?.id, showNotification]);
 
   const createLanguageVersion = useCallback(async (sourceSongId: string, targetLanguage: string, customTitle?: string) => {
+    if (blockIfGuest()) return '';
     const sourceSong = songs.find(s => s.id === sourceSongId);
     if (!sourceSong) throw new Error('Source song not found');
 
@@ -1621,8 +1942,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     const newId = await createSong(newSongData);
-    
-    // Bidirectionally link with source song and all already linked versions
+
     await linkSongs(sourceSongId, newId);
     if (sourceSong.linkedSongIds && sourceSong.linkedSongIds.length > 0) {
       for (const linkedId of sourceSong.linkedSongIds) {
@@ -1635,9 +1955,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return newId;
   }, [songs, createSong, linkSongs, showNotification]);
 
-  // Setlist Actions
+  // Setlist Actions (scopées dans /groups/{groupId}/setlists)
   const createSetlist = useCallback(async (setlistData: Omit<Setlist, 'id' | 'groupId' | 'createdAt'>) => {
-    const groupId = currentGroup?.id || 'default-group';
+    if (blockIfGuest()) return '';
+    const groupId = currentGroup?.id;
+    if (!groupId) {
+      showNotification('Aucune bibliothèque active sélectionnée', 'error');
+      return '';
+    }
     const newId = 'setlist_' + Date.now();
     const newSetlist: Setlist = {
       ...setlistData,
@@ -1652,7 +1977,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotification('Enregistré');
 
     try {
-      await setDoc(doc(db, 'setlists', newId), { ...newSetlist, createdAt: serverTimestamp() });
+      await setDoc(doc(db, 'groups', groupId, 'setlists', newId), stripUndefined({ ...newSetlist, createdAt: serverTimestamp() }));
     } catch (e) {
       console.warn('Saved setlist locally:', e);
     }
@@ -1661,6 +1986,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [currentGroup?.id, showNotification]);
 
   const updateSetlist = useCallback(async (id: string, setlistData: Partial<Setlist>) => {
+    if (blockIfGuest()) return;
+    const groupId = setlists.find(st => st.id === id)?.groupId || currentGroup?.id;
+    if (!groupId) return;
+
     setSetlists(prev => prev.map(st => st.id === id ? { ...st, ...setlistData } : st));
     if (selectedSetlist?.id === id) {
       setSelectedSetlist(prev => prev ? { ...prev, ...setlistData } : null);
@@ -1669,14 +1998,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotification('Enregistré');
 
     try {
-      const docRef = doc(db, 'setlists', id);
-      await updateDoc(docRef, setlistData);
+      const docRef = doc(db, 'groups', groupId, 'setlists', id);
+      await updateDoc(docRef, stripUndefined(setlistData));
     } catch (e) {
       console.warn('Updated setlist locally:', e);
     }
-  }, [selectedSetlist?.id, showNotification]);
+  }, [setlists, currentGroup?.id, selectedSetlist?.id, showNotification]);
 
   const deleteSetlist = useCallback(async (id: string) => {
+    if (blockIfGuest()) return;
+    const groupId = setlists.find(st => st.id === id)?.groupId || currentGroup?.id;
+
     try {
       const currentDeleted = new Set<string>(JSON.parse(localStorage.getItem('songbook_deleted_setlist_ids') || '[]'));
       currentDeleted.add(id);
@@ -1690,17 +2022,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     showNotification({ title: 'Supprimé', type: 'info' });
 
-    // Supprimer d'IndexedDB pour garder le cache hors-ligne cohérent
     deleteSetlistFromIndexedDB(id).catch(e => console.warn('Suppression setlist IndexedDB note:', e));
 
-    try {
-      await deleteDoc(doc(db, 'setlists', id));
-    } catch (e) {
-      console.warn('Deleted setlist locally:', e);
+    if (groupId) {
+      try {
+        await deleteDoc(doc(db, 'groups', groupId, 'setlists', id));
+      } catch (e) {
+        console.warn('Deleted setlist locally:', e);
+      }
     }
-  }, [selectedSetlist?.id, showNotification]);
+  }, [setlists, currentGroup?.id, selectedSetlist?.id, showNotification]);
 
   const updateSetlistSongOverride = useCallback(async (setlistId: string, songId: string, override: Partial<SetlistSongOverride>) => {
+    if (blockIfGuest()) return;
+    const groupId = setlists.find(st => st.id === setlistId)?.groupId || currentGroup?.id;
+    if (!groupId) return;
+
     let updatedOverrides: Record<string, SetlistSongOverride> = {};
 
     setSetlists(prev => prev.map(st => {
@@ -1727,14 +2064,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotification('Enregistré');
 
     try {
-      const docRef = doc(db, 'setlists', setlistId);
+      const docRef = doc(db, 'groups', groupId, 'setlists', setlistId);
       await updateDoc(docRef, { songOverrides: updatedOverrides });
     } catch (e) {
       console.warn('Updated setlist song override locally:', e);
     }
-  }, [selectedSetlist?.id, showNotification]);
+  }, [setlists, currentGroup?.id, selectedSetlist?.id, showNotification]);
 
   const removeSetlistSongOverride = useCallback(async (setlistId: string, songId: string) => {
+    if (blockIfGuest()) return;
+    const groupId = setlists.find(st => st.id === setlistId)?.groupId || currentGroup?.id;
+    if (!groupId) return;
+
     let updatedOverrides: Record<string, SetlistSongOverride> = {};
 
     setSetlists(prev => prev.map(st => {
@@ -1757,16 +2098,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotification({ title: 'Réinitialisé', type: 'info' });
 
     try {
-      const docRef = doc(db, 'setlists', setlistId);
+      const docRef = doc(db, 'groups', groupId, 'setlists', setlistId);
       await updateDoc(docRef, { songOverrides: updatedOverrides });
     } catch (e) {
       console.warn('Removed setlist song override locally:', e);
     }
-  }, [selectedSetlist?.id, showNotification]);
+  }, [setlists, currentGroup?.id, selectedSetlist?.id, showNotification]);
 
-  // Setlist History Actions
+  // Setlist History Actions (scopées dans /groups/{groupId}/setlist_history)
   const recordSetlistHistory = useCallback(async (recordData: Omit<SetlistHistoryRecord, 'id' | 'groupId' | 'createdAt'>) => {
-    const groupId = currentGroup?.id || 'default-group';
+    if (blockIfGuest()) return '';
+    const groupId = currentGroup?.id;
+    if (!groupId) return '';
     const newId = 'history_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
     const newRecord: SetlistHistoryRecord = {
       ...recordData,
@@ -1778,7 +2121,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSetlistHistory(prev => [newRecord, ...prev]);
 
     try {
-      await setDoc(doc(db, 'setlist_history', newId), { ...newRecord, createdAt: serverTimestamp() });
+      await setDoc(doc(db, 'groups', groupId, 'setlist_history', newId), stripUndefined({ ...newRecord, createdAt: serverTimestamp() }));
     } catch (e) {
       console.warn('Saved setlist history locally:', e);
     }
@@ -1787,17 +2130,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [currentGroup?.id]);
 
   const updateSetlistHistory = useCallback(async (id: string, recordData: Partial<SetlistHistoryRecord>) => {
+    if (blockIfGuest()) return;
+    const groupId = setlistHistory.find(h => h.id === id)?.groupId || currentGroup?.id;
+    if (!groupId) return;
+
     setSetlistHistory(prev => prev.map(item => item.id === id ? { ...item, ...recordData } : item));
 
     try {
-      const docRef = doc(db, 'setlist_history', id);
-      await updateDoc(docRef, recordData);
+      const docRef = doc(db, 'groups', groupId, 'setlist_history', id);
+      await updateDoc(docRef, stripUndefined(recordData));
     } catch (e) {
       console.warn('Updated setlist history locally:', e);
     }
-  }, []);
+  }, [setlistHistory, currentGroup?.id]);
 
   const deleteSetlistHistory = useCallback(async (id: string) => {
+    if (blockIfGuest()) return;
+    const groupId = setlistHistory.find(h => h.id === id)?.groupId || currentGroup?.id;
+
     try {
       const currentDeleted = new Set<string>(JSON.parse(localStorage.getItem('songbook_deleted_history_ids') || '[]'));
       currentDeleted.add(id);
@@ -1806,160 +2156,250 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setSetlistHistory(prev => prev.filter(item => item.id !== id));
 
-    try {
-      await deleteDoc(doc(db, 'setlist_history', id));
-    } catch (e) {
-      console.warn('Deleted setlist history locally:', e);
+    if (groupId) {
+      try {
+        await deleteDoc(doc(db, 'groups', groupId, 'setlist_history', id));
+      } catch (e) {
+        console.warn('Deleted setlist history locally:', e);
+      }
     }
-  }, []);
+  }, [setlistHistory, currentGroup?.id]);
 
-  // Group / Library Actions
+  // Helper permission check pour la bibliothèque ciblée
+  const isLibraryAdminForGroup = useCallback((group?: Group | null): boolean => {
+    if (!group || !currentUser?.uid) return false;
+    return group.ownerId === currentUser.uid || group.memberRoles?.[currentUser.uid] === 'admin';
+  }, [currentUser?.uid]);
+
+  // Group / Library Actions (chaque bibliothèque possède sa propre base isolée)
   const createGroup = useCallback(async (name: string, description = '') => {
-    if (currentUser?.role !== 'admin') {
-      showNotification("Seul l'Administrateur peut créer des bibliothèques", 'error');
+    if (blockIfGuest()) return '';
+    const authUser = auth.currentUser;
+    if (!authUser || !currentUser) {
+      showNotification('Vous devez être connecté pour créer une bibliothèque', 'error');
       return '';
     }
 
-    const newId = 'group_' + Date.now();
-    const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-    const uid = currentUser?.uid || 'user';
+    const cleanName = name.trim();
+    if (!cleanName) return '';
+
+    const newId = 'lib_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 6);
+    const inviteCode = generateInviteCode();
+    const uid = authUser.uid;
+
     const newGroup: Group = {
       id: newId,
-      name,
-      description,
+      name: cleanName,
+      description: description.trim(),
       ownerId: uid,
       members: [uid],
+      memberRoles: { [uid]: 'admin' },
       inviteCode,
       createdAt: new Date().toISOString()
     };
 
-    setAllGroups(prev => [...prev, newGroup]);
-    setCurrentGroup(newGroup);
-
     try {
-      await setDoc(doc(db, 'groups', newId), { ...newGroup, createdAt: serverTimestamp() });
+      await setDoc(doc(db, 'groups', newId), {
+        ...newGroup,
+        createdAt: serverTimestamp()
+      });
+      await setDoc(doc(db, 'library_invites', inviteCode), {
+        inviteCode,
+        groupId: newId,
+        name: cleanName,
+        ownerId: uid,
+        createdAt: serverTimestamp()
+      });
+      await setDoc(doc(db, 'groups', newId, 'members', uid), stripUndefined({
+        uid,
+        displayName: currentUser.displayName || authUser.displayName || 'Musicien',
+        photoURL: currentUser.photoURL || authUser.photoURL || undefined,
+        role: 'admin' as UserRole,
+        joinedAt: serverTimestamp()
+      }));
+      await setDoc(doc(db, 'users', uid), {
+        currentGroupId: newId,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
     } catch (e) {
-      console.warn('Saved group locally:', e);
+      console.warn('Create library Firestore note:', e);
     }
+
+    setSongs([]);
+    setSetlists([]);
+    setSetlistHistory([]);
+    setCustomPads([]);
+    setSelectedSong(null);
+    setSelectedSetlist(null);
+    setAllGroups(prev => [...prev.filter(g => g.id !== newId), newGroup]);
+    setCurrentGroup(newGroup);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('songbook_current_group_id', newId);
+    }
+    setCurrentUser(prev => prev ? { ...prev, currentGroupId: newId } : null);
 
     showNotification({
       title: 'Bibliothèque créée',
-      message: `La bibliothèque « ${name} » a été créée avec succès.`,
-      type: 'success'
+      message: `La bibliothèque « ${cleanName} » est prête (Identifiant : ${inviteCode}).`,
+      type: 'success',
+      duration: 4000
     });
 
     return newId;
-  }, [currentUser?.uid, currentUser?.role, showNotification]);
+  }, [currentUser, showNotification]);
 
   const updateGroup = useCallback(async (groupId: string, data: Partial<Pick<Group, 'name' | 'description' | 'inviteCode'>>): Promise<boolean> => {
-    if (currentUser?.role !== 'admin') {
-      showNotification("Seul l'Administrateur peut modifier cette bibliothèque", 'error');
+    if (blockIfGuest()) return false;
+    const targetGroup = allGroups.find(g => g.id === groupId);
+    if (!isLibraryAdminForGroup(targetGroup)) {
+      showNotification("Seul l'Administrateur de cette bibliothèque peut la modifier", 'error');
       return false;
+    }
+
+    const cleanedData: Partial<Pick<Group, 'name' | 'description' | 'inviteCode'>> = { ...data };
+    if (typeof cleanedData.inviteCode === 'string') {
+      cleanedData.inviteCode = cleanedData.inviteCode.trim().toUpperCase();
     }
 
     try {
       const docRef = doc(db, 'groups', groupId);
-      await updateDoc(docRef, data);
+      await updateDoc(docRef, stripUndefined({ ...cleanedData, updatedAt: serverTimestamp() }));
+
+      if (cleanedData.inviteCode && targetGroup && cleanedData.inviteCode !== targetGroup.inviteCode) {
+        await setDoc(doc(db, 'library_invites', cleanedData.inviteCode), {
+          inviteCode: cleanedData.inviteCode,
+          groupId,
+          name: cleanedData.name || targetGroup.name,
+          ownerId: targetGroup.ownerId,
+          createdAt: serverTimestamp()
+        });
+        if (targetGroup.inviteCode) {
+          deleteDoc(doc(db, 'library_invites', targetGroup.inviteCode)).catch(() => {});
+        }
+      }
+      if (cleanedData.name && targetGroup?.guestEnabled && targetGroup?.guestCode) {
+        await updateDoc(doc(db, 'guest_invites', targetGroup.guestCode), {
+          name: cleanedData.name,
+          updatedAt: serverTimestamp()
+        }).catch(() => {});
+      }
     } catch (e) {
       console.warn('Updated group locally:', e);
     }
 
-    setAllGroups(prev => prev.map(g => g.id === groupId ? { ...g, ...data } : g));
+    setAllGroups(prev => prev.map(g => g.id === groupId ? { ...g, ...cleanedData } : g));
     if (currentGroup?.id === groupId) {
-      setCurrentGroup(prev => prev ? { ...prev, ...data } : prev);
+      setCurrentGroup(prev => prev ? { ...prev, ...cleanedData } : prev);
     }
     showNotification('Informations de la bibliothèque mises à jour avec succès');
     return true;
-  }, [currentUser?.role, currentGroup?.id, showNotification]);
+  }, [allGroups, isLibraryAdminForGroup, currentGroup?.id, showNotification]);
 
   const deleteGroup = useCallback(async (
     groupId: string,
     options?: { deleteAssociatedData?: boolean }
   ): Promise<boolean> => {
-    if (groupId === DEFAULT_GROUP.id) {
-      showNotification('La bibliothèque principale ne peut pas être supprimée', 'warning');
-      return false;
-    }
-
-    if (currentUser?.role !== 'admin') {
-      showNotification("Seul l'Administrateur peut supprimer cette bibliothèque", 'error');
-      return false;
-    }
-
+    if (blockIfGuest()) return false;
     const targetGroup = allGroups.find(g => g.id === groupId);
-    const targetName = targetGroup?.name || 'cette bibliothèque';
+    if (!targetGroup || targetGroup.ownerId !== currentUser?.uid) {
+      showNotification("Seul le propriétaire créateur peut supprimer cette bibliothèque", 'error');
+      return false;
+    }
 
+    const targetName = targetGroup.name || 'cette bibliothèque';
     const shouldDeleteData = options?.deleteAssociatedData !== false;
 
     try {
-      // 1. Delete group document from Firestore
-      await deleteDoc(doc(db, 'groups', groupId));
-
-      // 2. Delete associated documents if requested
       if (shouldDeleteData) {
-        try {
-          const songsQ = query(collection(db, 'songs'), where('groupId', '==', groupId));
-          const songsSnap = await getDocs(songsQ);
-          const deletePromises: Promise<any>[] = [];
-          songsSnap.forEach(d => {
-            deletePromises.push(deleteDoc(d.ref));
-          });
-
-          const setlistsQ = query(collection(db, 'setlists'), where('groupId', '==', groupId));
-          const setlistsSnap = await getDocs(setlistsQ);
-          setlistsSnap.forEach(d => {
-            deletePromises.push(deleteDoc(d.ref));
-          });
-
-          const historyQ = query(collection(db, 'setlist_history'), where('groupId', '==', groupId));
-          const historySnap = await getDocs(historyQ);
-          historySnap.forEach(d => {
-            deletePromises.push(deleteDoc(d.ref));
-          });
-
-          await Promise.all(deletePromises);
-        } catch (cleanupErr) {
-          console.warn('Associated data cleanup note:', cleanupErr);
+        const subcols = ['songs', 'setlists', 'setlist_history', 'custom_pads', 'members'];
+        for (const sub of subcols) {
+          try {
+            const subSnap = await getDocs(collection(db, 'groups', groupId, sub));
+            await Promise.all(subSnap.docs.map(d => deleteDoc(d.ref)));
+          } catch (cleanupErr) {
+            console.warn(`Cleanup ${sub} note:`, cleanupErr);
+          }
         }
+      } else {
+        try {
+          const membersSnap = await getDocs(collection(db, 'groups', groupId, 'members'));
+          await Promise.all(membersSnap.docs.map(d => deleteDoc(d.ref)));
+        } catch {}
       }
+
+      if (targetGroup.inviteCode) {
+        await deleteDoc(doc(db, 'library_invites', targetGroup.inviteCode)).catch(() => {});
+      }
+      if (targetGroup.guestCode) {
+        await deleteDoc(doc(db, 'guest_invites', targetGroup.guestCode)).catch(() => {});
+      }
+
+      await deleteDoc(doc(db, 'groups', groupId));
     } catch (e) {
-      console.warn('Deleted group locally:', e);
+      console.warn('Delete group Firestore note:', e);
     }
 
-    // 3. Update local states
-    setAllGroups(prev => prev.filter(g => g.id !== groupId));
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(`songbook_cached_songs_${groupId}`);
+      localStorage.removeItem(`songbook_cached_setlists_${groupId}`);
+      localStorage.removeItem(`songbook_cached_setlist_history_${groupId}`);
+      localStorage.removeItem(`songbook_cached_custom_pads_${groupId}`);
+    }
+
+    const remaining = allGroups.filter(g => g.id !== groupId);
+    setAllGroups(remaining);
 
     if (currentGroup?.id === groupId) {
-      setCurrentGroup(DEFAULT_GROUP);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('songbook_current_group_id', DEFAULT_GROUP.id);
-      }
-    }
+      const nextGroup = remaining[0] || null;
+      setCurrentGroup(nextGroup);
+      setSongs([]);
+      setSetlists([]);
+      setSetlistHistory([]);
+      setCustomPads([]);
+      setSelectedSong(null);
+      setSelectedSetlist(null);
 
-    if (shouldDeleteData) {
-      setSongs(prev => prev.filter(s => (s.groupId || 'default-group') !== groupId));
-      setSetlists(prev => prev.filter(st => (st.groupId || 'default-group') !== groupId));
-      setSetlistHistory(prev => prev.filter(h => (h.groupId || 'default-group') !== groupId));
+      if (nextGroup) {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('songbook_current_group_id', nextGroup.id);
+        }
+        setCurrentUser(prev => prev ? { ...prev, currentGroupId: nextGroup.id } : null);
+        setDoc(doc(db, 'users', currentUser.uid), { currentGroupId: nextGroup.id, updatedAt: serverTimestamp() }, { merge: true }).catch(() => {});
+      } else {
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('songbook_current_group_id');
+        }
+        setDoc(doc(db, 'users', currentUser.uid), { currentGroupId: null, updatedAt: serverTimestamp() }, { merge: true }).catch(() => {});
+        setCurrentUser(null);
+        setNeedsLibraryOnboarding(true);
+      }
     }
 
     showNotification({
       title: 'Bibliothèque supprimée',
-      message: `La bibliothèque « ${targetName} » a été supprimée avec succès.`,
+      message: `La bibliothèque « ${targetName} » et sa base ont été supprimées.`,
       type: 'success'
     });
     return true;
-  }, [currentUser, allGroups, currentGroup?.id, showNotification]);
+  }, [currentUser?.uid, allGroups, currentGroup?.id, showNotification]);
 
   const setGroupMembers = useCallback(async (groupId: string, memberUids: string[]): Promise<boolean> => {
-    if (currentUser?.role !== 'admin') {
-      showNotification("Seul l'Administrateur peut modifier les membres d'une bibliothèque", 'error');
+    if (blockIfGuest()) return false;
+    const targetGroup = allGroups.find(g => g.id === groupId);
+    if (!isLibraryAdminForGroup(targetGroup)) {
+      showNotification("Seul l'Administrateur de cette bibliothèque peut modifier les membres", 'error');
       return false;
     }
 
-    const uniqueUids = Array.from(new Set(memberUids));
+    const withOwner = targetGroup?.ownerId ? [targetGroup.ownerId, ...memberUids] : memberUids;
+    const uniqueUids = Array.from(new Set(withOwner));
+    const removedUids = (targetGroup?.members || []).filter(id => !uniqueUids.includes(id));
+
     try {
-      const docRef = doc(db, 'groups', groupId);
-      await updateDoc(docRef, { members: uniqueUids });
+      await updateDoc(doc(db, 'groups', groupId), { members: uniqueUids, updatedAt: serverTimestamp() });
+      for (const rUid of removedUids) {
+        await deleteDoc(doc(db, 'groups', groupId, 'members', rUid)).catch(() => {});
+      }
     } catch (e) {
       console.warn('Set group members note:', e);
     }
@@ -1971,23 +2411,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     showNotification('Membres de la bibliothèque synchronisés avec succès');
     return true;
-  }, [currentUser?.role, currentGroup?.id, showNotification]);
+  }, [allGroups, isLibraryAdminForGroup, currentGroup?.id, showNotification]);
 
   const assignMembersToGroup = useCallback(async (groupId: string, memberUids: string[]): Promise<boolean> => {
-    if (currentUser?.role !== 'admin') {
-      showNotification("Seul l'Administrateur peut assigner des membres", 'error');
+    if (blockIfGuest()) return false;
+    const targetGroup = allGroups.find(g => g.id === groupId);
+    if (!targetGroup || !isLibraryAdminForGroup(targetGroup)) {
+      showNotification("Seul l'Administrateur de cette bibliothèque peut assigner des membres", 'error');
       return false;
     }
-
-    const targetGroup = allGroups.find(g => g.id === groupId);
-    if (!targetGroup) return false;
 
     const existingMembers = targetGroup.members || [];
     const mergedMembers = Array.from(new Set([...existingMembers, ...memberUids]));
 
     try {
-      const docRef = doc(db, 'groups', groupId);
-      await updateDoc(docRef, { members: mergedMembers });
+      await updateDoc(doc(db, 'groups', groupId), { members: mergedMembers, updatedAt: serverTimestamp() });
     } catch (e) {
       console.warn('Assign members note:', e);
     }
@@ -1999,22 +2437,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     showNotification('Membres assignés avec succès à la bibliothèque');
     return true;
-  }, [currentUser?.role, allGroups, currentGroup?.id, showNotification]);
+  }, [allGroups, isLibraryAdminForGroup, currentGroup?.id, showNotification]);
 
   const removeMemberFromGroup = useCallback(async (groupId: string, memberUid: string): Promise<boolean> => {
-    if (currentUser?.role !== 'admin') {
-      showNotification("Seul l'Administrateur peut retirer des membres", 'error');
+    if (blockIfGuest()) return false;
+    const targetGroup = allGroups.find(g => g.id === groupId);
+    if (!targetGroup || !isLibraryAdminForGroup(targetGroup)) {
+      showNotification("Seul l'Administrateur de cette bibliothèque peut retirer des membres", 'error');
       return false;
     }
-
-    const targetGroup = allGroups.find(g => g.id === groupId);
-    if (!targetGroup) return false;
+    if (memberUid === targetGroup.ownerId) {
+      showNotification('Impossible de retirer le propriétaire créateur de la bibliothèque', 'warning');
+      return false;
+    }
 
     const updatedMembers = (targetGroup.members || []).filter(id => id !== memberUid);
 
     try {
-      const docRef = doc(db, 'groups', groupId);
-      await updateDoc(docRef, { members: updatedMembers });
+      await updateDoc(doc(db, 'groups', groupId), { members: updatedMembers, updatedAt: serverTimestamp() });
+      await deleteDoc(doc(db, 'groups', groupId, 'members', memberUid)).catch(() => {});
     } catch (e) {
       console.warn('Remove member note:', e);
     }
@@ -2026,72 +2467,78 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     showNotification('Membre retiré de la bibliothèque', 'info');
     return true;
-  }, [currentUser?.role, allGroups, currentGroup?.id, showNotification]);
+  }, [allGroups, isLibraryAdminForGroup, currentGroup?.id, showNotification]);
 
   const joinGroup = useCallback(async (inviteCode: string): Promise<boolean> => {
-    const code = inviteCode.trim().toUpperCase();
-    if (!code) return false;
+    if (blockIfGuest()) return false;
+    const authUser = auth.currentUser;
+    if (!authUser || !currentUser) return false;
+
+    const rawInput = inviteCode.trim();
+    const upperCode = rawInput.toUpperCase();
+    if (!rawInput) return false;
 
     let matchedGroup: Group | null = null;
 
     try {
-      // 1. Chercher d'abord dans allGroups (déjà synchronisé en mémoire)
-      const localFound = allGroups.find(g => (g.inviteCode || '').trim().toUpperCase() === code);
-      if (localFound) {
-        matchedGroup = { ...localFound };
-      }
-
-      // 2. Si non trouvé en mémoire locale, interroger Firestore
-      if (!matchedGroup) {
-        try {
-          const { getDocs, query, collection, where } = await import('firebase/firestore');
-          // Recherche directe
-          const q = query(collection(db, 'groups'), where('inviteCode', '==', code));
-          const snap = await getDocs(q);
-          if (!snap.empty) {
-            const groupDoc = snap.docs[0];
-            matchedGroup = { id: groupDoc.id, ...groupDoc.data() } as Group;
-          } else {
-            // Recherche insensible à la casse sur tous les groupes Firestore
-            const allGroupsSnap = await getDocs(collection(db, 'groups'));
-            allGroupsSnap.forEach(d => {
-              const data = d.data() as Partial<Group>;
-              if ((data.inviteCode || '').trim().toUpperCase() === code) {
-                matchedGroup = { id: d.id, ...data } as Group;
-              }
-            });
-          }
-        } catch (err) {
-          console.warn('Firestore group search note:', err);
-        }
-      }
-
-      // 3. Fallback pour codes de démonstration intégrés
-      if (!matchedGroup && (code === 'LOUAN7' || code === 'WORSHIP')) {
-        matchedGroup = { ...DEFAULT_GROUP };
-      }
-
-      if (matchedGroup) {
-        // Enregistrer la bibliothèque dans le registre invité (stockage local garanti)
-        recordGuestJoinedGroup(matchedGroup.id);
-
-        // Si l'utilisateur est connecté avec un compte, l'ajouter aux membres officiels
-        if (currentUser?.uid) {
-          const uid = currentUser.uid;
-          if (!matchedGroup.members?.includes(uid)) {
-            const updatedMembers = [...(matchedGroup.members || []), uid];
-            try {
-              const { updateDoc, doc } = await import('firebase/firestore');
-              await updateDoc(doc(db, 'groups', matchedGroup.id), { members: updatedMembers });
-              matchedGroup.members = updatedMembers;
-            } catch (err) {
-              console.warn('Group member update note:', err);
+      if (/^[a-zA-Z0-9_\-]+$/.test(upperCode)) {
+        // 1. Recherche dans /library_invites/{code}
+        const inviteSnap = await getDoc(doc(db, 'library_invites', upperCode));
+        if (inviteSnap.exists()) {
+          const targetGroupId = inviteSnap.data()?.groupId;
+          if (targetGroupId) {
+            const groupSnap = await getDoc(doc(db, 'groups', targetGroupId));
+            if (groupSnap.exists()) {
+              matchedGroup = { id: groupSnap.id, ...groupSnap.data() } as Group;
             }
           }
         }
 
-        // Mettre à jour allGroups pour inclusion immédiate dans les sélecteurs
+        // 2. Fallback : recherche directe par ID de bibliothèque /groups/{id}
+        if (!matchedGroup) {
+          const directSnap = await getDoc(doc(db, 'groups', rawInput));
+          if (directSnap.exists()) {
+            matchedGroup = { id: directSnap.id, ...directSnap.data() } as Group;
+          }
+        }
+      }
+
+      if (matchedGroup) {
+        const uid = authUser.uid;
+        const roleInLib: UserRole = matchedGroup.ownerId === uid
+          ? 'admin'
+          : (matchedGroup.memberRoles?.[uid] || 'member');
+
+        if (!matchedGroup.members?.includes(uid)) {
+          await updateDoc(doc(db, 'groups', matchedGroup.id), {
+            members: arrayUnion(uid)
+          });
+          matchedGroup = {
+            ...matchedGroup,
+            members: [...(matchedGroup.members || []), uid]
+          };
+        }
+
+        await setDoc(doc(db, 'groups', matchedGroup.id, 'members', uid), stripUndefined({
+          uid,
+          displayName: currentUser.displayName || authUser.displayName || 'Musicien',
+          photoURL: currentUser.photoURL || authUser.photoURL || undefined,
+          role: roleInLib,
+          joinedAt: serverTimestamp()
+        }), { merge: true });
+
+        await setDoc(doc(db, 'users', uid), {
+          currentGroupId: matchedGroup.id,
+          updatedAt: serverTimestamp()
+        }, { merge: true }).catch(() => {});
+
         const finalGroup = matchedGroup;
+        setSongs([]);
+        setSetlists([]);
+        setSetlistHistory([]);
+        setCustomPads([]);
+        setSelectedSong(null);
+        setSelectedSetlist(null);
         setAllGroups(prev => {
           if (prev.find(g => g.id === finalGroup.id)) {
             return prev.map(g => g.id === finalGroup.id ? { ...g, ...finalGroup } : g);
@@ -2099,15 +2546,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           return [...prev, finalGroup];
         });
 
-        // Activer la bibliothèque
         setCurrentGroup(finalGroup);
         if (typeof window !== 'undefined') {
           localStorage.setItem('songbook_current_group_id', finalGroup.id);
         }
+        setCurrentUser(prev => prev ? { ...prev, currentGroupId: finalGroup.id } : null);
 
         showNotification({
           title: `Bibliothèque « ${finalGroup.name} » active`,
-          message: currentUser ? 'Bibliothèque rejointe avec succès.' : 'Accès déverrouillé en mode invité.',
+          message: 'Bibliothèque rejointe avec succès.',
           type: 'success'
         });
         return true;
@@ -2117,110 +2564,195 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     return false;
-  }, [allGroups, currentUser?.uid, recordGuestJoinedGroup, showNotification]);
+  }, [currentUser, showNotification]);
+
+  const toggleLibraryGuestMode = useCallback(async (groupId: string, enabled: boolean): Promise<boolean> => {
+    if (blockIfGuest() || !auth.currentUser || !currentUser?.uid) return false;
+    const targetGroup = allGroups.find(g => g.id === groupId);
+    if (!targetGroup || targetGroup.ownerId !== currentUser.uid) {
+      showNotification("Seul le propriétaire créateur peut activer ou désactiver l'accès invité", 'error');
+      return false;
+    }
+
+    const existingCode = targetGroup.guestCode && targetGroup.guestCode.length >= 4 ? targetGroup.guestCode : '';
+    const guestCode = enabled ? (existingCode || generateGuestCode()) : existingCode;
+
+    try {
+      if (enabled) {
+        await setDoc(doc(db, 'guest_invites', guestCode), {
+          guestCode,
+          groupId,
+          name: targetGroup.name,
+          ownerId: targetGroup.ownerId,
+          guestEnabled: true,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+        await updateDoc(doc(db, 'groups', groupId), {
+          guestEnabled: true,
+          guestCode,
+          updatedAt: serverTimestamp()
+        });
+      } else {
+        if (guestCode) {
+          await deleteDoc(doc(db, 'guest_invites', guestCode)).catch(() => {});
+        }
+        await updateDoc(doc(db, 'groups', groupId), {
+          guestEnabled: false,
+          updatedAt: serverTimestamp()
+        });
+      }
+
+      const patch = enabled ? { guestEnabled: true, guestCode } : { guestEnabled: false };
+      setAllGroups(prev => prev.map(g => g.id === groupId ? { ...g, ...patch } : g));
+      if (currentGroup?.id === groupId) {
+        setCurrentGroup(prev => prev ? { ...prev, ...patch } : prev);
+      }
+      showNotification(enabled ? 'Accès invité activé (lecture seule)' : 'Accès invité désactivé', 'info');
+      return true;
+    } catch (e: any) {
+      console.error('Toggle guest mode error:', e);
+      showNotification("Impossible de mettre à jour le mode invité", 'error');
+      return false;
+    }
+  }, [blockIfGuest, currentUser?.uid, allGroups, currentGroup?.id, showNotification]);
+
+  const regenerateGuestCode = useCallback(async (groupId: string): Promise<string | null> => {
+    if (blockIfGuest() || !auth.currentUser || !currentUser?.uid) return null;
+    const targetGroup = allGroups.find(g => g.id === groupId);
+    if (!targetGroup || targetGroup.ownerId !== currentUser.uid) {
+      showNotification("Seul le propriétaire créateur peut régénérer le code invité", 'error');
+      return null;
+    }
+
+    const oldCode = targetGroup.guestCode;
+    const newCode = generateGuestCode();
+
+    try {
+      if (targetGroup.guestEnabled) {
+        await setDoc(doc(db, 'guest_invites', newCode), {
+          guestCode: newCode,
+          groupId,
+          name: targetGroup.name,
+          ownerId: targetGroup.ownerId,
+          guestEnabled: true,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+      }
+      await updateDoc(doc(db, 'groups', groupId), {
+        guestCode: newCode,
+        updatedAt: serverTimestamp()
+      });
+      if (oldCode && oldCode !== newCode) {
+        await deleteDoc(doc(db, 'guest_invites', oldCode)).catch(() => {});
+      }
+
+      setAllGroups(prev => prev.map(g => g.id === groupId ? { ...g, guestCode: newCode } : g));
+      if (currentGroup?.id === groupId) {
+        setCurrentGroup(prev => prev ? { ...prev, guestCode: newCode } : prev);
+      }
+      showNotification(`Nouveau code invité généré : ${newCode}`);
+      return newCode;
+    } catch (e) {
+      console.error('Regenerate guest code error:', e);
+      showNotification('Erreur lors de la régénération du code invité', 'error');
+      return null;
+    }
+  }, [blockIfGuest, currentUser?.uid, allGroups, currentGroup?.id, showNotification]);
 
   const switchGroup = useCallback((groupId: string) => {
+    if (blockIfGuest()) return;
     const g = allGroups.find(item => item.id === groupId);
     if (!g || !isMemberOfLibrary(g, currentUser)) {
       showNotification("Vous ne faites pas partie de cette bibliothèque", 'error');
       return;
     }
+    setSongs([]);
+    setSetlists([]);
+    setSetlistHistory([]);
+    setCustomPads([]);
+    setSelectedSong(null);
+    setSelectedSetlist(null);
     setCurrentGroup(g);
     if (typeof window !== 'undefined') {
       localStorage.setItem('songbook_current_group_id', groupId);
     }
     if (currentUser) {
       setCurrentUser(prev => prev ? { ...prev, currentGroupId: groupId } : null);
+      setDoc(doc(db, 'users', currentUser.uid), {
+        currentGroupId: groupId,
+        updatedAt: serverTimestamp()
+      }, { merge: true }).catch(() => {});
     }
     showNotification({
       title: `Bibliothèque « ${g.name} » active`,
-      message: currentUser ? 'Bibliothèque active sélectionnée.' : 'Consultation en mode invité.',
+      message: 'Base de données de la bibliothèque chargée.',
       type: 'info'
     });
   }, [allGroups, currentUser, isMemberOfLibrary, showNotification]);
 
-  const loginDemoUser = useCallback((role: UserRole = 'member') => {
-    // Demo accounts can only be member or leader, never unauthenticated admin
-    const effectiveRole: UserRole = role === 'admin' ? 'member' : role;
-    let name = 'Camille - Musicien';
-    let email = 'musicien@songbook.pro';
-    if (effectiveRole === 'leader') {
-      name = 'Thomas - Responsable de Louange';
-      email = 'responsable@songbook.pro';
-    }
-
-    const demoUser: UserProfile = {
-      uid: 'demo-' + effectiveRole + '-' + Date.now().toString(36),
-      email,
-      displayName: name,
-      currentGroupId: 'default-group',
-      role: effectiveRole
-    };
-    setCurrentUser(demoUser);
-    setIsAuthModalOpen(false);
-  }, []);
-
-  const loginLocalUser = useCallback((customEmail: string, customName?: string, role: UserRole = 'member') => {
-    const trimmedEmail = customEmail.trim() || 'musicien@songbook.pro';
-    const isMasterAdmin = trimmedEmail.toLowerCase() === 'kriveravelasquez@rivera-marketing.com';
-    const effectiveRole: UserRole = isMasterAdmin ? 'admin' : (role === 'admin' ? 'member' : role);
-    const localUser: UserProfile = {
-      uid: 'user-' + Date.now().toString(36),
-      email: trimmedEmail,
-      displayName: customName?.trim() || trimmedEmail.split('@')[0] || 'Musicien',
-      currentGroupId: 'default-group',
-      role: effectiveRole
-    };
-    setCurrentUser(localUser);
-    setIsAuthModalOpen(false);
-  }, []);
-
   const updateUserRole = useCallback(async (userId: string, newRole: UserRole) => {
-    if (currentUser?.role !== 'admin') {
-      showNotification("Seul l'Administrateur peut modifier les rôles d'accès", 'error');
+    if (blockIfGuest()) return;
+    const groupId = currentGroup?.id;
+    if (!groupId || !isLibraryAdminForGroup(currentGroup)) {
+      showNotification("Seul l'Administrateur de cette bibliothèque peut modifier les rôles d'accès", 'error');
+      return;
+    }
+    if (userId === currentGroup.ownerId && newRole !== 'admin') {
+      showNotification('Le propriétaire créateur reste Administrateur de sa bibliothèque', 'warning');
       return;
     }
 
     try {
-      const userRef = doc(db, 'users', userId);
-      await updateDoc(userRef, { role: newRole });
-      
+      await updateDoc(doc(db, 'groups', groupId), {
+        [`memberRoles.${userId}`]: newRole,
+        updatedAt: serverTimestamp()
+      });
+      await setDoc(doc(db, 'groups', groupId, 'members', userId), {
+        role: newRole
+      }, { merge: true });
+
+      const updatedMemberRoles = { ...(currentGroup.memberRoles || {}), [userId]: newRole };
+      setAllGroups(prev => prev.map(g => g.id === groupId ? { ...g, memberRoles: updatedMemberRoles } : g));
+      setCurrentGroup(prev => prev && prev.id === groupId ? { ...prev, memberRoles: updatedMemberRoles } : prev);
       setAllUsers(prev => prev.map(u => u.uid === userId ? { ...u, role: newRole } : u));
       if (currentUser && currentUser.uid === userId) {
-        const updated = { ...currentUser, role: newRole };
-        setCurrentUser(updated);
-        localStorage.setItem('songbook_user', JSON.stringify(updated));
+        setCurrentUser(prev => prev ? { ...prev, role: newRole } : null);
       }
+
       const roleLabel = newRole === 'admin' ? 'Administrateur 👑' : newRole === 'leader' ? 'Responsable ⚡' : newRole === 'editor' ? 'Éditeur ✍️' : newRole === 'viewer' ? 'Régie / Lecteur 🖥️' : 'Membre 🎵';
       showNotification(`Rôle mis à jour : ${roleLabel}`);
     } catch (err) {
       console.error('Error updating user role:', err);
       showNotification('Erreur lors de la mise à jour du rôle', 'error');
     }
-  }, [currentUser, showNotification]);
+  }, [currentGroup, currentUser, isLibraryAdminForGroup, showNotification]);
 
   const bulkUpdateUserRole = useCallback(async (userIds: string[], newRole: UserRole): Promise<boolean> => {
-    if (currentUser?.role !== 'admin') {
-      showNotification("Seul l'Administrateur peut modifier les rôles d'accès", 'error');
+    if (blockIfGuest()) return false;
+    const groupId = currentGroup?.id;
+    if (!groupId || !isLibraryAdminForGroup(currentGroup)) {
+      showNotification("Seul l'Administrateur de cette bibliothèque peut modifier les rôles d'accès", 'error');
       return false;
     }
-    if (userIds.length === 0) return true;
+    const filteredIds = userIds.filter(uid => uid !== currentGroup.ownerId || newRole === 'admin');
+    if (filteredIds.length === 0) return true;
 
     try {
-      for (const uid of userIds) {
-        try {
-          const userRef = doc(db, 'users', uid);
-          await updateDoc(userRef, { role: newRole });
-        } catch (e) {
-          console.warn('Update user role error for', uid, e);
-        }
+      const updatedMemberRoles = { ...(currentGroup.memberRoles || {}) };
+      const roleUpdates: Record<string, any> = { updatedAt: serverTimestamp() };
+      for (const uid of filteredIds) {
+        updatedMemberRoles[uid] = newRole;
+        roleUpdates[`memberRoles.${uid}`] = newRole;
+        await setDoc(doc(db, 'groups', groupId, 'members', uid), { role: newRole }, { merge: true }).catch(() => {});
       }
-      setAllUsers(prev => prev.map(u => userIds.includes(u.uid) ? { ...u, role: newRole } : u));
-      if (currentUser && userIds.includes(currentUser.uid)) {
-        const updated = { ...currentUser, role: newRole };
-        setCurrentUser(updated);
-        localStorage.setItem('songbook_user', JSON.stringify(updated));
-      }
+      await updateDoc(doc(db, 'groups', groupId), roleUpdates);
+
+      setAllGroups(prev => prev.map(g => g.id === groupId ? { ...g, memberRoles: updatedMemberRoles } : g));
+      setCurrentGroup(prev => prev && prev.id === groupId ? { ...prev, memberRoles: updatedMemberRoles } : prev);
+      setAllUsers(prev => prev.map(u => filteredIds.includes(u.uid) ? { ...u, role: newRole } : u));
+
       const roleLabel = newRole === 'admin' ? 'Administrateur 👑' : newRole === 'leader' ? 'Responsable ⚡' : newRole === 'editor' ? 'Éditeur ✍️' : newRole === 'viewer' ? 'Régie / Lecteur 🖥️' : 'Membre 🎵';
       showNotification(`Rôle ${roleLabel} appliqué aux membres sélectionnés`);
       return true;
@@ -2229,20 +2761,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       showNotification('Erreur lors de la modification des rôles', 'error');
       return false;
     }
-  }, [currentUser, showNotification]);
+  }, [currentGroup, isLibraryAdminForGroup, showNotification]);
 
   const bulkRemoveMembersFromGroup = useCallback(async (groupId: string, memberUids: string[]): Promise<boolean> => {
-    if (currentUser?.role !== 'admin') {
-      showNotification("Seul l'Administrateur peut retirer des membres", 'error');
+    if (blockIfGuest()) return false;
+    const targetGroup = allGroups.find(g => g.id === groupId);
+    if (!targetGroup || !isLibraryAdminForGroup(targetGroup)) {
+      showNotification("Seul l'Administrateur de cette bibliothèque peut retirer des membres", 'error');
       return false;
     }
-    const targetGroup = allGroups.find(g => g.id === groupId);
-    if (!targetGroup) return false;
 
-    const updatedMembers = (targetGroup.members || []).filter(id => !memberUids.includes(id));
+    const removable = memberUids.filter(id => id !== targetGroup.ownerId);
+    const updatedMembers = (targetGroup.members || []).filter(id => !removable.includes(id));
+
     try {
-      const docRef = doc(db, 'groups', groupId);
-      await updateDoc(docRef, { members: updatedMembers });
+      await updateDoc(doc(db, 'groups', groupId), { members: updatedMembers, updatedAt: serverTimestamp() });
+      for (const uid of removable) {
+        await deleteDoc(doc(db, 'groups', groupId, 'members', uid)).catch(() => {});
+      }
     } catch (e) {
       console.warn('Bulk remove members note:', e);
     }
@@ -2253,100 +2789,133 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     showNotification('Membres retirés de la bibliothèque', 'info');
     return true;
-  }, [currentUser?.role, allGroups, currentGroup?.id, showNotification]);
+  }, [allGroups, isLibraryAdminForGroup, currentGroup?.id, showNotification]);
 
   const bulkDeleteUserAccounts = useCallback(async (userIds: string[]): Promise<boolean> => {
-    if (currentUser?.role !== 'admin') {
-      showNotification("Seul l'Administrateur peut supprimer des comptes", 'error');
+    if (blockIfGuest()) return false;
+    if (!currentGroup?.id || !isLibraryAdminForGroup(currentGroup)) {
+      showNotification("Seul l'Administrateur de cette bibliothèque peut retirer des membres", 'error');
       return false;
     }
-    const targetUids = userIds.filter(id => id !== currentUser?.uid);
+    const targetUids = userIds.filter(id => id !== currentUser?.uid && id !== currentGroup.ownerId);
     if (targetUids.length === 0) {
-      showNotification('Impossible de supprimer votre propre compte actif', 'error');
+      showNotification('Impossible de retirer votre propre compte ou le propriétaire', 'error');
       return false;
     }
 
-    try {
-      for (const uid of targetUids) {
-        try {
-          await deleteDoc(doc(db, 'users', uid));
-        } catch (e) {
-          console.warn('Error deleting user doc:', uid, e);
-        }
-      }
-
-      for (const g of groups) {
-        const hasAny = (g.members || []).some(m => targetUids.includes(m));
-        if (hasAny) {
-          const newMembers = (g.members || []).filter(m => !targetUids.includes(m));
-          try {
-            await updateDoc(doc(db, 'groups', g.id), { members: newMembers });
-          } catch (e) {}
-        }
-      }
-
-      setAllUsers(prev => prev.filter(u => !targetUids.includes(u.uid)));
-      setAllGroups(prev => prev.map(g => ({
-        ...g,
-        members: (g.members || []).filter(m => !targetUids.includes(m))
-      })));
-      if (currentGroup) {
-        setCurrentGroup(prev => prev ? {
-          ...prev,
-          members: (prev.members || []).filter(m => !targetUids.includes(m))
-        } : prev);
-      }
-
-      showNotification('Comptes utilisateurs supprimés avec succès');
-      return true;
-    } catch (err) {
-      console.error('Error bulk deleting users:', err);
-      showNotification('Erreur lors de la suppression des utilisateurs', 'error');
-      return false;
-    }
-  }, [currentUser, groups, currentGroup, showNotification]);
+    return await bulkRemoveMembersFromGroup(currentGroup.id, targetUids);
+  }, [currentGroup, currentUser?.uid, isLibraryAdminForGroup, bulkRemoveMembersFromGroup, showNotification]);
 
   const setAdminByEmail = useCallback(async (targetEmail: string, role: UserRole = 'admin') => {
-    if (currentUser?.role !== 'admin') {
-      showNotification("Seul l'Administrateur peut attribuer des rôles", 'error');
+    if (blockIfGuest()) return;
+    if (!currentGroup || !isLibraryAdminForGroup(currentGroup)) {
+      showNotification("Seul l'Administrateur de cette bibliothèque peut attribuer des rôles", 'error');
       return;
     }
 
     const cleanEmail = targetEmail.trim().toLowerCase();
     if (!cleanEmail) return;
 
-    const roleLabel = role === 'admin' ? 'Administrateur 👑' : role === 'leader' ? 'Responsable ⚡' : role === 'editor' ? 'Éditeur ✍️' : role === 'viewer' ? 'Régie / Lecteur 🖥️' : 'Membre 🎵';
+    const existingMember = allUsers.find(u => u.email?.toLowerCase() === cleanEmail);
+    if (existingMember) {
+      await updateUserRole(existingMember.uid, role);
+    } else {
+      showNotification({
+        title: 'Membre non présent',
+        message: `Partagez l'identifiant « ${currentGroup.inviteCode} » pour que ${cleanEmail} rejoigne d'abord cette bibliothèque.`,
+        type: 'info',
+        duration: 4500
+      });
+    }
+  }, [currentGroup, isLibraryAdminForGroup, allUsers, updateUserRole, showNotification]);
+
+  const uploadProfilePicture = useCallback(async (fileOrBlob: Blob | File): Promise<string> => {
+    if (blockIfGuest()) return '';
+    const userId = currentUser?.uid || auth.currentUser?.uid;
+    if (!userId) return '';
+    let downloadURL = '';
 
     try {
-      // 1. Enregistrer dans admin_emails pour les futures connexions
-      await setDoc(doc(db, 'admin_emails', cleanEmail), {
-        email: cleanEmail,
-        role,
-        createdAt: serverTimestamp()
+      const filename = `avatar_${Date.now()}.jpg`;
+      const fileRef = storageRef(storage, `profile_pictures/${userId}/${filename}`);
+      const snapshot = await uploadBytes(fileRef, fileOrBlob, {
+        contentType: 'image/jpeg',
+        customMetadata: {
+          userId,
+          uploadedAt: new Date().toISOString()
+        }
       });
-
-      // 2. Si un compte existe déjà avec cette adresse, le mettre immédiatement à jour
-      const q = query(collection(db, 'users'), where('email', '==', cleanEmail));
-      const snap = await getDocs(q);
-      if (!snap.empty) {
-        for (const docSnap of snap.docs) {
-          await updateDoc(docSnap.ref, { role });
-        }
-        setAllUsers(prev => prev.map(u => u.email?.toLowerCase() === cleanEmail ? { ...u, role } : u));
-        if (currentUser && currentUser.email?.toLowerCase() === cleanEmail) {
-          const updated = { ...currentUser, role };
-          setCurrentUser(updated);
-          localStorage.setItem('songbook_user', JSON.stringify(updated));
-        }
-        showNotification(`L'utilisateur ${cleanEmail} est désormais ${roleLabel}`);
-      } else {
-        showNotification(`${cleanEmail} sera automatiquement ${roleLabel} dès sa première connexion`);
-      }
-    } catch (err) {
-      console.error('Error setting role email:', err);
-      showNotification("Erreur lors de l'attribution du rôle", 'error');
+      downloadURL = await getDownloadURL(snapshot.ref);
+    } catch (storageErr) {
+      console.warn('Firebase Storage upload error, falling back to base64 data URL:', storageErr);
+      downloadURL = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(fileOrBlob);
+      });
     }
-  }, [currentUser, showNotification]);
+
+    try {
+      if (auth.currentUser) {
+        await updateProfile(auth.currentUser, { photoURL: downloadURL });
+      }
+    } catch (e) {
+      console.warn('Firebase Auth updateProfile error:', e);
+    }
+
+    try {
+      await setDoc(doc(db, 'users', userId), {
+        photoURL: downloadURL,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+      if (currentGroup?.id) {
+        await setDoc(doc(db, 'groups', currentGroup.id, 'members', userId), {
+          photoURL: downloadURL
+        }, { merge: true });
+      }
+    } catch (e) {
+      console.warn('Firestore user update error:', e);
+    }
+
+    setCurrentUser(prev => prev ? { ...prev, photoURL: downloadURL } : null);
+    setAllUsers(prev => prev.map(u => u.uid === userId ? { ...u, photoURL: downloadURL } : u));
+
+    showNotification({
+      title: 'Photo de profil enregistrée',
+      message: 'Votre photo a été mise à jour avec succès.',
+      type: 'success'
+    });
+
+    return downloadURL;
+  }, [currentUser?.uid, currentGroup?.id, showNotification]);
+
+  const removeProfilePicture = useCallback(async (): Promise<void> => {
+    if (blockIfGuest()) return;
+    const userId = currentUser?.uid || auth.currentUser?.uid;
+    if (!userId) return;
+
+    try {
+      if (auth.currentUser) {
+        await updateProfile(auth.currentUser, { photoURL: '' });
+      }
+    } catch (e) {}
+
+    try {
+      await setDoc(doc(db, 'users', userId), { photoURL: '' }, { merge: true });
+      if (currentGroup?.id) {
+        await setDoc(doc(db, 'groups', currentGroup.id, 'members', userId), { photoURL: '' }, { merge: true });
+      }
+    } catch (e) {}
+
+    setCurrentUser(prev => prev ? { ...prev, photoURL: undefined } : null);
+    setAllUsers(prev => prev.map(u => u.uid === userId ? { ...u, photoURL: undefined } : u));
+
+    showNotification({
+      title: 'Photo supprimée',
+      message: 'Votre photo de profil a été réinitialisée.',
+      type: 'info'
+    });
+  }, [currentUser?.uid, currentGroup?.id, showNotification]);
 
   const handleSignOut = useCallback(async () => {
     try {
@@ -2354,24 +2923,162 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (e) {}
     setCurrentUser(null);
     setFirebaseUser(null);
-    localStorage.removeItem('songbook_user');
+    setNeedsLibraryOnboarding(false);
+    setAllGroups([]);
+    setCurrentGroup(null);
+    setSongs([]);
+    setSetlists([]);
+    setSetlistHistory([]);
+    setCustomPads([]);
+    setAllUsers([]);
+    setSelectedSong(null);
+    setSelectedSetlist(null);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('songbook_user');
+      localStorage.removeItem('songbook_current_group_id');
+    }
     showNotification('Vous êtes déconnecté', 'info');
   }, [showNotification]);
 
-  const isAdmin = currentUser?.role === 'admin';
-  const isLeader = currentUser?.role === 'leader';
-  const isEditor = currentUser?.role === 'editor';
-  const isMember = currentUser?.role === 'member' || (!isAdmin && !isLeader && !isEditor && currentUser?.role !== 'viewer');
-  const isViewer = currentUser?.role === 'viewer';
-  const canManageSongs = isAdmin || isLeader || isEditor;
-  const canManageSetlists = isAdmin || isLeader;
-  const canManageGroups = isAdmin;
-  const canAccessSettings = true;
+  // Custom Audio Pad Actions (scopées dans /groups/{groupId}/custom_pads)
+  const uploadPadAudio = useCallback(async (file: File): Promise<string> => {
+    if (blockIfGuest()) return '';
+    const padId = 'pad_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 6);
+    let audioUrl = '';
+
+    try {
+      const ext = file.name.split('.').pop() || 'mp3';
+      const filename = `${padId}.${ext}`;
+      const fileRef = storageRef(storage, `pads/${currentGroup?.id || 'shared'}/${filename}`);
+      const snapshot = await uploadBytes(fileRef, file, {
+        contentType: file.type || 'audio/mpeg',
+        customMetadata: {
+          originalName: file.name,
+          uploadedAt: new Date().toISOString()
+        }
+      });
+      audioUrl = await getDownloadURL(snapshot.ref);
+    } catch (storageErr) {
+      console.warn('Firebase Storage upload notice, falling back to data URL:', storageErr);
+      audioUrl = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(file);
+      });
+    }
+
+    return audioUrl;
+  }, [currentGroup?.id]);
+
+  const createCustomPad = useCallback(async (padData: Omit<CustomPad, 'id' | 'groupId' | 'createdAt'>): Promise<string> => {
+    if (blockIfGuest()) return '';
+    const groupId = currentGroup?.id;
+    if (!groupId) return '';
+    const newId = 'pad_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 7);
+
+    const newPad: CustomPad = {
+      ...padData,
+      id: newId,
+      groupId,
+      createdAt: new Date().toISOString(),
+      createdBy: currentUser?.uid || 'anonymous',
+      createdByName: currentUser?.displayName || 'Musicien'
+    };
+
+    setCustomPads(prev => {
+      const updated = [newPad, ...prev.filter(p => p.id !== newId)];
+      try {
+        localStorage.setItem(`songbook_cached_custom_pads_${groupId}`, JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
+    try {
+      await saveCustomPadToIndexedDB(newPad);
+    } catch (e) {
+      console.warn('IndexedDB pad save notice:', e);
+    }
+
+    padAudio.preloadCustomPad(newPad);
+
+    try {
+      const docRef = doc(db, 'groups', groupId, 'custom_pads', newId);
+      const firestorePayload = { ...newPad };
+      if (firestorePayload.audioUrl && firestorePayload.audioUrl.length > 700000) {
+        firestorePayload.audioUrl = '';
+      }
+      await setDoc(docRef, stripUndefined({
+        ...firestorePayload,
+        createdAt: serverTimestamp()
+      }));
+    } catch (e) {
+      console.warn('Saved custom pad locally (Firestore offline/error):', e);
+    }
+
+    return newId;
+  }, [currentGroup?.id, currentUser?.uid, currentUser?.displayName]);
+
+  const deleteCustomPad = useCallback(async (id: string): Promise<void> => {
+    if (blockIfGuest()) return;
+    const groupId = customPads.find(p => p.id === id)?.groupId || currentGroup?.id;
+    setCustomPads(prev => prev.filter(p => p.id !== id));
+    deleteCustomPadFromIndexedDB(id).catch(() => {});
+
+    if (groupId) {
+      try {
+        const docRef = doc(db, 'groups', groupId, 'custom_pads', id);
+        await deleteDoc(docRef);
+      } catch (e) {
+        console.warn('Deleted custom pad locally:', e);
+      }
+    }
+  }, [customPads, currentGroup?.id]);
+
+  // Rôle effectif dans la bibliothèque active
+  const effectiveRole: UserRole = useMemo(() => {
+    if (isGuest || !currentUser) return 'viewer';
+    if (currentGroup) {
+      if (currentGroup.ownerId === currentUser.uid) return 'admin';
+      const libRole = currentGroup.memberRoles?.[currentUser.uid];
+      if (libRole) return libRole;
+    }
+    return currentUser.role || 'member';
+  }, [isGuest, currentUser, currentGroup]);
+
+  const effectiveUser = useMemo<UserProfile | null>(() => {
+    if (isGuest || !currentUser) return null;
+    return {
+      ...currentUser,
+      role: effectiveRole,
+      currentGroupId: currentGroup?.id || currentUser.currentGroupId
+    };
+  }, [isGuest, currentUser, effectiveRole, currentGroup?.id]);
+
+  const isAdmin = !isGuest && effectiveRole === 'admin';
+  const isLeader = !isGuest && effectiveRole === 'leader';
+  const isEditor = !isGuest && effectiveRole === 'editor';
+  const isMember = !isGuest && (effectiveRole === 'member' || (!isAdmin && !isLeader && !isEditor && effectiveRole !== 'viewer'));
+  const isViewer = isGuest || effectiveRole === 'viewer';
+  const canManageSongs = !isGuest && (isAdmin || isLeader || isEditor);
+  const canManageSetlists = !isGuest && (isAdmin || isLeader);
+  const canManageGroups = !isGuest && isAdmin;
+  const canAccessSettings = !isGuest;
 
   return (
     <AppContext.Provider value={{
-      currentUser,
+      currentUser: effectiveUser,
       firebaseUser,
+      authLoading,
+      isGuest,
+      enterGuestMode,
+      exitGuestMode,
+      toggleLibraryGuestMode,
+      regenerateGuestCode,
+      needsLibraryOnboarding,
+      setNeedsLibraryOnboarding,
+      setSignupInProgress,
+      completeSignupCreateLibrary,
+      completeSignupJoinLibrary,
       isAdmin,
       isLeader,
       isEditor,
@@ -2393,6 +3100,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setlists,
       activeTab,
       setActiveTab,
+      editorSubTab,
+      setEditorSubTab,
       selectedSong,
       setSelectedSong,
       selectedSetlist,
@@ -2464,10 +3173,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       assignMembersToLibrary: assignMembersToGroup,
       removeMemberFromLibrary: removeMemberFromGroup,
       setLibraryMembers: setGroupMembers,
-      loginDemoUser,
-      loginLocalUser,
       handleSignOut,
-      seedDemoDataToFirestore
+      seedDemoDataToFirestore,
+      uploadProfilePicture,
+      removeProfilePicture,
+      customPads,
+      createCustomPad,
+      deleteCustomPad,
+      uploadPadAudio
     }}>
       {children}
     </AppContext.Provider>

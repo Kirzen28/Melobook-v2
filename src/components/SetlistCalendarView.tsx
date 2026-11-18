@@ -12,7 +12,8 @@ import {
   Pencil, 
   Trash2, 
   Check, 
-  X
+  X,
+  Copy
 } from 'lucide-react';
 import { 
   parseDurationToSeconds, 
@@ -35,6 +36,7 @@ interface SetlistCalendarViewProps {
   onOpenAddSongs: (setlist: Setlist) => void;
   onOpenPdf: (setlist: Setlist) => void;
   onOpenEdit: (setlist: Setlist) => void;
+  onDuplicateSetlist?: (setlist: Setlist) => void;
   onChangeDate: (setlist: Setlist) => void;
   onDeleteSetlist: (setlistId: string) => void;
   onCreateForDate: (dateStr: string) => void;
@@ -50,6 +52,7 @@ export const SetlistCalendarView: React.FC<SetlistCalendarViewProps> = ({
   onOpenAddSongs,
   onOpenPdf,
   onOpenEdit,
+  onDuplicateSetlist,
   onChangeDate,
   onDeleteSetlist,
   onCreateForDate,
@@ -569,6 +572,17 @@ export const SetlistCalendarView: React.FC<SetlistCalendarViewProps> = ({
                               aria-label="Modifier la setlist"
                             >
                               <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          {canManageSetlists && onDuplicateSetlist && (
+                            <button
+                              type="button"
+                              onClick={() => onDuplicateSetlist(st)}
+                              className="p-1.5 rounded-md bg-[#1C1C22] hover:bg-[#25252E] text-gray-400 hover:text-cyan-400 border border-[#2D2D36] transition-colors"
+                              title="Dupliquer la setlist"
+                              aria-label="Dupliquer la setlist"
+                            >
+                              <Copy className="w-3.5 h-3.5" />
                             </button>
                           )}
                         </div>

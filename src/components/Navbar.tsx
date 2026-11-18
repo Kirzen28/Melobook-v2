@@ -24,10 +24,12 @@ import {
   AlertCircle,
   Cloud,
   Piano,
-  Tv
+  Tv,
+  Camera
 } from 'lucide-react';
 import { MelobookLogo } from './MelobookLogo';
 import { MetronomeIcon } from './MetronomeIcon';
+import { ProfilePictureModal } from './ProfilePictureModal';
 import { metronomeAudio } from '../utils/metronomeAudio';
 
 export const Navbar: React.FC = () => {
@@ -35,13 +37,14 @@ export const Navbar: React.FC = () => {
     activeTab, 
     setActiveTab, 
     currentUser, 
+    isGuest,
+    exitGuestMode,
     currentGroup, 
     groups, 
     switchGroup, 
     isOffline, 
     isInstallable, 
     promptInstall, 
-    setIsAuthModalOpen, 
     handleSignOut,
     syncStatus,
     lastSyncedAt,
@@ -55,8 +58,10 @@ export const Navbar: React.FC = () => {
   } = useApp();
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isProfilePictureModalOpen, setIsProfilePictureModalOpen] = useState(false);
   const [isMetronomeActive, setIsMetronomeActive] = useState(false);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
+  const canEditProfilePicture = Boolean(currentUser && !isGuest);
 
   useEffect(() => {
     return metronomeAudio.subscribeState(s => {
@@ -141,7 +146,8 @@ export const Navbar: React.FC = () => {
   const SyncIconComponent = syncConfig.icon;
 
   return (
-    <header className="sticky top-0 z-40 bg-[#111112]/95 backdrop-blur-md border-b border-[#222224] text-[#E0E0E0] select-none">
+    <>
+    <header className="no-print sticky top-0 z-40 bg-[#111112]/95 backdrop-blur-md border-b border-[#222224] text-[#E0E0E0] select-none">
       <div className="max-w-7xl mx-auto px-3 sm:px-6">
         <div className="relative flex items-center justify-between h-14 sm:h-16 gap-2">
           
@@ -186,19 +192,6 @@ export const Navbar: React.FC = () => {
               >
                 <ListMusic className={`w-3 h-3 ${activeTab === 'setlists' ? 'text-blue-400' : 'text-gray-400'}`} />
                 <span>Listes</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleNavClick('presentation')}
-                className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                  activeTab === 'presentation'
-                    ? 'bg-[#1C1C1E] text-white border border-[#333] shadow-xs'
-                    : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                <Tv className={`w-3 h-3 ${activeTab === 'presentation' ? 'text-blue-400' : 'text-gray-400'}`} />
-                <span>Projection</span>
               </button>
             </div>
 
@@ -306,31 +299,50 @@ export const Navbar: React.FC = () => {
                 )}
               </button>
 
-              <button
-                type="button"
-                onClick={() => setActiveTab('settings')}
-                className={`relative z-10 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                  activeTab === 'settings'
-                    ? 'text-white'
-                    : 'text-gray-400 hover:text-white hover:bg-[#1A1A1D]'
-                }`}
-                title="Réglages de l'application"
-              >
-                {activeTab === 'settings' && (
-                  <motion.span
-                    layoutId="active-nav-indicator"
-                    className="absolute inset-0 bg-[#1C1C1E] rounded-md border border-[#333] -z-10 shadow-sm"
-                    transition={{ type: 'spring', stiffness: 450, damping: 35 }}
-                  />
-                )}
-                <Sliders className="w-3.5 h-3.5 text-purple-400 shrink-0" />
-                <span>Réglages</span>
-              </button>
+              {!isGuest && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('settings')}
+                  className={`relative z-10 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                    activeTab === 'settings'
+                      ? 'text-white'
+                      : 'text-gray-400 hover:text-white hover:bg-[#1A1A1D]'
+                  }`}
+                  title="Réglages de l'application"
+                >
+                  {activeTab === 'settings' && (
+                    <motion.span
+                      layoutId="active-nav-indicator"
+                      className="absolute inset-0 bg-[#1C1C1E] rounded-md border border-[#333] -z-10 shadow-sm"
+                      transition={{ type: 'spring', stiffness: 450, damping: 35 }}
+                    />
+                  )}
+                  <Sliders className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                  <span>Réglages</span>
+                </button>
+              )}
             </nav>
           </div>
 
           {/* Outils d'action */}
           <div className="flex items-center gap-1 sm:gap-2 shrink-0 z-10">
+            {isGuest && (
+              <div className="flex items-center gap-1.5">
+                <span className="hidden lg:inline-flex items-center gap-1 px-2 py-1 rounded-md bg-cyan-950/50 border border-cyan-500/30 text-cyan-300 text-[10px] font-semibold">
+                  Mode Invité · Lecture seule
+                </span>
+                <button
+                  type="button"
+                  onClick={exitGuestMode}
+                  className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-200 border border-[#333] text-xs font-semibold transition-colors cursor-pointer"
+                  title="Quitter le mode invité et se connecter"
+                >
+                  <LogIn className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Se connecter</span>
+                </button>
+              </div>
+            )}
+
             {/* Bouton d'installation PWA */}
             {isInstallable && (
               <button
@@ -375,15 +387,43 @@ export const Navbar: React.FC = () => {
                   {/* En-tête profil compact */}
                   <div className="px-3 py-2 bg-[#141417] flex items-center justify-between gap-2.5">
                     {/* Infos utilisateur */}
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <div
+                      onClick={canEditProfilePicture ? () => {
+                        setIsProfilePictureModalOpen(true);
+                        setIsMobileMenuOpen(false);
+                      } : undefined}
+                      onKeyDown={canEditProfilePicture ? (e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setIsProfilePictureModalOpen(true);
+                          setIsMobileMenuOpen(false);
+                        }
+                      } : undefined}
+                      role={canEditProfilePicture ? 'button' : undefined}
+                      tabIndex={canEditProfilePicture ? 0 : undefined}
+                      title={canEditProfilePicture ? 'Modifier la photo de profil' : undefined}
+                      aria-label={canEditProfilePicture ? 'Modifier la photo de profil' : undefined}
+                      className={`flex items-center gap-2 min-w-0 flex-1 ${
+                        canEditProfilePicture
+                          ? 'group/avatar cursor-pointer rounded-lg p-1 -m-1 hover:bg-[#1C1C1F] transition-colors'
+                          : ''
+                      }`}
+                    >
                       {/* Avatar avec pastille de synchronisation */}
-                      <div className="relative w-7 h-7 rounded-full bg-[#1C1C1E] border border-[#333] flex items-center justify-center text-white font-bold text-xs shrink-0 shadow-xs">
-                        {currentUser?.displayName ? (
+                      <div className="relative w-7 h-7 rounded-full bg-[#1C1C1E] border border-[#333] flex items-center justify-center text-white font-bold text-xs shrink-0 shadow-xs overflow-hidden">
+                        {currentUser?.photoURL ? (
+                          <img src={currentUser.photoURL} alt={currentUser.displayName || 'Avatar'} className="w-full h-full object-cover rounded-full" />
+                        ) : currentUser?.displayName ? (
                           <span>{currentUser.displayName.charAt(0).toUpperCase()}</span>
                         ) : (
                           <UserIcon className="w-3.5 h-3.5 text-gray-400" />
                         )}
-                        <span className="absolute -bottom-0.5 -right-0.5 flex h-2 w-2 pointer-events-none">
+                        {canEditProfilePicture && (
+                          <span className="absolute inset-0 bg-black/55 flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-opacity rounded-full z-20">
+                            <Camera className="w-3.5 h-3.5 text-white" />
+                          </span>
+                        )}
+                        <span className="absolute -bottom-0.5 -right-0.5 flex h-2 w-2 pointer-events-none z-10">
                           {syncStatus === 'syncing' && (
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
                           )}
@@ -392,47 +432,41 @@ export const Navbar: React.FC = () => {
                       </div>
 
                       <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-white truncate text-xs leading-tight">
-                          {currentUser ? currentUser.displayName : 'Non connecté'}
-                        </p>
+                        <div className="flex items-center gap-1 min-w-0">
+                          <p className="font-semibold text-white truncate text-xs leading-tight">
+                            {currentUser ? currentUser.displayName : isGuest ? 'Invité (Lecture seule)' : 'Non connecté'}
+                          </p>
+                          {canEditProfilePicture && (
+                            <Camera className="w-2.5 h-2.5 text-gray-400 group-hover/avatar:text-blue-400 shrink-0 transition-colors" />
+                          )}
+                        </div>
                         <p className="text-[10px] text-gray-400 truncate leading-tight">
-                          {currentUser ? (currentUser.email || (currentUser.role === 'admin' ? 'Administrateur 👑' : currentUser.role === 'leader' ? 'Responsable ⚡' : currentUser.role === 'editor' ? 'Éditeur ✍️' : currentUser.role === 'viewer' ? 'Régie 🖥️' : 'Membre 🎵')) : 'Mode invité — lecture seule'}
+                          {currentUser ? (currentUser.email || (currentUser.role === 'admin' ? 'Administrateur 👑' : currentUser.role === 'leader' ? 'Responsable ⚡' : currentUser.role === 'editor' ? 'Éditeur ✍️' : currentUser.role === 'viewer' ? 'Régie 🖥️' : 'Membre 🎵')) : isGuest ? (currentGroup?.name || 'Consultation seule') : 'Mode invité — lecture seule'}
                         </p>
                       </div>
                     </div>
 
-                    {/* Actions d'icônes compactes : Sync, Compte, Déconnexion */}
+                    {/* Actions d'icônes compactes : Sync, Déconnexion */}
                     <div className="flex items-center gap-1 shrink-0">
-                      <button
-                        type="button"
-                        disabled={syncStatus === 'syncing' || isOffline}
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          await syncNow();
-                        }}
-                        className={`p-1.5 rounded-md border text-gray-300 hover:text-white transition-all cursor-pointer ${
-                          syncStatus === 'syncing' 
-                            ? 'bg-blue-600/20 text-blue-400 border-blue-500/40' 
-                            : 'bg-[#1C1C1E] hover:bg-[#252529] border-[#333]'
-                        }`}
-                        title={isOffline ? "Hors-ligne" : syncStatus === 'syncing' ? "Synchronisation..." : `Synchroniser — ${syncConfig.label}`}
-                        aria-label="Synchroniser"
-                      >
-                        <SyncIconComponent className={`w-3.5 h-3.5 ${syncConfig.spin ? 'animate-spin text-blue-400' : ''}`} />
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsAuthModalOpen(true);
-                          setIsMobileMenuOpen(false);
-                        }}
-                        className="p-1.5 rounded-md bg-[#1C1C1E] hover:bg-[#252529] text-gray-300 hover:text-white border border-[#333] transition-colors cursor-pointer"
-                        title={currentUser ? 'Changer de compte' : 'Se connecter'}
-                        aria-label={currentUser ? 'Changer de compte' : 'Se connecter'}
-                      >
-                        <UserIcon className="w-3.5 h-3.5" />
-                      </button>
+                      {!isGuest && (
+                        <button
+                          type="button"
+                          disabled={syncStatus === 'syncing' || isOffline}
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            await syncNow();
+                          }}
+                          className={`p-1.5 rounded-md border text-gray-300 hover:text-white transition-all cursor-pointer ${
+                            syncStatus === 'syncing' 
+                              ? 'bg-blue-600/20 text-blue-400 border-blue-500/40' 
+                              : 'bg-[#1C1C1E] hover:bg-[#252529] border-[#333]'
+                          }`}
+                          title={isOffline ? "Hors-ligne" : syncStatus === 'syncing' ? "Synchronisation..." : `Synchroniser — ${syncConfig.label}`}
+                          aria-label="Synchroniser"
+                        >
+                          <SyncIconComponent className={`w-3.5 h-3.5 ${syncConfig.spin ? 'animate-spin text-blue-400' : ''}`} />
+                        </button>
+                      )}
 
                       {currentUser && (
                         <button
@@ -446,6 +480,21 @@ export const Navbar: React.FC = () => {
                           aria-label="Déconnexion"
                         >
                           <LogOut className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+
+                      {isGuest && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            exitGuestMode();
+                            setIsMobileMenuOpen(false);
+                          }}
+                          className="p-1.5 rounded-md bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 transition-colors cursor-pointer"
+                          title="Se connecter / Quitter le mode invité"
+                          aria-label="Se connecter"
+                        >
+                          <LogIn className="w-3.5 h-3.5" />
                         </button>
                       )}
                     </div>
@@ -558,39 +607,43 @@ export const Navbar: React.FC = () => {
                       )}
                     </button>
 
-                    <button
-                      onClick={() => handleNavClick('groups')}
-                      className={`w-full text-left px-3.5 py-2 flex items-center justify-between transition-colors ${
-                        activeTab === 'groups'
-                          ? 'bg-[#1C1C1E] text-blue-400 font-semibold'
-                          : 'text-gray-300 hover:bg-[#1C1C1E] hover:text-white'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <Library className="w-3.5 h-3.5 text-blue-400" />
-                        <span>Bibliothèques</span>
-                      </div>
-                      {activeTab === 'groups' && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                      )}
-                    </button>
+                    {!isGuest && (
+                      <>
+                        <button
+                          onClick={() => handleNavClick('groups')}
+                          className={`w-full text-left px-3.5 py-2 flex items-center justify-between transition-colors ${
+                            activeTab === 'groups'
+                              ? 'bg-[#1C1C1E] text-blue-400 font-semibold'
+                              : 'text-gray-300 hover:bg-[#1C1C1E] hover:text-white'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <Library className="w-3.5 h-3.5 text-blue-400" />
+                            <span>Bibliothèques</span>
+                          </div>
+                          {activeTab === 'groups' && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                          )}
+                        </button>
 
-                    <button
-                      onClick={() => handleNavClick('settings')}
-                      className={`w-full text-left px-3.5 py-2 flex items-center justify-between transition-colors cursor-pointer ${
-                        activeTab === 'settings'
-                          ? 'bg-[#1C1C1E] text-purple-400 font-semibold'
-                          : 'text-gray-300 hover:bg-[#1C1C1E] hover:text-white'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <Sliders className="w-3.5 h-3.5 text-purple-400" />
-                        <span>Réglages</span>
-                      </div>
-                      {activeTab === 'settings' && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
-                      )}
-                    </button>
+                        <button
+                          onClick={() => handleNavClick('settings')}
+                          className={`w-full text-left px-3.5 py-2 flex items-center justify-between transition-colors cursor-pointer ${
+                            activeTab === 'settings'
+                              ? 'bg-[#1C1C1E] text-purple-400 font-semibold'
+                              : 'text-gray-300 hover:bg-[#1C1C1E] hover:text-white'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <Sliders className="w-3.5 h-3.5 text-purple-400" />
+                            <span>Réglages</span>
+                          </div>
+                          {activeTab === 'settings' && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
+                          )}
+                        </button>
+                      </>
+                    )}
                   </div>
 
                   {isInstallable && (
@@ -615,5 +668,12 @@ export const Navbar: React.FC = () => {
         </div>
       </div>
     </header>
+    {canEditProfilePicture && (
+      <ProfilePictureModal
+        isOpen={isProfilePictureModalOpen}
+        onClose={() => setIsProfilePictureModalOpen(false)}
+      />
+    )}
+    </>
   );
 };

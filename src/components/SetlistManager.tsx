@@ -32,7 +32,8 @@ import {
   GripVertical,
   Pencil,
   Calendar,
-  MoreVertical
+  MoreVertical,
+  Copy
 } from 'lucide-react';
 
 export const SetlistManager: React.FC = () => {
@@ -219,6 +220,24 @@ export const SetlistManager: React.FC = () => {
     }
 
     setEditingSetlist(null);
+  };
+
+  // Dupliquer une setlist
+  const handleDuplicateSetlist = async (st: Setlist) => {
+    const duplicatedName = `${st.name} (copie)`;
+    const newId = await createSetlist({
+      name: duplicatedName,
+      date: st.date || new Date().toISOString().split('T')[0],
+      songIds: [...st.songIds],
+      songOverrides: st.songOverrides ? JSON.parse(JSON.stringify(st.songOverrides)) : undefined,
+      notes: st.notes || '',
+      targetDuration: st.targetDuration || 20
+    });
+
+    if (newId) {
+      setExpandedSetlistId(newId);
+      showNotification({ title: 'Setlist dupliquée', type: 'success' });
+    }
   };
 
   // Reorder songs in setlist via index swap
@@ -437,6 +456,7 @@ export const SetlistManager: React.FC = () => {
           }}
           onOpenPdf={(st) => setPdfModalSetlist(st)}
           onOpenEdit={(st) => handleOpenEditModal(st)}
+          onDuplicateSetlist={(st) => handleDuplicateSetlist(st)}
           onChangeDate={(st) => setDatePickerSetlist(st)}
           onDeleteSetlist={async (stId) => {
             await deleteSetlist(stId);
@@ -599,7 +619,7 @@ export const SetlistManager: React.FC = () => {
                       </button>
                     )}
 
-                    {/* Desktop: Les 3 boutons visibles (Modifier, PDF, Supprimer) */}
+                    {/* Desktop: Les boutons d'action (Modifier, Dupliquer, PDF, Supprimer) */}
                     <div className="hidden sm:flex items-center gap-1.5 sm:gap-2">
                       {canManageSetlists && (
                         <button
@@ -610,6 +630,18 @@ export const SetlistManager: React.FC = () => {
                           aria-label="Modifier les infos de la setlist"
                         >
                           <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+
+                      {canManageSetlists && (
+                        <button
+                          type="button"
+                          onClick={() => handleDuplicateSetlist(st)}
+                          className="p-2 rounded-lg bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-400 hover:text-cyan-400 border border-[#333] hover:border-cyan-500/40 text-xs font-medium shadow-sm transition-all active:scale-95 flex items-center justify-center"
+                          title="Dupliquer la setlist"
+                          aria-label="Dupliquer la setlist"
+                        >
+                          <Copy className="w-3.5 h-3.5" />
                         </button>
                       )}
 
@@ -693,6 +725,20 @@ export const SetlistManager: React.FC = () => {
                             >
                               <Pencil className="w-3.5 h-3.5 text-blue-400 shrink-0" />
                               <span>Modifier la setlist</span>
+                            </button>
+                          )}
+
+                          {canManageSetlists && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveMenuSetlistId(null);
+                                handleDuplicateSetlist(st);
+                              }}
+                              className="w-full px-3 py-2 text-left text-xs font-medium text-gray-300 hover:text-white hover:bg-[#222228] flex items-center gap-2.5 transition-colors"
+                            >
+                              <Copy className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                              <span>Dupliquer la setlist</span>
                             </button>
                           )}
 

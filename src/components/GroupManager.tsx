@@ -34,7 +34,9 @@ import {
   UserMinus,
   Search,
   FileEdit,
-  Monitor
+  Monitor,
+  RefreshCw,
+  Link2
 } from 'lucide-react';
 import { UserRole, Group } from '../types';
 import { AssignMembersModal } from './AssignMembersModal';
@@ -465,7 +467,9 @@ export const GroupManager: React.FC = () => {
     setActiveTab,
     canManageGroups,
     canManageSongs,
-    canAccessSettings
+    canAccessSettings,
+    toggleLibraryGuestMode,
+    regenerateGuestCode
   } = useApp();
 
   const [newGroupName, setNewGroupName] = useState('');
@@ -473,6 +477,10 @@ export const GroupManager: React.FC = () => {
   const [joinCodeInput, setJoinCodeInput] = useState('');
   const [joinStatus, setJoinStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [isCopied, setIsCopied] = useState(false);
+  const [isGuestCopied, setIsGuestCopied] = useState(false);
+  const [isGuestLinkCopied, setIsGuestLinkCopied] = useState(false);
+  const [isUpdatingGuestMode, setIsUpdatingGuestMode] = useState(false);
+  const [isRegeneratingGuestCode, setIsRegeneratingGuestCode] = useState(false);
   const [isSeeding, setIsSeeding] = useState(false);
   const [seedSuccess, setSeedSuccess] = useState(false);
 
@@ -500,8 +508,7 @@ export const GroupManager: React.FC = () => {
   const [deleteAssociatedData, setDeleteAssociatedData] = useState(true);
 
   const canDeleteLibrary = (g: Group) => {
-    if (g.id === 'default-group') return false;
-    return currentUser?.role === 'admin';
+    return Boolean(currentUser?.uid && g.ownerId === currentUser.uid);
   };
 
   const handleConfirmDelete = async () => {
@@ -533,16 +540,11 @@ export const GroupManager: React.FC = () => {
   const [bulkLibraryMenuOpen, setBulkLibraryMenuOpen] = useState(false);
   const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
 
-  // Vérifie si un utilisateur fait partie d'une bibliothèque donnée (en filtrant les faux IDs et en gérant default-group)
+  // Vérifie si un utilisateur fait partie d'une bibliothèque donnée
   const isMemberOfGroup = useCallback((groupId: string | undefined, members: string[] | undefined, userUid: string): boolean => {
     if (!groupId) return false;
-    const memberList = members || [];
-    if (groupId === 'default-group') {
-      const hasExplicitValidMembers = memberList.some(m => allUsers.some(u => u.uid === m));
-      return hasExplicitValidMembers ? memberList.includes(userUid) : true;
-    }
-    return memberList.includes(userUid);
-  }, [allUsers]);
+    return (members || []).includes(userUid);
+  }, []);
 
   // Décompte précis des membres réels enregistrés dans la bibliothèque
   const getGroupValidMemberCount = useCallback((g: Group): number => {
@@ -629,6 +631,41 @@ export const GroupManager: React.FC = () => {
     navigator.clipboard.writeText(currentGroup.inviteCode);
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2000);
+  };
+
+  const handleCopyGuestCode = () => {
+    if (!currentGroup?.guestCode) return;
+    navigator.clipboard.writeText(currentGroup.guestCode);
+    setIsGuestCopied(true);
+    setTimeout(() => setIsGuestCopied(false), 2000);
+  };
+
+  const handleCopyGuestLink = () => {
+    if (!currentGroup?.guestCode) return;
+    const url = `${window.location.origin}/?guestCode=${encodeURIComponent(currentGroup.guestCode)}`;
+    navigator.clipboard.writeText(url);
+    setIsGuestLinkCopied(true);
+    setTimeout(() => setIsGuestLinkCopied(false), 2000);
+  };
+
+  const handleToggleGuestMode = async () => {
+    if (!currentGroup || isUpdatingGuestMode) return;
+    setIsUpdatingGuestMode(true);
+    try {
+      await toggleLibraryGuestMode(currentGroup.id, !currentGroup.guestEnabled);
+    } finally {
+      setIsUpdatingGuestMode(false);
+    }
+  };
+
+  const handleRegenerateGuestCode = async () => {
+    if (!currentGroup || isRegeneratingGuestCode) return;
+    setIsRegeneratingGuestCode(true);
+    try {
+      await regenerateGuestCode(currentGroup.id);
+    } finally {
+      setIsRegeneratingGuestCode(false);
+    }
   };
 
   const [createStatus, setCreateStatus] = useState<string | null>(null);
@@ -718,43 +755,14 @@ export const GroupManager: React.FC = () => {
     <div className="max-w-5xl mx-auto px-3 sm:px-6 py-6 pb-12 text-[#E0E0E0]">
       
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
-          <Library className="w-6 h-6 text-blue-400" />
-          <span>Gestion des Bibliothèques</span>
-        </h1>
-      </div>
-
-      {/* Bandeau consultation visiteur */}
-      {!currentUser && (
-        <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-blue-950/40 via-[#141724] to-[#121217] border border-blue-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-xs">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-lg bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400 shrink-0">
-              <Eye className="w-5 h-5" />
-            </div>
-            <div className="min-w-0">
-              <div className="font-semibold text-white truncate flex items-center gap-2">
-                <span>Accès libre pour visiteurs & musiciens non connectés</span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium">Consultation</span>
-              </div>
-              <p className="text-[11px] text-gray-400 mt-0.5">
-                Sélectionnez une bibliothèque ou entrez un code pour consulter librement son répertoire, transposer, changer la tonalité et voir ses différentes versions.
-              </p>
-            </div>
-          </div>
-
-          {currentGroup && (
-            <button
-              type="button"
-              onClick={() => setActiveTab('repertoire')}
-              className="px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-xs transition-all active:scale-98 flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
-            >
-              <BookOpen className="w-3.5 h-3.5" />
-              <span>Ouvrir la bibliothèque</span>
-            </button>
-          )}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-wrap">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-2 sm:gap-2.5">
+            <Library className="w-5 h-5 sm:w-6 sm:h-6 text-blue-500 shrink-0" />
+            <span>Gestion des Bibliothèques</span>
+          </h1>
         </div>
-      )}
+      </div>
 
       {/* Espace Unifié : Vos Bibliothèques, Bibliothèque Active & Rôles des Membres */}
       <div className="bg-[#111112] border border-[#222224] rounded-2xl p-4 sm:p-6 mb-8 shadow-sm space-y-6">
@@ -819,7 +827,7 @@ export const GroupManager: React.FC = () => {
                       </button>
                     </div>
 
-                    {currentGroup.id !== 'default-group' && canDeleteLibrary(currentGroup) && (
+                    {canDeleteLibrary(currentGroup) && (
                       <button
                         type="button"
                         onClick={() => setLibraryToDelete(currentGroup)}
@@ -832,14 +840,112 @@ export const GroupManager: React.FC = () => {
                   </div>
                 </form>
               ) : (
-                <div>
-                  <h2 className="text-lg sm:text-xl font-bold text-white">
-                    {currentGroup.name}
-                  </h2>
-                  {currentGroup.description && (
-                    <p className="text-xs text-gray-300 mt-1">
-                      {currentGroup.description}
-                    </p>
+                <div className="space-y-2.5">
+                  <div>
+                    <h2 className="text-lg sm:text-xl font-bold text-white">
+                      {currentGroup.name}
+                    </h2>
+                    {currentGroup.description && (
+                      <p className="text-xs text-gray-300 mt-1">
+                        {currentGroup.description}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Identifiant de la bibliothèque à partager */}
+                  <div className="inline-flex items-center gap-2.5 px-3 py-1.5 rounded-lg bg-[#16161C] border border-[#2A2A35]">
+                    <KeyRound className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                    <div className="text-[11px] text-gray-400">
+                      Identifiant de la bibliothèque :{' '}
+                      <span className="font-mono font-bold text-blue-300 tracking-wider select-all">
+                        {currentGroup.inviteCode}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleCopyInviteCode}
+                      className="px-2 py-0.5 rounded bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 text-[10px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                    >
+                      {isCopied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                      <span>{isCopied ? 'Copié' : 'Copier'}</span>
+                    </button>
+                  </div>
+
+                  {/* Accès Invité (Lecture seule) — Propriétaire uniquement */}
+                  {currentUser?.uid && currentGroup.ownerId === currentUser.uid && (
+                    <div className="mt-2 p-3 rounded-xl bg-[#15151A] border border-[#262630] max-w-2xl space-y-2.5">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Eye className={`w-3.5 h-3.5 shrink-0 ${currentGroup.guestEnabled ? 'text-amber-400' : 'text-gray-500'}`} />
+                          <span className="text-xs font-semibold text-white">Accès Invité (Lecture seule)</span>
+                          <span
+                            className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${
+                              currentGroup.guestEnabled
+                                ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                                : 'bg-[#1D1D24] text-gray-400 border-[#2D2D38]'
+                            }`}
+                          >
+                            {currentGroup.guestEnabled ? 'Activé' : 'Désactivé'}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleToggleGuestMode}
+                          disabled={isUpdatingGuestMode}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 border transition-colors cursor-pointer disabled:opacity-50 ${
+                            currentGroup.guestEnabled
+                              ? 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border-amber-500/30'
+                              : 'bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-300 border-emerald-500/30'
+                          }`}
+                        >
+                          {isUpdatingGuestMode && <Loader2 className="w-3 h-3 animate-spin" />}
+                          <span>{currentGroup.guestEnabled ? 'Désactiver le mode invité' : 'Activer le mode invité'}</span>
+                        </button>
+                      </div>
+
+                      <p className="text-[11px] text-gray-400 leading-relaxed">
+                        {currentGroup.guestEnabled
+                          ? 'Les invités peuvent consulter le répertoire, les setlists et utiliser les outils (Accordeur, Métronome, Pads, Piano) sans compte ni droit de modification.'
+                          : 'Désactivé par défaut. Activez ce mode pour générer un code d’accès dédié en lecture seule, distinct du code membre.'}
+                      </p>
+
+                      {currentGroup.guestEnabled && currentGroup.guestCode && (
+                        <div className="flex flex-wrap items-center gap-2 pt-1">
+                          <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-[#101014] border border-[#2A2A35]">
+                            <span className="text-[11px] text-gray-400">Code invité :</span>
+                            <span className="font-mono font-bold text-xs text-amber-300 tracking-wider select-all">
+                              {currentGroup.guestCode}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleCopyGuestCode}
+                            className="px-2.5 py-1 rounded-lg bg-[#1C1C22] hover:bg-[#26262F] text-gray-200 border border-[#32323D] text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                          >
+                            {isGuestCopied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                            <span>{isGuestCopied ? 'Code copié' : 'Copier le code'}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleCopyGuestLink}
+                            className="px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                          >
+                            {isGuestLinkCopied ? <Check className="w-3 h-3 text-emerald-400" /> : <Link2 className="w-3 h-3" />}
+                            <span>{isGuestLinkCopied ? 'Lien copié' : 'Copier le lien'}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleRegenerateGuestCode}
+                            disabled={isRegeneratingGuestCode}
+                            className="px-2.5 py-1 rounded-lg bg-[#1C1C22] hover:bg-[#26262F] text-gray-300 hover:text-white border border-[#32323D] text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
+                            title="Révoquer l'ancien code et en générer un nouveau"
+                          >
+                            <RefreshCw className={`w-3 h-3 ${isRegeneratingGuestCode ? 'animate-spin' : ''}`} />
+                            <span>Régénérer</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
@@ -869,7 +975,7 @@ export const GroupManager: React.FC = () => {
                   </button>
                 </>
               )}
-              {currentGroup.id !== 'default-group' && canDeleteLibrary(currentGroup) && !isEditingGroup && (
+              {canDeleteLibrary(currentGroup) && !isEditingGroup && (
                 <button
                   type="button"
                   onClick={() => setLibraryToDelete(currentGroup)}
@@ -905,7 +1011,6 @@ export const GroupManager: React.FC = () => {
             {groups.map((g, index) => {
               const isActive = currentGroup?.id === g.id;
               const groupKey = g.id ? `group-${g.id}-${index}` : `group-${index}`;
-              const isProtected = g.id === 'default-group';
               const userCanDelete = canDeleteLibrary(g);
               return (
                 <div
@@ -933,9 +1038,9 @@ export const GroupManager: React.FC = () => {
                   </div>
 
                   <div className="flex items-center justify-between text-[11px] text-gray-400 mt-1">
-                    <span>{getGroupValidMemberCount(g)} membre{getGroupValidMemberCount(g) > 1 ? 's' : ''}</span>
+                    <span>{(g.members || []).length} membre{(g.members || []).length > 1 ? 's' : ''}</span>
                     <div className="flex items-center gap-1.5">
-                      {canManageGroups && (
+                      {canManageGroups && isActive && (
                         <button
                           type="button"
                           onClick={(e) => {
@@ -950,28 +1055,22 @@ export const GroupManager: React.FC = () => {
                         </button>
                       )}
 
-                      {!isProtected ? (
-                        userCanDelete ? (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setLibraryToDelete(g);
-                            }}
-                            className="p-1 rounded text-gray-400 hover:text-rose-400 hover:bg-rose-500/20 transition-colors cursor-pointer"
-                            title={`Supprimer la bibliothèque « ${g.name} »`}
-                            aria-label={`Supprimer la bibliothèque ${g.name}`}
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        ) : (
-                          <span className="p-1 text-gray-600" title="Suppression réservée à l'administrateur ou créateur">
-                            <Lock className="w-3 h-3" />
-                          </span>
-                        )
+                      {userCanDelete ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setLibraryToDelete(g);
+                          }}
+                          className="p-1 rounded text-gray-400 hover:text-rose-400 hover:bg-rose-500/20 transition-colors cursor-pointer"
+                          title={`Supprimer la bibliothèque « ${g.name} »`}
+                          aria-label={`Supprimer la bibliothèque ${g.name}`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       ) : (
-                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#202026] text-gray-400 font-medium" title="Bibliothèque par défaut protégée">
-                          Protégée
+                        <span className="p-1 text-gray-600" title="Suppression réservée au créateur de cette bibliothèque">
+                          <Lock className="w-3 h-3" />
                         </span>
                       )}
 
@@ -1334,7 +1433,7 @@ export const GroupManager: React.FC = () => {
             )}
           </div>
 
-          {/* Colonne / Ligne 2 : Créer une nouvelle bibliothèque (réservé Admin) */}
+          {/* Colonne / Ligne 2 : Créer une nouvelle bibliothèque */}
           <div className="space-y-3 pt-4 lg:pt-0 lg:pl-5">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-white flex items-center gap-1.5">
@@ -1343,15 +1442,11 @@ export const GroupManager: React.FC = () => {
               </span>
               <InfoTooltip 
                 label="Aide Création" 
-                content={
-                  canManageGroups 
-                    ? "Crée un nouvel espace avec sa propre bibliothèque dédiée de chants, dossiers et setlists, et son propre code d'invitation pour vos musiciens."
-                    : "Seul l'Administrateur a le privilège de créer, supprimer et administrer les bibliothèques. Les Responsables ont tous les droits musicaux sur les chants et les setlists de la bibliothèque actuelle."
-                }
+                content="Crée un nouvel espace avec sa propre base de données dédiée (chants, dossiers, setlists, pads) et son propre identifiant de partage pour vos musiciens."
               />
             </div>
 
-            {canManageGroups ? (
+            {currentUser ? (
               <form onSubmit={handleCreateGroup} className="space-y-2">
                 <div className="flex flex-col sm:flex-row gap-2">
                   <input
@@ -1384,17 +1479,7 @@ export const GroupManager: React.FC = () => {
                   </div>
                 )}
               </form>
-            ) : (
-              <div className="p-3 rounded-lg bg-[#16161A] border border-[#25252D] text-xs text-gray-400 space-y-1.5">
-                <div className="flex items-center gap-1.5 text-amber-400 font-semibold">
-                  <Lock className="w-3.5 h-3.5 shrink-0" />
-                  <span>Création réservée à l'Administrateur</span>
-                </div>
-                <p className="text-[11px] text-gray-400 leading-relaxed">
-                  Seul le compte Administrateur peut créer, supprimer et administrer les bibliothèques. Les Responsables et Membres peuvent rejoindre une bibliothèque existante via son code d'invitation.
-                </p>
-              </div>
-            )}
+            ) : null}
           </div>
         </div>
       </div>
@@ -1456,8 +1541,8 @@ export const GroupManager: React.FC = () => {
 
             {/* Infos sur le contenu lié */}
             {(() => {
-              const songCount = songs.filter(s => (s.groupId || 'default-group') === libraryToDelete.id).length;
-              const setlistCount = setlists.filter(st => (st.groupId || 'default-group') === libraryToDelete.id).length;
+              const songCount = songs.filter(s => s.groupId === libraryToDelete.id).length;
+              const setlistCount = setlists.filter(st => st.groupId === libraryToDelete.id).length;
               return (
                 <div className="bg-[#0D0D10] border border-[#222228] rounded-xl p-3 text-xs space-y-2">
                   <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">

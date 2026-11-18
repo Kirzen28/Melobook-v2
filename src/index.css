@@ -347,24 +347,100 @@ html.light-theme ::-webkit-scrollbar-thumb:hover {
   user-select: none;
 }
 
-/* Print optimization for Chord Sheets */
+/* Print optimization for SongReader & clean A4 paper output */
 @media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm 10mm 12mm 10mm;
+  }
+
+  /* Reset layout, containers & backgrounds */
+  html,
   body {
-    background: white !important;
-    color: black !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    font-size: 10.5pt !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
-  .no-print {
-    display: none !important;
-  }
-  .print-sheet {
-    background: white !important;
-    color: black !important;
-    font-size: 11pt !important;
+
+  #root,
+  main,
+  .min-h-screen,
+  [data-song-reader-root="true"] {
+    background: #ffffff !important;
+    color: #000000 !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    position: static !important;
+    margin: 0 !important;
     padding: 0 !important;
   }
+
+  /* Completely remove UI chrome: navigation, sidebars, bars, floating tools & overlays */
+  header,
+  nav,
+  aside,
+  .no-print,
+  [data-no-print="true"],
+  #songreader-screen-flash-overlay {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  /* Clean Sheet Canvas */
+  .print-sheet {
+    background: #ffffff !important;
+    color: #000000 !important;
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Avoid page breaks inside section cards */
+  [data-section-card="true"] {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    margin-bottom: 12px !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
+
+  /* Chords formatting for clean A4 printing */
   .chord-badge {
-    color: #2563eb !important;
-    font-weight: bold !important;
+    color: #1d4ed8 !important; /* High-contrast clean royal blue */
+    font-weight: 700 !important;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace !important;
+    opacity: 1 !important;
+    font-size: 10.5pt !important;
+    line-height: 1.15 !important;
+    margin-bottom: 2px !important;
+    cursor: default !important;
+    text-decoration: none !important;
+    background: transparent !important;
+  }
+
+  /* Lyrics formatting: deep black, crisp readability */
+  .print-sheet span {
+    color: #111827 !important;
+  }
+
+  /* Crisp borders and no dark glowing shadows in print */
+  .print-sheet * {
+    text-shadow: none !important;
+    box-shadow: none !important;
   }
 }
 

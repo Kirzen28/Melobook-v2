@@ -258,72 +258,97 @@ export async function generateSetlistPdf(
     let currentY = marginY;
 
     // --- Song Header ---
+    const isSingleSongExport = setlist.id === 'single-song' && setlistSongs.length === 1;
+    const headerHeight = isSingleSongExport ? 23 : 28;
+
     doc.setFillColor(colors.cardBg[0], colors.cardBg[1], colors.cardBg[2]);
     doc.setDrawColor(colors.border[0], colors.border[1], colors.border[2]);
     doc.setLineWidth(0.3);
-    doc.roundedRect(marginX, currentY, contentWidth, 24, 2, 2, 'FD');
+    doc.roundedRect(marginX, currentY, contentWidth, headerHeight, 2, 2, 'FD');
 
-    // Left info: Song # in Setlist + Title & Artist
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7.5);
-    doc.setTextColor(colors.primary[0], colors.primary[1], colors.primary[2]);
-    doc.text(`CHANT ${sIdx + 1} SUR ${setlistSongs.length} • SETLIST : ${setlist.name.toUpperCase()}`, marginX + 5, currentY + 6);
+    let textY = currentY + 5.5;
+    if (!isSingleSongExport) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.5);
+      doc.setTextColor(colors.primary[0], colors.primary[1], colors.primary[2]);
+      doc.text(`CHANT ${sIdx + 1} SUR ${setlistSongs.length} • SETLIST : ${setlist.name.toUpperCase()}`, marginX + 5, textY);
+      textY = currentY + 13;
+    } else {
+      textY = currentY + 9;
+    }
 
+    // Left: Title & Right: Artist
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(titleSize);
     doc.setTextColor(colors.text[0], colors.text[1], colors.text[2]);
     const cleanTitle = parsedData.title || song.title;
-    const splitTitle = doc.splitTextToSize(cleanTitle, contentWidth - 65);
-    doc.text(splitTitle[0] || cleanTitle, marginX + 5, currentY + 14);
+    const artistText = (parsedData.artist || song.artist || '').trim();
+    const maxTitleWidth = artistText ? contentWidth - 58 : contentWidth - 10;
+    const splitTitle = doc.splitTextToSize(cleanTitle, maxTitleWidth);
+    doc.text(splitTitle[0] || cleanTitle, marginX + 5, textY);
 
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(metaSize);
-    doc.setTextColor(colors.textMuted[0], colors.textMuted[1], colors.textMuted[2]);
-    doc.text(parsedData.artist || song.artist || 'Auteur', marginX + 5, currentY + 20);
-
-    // Right Metadata Box (Tonalité, Tempo, Capo)
-    const metaBoxWidth = 54;
-    const metaBoxX = marginX + contentWidth - metaBoxWidth - 3;
-    const metaBoxY = currentY + 3;
-
-    doc.setFillColor(isDark ? 18 : 240, isDark ? 18 : 243, isDark ? 22 : 246);
-    doc.setDrawColor(colors.border[0], colors.border[1], colors.border[2]);
-    doc.roundedRect(metaBoxX, metaBoxY, metaBoxWidth, 18, 1.5, 1.5, 'FD');
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
-    doc.setTextColor(colors.textMuted[0], colors.textMuted[1], colors.textMuted[2]);
-    doc.text('TONALITÉ :', metaBoxX + 4, metaBoxY + 5.5);
-    
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9.5);
-    doc.setTextColor(colors.primary[0], colors.primary[1], colors.primary[2]);
-    doc.text(effectiveKey, metaBoxX + 24, metaBoxY + 5.5);
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.setTextColor(colors.textMuted[0], colors.textMuted[1], colors.textMuted[2]);
-    doc.text('TEMPO :', metaBoxX + 4, metaBoxY + 11);
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8.5);
-    doc.setTextColor(colors.text[0], colors.text[1], colors.text[2]);
-    doc.text(`${song.tempo || parsedData.tempo || 120} BPM`, metaBoxX + 24, metaBoxY + 11);
-
-    const effectiveCapo = song.capo || parsedData.capo || 0;
-    if (effectiveCapo > 0) {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(7.5);
-      doc.setTextColor(190, 90, 10);
-      doc.text(`CAPO : ${effectiveCapo}`, metaBoxX + 4, metaBoxY + 15.5);
-    } else {
+    if (artistText) {
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7.5);
+      doc.setFontSize(metaSize);
       doc.setTextColor(colors.textMuted[0], colors.textMuted[1], colors.textMuted[2]);
-      doc.text(`SIGN : ${song.timeSignature || parsedData.timeSignature || '4/4'}`, metaBoxX + 4, metaBoxY + 15.5);
+      const safeArtist = artistText.length > 32 ? artistText.substring(0, 30) + '...' : artistText;
+      doc.text(safeArtist, marginX + contentWidth - 5, textY, { align: 'right' });
     }
 
-    currentY += 28;
+    // Divider line above single-line metadata
+    const dividerY = currentY + headerHeight - 8.5;
+    doc.setDrawColor(colors.border[0], colors.border[1], colors.border[2]);
+    doc.setLineWidth(0.2);
+    doc.line(marginX + 5, dividerY, marginX + contentWidth - 5, dividerY);
+
+    // Single-line Metadata Row (Tonalité • Tempo • Mesure • Durée • Capo)
+    const metaRowY = currentY + headerHeight - 3.2;
+    const tempoVal = song.tempo || parsedData.tempo || 120;
+    const timeSigVal = song.timeSignature || parsedData.timeSignature || '4/4';
+    const durationVal = getSongDuration(song);
+    const effectiveCapo = song.capo || parsedData.capo || 0;
+
+    const metaItems: Array<{ label: string; value: string; highlight?: boolean }> = [
+      { label: 'Tonalité : ', value: effectiveKey, highlight: true },
+      { label: 'Tempo : ', value: `${tempoVal} BPM` },
+      { label: 'Mesure : ', value: timeSigVal }
+    ];
+    if (durationVal) {
+      metaItems.push({ label: 'Durée : ', value: durationVal });
+    }
+    if (effectiveCapo > 0) {
+      metaItems.push({ label: 'Capo : ', value: String(effectiveCapo) });
+    }
+
+    let metaX = marginX + 5;
+    metaItems.forEach((item, idx) => {
+      if (idx > 0) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8.5);
+        doc.setTextColor(colors.textMuted[0], colors.textMuted[1], colors.textMuted[2]);
+        const sep = '   •   ';
+        doc.text(sep, metaX, metaRowY);
+        metaX += doc.getTextWidth(sep);
+      }
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      doc.setTextColor(colors.textMuted[0], colors.textMuted[1], colors.textMuted[2]);
+      doc.text(item.label, metaX, metaRowY);
+      metaX += doc.getTextWidth(item.label);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      if (item.highlight) {
+        doc.setTextColor(colors.primary[0], colors.primary[1], colors.primary[2]);
+      } else {
+        doc.setTextColor(colors.text[0], colors.text[1], colors.text[2]);
+      }
+      doc.text(item.value, metaX, metaRowY);
+      metaX += doc.getTextWidth(item.value);
+    });
+
+    currentY += headerHeight + 5;
 
     // --- Song Sections (Couplets, Refrains, etc.) ---
     const sections: ParsedSection[] = parsedData.sections.length > 0

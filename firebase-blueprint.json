@@ -2,100 +2,208 @@
   "entities": {
     "UserProfile": {
       "title": "UserProfile",
-      "description": "User profile and preferences",
+      "description": "Private user profile and library selection",
       "type": "object",
       "properties": {
-        "uid": { "type": "string" },
-        "email": { "type": "string" },
-        "displayName": { "type": "string" },
-        "currentGroupId": { "type": "string" },
-        "role": { "type": "string", "enum": ["admin", "leader", "member"] }
+        "uid": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "maxLength": 256 },
+        "displayName": { "type": "string", "maxLength": 120 },
+        "photoURL": { "type": "string", "maxLength": 2048 },
+        "currentGroupId": { "type": "string", "maxLength": 128 },
+        "role": { "type": "string", "enum": ["admin", "leader", "member", "editor", "viewer"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["uid", "email"]
+      "required": ["uid", "email", "displayName", "currentGroupId", "role"]
     },
     "Group": {
       "title": "Group",
-      "description": "Music band or worship team group",
+      "description": "Isolated music library with its own subcollection database",
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "name": { "type": "string" },
-        "ownerId": { "type": "string" },
-        "inviteCode": { "type": "string" }
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 120 },
+        "description": { "type": "string", "maxLength": 500 },
+        "ownerId": { "type": "string", "maxLength": 128 },
+        "members": { "type": "array" },
+        "memberRoles": { "type": "object" },
+        "inviteCode": { "type": "string", "maxLength": 32 },
+        "guestEnabled": { "type": "boolean" },
+        "guestCode": { "type": "string", "maxLength": 32 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["id", "name", "ownerId"]
+      "required": ["id", "name", "ownerId", "members", "inviteCode"]
+    },
+    "GuestInvite": {
+      "title": "GuestInvite",
+      "description": "Direct lookup index mapping a library guest access code to a read-only library",
+      "type": "object",
+      "properties": {
+        "guestCode": { "type": "string", "maxLength": 32 },
+        "groupId": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 120 },
+        "ownerId": { "type": "string", "maxLength": 128 },
+        "guestEnabled": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["guestCode", "groupId", "name", "ownerId", "guestEnabled"]
+    },
+    "LibraryInvite": {
+      "title": "LibraryInvite",
+      "description": "Direct lookup index mapping a library identifier/code to its library ID",
+      "type": "object",
+      "properties": {
+        "inviteCode": { "type": "string", "maxLength": 32 },
+        "groupId": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 120 },
+        "ownerId": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["inviteCode", "groupId", "name", "ownerId"]
+    },
+    "LibraryMember": {
+      "title": "LibraryMember",
+      "description": "Member entry scoped to a single library",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "displayName": { "type": "string", "maxLength": 120 },
+        "photoURL": { "type": "string", "maxLength": 2048 },
+        "role": { "type": "string", "enum": ["admin", "leader", "member", "editor", "viewer"] },
+        "joinedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "displayName", "role"]
     },
     "Song": {
       "title": "Song",
-      "description": "Song sheet with ChordPro content",
+      "description": "Song sheet with ChordPro content inside a library database",
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "groupId": { "type": "string" },
-        "title": { "type": "string" },
-        "artist": { "type": "string" },
-        "key": { "type": "string" },
+        "id": { "type": "string", "maxLength": 128 },
+        "groupId": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 240 },
+        "artist": { "type": "string", "maxLength": 200 },
+        "key": { "type": "string", "maxLength": 24 },
         "tempo": { "type": "number" },
         "bpm": { "type": "number" },
-        "ccli": { "type": "string" },
-        "copyright": { "type": "string" },
-        "youtubeUrl": { "type": "string" },
-        "audioUrl": { "type": "string" },
-        "contentChordPro": { "type": "string" }
+        "timeSignature": { "type": "string", "maxLength": 20 },
+        "duration": { "type": "string", "maxLength": 32 },
+        "durationMode": { "type": "string", "enum": ["auto", "custom"] },
+        "ccli": { "type": "string", "maxLength": 64 },
+        "copyright": { "type": "string", "maxLength": 500 },
+        "youtubeUrl": { "type": "string", "maxLength": 1000 },
+        "audioUrl": { "type": "string", "maxLength": 1000 },
+        "spotifyUrl": { "type": "string", "maxLength": 1000 },
+        "contentChordPro": { "type": "string", "maxLength": 100000 },
+        "content": { "type": "string", "maxLength": 100000 },
+        "folderId": { "type": "string", "maxLength": 128 },
+        "capo": { "type": "number" },
+        "tags": { "type": "array" },
+        "language": { "type": "string", "maxLength": 40 },
+        "linkedSongIds": { "type": "array" },
+        "notes": { "type": "string", "maxLength": 5000 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "groupId", "title", "contentChordPro"]
     },
     "Setlist": {
       "title": "Setlist",
-      "description": "Curated list of songs for an event or concert",
+      "description": "Curated list of songs inside a library database",
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "groupId": { "type": "string" },
-        "name": { "type": "string" },
-        "date": { "type": "string" }
+        "id": { "type": "string", "maxLength": 128 },
+        "groupId": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 200 },
+        "date": { "type": "string", "maxLength": 64 },
+        "songIds": { "type": "array" },
+        "songOverrides": { "type": "object" },
+        "notes": { "type": "string", "maxLength": 5000 },
+        "targetDuration": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["id", "groupId", "name"]
+      "required": ["id", "groupId", "name", "songIds"]
     },
     "SetlistHistory": {
       "title": "SetlistHistory",
-      "description": "Performance history of setlists played during rehearsals or concerts",
+      "description": "Performance history inside a library database",
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "groupId": { "type": "string" },
-        "setlistId": { "type": "string" },
-        "setlistName": { "type": "string" },
+        "id": { "type": "string", "maxLength": 128 },
+        "groupId": { "type": "string", "maxLength": 128 },
+        "setlistId": { "type": "string", "maxLength": 128 },
+        "setlistName": { "type": "string", "maxLength": 200 },
         "eventType": { "type": "string", "enum": ["rehearsal", "concert", "service", "other"] },
-        "date": { "type": "string" },
+        "date": { "type": "string", "maxLength": 64 },
         "durationMinutes": { "type": "number" },
-        "location": { "type": "string" },
-        "notes": { "type": "string" },
-        "songsCount": { "type": "number" }
+        "location": { "type": "string", "maxLength": 200 },
+        "notes": { "type": "string", "maxLength": 5000 },
+        "songIds": { "type": "array" },
+        "songsSnapshot": { "type": "array" },
+        "playedByUid": { "type": "string", "maxLength": 128 },
+        "playedByName": { "type": "string", "maxLength": 120 },
+        "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "groupId", "setlistName", "eventType", "date"]
+    },
+    "CustomPad": {
+      "title": "CustomPad",
+      "description": "Library-scoped audio pads with pitch shift metadata",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "groupId": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 120 },
+        "rootSemitone": { "type": "number" },
+        "rootKey": { "type": "string", "maxLength": 16 },
+        "audioUrl": { "type": "string", "maxLength": 750000 },
+        "fileSize": { "type": "number" },
+        "duration": { "type": "number" },
+        "createdBy": { "type": "string", "maxLength": 128 },
+        "createdByName": { "type": "string", "maxLength": 120 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "groupId", "name", "rootSemitone", "rootKey"]
     }
   },
   "firestore": {
     "/users/{userId}": {
       "schema": "UserProfile",
-      "description": "User profiles"
+      "description": "Private user profiles"
+    },
+    "/library_invites/{inviteCode}": {
+      "schema": "LibraryInvite",
+      "description": "Invite identifier lookup for joining a library"
+    },
+    "/guest_invites/{guestCode}": {
+      "schema": "GuestInvite",
+      "description": "Read-only guest code lookup for libraries with guest mode enabled"
     },
     "/groups/{groupId}": {
       "schema": "Group",
-      "description": "Music groups"
+      "description": "Music libraries"
     },
-    "/songs/{songId}": {
+    "/groups/{groupId}/members/{memberId}": {
+      "schema": "LibraryMember",
+      "description": "Members belonging to a specific library"
+    },
+    "/groups/{groupId}/songs/{songId}": {
       "schema": "Song",
-      "description": "Song directory"
+      "description": "Songs isolated per library"
     },
-    "/setlists/{setlistId}": {
+    "/groups/{groupId}/setlists/{setlistId}": {
       "schema": "Setlist",
-      "description": "Setlists created by groups"
+      "description": "Setlists isolated per library"
     },
-    "/setlist_history/{historyId}": {
+    "/groups/{groupId}/setlist_history/{historyId}": {
       "schema": "SetlistHistory",
-      "description": "Setlists played during rehearsals or concerts"
+      "description": "Performance history isolated per library"
+    },
+    "/groups/{groupId}/custom_pads/{padId}": {
+      "schema": "CustomPad",
+      "description": "Audio pads isolated per library"
     }
   }
 }

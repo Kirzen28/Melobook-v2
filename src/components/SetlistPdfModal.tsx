@@ -1,13 +1,8 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { Setlist, Song } from '../types';
-import { generateSetlistPdf, sharePdfFile, PdfExportOptions, DEFAULT_PDF_OPTIONS } from '../utils/pdfExport';
-import { parseDurationToSeconds, formatSetlistDuration, getSongDuration } from '../utils/chordUtils';
+import { generateSetlistPdf, PdfExportOptions, DEFAULT_PDF_OPTIONS } from '../utils/pdfExport';
 import { 
   FileDown, 
-  Share2, 
-  Printer, 
-  Check, 
-  Copy, 
   X, 
   Moon, 
   Sun, 
@@ -24,6 +19,7 @@ interface SetlistPdfModalProps {
   songs: Song[];
   onClose: () => void;
   mode?: 'song' | 'setlist';
+  allowCover?: boolean;
   onExportChordPro?: () => void;
   onExportJson?: () => void;
 }
@@ -33,12 +29,14 @@ export const SetlistPdfModal: React.FC<SetlistPdfModalProps> = ({
   songs,
   onClose,
   mode,
+  allowCover,
   onExportChordPro,
   onExportJson,
 }) => {
+  const showCoverOption = allowCover ?? (mode !== 'song');
   const [options, setOptions] = useState<PdfExportOptions>({
     ...DEFAULT_PDF_OPTIONS,
-    includeCover: true,
+    includeCover: showCoverOption,
     showChords: true,
     notation: 'standard',
     theme: 'light',
@@ -46,7 +44,6 @@ export const SetlistPdfModal: React.FC<SetlistPdfModalProps> = ({
   });
 
   const [isGenerating, setIsGenerating] = useState(false);
-  const [copiedTextSummary, setCopiedTextSummary] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   const setlistSongs = setlist.songIds
@@ -64,31 +61,6 @@ export const SetlistPdfModal: React.FC<SetlistPdfModalProps> = ({
 
   const subtitle = `${setlist.name} \u2022 ${songCount} chant${songCount > 1 ? 's' : ''}`;
 
-  const handleShare = async () => {
-    setIsGenerating(true);
-    setStatusMessage('Generation du PDF pour le partage...');
-    try {
-      const { blob, fileName } = await generateSetlistPdf(setlist, songs, options);
-      const totalSecs = setlistSongs.reduce((acc, s) => acc + parseDurationToSeconds(s), 0);
-      const durStr = totalSecs > 0 ? ` \u2022 Duree totale : ${formatSetlistDuration(totalSecs)}` : '';
-      const textMessage = isSongMode
-        ? `\uD83C\uDFB5 ${setlist.name}${durStr}`
-        : `\uD83C\uDFB5 Setlist : ${setlist.name} (${setlist.date || 'Programme'})\n${songCount} morceaux prets${durStr}.`;
-      const result = await sharePdfFile(blob, fileName, setlist.name, textMessage);
-      if (result.method === 'download') {
-        setStatusMessage('PDF telecharge ! (Partage direct non supporte par ce navigateur)');
-      } else if (result.success) {
-        setStatusMessage('Partage effectue avec succes !');
-      }
-    } catch (err: any) {
-      console.error(err);
-      setStatusMessage('Erreur lors de la generation du PDF.');
-    } finally {
-      setIsGenerating(false);
-      setTimeout(() => setStatusMessage(null), 4500);
-    }
-  };
-
   const handleDownload = async () => {
     setIsGenerating(true);
     setStatusMessage('Creation du document PDF...');
@@ -105,45 +77,47 @@ export const SetlistPdfModal: React.FC<SetlistPdfModalProps> = ({
     }
   };
 
-  const handlePrint = async () => {
-    setIsGenerating(true);
-    setStatusMessage("Ouverture de l'apercu d'impression...");
-    try {
-      const { doc } = await generateSetlistPdf(setlist, songs, options);
-      const pdfBlob = doc.output('blob');
-      const blobUrl = URL.createObjectURL(pdfBlob);
-      const printWindow = window.open(blobUrl, '_blank');
-      if (printWindow) {
-        setStatusMessage('Document ouvert dans un nouvel onglet.');
-      } else {
-        doc.save(`${setlist.name}-impression.pdf`);
-      }
-    } catch (err: any) {
-      console.error(err);
-      setStatusMessage("Erreur d'impression.");
-    } finally {
-      setIsGenerating(false);
-      setTimeout(() => setStatusMessage(null), 4000);
+  const handleExportChordPro = () => {
+    if (onExportChordPro) {
+      onExportChordPro();
+      onClose();
+      return;
     }
-  };
+    if (setlistSongs.length === 0) return;
 
-  const handleCopyTextSummary = () => {
-    const totalSecs = setlistSongs.reduce((acc, s) => acc + parseDurationToSeconds(s), 0);
-    const durationHeader = totalSecs > 0 ? ` | Duree : ${formatSetlistDuration(totalSecs)}` : '';
-    const lines = [
-      `\uD83C\uDFB5 ${isSongMode ? 'CHANTS' : 'SETLIST'} : ${setlist.name.toUpperCase()}`,
-      !isSongMode ? `\uD83D\uDCC5 Date : ${setlist.date || 'Non specifiee'}${durationHeader}` : '',
-      `\n\uD83D\uDCCB PROGRAMME : ${songCount} chants`,
-      ...setlistSongs.map((s, i) => {
-        const songDur = getSongDuration(s);
-        const durPart = songDur ? ` | \u23F1\uFE0F ${songDur}` : '';
-        return `${i + 1}. ${s.title} \u2014 ${s.artist || 'Auteur'} [Tonalite : ${s.key} | ${s.tempo} BPM${durPart}]`;
-      }),
-      `\n\u2728 Genere avec MeloBook Pro`
-    ].filter(Boolean);
-    navigator.clipboard.writeText(lines.join('\n'));
-    setCopiedTextSummary(true);
-    setTimeout(() => setCopiedTextSummary(false), 3000);
+    const content = setlistSongs.map(song => {
+      const raw = (song.contentChordPro || '').trim();
+      if (/\{(?:title|t)\s*:/i.test(raw)) return raw;
+      const headerLines = [
+        `{title: ${song.title}}`,
+        song.artist ? `{artist: ${song.artist}}` : '',
+        song.key ? `{key: ${song.key}}` : '',
+        song.tempo ? `{tempo: ${song.tempo}}` : '',
+        song.timeSignature ? `{time: ${song.timeSignature}}` : '',
+        song.capo ? `{capo: ${song.capo}}` : '',
+      ].filter(Boolean);
+      return `${headerLines.join('\n')}\n\n${raw}`;
+    }).join('\n\n{new_song}\n\n');
+
+    const safeName = (setlist.name || 'export')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9_-]+/g, '_')
+      .replace(/^_+|_+$/g, '') || 'export';
+    const fileName = `${safeName}.cho`;
+
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    setStatusMessage(`Fichier "${fileName}" telecharge !`);
+    setTimeout(() => setStatusMessage(null), 4000);
   };
 
   return (
@@ -201,13 +175,15 @@ export const SetlistPdfModal: React.FC<SetlistPdfModalProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center justify-between p-2.5 rounded-lg bg-[#141416] border border-[#242428]">
-            <span className="font-semibold text-white">Page Sommaire / Programme</span>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" checked={options.includeCover} onChange={(e) => setOptions(prev => ({ ...prev, includeCover: e.target.checked }))} className="sr-only peer" />
-              <div className="w-9 h-5 bg-[#2A2A2D] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
-            </label>
-          </div>
+          {showCoverOption && (
+            <div className="flex items-center justify-between p-2.5 rounded-lg bg-[#141416] border border-[#242428]">
+              <span className="font-semibold text-white">Page Sommaire / Programme</span>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" checked={options.includeCover} onChange={(e) => setOptions(prev => ({ ...prev, includeCover: e.target.checked }))} className="sr-only peer" />
+                <div className="w-9 h-5 bg-[#2A2A2D] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
+            </div>
+          )}
 
           {(onExportChordPro || onExportJson) && (
             <div className="pt-1">
@@ -238,28 +214,17 @@ export const SetlistPdfModal: React.FC<SetlistPdfModalProps> = ({
         )}
 
         {/* Action Buttons */}
-        <div className="space-y-2.5 pt-2 border-t border-[#222224]">
-          <button type="button" onClick={handleShare} disabled={isGenerating || songCount === 0} className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-950/30 transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer">
-            {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Share2 className="w-4 h-4" />}
-            <span>Partager sur WhatsApp &amp; Applications (PDF)</span>
-          </button>
+        <div className="pt-3 border-t border-[#222224]">
           <div className="grid grid-cols-2 gap-2">
-            <button type="button" onClick={handleDownload} disabled={isGenerating || songCount === 0} className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer">
+            <button type="button" onClick={handleDownload} disabled={isGenerating || songCount === 0} className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer">
               {isGenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileDown className="w-3.5 h-3.5" />}
               <span>Telecharger PDF</span>
             </button>
-            <button type="button" onClick={handlePrint} disabled={isGenerating || songCount === 0} className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-200 hover:text-white border border-[#333] font-semibold text-xs transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer">
-              <Printer className="w-3.5 h-3.5 text-gray-400" />
-              <span>Imprimer / Ouvrir</span>
+            <button type="button" onClick={handleExportChordPro} disabled={isGenerating || songCount === 0} className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-lg bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-200 hover:text-white border border-[#333] font-semibold text-xs transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer">
+              <FileCode className="w-3.5 h-3.5 text-blue-400" />
+              <span>Exporter ChordPro</span>
             </button>
           </div>
-          <button type="button" onClick={handleCopyTextSummary} className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg bg-[#141416] hover:bg-[#1C1C1E] text-gray-400 hover:text-gray-200 border border-[#242428] text-[11px] transition-colors cursor-pointer">
-            {copiedTextSummary ? (
-              <><Check className="w-3.5 h-3.5 text-emerald-400" /><span className="text-emerald-400 font-semibold">Programme texte copie !</span></>
-            ) : (
-              <><Copy className="w-3.5 h-3.5" /><span>Copier le programme sous forme de texte (WhatsApp/SMS)</span></>
-            )}
-          </button>
         </div>
       </div>
     </div>

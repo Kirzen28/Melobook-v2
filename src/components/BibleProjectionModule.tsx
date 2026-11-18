@@ -42,6 +42,7 @@ interface BibleProjectionModuleProps {
   onStopLive?: () => void;
   onNextLiveVerse?: () => void;
   onPrevLiveVerse?: () => void;
+  className?: string;
 }
 
 const BOOK_CATEGORY_COLORS: Record<string, string> = {
@@ -135,7 +136,8 @@ export const BibleProjectionModule: React.FC<BibleProjectionModuleProps> = ({
   activeLiveBibleRef,
   onStopLive,
   onNextLiveVerse,
-  onPrevLiveVerse
+  onPrevLiveVerse,
+  className
 }) => {
   // Traduction courante (LSG par défaut)
   const [selectedTranslation, setSelectedTranslation] = useState<string>(() => {
@@ -303,20 +305,7 @@ export const BibleProjectionModule: React.FC<BibleProjectionModuleProps> = ({
     selectedBookItemRef.current?.scrollIntoView({ block: 'nearest' });
   }, [selectedBook.id]);
 
-  // Barre de recherche rapide de livres
-  const [bookSearchQuery, setBookSearchQuery] = useState('');
 
-  const filteredBooks = useMemo(() => {
-    const q = normalizeSearchString(bookSearchQuery).replace(/\s+/g, '');
-    if (!q) return BIBLE_BOOKS;
-    return BIBLE_BOOKS.filter(b => {
-      const nameNorm = normalizeSearchString(b.name).replace(/\s+/g, '');
-      if (nameNorm.includes(q)) return true;
-      if (b.aliases.some(a => normalizeSearchString(a).replace(/\s+/g, '').includes(q))) return true;
-      if (normalizeSearchString(b.category).includes(q)) return true;
-      return false;
-    });
-  }, [bookSearchQuery]);
 
   // Versets du chapitre actuellement chargé
   const [chapterVerses, setChapterVerses] = useState<BibleVerseItem[]>([]);
@@ -692,13 +681,19 @@ export const BibleProjectionModule: React.FC<BibleProjectionModuleProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleNextVerse, handlePrevVerse, isTranslationDropdownOpen, isSecondaryDropdownOpen]);
 
-  // Défilement automatique dans la grille pour garder le verset sélectionné visible
+  // Défilement automatique dans la liste pour garder le verset sélectionné visible
   useEffect(() => {
     if (selectedVerseStart !== null) {
       const el = document.getElementById(`bible-verse-btn-${selectedVerseStart}`);
       el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
   }, [selectedVerseStart]);
+
+  // Défilement automatique vers le chapitre sélectionné
+  useEffect(() => {
+    const el = document.getElementById(`bible-chapter-btn-${selectedChapter}`);
+    el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [selectedChapter]);
 
   // Récupération de l'objet BiblePassageData pour la sélection courante (ou null si aucun verset sélectionné)
   const currentSelectedPassage = useMemo<BiblePassageData | null>(() => {
@@ -916,7 +911,7 @@ export const BibleProjectionModule: React.FC<BibleProjectionModuleProps> = ({
 
 
   return (
-    <div className="bg-[#121216] border border-[#23232C] rounded-2xl p-4 sm:p-5 shadow-xl flex flex-col gap-4 text-gray-200">
+    <div className={className ? `flex flex-col gap-4 text-gray-200 ${className}` : "bg-[#121216] border border-[#23232C] rounded-2xl p-4 sm:p-5 shadow-xl flex flex-col gap-4 text-gray-200"}>
       
       {/* 1. Bandeau de contrôle en direct si un verset est projeté */}
       {activeLiveBibleRef && (
@@ -969,52 +964,61 @@ export const BibleProjectionModule: React.FC<BibleProjectionModuleProps> = ({
 
       {/* 2. Barre de Commande Rapide & Recherche instantanée */}
       <div className="space-y-2">
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <label htmlFor="bible-quick-search-input" className="text-xs font-bold text-gray-300 uppercase tracking-wider flex items-center gap-2">
-            <BookOpen className="w-4 h-4 text-amber-400" />
-            <span>Recherche & Projection Ultra-Rapide</span>
-          </label>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5">
+          {/* Input principal de recherche ultra-rapide */}
+          <div className="relative flex-1 min-w-0">
+            <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              id="bible-quick-search-input"
+              type="text"
+              value={quickSearchInput}
+              onChange={(e) => setQuickSearchInput(e.target.value)}
+              onKeyDown={handleKeyDownInput}
+              placeholder="Recherche ultra-rapide (ex: Jean 3:16, Rom 8:28, Ps 23:1-4 ou mot-clé)..."
+              className="w-full bg-[#181822] border border-[#2C2C3C] focus:border-amber-500 rounded-xl pl-10 pr-9 py-2 text-xs sm:text-sm text-white placeholder:text-gray-500 focus:outline-none transition-all shadow-inner font-sans"
+              autoComplete="off"
+            />
+            {quickSearchInput && (
+              <button
+                type="button"
+                onClick={() => setQuickSearchInput('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 text-xs px-1.5 py-0.5 rounded cursor-pointer"
+                title="Effacer la recherche"
+              >
+                ✕
+              </button>
+            )}
+          </div>
 
-          <div className="flex items-center gap-2">
-            {/* Bouton Mode Bilingue */}
-            <button
-              type="button"
-              onClick={handleToggleBilingual}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer shadow-xs ${
-                isBilingual
-                  ? 'bg-indigo-600 text-white border-indigo-400 shadow-indigo-900/40 ring-2 ring-indigo-500/30'
-                  : 'bg-[#181822] hover:bg-[#20202E] border-[#2B2B38] text-gray-300 hover:text-white hover:border-gray-500'
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 flex-wrap">
+            {/* Sélecteur de Traduction avec Bouton Bilingue intégré */}
+            <div
+              className={`relative flex items-center bg-[#181822] border rounded-xl p-0.5 shadow-xs shrink-0 transition-all ${
+                isTranslationDropdownOpen
+                  ? 'border-amber-500/80 ring-2 ring-amber-500/20'
+                  : 'border-[#2B2B38] hover:border-gray-500'
               }`}
-              title={isBilingual ? 'Mode Bilingue actif - Cliquer pour désactiver' : 'Activer le mode bilingue (2 versions de la Bible en simultané)'}
+              ref={translationDropdownRef}
             >
-              <Columns className="w-3.5 h-3.5 text-cyan-300" />
-              <span>Mode Bilingue</span>
-              {isBilingual && (
-                <span className="w-2 h-2 rounded-full bg-cyan-300 animate-pulse ml-0.5" />
-              )}
-            </button>
-
-            {/* Sélecteur de Traduction sous forme de Liste Déroulante */}
-            <div className="relative" ref={translationDropdownRef}>
               <button
                 type="button"
                 id="bible-translation-dropdown-btn"
                 onClick={() => setIsTranslationDropdownOpen(prev => !prev)}
                 aria-haspopup="listbox"
                 aria-expanded={isTranslationDropdownOpen}
-                className={`flex items-center gap-2 bg-[#181822] hover:bg-[#20202E] border rounded-xl px-2.5 py-1.5 text-xs font-semibold transition-all duration-150 cursor-pointer shadow-xs ${
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer shrink-0 ${
                   isTranslationDropdownOpen
-                    ? 'border-amber-500 ring-2 ring-amber-500/20 text-white bg-[#1F1F2C]'
-                    : 'border-[#2B2B38] text-gray-200 hover:border-gray-500'
+                    ? 'bg-[#1F1F2C] text-white'
+                    : 'text-gray-200 hover:bg-[#20202E]'
                 }`}
                 title="Changer la version de la Bible (Hors-ligne / Domaine Public / API)"
               >
-                <div className="flex items-center gap-2 min-w-0">
-                  <LanguageFlagIcon language={currentTranslation.language} className="w-4 h-3" />
-                  <span className="px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-[10px] font-mono font-bold text-amber-300">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <LanguageFlagIcon language={currentTranslation.language} className="w-3.5 h-2.5 shrink-0" />
+                  <span className="px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-[10px] font-mono font-bold text-amber-300 shrink-0">
                     {currentTranslation.shortName}
                   </span>
-                  <span className="hidden sm:inline text-xs font-medium text-gray-300 truncate max-w-[120px]">
+                  <span className="hidden sm:inline text-xs font-medium text-gray-300 truncate max-w-[110px]">
                     {currentTranslation.name}
                   </span>
                   {currentTranslation.isOfflineReady ? (
@@ -1034,6 +1038,26 @@ export const BibleProjectionModule: React.FC<BibleProjectionModuleProps> = ({
                   )}
                 </div>
                 <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-200 shrink-0 ${isTranslationDropdownOpen ? 'rotate-180 text-amber-400' : ''}`} />
+              </button>
+
+              <div className="w-px h-4 bg-[#2B2B38] mx-0.5 shrink-0" />
+
+              {/* Bouton Bilingue intégré */}
+              <button
+                type="button"
+                onClick={handleToggleBilingual}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer shrink-0 ${
+                  isBilingual
+                    ? 'bg-indigo-600 text-white shadow-indigo-900/40 ring-1 ring-indigo-400/50'
+                    : 'text-gray-300 hover:text-white hover:bg-[#20202E]'
+                }`}
+                title={isBilingual ? 'Bilingue actif - Cliquer pour désactiver' : 'Activer le mode bilingue (2 versions de la Bible en simultané)'}
+              >
+                <Columns className="w-3.5 h-3.5 text-cyan-300 shrink-0" />
+                <span>Bilingue</span>
+                {isBilingual && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-300 animate-pulse ml-0.5" />
+                )}
               </button>
 
               {/* Menu Déroulant */}
@@ -1163,6 +1187,44 @@ export const BibleProjectionModule: React.FC<BibleProjectionModuleProps> = ({
                 </div>
               )}
             </div>
+
+            {/* Bouton Projection auto / Direct */}
+            <button
+              type="button"
+              onClick={handleToggleProject}
+              className={`py-1.5 px-3 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-md shrink-0 ${
+                isCurrentlyLive
+                  ? 'bg-amber-500 hover:bg-amber-400 text-black ring-2 ring-amber-400/50 shadow-amber-950/40'
+                  : autoProject
+                  ? 'bg-amber-600 hover:bg-amber-500 text-white ring-1 ring-amber-400/40'
+                  : 'bg-amber-600 hover:bg-amber-500 active:scale-95 text-white shadow-amber-950/30'
+              }`}
+              title={
+                isCurrentlyLive
+                  ? 'En direct. Cliquez pour arrêter la diffusion.'
+                  : autoProject
+                  ? 'Projection auto active : chaque clic sur un verset le projette immédiatement.'
+                  : 'Projeter ce passage en direct'
+              }
+            >
+              <Zap className={`w-3.5 h-3.5 fill-current shrink-0 ${isCurrentlyLive ? 'text-black animate-pulse' : 'text-amber-200'}`} />
+              <span>
+                {isCurrentlyLive
+                  ? 'Arrêter'
+                  : autoProject
+                  ? currentSelectedPassage
+                    ? 'Projeter'
+                    : 'Projection auto'
+                  : 'Projeter direct'}
+              </span>
+              {autoProject && (
+                <span className={`text-[9px] font-mono px-1.5 py-0.2 rounded font-extrabold uppercase shrink-0 ${
+                  isCurrentlyLive ? 'bg-black/20 text-black' : 'bg-black/30 text-amber-200'
+                }`}>
+                  {isCurrentlyLive ? 'LIVE' : 'AUTO'}
+                </span>
+              )}
+            </button>
           </div>
         </div>
 
@@ -1333,29 +1395,6 @@ export const BibleProjectionModule: React.FC<BibleProjectionModuleProps> = ({
           </div>
         )}
 
-        {/* Input principal de recherche ultra-rapide */}
-        <div className="relative w-full">
-          <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          <input
-            id="bible-quick-search-input"
-            type="text"
-            value={quickSearchInput}
-            onChange={(e) => setQuickSearchInput(e.target.value)}
-            onKeyDown={handleKeyDownInput}
-            placeholder="Tapez un passage (ex: Jean 3:16, Rom 8:28, Ps 23:1-4) ou mot-clé..."
-            className="w-full bg-[#181822] border border-[#2C2C3C] focus:border-amber-500 rounded-xl pl-10 pr-10 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none transition-all shadow-inner font-sans"
-            autoComplete="off"
-          />
-          {quickSearchInput && (
-            <button
-              type="button"
-              onClick={() => setQuickSearchInput('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 text-xs px-1.5 py-0.5 rounded cursor-pointer"
-            >
-              ✕
-            </button>
-          )}
-        </div>
 
         {/* Indicateur de détection en temps réel */}
         {detectedRef && (
@@ -1407,116 +1446,70 @@ export const BibleProjectionModule: React.FC<BibleProjectionModuleProps> = ({
 
 
 
-      {/* 4. Navigateur Visuel : Livres -> Chapitres -> Versets -> Aperçu */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5 pt-1 border-t border-[#22222C]">
-        
-        {/* Colonne 1 : Sélecteur de Livres (1 colonne avec ligne code couleurs par catégorie) */}
-        <div className="md:col-span-4 flex flex-col gap-1.5">
-          <div className="flex items-center justify-between text-[11px] text-gray-400 px-0.5">
-            <span className="font-semibold text-gray-300 flex items-center gap-1.5">
-              <Book className="w-3.5 h-3.5 text-amber-400" />
-              <span>Livres ({filteredBooks.length === BIBLE_BOOKS.length ? BIBLE_BOOKS.length : `${filteredBooks.length}/${BIBLE_BOOKS.length}`})</span>
-            </span>
-            {bookSearchQuery && (
-              <span className="text-[10px] text-amber-400 font-mono">
-                {filteredBooks.length} résultat{filteredBooks.length > 1 ? 's' : ''}
+      {/* 4. Navigateur Visuel : 3 Colonnes (Livres -> Chapitres -> Versets avec preview texte) */}
+      <div className="flex flex-col gap-3 pt-1 border-t border-[#22222C]">
+        <div className="flex flex-col md:flex-row gap-3 h-[450px] sm:h-[480px]">
+          
+          {/* Colonne 1 : Sélecteur de Livres */}
+          <div className="w-full md:w-52 shrink-0 flex flex-col gap-1.5 h-full">
+            <div className="flex items-center justify-between text-[11px] text-gray-400 px-0.5 shrink-0 py-0.5">
+              <span className="font-semibold text-gray-300 flex items-center gap-1.5">
+                <Book className="w-3.5 h-3.5 text-amber-400" />
+                <span>Livres ({BIBLE_BOOKS.length})</span>
               </span>
-            )}
-          </div>
-
-          {/* Barre de recherche rapide de livres */}
-          <div className="relative">
-            <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <input
-              type="text"
-              value={bookSearchQuery}
-              onChange={(e) => setBookSearchQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && filteredBooks.length > 0) {
-                  handleSelectBook(filteredBooks[0]);
-                }
-              }}
-              placeholder="Trouver un livre (ex: Jean, Rom, Ps, Gen)..."
-              className="w-full bg-[#161622] border border-[#272738] focus:border-amber-500 rounded-xl pl-8 pr-7 py-1.5 text-xs text-white placeholder:text-gray-500 focus:outline-none transition-all shadow-inner font-sans"
-            />
-            {bookSearchQuery && (
-              <button
-                type="button"
-                onClick={() => setBookSearchQuery('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white text-xs px-1 cursor-pointer"
-                title="Effacer la recherche de livre"
-              >
-                ✕
-              </button>
-            )}
-          </div>
-
-          <div className="flex flex-col max-h-72 overflow-y-auto rounded-xl border border-[#252533] bg-[#14141B] divide-y divide-[#20202C] custom-scrollbar shadow-inner">
-            {filteredBooks.length === 0 ? (
-              <div className="py-8 px-3 text-center text-xs text-gray-500 flex flex-col items-center gap-2">
-                <span>Aucun livre trouvé pour « {bookSearchQuery} »</span>
-                <button
-                  type="button"
-                  onClick={() => setBookSearchQuery('')}
-                  className="text-amber-400 hover:underline text-[11px] cursor-pointer"
-                >
-                  Réinitialiser le filtre
-                </button>
-              </div>
-            ) : (
-              filteredBooks.map(bk => {
-                const isSelected = selectedBook.id === bk.id;
-                const lineColor = BOOK_CATEGORY_COLORS[bk.category] || '#F59E0B';
-                return (
-                  <button
-                    key={bk.id}
-                    ref={isSelected ? selectedBookItemRef : undefined}
-                    type="button"
-                    onClick={() => handleSelectBook(bk)}
-                    className={`relative flex items-center justify-between w-full pl-3.5 pr-2.5 py-2 text-left text-xs transition-colors cursor-pointer select-none group ${
-                      isSelected
-                        ? 'bg-[#252538] text-white font-bold shadow-xs'
-                        : 'bg-[#151520] hover:bg-[#1E1E2C] text-gray-300 hover:text-white'
-                    }`}
-                    title={`${bk.name} (${bk.category} - ${bk.chapters} chapitres)`}
-                  >
-                    {/* Ligne code couleur selon la catégorie */}
-                    <span
-                      className="absolute left-0 top-0 bottom-0 w-[3px]"
-                      style={{ backgroundColor: lineColor }}
-                    />
-                    <div className="flex items-center gap-2 min-w-0 pr-1">
-                      <span className="truncate">{bk.name}</span>
-                    </div>
-                  </button>
-                );
-              })
-            )}
-          </div>
-        </div>
-
-        {/* Colonne 2 : Sélecteur de Chapitre & Versets (4 cols) */}
-        <div className="md:col-span-4 flex flex-col gap-2.5">
-          {/* Chapitres */}
-          <div className="space-y-1">
-            <div className="flex items-center justify-between text-[11px] text-gray-400">
-              <span className="font-semibold text-gray-300">{selectedBook.name} : Chapitre</span>
-              <span className="font-mono text-amber-300">{selectedChapter} / {selectedBook.chapters}</span>
             </div>
 
-            <div className="grid grid-cols-6 gap-1 max-h-24 overflow-y-auto pr-1 custom-scrollbar">
+            <div className="flex-1 min-h-0 overflow-y-auto rounded-xl border border-[#252533] bg-[#14141B] divide-y divide-[#20202C] custom-scrollbar shadow-inner">
+              {BIBLE_BOOKS.map(bk => {
+                  const isSelected = selectedBook.id === bk.id;
+                  const lineColor = BOOK_CATEGORY_COLORS[bk.category] || '#F59E0B';
+                  return (
+                    <button
+                      key={bk.id}
+                      ref={isSelected ? selectedBookItemRef : undefined}
+                      type="button"
+                      onClick={() => handleSelectBook(bk)}
+                      className={`relative flex items-center justify-between w-full pl-3.5 pr-2.5 py-2 text-left text-xs transition-colors cursor-pointer select-none group ${
+                        isSelected
+                          ? 'bg-[#252538] text-white font-bold shadow-xs'
+                          : 'bg-[#151520] hover:bg-[#1E1E2C] text-gray-300 hover:text-white'
+                      }`}
+                      title={`${bk.name} (${bk.category} - ${bk.chapters} chapitres)`}
+                    >
+                      <span
+                        className="absolute left-0 top-0 bottom-0 w-[3px]"
+                        style={{ backgroundColor: lineColor }}
+                      />
+                      <div className="flex items-center gap-2 min-w-0 pr-1">
+                        <span className="truncate">{bk.name}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+          </div>
+
+          {/* Colonne 2 : Chapitres (liste verticale défilable de numéros) */}
+          <div className="w-full md:w-16 shrink-0 flex flex-col gap-1.5 h-full">
+            <div className="flex items-center justify-center text-[11px] text-gray-400 px-0.5 shrink-0 py-0.5">
+              <span className="font-semibold text-gray-300">Chap.</span>
+            </div>
+
+            <div className="flex-1 min-h-0 overflow-y-auto rounded-xl border border-[#252533] bg-[#14141B] divide-y divide-[#20202C] custom-scrollbar shadow-inner">
               {Array.from({ length: selectedBook.chapters }, (_, i) => i + 1).map(ch => {
                 const isCurrent = selectedChapter === ch;
                 return (
                   <button
                     key={ch}
+                    id={`bible-chapter-btn-${ch}`}
                     type="button"
                     onClick={() => handleSelectChapter(ch)}
-                    className={`py-1 rounded text-xs font-bold font-mono transition-all cursor-pointer ${
+                    className={`w-full py-2 text-center text-xs font-mono font-bold transition-all cursor-pointer select-none ${
                       isCurrent
-                        ? 'bg-amber-600 text-white shadow-xs'
-                        : 'bg-[#181824] hover:bg-[#202030] text-gray-300 border border-[#262636]'
+                        ? 'bg-[#252538] text-white border-l-2 border-amber-500 font-extrabold shadow-xs'
+                        : 'text-gray-400 hover:text-white hover:bg-[#1C1C28]'
                     }`}
+                    title={`Chapitre ${ch}`}
                   >
                     {ch}
                   </button>
@@ -1525,221 +1518,72 @@ export const BibleProjectionModule: React.FC<BibleProjectionModuleProps> = ({
             </div>
           </div>
 
-          {/* Versets */}
-          <div className="space-y-1">
-            <div className="flex items-center justify-between text-[11px] text-gray-400">
-              <span className="font-semibold text-gray-300 flex items-center gap-1.5">
-                <span>
-                  Versets {selectedVerseStart !== null ? (selectedVerseEnd && selectedVerseEnd > selectedVerseStart ? `(${selectedVerseStart} à ${selectedVerseEnd})` : `(${selectedVerseStart})`) : '(aucun sélectionné)'} :
-                </span>
-                {autoProject && (
-                  <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/40 text-amber-300 flex items-center gap-1 animate-in fade-in">
-                    <Zap className="w-2.5 h-2.5 fill-current" />
-                    <span>Auto</span>
-                  </span>
-                )}
+          {/* Colonne 3 : Versets avec preview du texte (prend le plus de place) */}
+          <div className="flex-1 min-w-0 flex flex-col gap-1.5 h-full">
+            <div className="flex items-center justify-between text-[11px] text-gray-400 px-1 shrink-0 py-0.5">
+              <span className="font-semibold text-gray-300 flex items-center gap-1.5 truncate">
+                <BookOpen className="w-3.5 h-3.5 text-pink-500 shrink-0" />
+                <span className="truncate">{selectedBook.name} {selectedChapter} — {chapterVerses.length} versets</span>
               </span>
-              <span className="text-[10px] text-gray-400 italic">
-                {autoProject ? 'Clic ou Flèches ← → : projection directe' : 'Clic ou Flèches ← → pour naviguer'}
+              <span className="text-[10px] font-mono text-gray-400 bg-black/40 px-1.5 py-0.2 rounded border border-white/10 shrink-0">
+                {isBilingual && currentSecondaryPassage
+                  ? `${currentTranslation.shortName} • ${currentSecondaryTranslation.shortName}`
+                  : currentTranslation.shortName}
               </span>
             </div>
 
-            {isLoadingChapter ? (
-              <div className="py-4 text-center text-xs text-gray-500 font-mono animate-pulse">
-                Chargement des versets...
-              </div>
-            ) : chapterVerses.length === 0 ? (
-              <div className="py-3 text-center text-xs text-gray-500">
-                Versets non disponibles
-              </div>
-            ) : (
-              <div className="grid grid-cols-6 gap-1 max-h-28 overflow-y-auto pr-1 custom-scrollbar">
-                {chapterVerses.map(v => {
+            <div className="flex-1 min-h-0 overflow-y-auto rounded-xl border border-[#252533] bg-[#14141B] divide-y divide-[#1E1E2A] custom-scrollbar shadow-inner">
+              {isLoadingChapter ? (
+                <div className="py-16 text-center text-xs text-gray-500 font-mono animate-pulse flex flex-col items-center gap-2">
+                  <div className="w-5 h-5 border-2 border-pink-500 border-t-transparent rounded-full animate-spin" />
+                  <span>Chargement des versets...</span>
+                </div>
+              ) : chapterVerses.length === 0 ? (
+                <div className="py-16 text-center text-xs text-gray-500">
+                  Versets non disponibles pour ce chapitre.
+                </div>
+              ) : (
+                chapterVerses.map(v => {
                   const inRange = selectedVerseStart !== null && v.verseNumber >= selectedVerseStart && v.verseNumber <= (selectedVerseEnd || selectedVerseStart);
                   const isBoundary = selectedVerseStart !== null && (v.verseNumber === selectedVerseStart || v.verseNumber === (selectedVerseEnd || selectedVerseStart));
+                  const secVerse = isBilingual && secondaryChapterVerses.length > 0 
+                    ? secondaryChapterVerses.find(sv => sv.verseNumber === v.verseNumber) 
+                    : null;
+
                   return (
-                    <button
+                    <div
                       key={v.verseNumber}
                       id={`bible-verse-btn-${v.verseNumber}`}
-                      type="button"
                       onClick={(e) => handleSelectVerse(v.verseNumber, e.shiftKey)}
-                      className={`py-1 rounded text-xs font-bold font-mono transition-all cursor-pointer ${
-                        isBoundary
-                          ? 'bg-amber-500 text-black font-extrabold shadow-sm'
-                          : inRange
-                          ? 'bg-amber-600/40 text-amber-200 border border-amber-500/50'
-                          : 'bg-[#181824] hover:bg-[#202030] text-gray-300 border border-[#262636]'
+                      className={`relative flex items-start gap-3 px-3.5 py-2.5 text-left transition-colors cursor-pointer select-none group ${
+                        isBoundary || inRange
+                          ? 'bg-[#282938] text-white border-l-2 border-pink-500 shadow-xs'
+                          : 'hover:bg-[#1A1A24] text-gray-300 hover:text-white'
                       }`}
-                      title={autoProject ? `Verset ${v.verseNumber} (projette directement)` : `Verset ${v.verseNumber}`}
+                      title={autoProject ? `Verset ${v.verseNumber} (projette directement)` : `Verset ${v.verseNumber} (Shift+clic pour plage)`}
                     >
-                      {v.verseNumber}
-                    </button>
+                      <span className="font-mono font-bold text-xs sm:text-sm text-pink-500 min-w-[28px] shrink-0 pt-0.5 text-right select-none">
+                        {v.verseNumber}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs sm:text-[13px] leading-relaxed select-text text-gray-200">
+                          {v.text}
+                        </p>
+                        {secVerse && (
+                          <p className="text-[11px] text-cyan-300/90 italic mt-1 leading-snug pl-2 border-l border-cyan-500/30">
+                            <span className="text-[9px] font-mono font-bold uppercase text-cyan-400 mr-1.5">{currentSecondaryTranslation.shortName}:</span>
+                            {secVerse.text}
+                          </p>
+                        )}
+                      </div>
+                    </div>
                   );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Colonne 3 : Aperçu en Direct du Passage & Actions (4 cols) */}
-        <div className="md:col-span-4 flex flex-col justify-between gap-3 bg-[#161622] border border-[#2A2A3C] rounded-xl p-3.5 shadow-inner">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between border-b border-[#282838] pb-1.5">
-              <span className="text-xs font-extrabold text-amber-300 truncate">
-                📖 {currentSelectedPassage ? currentSelectedPassage.referenceText : `${selectedBook.name} ${selectedChapter}`}
-              </span>
-              <div className="flex items-center gap-1.5 shrink-0">
-                {currentSelectedPassage && (
-                  <button
-                    type="button"
-                    onClick={handleAddToQueueCurrent}
-                    className="text-[10px] font-semibold text-emerald-400 hover:text-emerald-300 bg-emerald-950/40 hover:bg-emerald-900/50 border border-emerald-500/30 px-2 py-0.5 rounded-lg flex items-center gap-1 cursor-pointer transition-colors shadow-xs"
-                    title="Ajouter comme élément individuel dans la file de projection"
-                  >
-                    <ListPlus className="w-3 h-3 text-emerald-400" />
-                    <span>+ File</span>
-                  </button>
-                )}
-                <span className="text-[10px] font-mono text-gray-400 bg-black/40 px-1.5 py-0.5 rounded border border-white/10">
-                  {isBilingual && currentSecondaryPassage
-                    ? `${currentSelectedPassage?.version || currentTranslation.shortName} • ${currentSecondaryPassage.version}`
-                    : (currentSelectedPassage?.version || currentTranslation.shortName)}
-                </span>
-              </div>
-            </div>
-
-            <div className="max-h-48 overflow-y-auto pr-1 custom-scrollbar text-xs leading-relaxed text-gray-200 space-y-1.5">
-              {currentSelectedPassage ? (
-                isBilingual && currentSecondaryPassage ? (
-                  bilingualFormat === 'columns' ? (
-                    <div className="grid grid-cols-2 gap-2 text-left">
-                      <div className="space-y-1">
-                        <span className="text-[9px] font-mono font-bold text-amber-300 uppercase block mb-1">
-                          {currentTranslation.shortName}
-                        </span>
-                        {currentSelectedPassage.verses.map(v => (
-                          <p key={v.verseNumber} className="text-[11px] leading-snug">
-                            <strong className="text-amber-400 font-mono mr-1">{v.verseNumber}.</strong>
-                            <span>{v.text}</span>
-                          </p>
-                        ))}
-                      </div>
-                      <div className="border-l border-white/15 pl-2 space-y-1">
-                        <span className="text-[9px] font-mono font-bold text-cyan-300 uppercase block mb-1">
-                          {currentSecondaryTranslation.shortName}
-                        </span>
-                        {currentSecondaryPassage.verses.map(v => (
-                          <p key={v.verseNumber} className="text-[11px] leading-snug text-cyan-200/90 italic">
-                            <strong className="text-cyan-400 font-mono mr-1">{v.verseNumber}.</strong>
-                            <span>{v.text}</span>
-                          </p>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {currentSelectedPassage.verses.map(v => {
-                        const secV = currentSecondaryPassage.verses.find(sv => sv.verseNumber === v.verseNumber);
-                        return (
-                          <div key={v.verseNumber} className="space-y-0.5">
-                            <p className="text-[11px] leading-snug">
-                              <strong className="text-amber-400 font-mono mr-1.5">{v.verseNumber}.</strong>
-                              <span className="text-white font-medium">{v.text}</span>
-                            </p>
-                            {secV && (
-                              <p className="text-[10.5px] text-cyan-300/90 italic pl-2.5 border-l-2 border-cyan-500/40 leading-snug">
-                                {secV.text}
-                              </p>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )
-                ) : (
-                  currentSelectedPassage.verses.map(v => (
-                    <p key={v.verseNumber}>
-                      <strong className="text-amber-400 font-mono mr-1.5">{v.verseNumber}.</strong>
-                      <span>{v.text}</span>
-                    </p>
-                  ))
-                )
-              ) : (
-                <div className="py-7 text-center text-gray-400 text-xs flex flex-col items-center justify-center gap-2 select-none">
-                  <BookOpen className="w-6 h-6 text-amber-500/30" />
-                  <span className="font-semibold text-gray-300">Aucun verset sélectionné</span>
-                  <p className="text-[11px] text-gray-500 max-w-[220px]">
-                    {autoProject
-                      ? 'Cliquez sur un verset ci-contre pour le projeter automatiquement.'
-                      : 'Cliquez sur un verset ci-contre pour le sélectionner et le projeter.'}
-                  </p>
-                </div>
+                })
               )}
             </div>
           </div>
-
-          <div className="pt-2 border-t border-[#282838] space-y-2">
-            <div>
-              <button
-                type="button"
-                onClick={handleToggleProject}
-                className={`w-full py-2.5 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md ${
-                  isCurrentlyLive
-                    ? 'bg-amber-500 hover:bg-amber-400 text-black ring-2 ring-amber-400/50 shadow-amber-950/40'
-                    : autoProject
-                    ? 'bg-amber-600 hover:bg-amber-500 text-white ring-1 ring-amber-400/40'
-                    : 'bg-amber-600 hover:bg-amber-500 active:scale-95 text-white shadow-amber-950/30'
-                }`}
-                title={
-                  isCurrentlyLive
-                    ? 'En direct avec projection automatique active. Cliquez pour arrêter la diffusion.'
-                    : autoProject
-                    ? currentSelectedPassage
-                      ? 'Mode Auto actif : chaque clic sur un verset le projette immédiatement.'
-                      : 'Mode Auto actif : sélectionnez un verset ci-contre pour le projeter.'
-                    : 'Projeter ce passage et activer la projection automatique'
-                }
-              >
-                <Zap className={`w-4 h-4 fill-current ${isCurrentlyLive ? 'text-black animate-pulse' : 'text-amber-200'}`} />
-                <span>
-                  {isCurrentlyLive
-                    ? (isBilingual ? 'En direct (Bilingue)' : 'En direct (Mode Auto actif)')
-                    : autoProject
-                    ? currentSelectedPassage
-                      ? (isBilingual ? 'Projeter Bilingue (Auto)' : 'Projeter (Mode Auto actif)')
-                      : 'Mode Auto actif (Sélectionnez un verset)'
-                    : (isBilingual ? 'Projeter Bilingue' : 'Projeter (Mode Auto)')}
-                </span>
-                {autoProject && (
-                  <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded font-extrabold uppercase ${
-                    isCurrentlyLive ? 'bg-black/20 text-black' : 'bg-black/30 text-amber-200'
-                  }`}>
-                    {isCurrentlyLive ? 'LIVE' : 'AUTO'}
-                  </span>
-                )}
-              </button>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleAddToQueueCurrent}
-              disabled={!currentSelectedPassage}
-              className="w-full py-2 px-3 rounded-xl bg-[#1B1B26] hover:bg-[#232332] active:scale-98 text-emerald-400 hover:text-emerald-300 font-bold text-xs flex items-center justify-center gap-1.5 border border-emerald-500/30 hover:border-emerald-500/50 cursor-pointer transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-xs"
-              title={
-                currentSelectedPassage?.verses && currentSelectedPassage.verses.length > 1
-                  ? "Ajouter chaque verset comme un élément individuel repositionnable dans la file de projection"
-                  : "Ajouter ce verset comme un élément individuel repositionnable dans la file de projection"
-              }
-            >
-              <ListPlus className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>
-                {currentSelectedPassage?.verses && currentSelectedPassage.verses.length > 1
-                  ? `Ajouter chaque verset (${currentSelectedPassage.verses.length}) individuellement${isBilingual ? ' (Bilingue)' : ''}`
-                  : `Ajouter le verset à la file${isBilingual ? ' (Bilingue)' : ''}`}
-              </span>
-            </button>
-          </div>
         </div>
+
       </div>
     </div>
   );

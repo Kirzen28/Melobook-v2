@@ -49,12 +49,13 @@ export const SetlistManager: React.FC = () => {
     setSelectedSong,
     setActiveTab,
     setActiveSetlistIndex,
+    isLiveSetlistOpen,
+    setIsLiveSetlistOpen,
     showNotification,
     canManageSetlists
   } = useApp();
 
   const [expandedSetlistId, setExpandedSetlistId] = useState<string | null>(null);
-  const [isLiveModeOpen, setIsLiveModeOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newSetName, setNewSetName] = useState('');
   const [newSetDate, setNewSetDate] = useState(new Date().toISOString().split('T')[0]);
@@ -164,7 +165,7 @@ export const SetlistManager: React.FC = () => {
       const s = songs.find(item => item.id === setlist.songIds[startIndex]);
       if (s) setSelectedSong(s);
     }
-    setIsLiveModeOpen(true);
+    setIsLiveSetlistOpen(true);
   };
 
   // Create new setlist
@@ -381,8 +382,8 @@ export const SetlistManager: React.FC = () => {
     <div className="max-w-7xl mx-auto px-3 sm:px-6 py-6 pb-12 text-[#E0E0E0]">
       
       {/* Live Setlist Player Modal */}
-      {isLiveModeOpen && selectedSetlist && (
-        <LiveSetlistPlayer onClose={() => setIsLiveModeOpen(false)} />
+      {isLiveSetlistOpen && selectedSetlist && (
+        <LiveSetlistPlayer onClose={() => setIsLiveSetlistOpen(false)} />
       )}
 
       {/* Header */}

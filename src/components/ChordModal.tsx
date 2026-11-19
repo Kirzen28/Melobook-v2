@@ -22,7 +22,7 @@ interface ChordModalProps {
   songChords?: string[];
   notation?: NotationSystem;
   onSelectChord?: (chord: string) => void;
-  transposeOffset?: number;
+  capo?: number;
 }
 
 const STRING_NAMES = ['E', 'A', 'D', 'G', 'B', 'e'];
@@ -63,7 +63,7 @@ export const ChordModal: React.FC<ChordModalProps> = ({
   onClose,
   initialChord = 'C',
   notation = 'standard' as NotationSystem,
-  transposeOffset = 0
+  capo = 0
 }) => {
   const [currentChordStr, setCurrentChordStr] = useState<string>(initialChord || 'C');
   const [instrument, setInstrument] = useState<'guitar' | 'piano'>('guitar');
@@ -83,11 +83,11 @@ export const ChordModal: React.FC<ChordModalProps> = ({
     return getChordData(currentChordStr);
   }, [currentChordStr]);
 
-  // Transposed chord sound (piano-style real pitch)
+  // Real sounding chord when a capo is active (+capo semitones)
   const soundedChord = useMemo(() => {
-    if (!transposeOffset || transposeOffset === 0) return null;
-    return transposeChord(currentChordStr, transposeOffset, notation);
-  }, [currentChordStr, transposeOffset, notation]);
+    if (!capo || capo === 0) return null;
+    return transposeChord(currentChordStr, capo, notation);
+  }, [currentChordStr, capo, notation]);
 
   const activeGuitarVoicing: GuitarVoicing = useMemo(() => {
     const voicings = chordData.guitarVoicings;
@@ -110,14 +110,14 @@ export const ChordModal: React.FC<ChordModalProps> = ({
   const handlePlaySound = useCallback(() => {
     setIsPlayingAudio(true);
     if (instrument === 'guitar') {
-      chordSynth.playGuitar(activeGuitarVoicing, getNotePitchClass(chordData.root), transposeOffset);
+      chordSynth.playGuitar(activeGuitarVoicing, getNotePitchClass(chordData.root), capo);
     } else {
-      chordSynth.playPiano(activePianoVoicing.keys, activePianoVoicing.rootKey, transposeOffset);
+      chordSynth.playPiano(activePianoVoicing.keys, activePianoVoicing.rootKey, capo);
     }
     setTimeout(() => {
       setIsPlayingAudio(false);
     }, 1200);
-  }, [instrument, activeGuitarVoicing, activePianoVoicing, chordData.root, transposeOffset]);
+  }, [instrument, activeGuitarVoicing, activePianoVoicing, chordData.root, capo]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -162,14 +162,14 @@ export const ChordModal: React.FC<ChordModalProps> = ({
               </span>
             )}
 
-            {/* Transpose Real Sound Badge (Keyboard/Piano logic) */}
-            {transposeOffset !== 0 && soundedChord && (
+            {/* Capo Real Sound Badge */}
+            {capo > 0 && soundedChord && (
               <span 
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-[11px] font-mono font-bold text-amber-300 shadow-xs"
-                title={`Accord joué : ${chordData.formattedName} • Transposition : ${transposeOffset > 0 ? `+${transposeOffset}` : transposeOffset} demi-tons • Son réel émis : ${soundedChord}`}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-500/15 border border-purple-500/30 text-[11px] font-mono font-bold text-purple-300 shadow-xs"
+                title={`Accord joué : ${chordData.formattedName} • Capo ${capo} • Son réel : ${soundedChord}`}
               >
-                <span className="text-amber-400/80 font-sans font-normal text-[10px]">Sonne :</span>
-                <span className="text-white underline decoration-amber-400/50">{soundedChord}</span>
+                <span className="text-purple-400/80 font-sans font-normal text-[10px]">Sonne :</span>
+                <span className="text-white underline decoration-purple-400/50">{soundedChord}</span>
               </span>
             )}
 
@@ -179,8 +179,8 @@ export const ChordModal: React.FC<ChordModalProps> = ({
               className={`p-1.5 rounded-lg text-emerald-400 hover:text-emerald-300 hover:bg-emerald-950/40 transition-all cursor-pointer ${
                 isPlayingAudio ? 'scale-110 text-emerald-300 bg-emerald-950/60' : ''
               }`}
-              title={transposeOffset !== 0 && soundedChord
-                ? `Écouter l'accord (sonnera ${soundedChord} avec le transpose de ${transposeOffset > 0 ? `+${transposeOffset}` : transposeOffset} demi-tons)`
+              title={capo > 0 && soundedChord
+                ? `Écouter l'accord (Capo ${capo} : sonne ${soundedChord})`
                 : "Écouter l'accord"}
             >
               <Volume2 className="w-4 h-4" />

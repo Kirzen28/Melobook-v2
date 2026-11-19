@@ -125,6 +125,10 @@ export const SongEditor: React.FC = () => {
     setActiveTab,
     editorSubTab,
     setEditorSubTab,
+    selectedSetlist,
+    editorReturnTarget,
+    setEditorReturnTarget,
+    setIsLiveSetlistOpen,
     showNotification,
     canManageSongs
   } = useApp();
@@ -924,7 +928,16 @@ export const SongEditor: React.FC = () => {
         </p>
         <button
           type="button"
-          onClick={() => setActiveTab('repertoire')}
+          onClick={() => {
+            if (editorReturnTarget === 'setlistLive' && selectedSetlist) {
+              setEditorReturnTarget(null);
+              setIsLiveSetlistOpen(true);
+              setActiveTab('setlists');
+            } else {
+              setEditorReturnTarget(null);
+              setActiveTab('repertoire');
+            }
+          }}
           className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition-colors cursor-pointer shadow-sm"
         >
           Retourner aux chants
@@ -965,14 +978,25 @@ export const SongEditor: React.FC = () => {
           <button
             type="button"
             onClick={() => {
-              if (selectedSong) {
+              const target = editorReturnTarget;
+              setEditorReturnTarget(null);
+              if (target === 'setlistLive' && selectedSetlist) {
+                setIsLiveSetlistOpen(true);
+                setActiveTab('setlists');
+              } else if (selectedSong) {
                 setActiveTab('stage');
               } else {
                 setActiveTab('repertoire');
               }
             }}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1E1E24] hover:bg-[#282830] text-gray-300 hover:text-white border border-white/10 hover:border-white/20 text-xs font-semibold shadow-xs transition-all active:scale-95 cursor-pointer"
-            title={selectedSong ? "Quitter le mode éditeur et afficher le chant en direct" : "Quitter le mode éditeur et retourner au répertoire"}
+            title={
+              editorReturnTarget === 'setlistLive' && selectedSetlist
+                ? "Quitter le mode éditeur et revenir au chant dans la setlist"
+                : selectedSong
+                  ? "Quitter le mode éditeur et afficher le chant en direct"
+                  : "Quitter le mode éditeur et retourner au répertoire"
+            }
           >
             <ChevronLeft className="w-4 h-4 text-gray-400 group-hover:text-white" />
             <span>Quitter l'éditeur</span>

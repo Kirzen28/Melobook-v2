@@ -70,6 +70,7 @@ export const SongList: React.FC = () => {
     setlists, 
     setSelectedSong, 
     setActiveTab, 
+    setEditorReturnTarget,
     currentUser, 
     deleteSong, 
     updateSong,
@@ -841,11 +842,13 @@ export const SongList: React.FC = () => {
 
   const handleEditSong = (song: Song) => {
     setSelectedSong(song);
+    setEditorReturnTarget(null);
     setActiveTab('editor');
   };
 
   const handleCreateNewSong = () => {
     setSelectedSong(null);
+    setEditorReturnTarget(null);
     setActiveTab('editor');
   };
 
@@ -2475,7 +2478,7 @@ export const SongList: React.FC = () => {
           <p className="text-xs text-gray-500 mt-1 max-w-sm mx-auto">
             {searchQuery || selectedKeys.length > 0 || selectedLanguages.length > 0 || selectedCategories.length > 0 || selectedAuthors.length > 0
               ? "Essayez de modifier vos critères de recherche ou vos filtres."
-              : "Commencez par ajouter votre premier chant ou charger les chants de démonstration."}
+              : "Commencez par ajouter votre premier chant."}
           </p>
         </div>
       ) : (
@@ -3189,6 +3192,7 @@ export const SongList: React.FC = () => {
           setSelectedKeys([]);
           setSelectedLanguages([]);
           setSelectedSong(createdSong);
+          setEditorReturnTarget(null);
           setActiveTab('editor');
         }}
         initialSource={importSource}

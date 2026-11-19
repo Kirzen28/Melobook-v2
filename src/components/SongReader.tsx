@@ -57,7 +57,6 @@ import {
   FileEdit,
   FileText,
   ArrowUp,
-  ArrowUpDown,
   Sparkles,
   Tag,
   FileDown,
@@ -83,7 +82,8 @@ import {
   Radio,
   Tv,
   Search,
-  ExternalLink
+  ExternalLink,
+  Pencil
 } from 'lucide-react';
 import { 
   buildPresentationSlides, 
@@ -119,9 +119,6 @@ const PRESET_VOCAL_ROLES = [
 
 const MAJOR_KEYS = ['C', 'C#', 'Db', 'D', 'D#', 'Eb', 'E', 'F', 'F#', 'Gb', 'G', 'G#', 'Ab', 'A', 'A#', 'Bb', 'B'];
 const MINOR_KEYS = ['Cm', 'C#m', 'Dbm', 'Dm', 'D#m', 'Ebm', 'Em', 'Fm', 'F#m', 'Gbm', 'Gm', 'G#m', 'Abm', 'Am', 'A#m', 'Bbm', 'Bm'];
-
-const TRANSPOSE_DOWN_STEPS = [-1, -2, -3, -4, -5, -6, -7, -8, -9, -10, -11, -12];
-const TRANSPOSE_UP_STEPS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
 interface SongReaderProps {
   song?: Song | null;
@@ -163,6 +160,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
     setActiveTab, 
     activeTab,
     setEditorSubTab,
+    setEditorReturnTarget,
     currentUser,
     currentGroup,
     setActiveSetlistIndex,
@@ -226,7 +224,6 @@ export const SongReader: React.FC<SongReaderProps> = ({
       setlistOverride.key !== undefined ||
       setlistOverride.tempo !== undefined ||
       setlistOverride.capo !== undefined ||
-      setlistOverride.transposeOffset !== undefined ||
       setlistOverride.duration !== undefined ||
       setlistOverride.notes !== undefined ||
       (setlistOverride.sectionRepeats && Object.keys(setlistOverride.sectionRepeats).length > 0)
@@ -436,16 +433,38 @@ export const SongReader: React.FC<SongReaderProps> = ({
     const raw = (song?.key || catalogBaseKey || 'C').trim();
     return raw.endsWith('m') || raw.toLowerCase().includes('min');
   }, [song?.key, catalogBaseKey]);
-  const effectiveBaseKey = setlistOverride?.key || catalogBaseKey;
-  const effectiveTransposeOffset = stageSettings.transposeOffset !== 0
-    ? stageSettings.transposeOffset
-    : (setlistOverride?.transposeOffset !== undefined ? setlistOverride.transposeOffset : 0);
+  const capoStorageKey = isSetlistMode && currentSetlist && song
+    ? `setlist:${currentSetlist.id}:${song.id}`
+    : (song ? `song:${song.id}` : '');
+
+  const [personalCapos, setPersonalCapos] = useState<Record<string, number>>(() => {
+    try {
+      const raw = localStorage.getItem('melobook_personal_capos');
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  const [personalKeys, setPersonalKeys] = useState<Record<string, string>>(() => {
+    try {
+      const raw = localStorage.getItem('melobook_personal_keys');
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  const defaultBaseKey = (isSetlistMode && setlistOverride?.key) ? setlistOverride.key : catalogBaseKey;
+  const personalKey = capoStorageKey ? personalKeys[capoStorageKey] : undefined;
+  const effectiveBaseKey = personalKey || defaultBaseKey;
   const effectiveTempo = setlistOverride?.bpm || setlistOverride?.tempo || song?.bpm || song?.tempo || parsedData?.tempo || 120;
   const rawDuration = setlistOverride?.duration || song?.duration || parsedData?.duration || '03:30';
   const effectiveDuration = useMemo(() => formatDurationToMMSS(rawDuration), [rawDuration]);
   const effectiveCcli = (song?.ccli || parsedData?.ccli || '').trim();
   const effectiveCopyright = (song?.copyright || parsedData?.copyright || '').trim();
   const effectiveYoutubeUrl = (song?.youtubeUrl || parsedData?.youtubeUrl || '').trim();
+  const hasYoutubeEmbed = Boolean(getYouTubeEmbedUrl(effectiveYoutubeUrl));
   const effectiveAudioUrl = (song?.audioUrl || parsedData?.audioUrl || '').trim();
   const effectiveSpotifyUrl = (song?.spotifyUrl || parsedData?.spotifyUrl || (setlistOverride as any)?.spotifyUrl || '').trim();
   const hasSpotifyEmbed = Boolean(getSpotifyEmbedUrl(effectiveSpotifyUrl));
@@ -480,21 +499,18 @@ export const SongReader: React.FC<SongReaderProps> = ({
     updateStageSettings({ isAutoScrolling: nextState });
   }, [stageSettings.isAutoScrolling, updateStageSettings]);
   const effectiveNotes = setlistOverride?.notes !== undefined ? setlistOverride.notes : (song?.notes || '');
-  const personalCapo = stageSettings.capo || 0;
-  const effectiveCapo = personalCapo > 0 
-    ? personalCapo 
-    : (setlistOverride?.capo !== undefined ? setlistOverride.capo : (song?.capo || 0));
+  const catalogCapo = (song?.capo && song.capo > 0) ? song.capo : (parsedData?.capo || 0);
+  const defaultCapo = (isSetlistMode && setlistOverride?.capo !== undefined) ? setlistOverride.capo : catalogCapo;
+  const personalCapo = (capoStorageKey && personalCapos[capoStorageKey] !== undefined) ? personalCapos[capoStorageKey] : undefined;
+  const effectiveCapo = personalCapo !== undefined ? personalCapo : defaultCapo;
 
   // Semitone difference for song base key
   const baseKeySemitones = useMemo(() => {
     return getSemitoneDifference(catalogBaseKey, effectiveBaseKey);
   }, [catalogBaseKey, effectiveBaseKey]);
 
-  // Piano-style Transposition: chords displayed in the lyrics remain UNCHANGED by piano transpose offset!
-  const visualChordTransposeSemitones = baseKeySemitones % 12;
-
-  // Real acoustic / auditory pitch semitones (for sound synthesis when played)
-  const auditoryTransposeSemitones = (baseKeySemitones + effectiveTransposeOffset) % 12;
+  // Visual chords shift down by effectiveCapo semitones while the song keeps its real sounding key
+  const visualChordTransposeSemitones = ((baseKeySemitones - effectiveCapo) % 12 + 12) % 12;
 
   // Extract all unique chords in the current song (as written / fingered)
   const allSongChords = useMemo(() => {
@@ -519,7 +535,6 @@ export const SongReader: React.FC<SongReaderProps> = ({
   const [inlineDurationValue, setInlineDurationValue] = useState<string>('03:30');
   const [inlineTempoValue, setInlineTempoValue] = useState<string>('120');
   const [showKeyMenu, setShowKeyMenu] = useState(false);
-  const [showTransposeMenu, setShowTransposeMenu] = useState(false);
   const [showCapoMenu, setShowCapoMenu] = useState(false);
   const [showTempoMenu, setShowTempoMenu] = useState(false);
   const [showZoomMenu, setShowZoomMenu] = useState(false);
@@ -529,6 +544,9 @@ export const SongReader: React.FC<SongReaderProps> = ({
   const [showSpotifyConfig, setShowSpotifyConfig] = useState(false);
   const [spotifyInputUrl, setSpotifyInputUrl] = useState('');
   const [isSavingSpotify, setIsSavingSpotify] = useState(false);
+  const [showYoutubeConfig, setShowYoutubeConfig] = useState(false);
+  const [youtubeInputUrl, setYoutubeInputUrl] = useState('');
+  const [isSavingYoutube, setIsSavingYoutube] = useState(false);
 
   // État du métronome et du flash écran
   const [isMetronomePlaying, setIsMetronomePlaying] = useState<boolean>(() => metronome.getIsPlaying());
@@ -582,27 +600,71 @@ export const SongReader: React.FC<SongReaderProps> = ({
   const handleSaveSpotifyUrl = async (urlToSave?: string) => {
     const clean = (urlToSave !== undefined ? urlToSave : spotifyInputUrl).trim();
     if (!song) return;
+    if (clean && !getSpotifyEmbedUrl(clean)) {
+      showFeedbackToast('Lien Spotify invalide');
+      return;
+    }
+    if (!canManageSongs) {
+      showFeedbackToast("Droits d'édition requis pour enregistrer le lien");
+      return;
+    }
     setIsSavingSpotify(true);
     try {
-      if (canManageSongs) {
-        await updateSong(song.id, { spotifyUrl: clean });
+      await updateSong(song.id, { spotifyUrl: clean });
+      if (selectedSong && selectedSong.id === song.id) {
+        setSelectedSong({ ...selectedSong, spotifyUrl: clean });
       }
-      setActiveAudioSource('spotify');
       setShowSpotifyConfig(false);
-      setShowSettingsDrawer(false);
-      setShowAudioPlayer(true);
-      setIsAudioPlayerMinimized(false);
-      setFeedbackToast(clean ? 'Lien Spotify enregistré !' : 'Lien Spotify retiré');
+      if (clean) {
+        setActiveAudioSource('spotify');
+        setShowSettingsDrawer(false);
+        setShowAudioPlayer(true);
+        setIsAudioPlayerMinimized(false);
+      }
+      showFeedbackToast(clean ? 'Lien Spotify enregistré !' : 'Lien Spotify retiré');
     } catch (err) {
       console.error('Failed to save Spotify url:', err);
+      showFeedbackToast('Erreur lors de la sauvegarde');
     } finally {
       setIsSavingSpotify(false);
     }
   };
 
+  const handleSaveYoutubeUrl = async (urlToSave?: string) => {
+    const clean = (urlToSave !== undefined ? urlToSave : youtubeInputUrl).trim();
+    if (!song) return;
+    if (clean && !getYouTubeEmbedUrl(clean)) {
+      showFeedbackToast('Lien YouTube invalide');
+      return;
+    }
+    if (!canManageSongs) {
+      showFeedbackToast("Droits d'édition requis pour enregistrer le lien");
+      return;
+    }
+    setIsSavingYoutube(true);
+    try {
+      await updateSong(song.id, { youtubeUrl: clean });
+      if (selectedSong && selectedSong.id === song.id) {
+        setSelectedSong({ ...selectedSong, youtubeUrl: clean });
+      }
+      setShowYoutubeConfig(false);
+      if (clean) {
+        setActiveAudioSource('youtube');
+        setShowSettingsDrawer(false);
+        setShowAudioPlayer(true);
+        setIsAudioPlayerMinimized(false);
+      }
+      showFeedbackToast(clean ? 'Lien YouTube enregistré !' : 'Lien YouTube retiré');
+    } catch (err) {
+      console.error('Failed to save YouTube url:', err);
+      showFeedbackToast('Erreur lors de la sauvegarde');
+    } finally {
+      setIsSavingYoutube(false);
+    }
+  };
+
   // Refs for toolbar buttons to calculate viewport-safe placement
   const keyButtonRef = useRef<HTMLButtonElement>(null);
-  const transposeButtonRef = useRef<HTMLButtonElement>(null);
   const capoButtonRef = useRef<HTMLButtonElement>(null);
   const tempoButtonRef = useRef<HTMLButtonElement>(null);
   const zoomButtonRef = useRef<HTMLButtonElement>(null);
@@ -630,7 +692,6 @@ export const SongReader: React.FC<SongReaderProps> = ({
   };
 
   const [tempoPopoverStyle, setTempoPopoverStyle] = useState<React.CSSProperties>({ right: 0 });
-  const [transposePopoverStyle, setTransposePopoverStyle] = useState<React.CSSProperties>({ left: 0 });
   const [capoPopoverStyle, setCapoPopoverStyle] = useState<React.CSSProperties>({ left: 0 });
   const [keyPopoverStyle, setKeyPopoverStyle] = useState<React.CSSProperties>({ left: 0 });
   const [zoomPopoverStyle, setZoomPopoverStyle] = useState<React.CSSProperties>({ left: 0 });
@@ -648,19 +709,6 @@ export const SongReader: React.FC<SongReaderProps> = ({
       };
     }
   }, [showTempoMenu]);
-
-  useEffect(() => {
-    if (showTransposeMenu) {
-      const update = () => setTransposePopoverStyle(calculatePopoverPos(transposeButtonRef.current));
-      update();
-      window.addEventListener('resize', update);
-      window.addEventListener('scroll', update, true);
-      return () => {
-        window.removeEventListener('resize', update);
-        window.removeEventListener('scroll', update, true);
-      };
-    }
-  }, [showTransposeMenu]);
 
   useEffect(() => {
     if (showCapoMenu) {
@@ -804,40 +852,39 @@ export const SongReader: React.FC<SongReaderProps> = ({
   };
 
 
-  // Key & Transposition Handlers
-  const handleTransposeDelta = async (delta: number) => {
-    const newOffset = (effectiveTransposeOffset + delta) % 12;
-    if (isSetlistMode && currentSetlist && song && canManageSetlists) {
-      await updateSetlistSongOverride(currentSetlist.id, song.id, { transposeOffset: newOffset });
-    } else {
-      updateStageSettings({ transposeOffset: newOffset });
-      showFeedbackToast(`Transposition : ${newOffset > 0 ? `+${newOffset}` : newOffset} (personnel)`);
-    }
+  const updatePersonalCapos = (updater: (prev: Record<string, number>) => Record<string, number>) => {
+    setPersonalCapos(prev => {
+      const next = updater(prev);
+      try {
+        localStorage.setItem('melobook_personal_capos', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
   };
 
-  const handleResetTranspose = async () => {
-    if (isSetlistMode && currentSetlist && song && canManageSetlists) {
-      await updateSetlistSongOverride(currentSetlist.id, song.id, { transposeOffset: 0 });
-    } else {
-      updateStageSettings({ transposeOffset: 0 });
-      showFeedbackToast('Transposition remise à zéro (personnel)');
-    }
+  const updatePersonalKeys = (updater: (prev: Record<string, string>) => Record<string, string>) => {
+    setPersonalKeys(prev => {
+      const next = updater(prev);
+      try {
+        localStorage.setItem('melobook_personal_keys', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
   };
 
-  const handleSetTransposeOffset = async (newOffset: number) => {
-    if (isSetlistMode && currentSetlist && song && canManageSetlists) {
-      await updateSetlistSongOverride(currentSetlist.id, song.id, { transposeOffset: newOffset });
-    } else {
-      updateStageSettings({ transposeOffset: newOffset });
-      showFeedbackToast(`Transposition : ${newOffset > 0 ? `+${newOffset}` : newOffset} (personnel)`);
-    }
-  };
-
+  // Key & Capo Handlers
   const handleSetBaseKey = async (targetKey: string) => {
     if (!song) return;
 
     if (isSetlistMode && currentSetlist && canManageSetlists) {
-      await updateSetlistSongOverride(currentSetlist.id, song.id, { key: targetKey, transposeOffset: 0 });
+      await updateSetlistSongOverride(currentSetlist.id, song.id, { key: targetKey });
+      if (capoStorageKey && personalKeys[capoStorageKey] !== undefined) {
+        updatePersonalKeys(prev => {
+          const copy = { ...prev };
+          delete copy[capoStorageKey];
+          return copy;
+        });
+      }
       showFeedbackToast(`Tonalité par défaut de la setlist définie sur ${targetKey}`);
     } else if (canManageSongs && !isSetlistMode) {
       const currentBaseKey = (parsedData?.hasExplicitKey && parsedData.key)
@@ -848,20 +895,27 @@ export const SongReader: React.FC<SongReaderProps> = ({
       const updatedContent = transposeChordProText(song.contentChordPro, semitones, 'standard', targetKey);
 
       await updateSong(song.id, { key: targetKey, contentChordPro: updatedContent });
-      updateStageSettings({ transposeOffset: 0 });
+      if (capoStorageKey && personalKeys[capoStorageKey] !== undefined) {
+        updatePersonalKeys(prev => {
+          const copy = { ...prev };
+          delete copy[capoStorageKey];
+          return copy;
+        });
+      }
       if (selectedSong && selectedSong.id === song.id) {
         setSelectedSong({ ...selectedSong, key: targetKey, contentChordPro: updatedContent });
       }
       showFeedbackToast(`Tonalité enregistrée dans le répertoire : ${targetKey}`);
-    } else {
-      // Pour un membre, régie ou mode lecture seule :
-      // On calcule le décalage de transposition pour son jeu personnel
-      const currentBaseKey = (parsedData?.hasExplicitKey && parsedData.key)
-        ? parsedData.key
-        : (song.key || parsedData?.key || 'C');
-
-      const semitones = getSemitoneDifference(currentBaseKey, targetKey);
-      updateStageSettings({ transposeOffset: semitones });
+    } else if (capoStorageKey) {
+      if (targetKey === defaultBaseKey) {
+        updatePersonalKeys(prev => {
+          const copy = { ...prev };
+          delete copy[capoStorageKey];
+          return copy;
+        });
+      } else {
+        updatePersonalKeys(prev => ({ ...prev, [capoStorageKey]: targetKey }));
+      }
       showFeedbackToast(`Tonalité ${targetKey} appliquée (votre affichage personnel)`);
     }
   };
@@ -870,11 +924,29 @@ export const SongReader: React.FC<SongReaderProps> = ({
     if (!song) return;
     if (isSetlistMode && currentSetlist && canManageSetlists) {
       await updateSetlistSongOverride(currentSetlist.id, song.id, { capo: fret });
+      if (capoStorageKey && personalCapos[capoStorageKey] !== undefined) {
+        updatePersonalCapos(prev => {
+          const copy = { ...prev };
+          delete copy[capoStorageKey];
+          return copy;
+        });
+      }
       showFeedbackToast(fret > 0 ? `Capo ${fret} fixé pour la setlist` : 'Capo retiré de la setlist');
-    } else {
-      updateStageSettings({ capo: fret });
-      showFeedbackToast(fret > 0 ? `Capo ${fret} (votre réglage personnel 🎵)` : 'Capodastre retiré');
+    } else if (capoStorageKey) {
+      updatePersonalCapos(prev => ({ ...prev, [capoStorageKey]: fret }));
+      showFeedbackToast(fret > 0 ? `Capo ${fret} appliqué (personnel)` : 'Capo retiré (personnel)');
     }
+    setShowCapoMenu(false);
+  };
+
+  const handleResetPersonalCapo = () => {
+    if (!capoStorageKey) return;
+    updatePersonalCapos(prev => {
+      const copy = { ...prev };
+      delete copy[capoStorageKey];
+      return copy;
+    });
+    showFeedbackToast(defaultCapo > 0 ? `Capo remis par défaut (Case ${defaultCapo})` : 'Capo remis par défaut (Aucun)');
     setShowCapoMenu(false);
   };
 
@@ -1121,14 +1193,11 @@ export const SongReader: React.FC<SongReaderProps> = ({
     return baseKey;
   }, [baseKey, stageSettings.notation]);
 
-  // Transposed Key display (only when transposeOffset !== 0)
-  const transposedKeyDisplay = useMemo(() => {
-    if (!baseKey) return '';
-    if (effectiveTransposeOffset === 0) return '';
-    return transposeChord(baseKey, effectiveTransposeOffset, stageSettings.notation);
-  }, [baseKey, effectiveTransposeOffset, stageSettings.notation]);
-
-  const currentKeyDisplay = transposedKeyDisplay || baseKeyDisplay;
+  // Played chord key shape when Capo > 0 (e.g. Song in E with Capo 2 -> played shapes in D)
+  const capoPlayedKey = useMemo(() => {
+    if (!baseKey || effectiveCapo <= 0) return '';
+    return transposeChord(baseKey, -effectiveCapo, stageSettings.notation);
+  }, [baseKey, effectiveCapo, stageSettings.notation]);
 
   // Sync auto-scrolling ref and open floating widget when started
   useEffect(() => {
@@ -1238,9 +1307,6 @@ export const SongReader: React.FC<SongReaderProps> = ({
           e.preventDefault();
           onPrev();
         }
-      } else if (e.key === 't' || e.key === 'T') {
-        // Quick toggle transpose
-        updateStageSettings({ transposeOffset: (stageSettings.transposeOffset + 1) % 12 });
       } else if (e.key === 'm' || e.key === 'M') {
         // Toggle chords
         updateStageSettings({ showChords: !stageSettings.showChords });
@@ -1249,7 +1315,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [stageSettings.isAutoScrolling, stageSettings.transposeOffset, stageSettings.showChords, updateStageSettings, onNext, onPrev]);
+  }, [stageSettings.isAutoScrolling, stageSettings.showChords, updateStageSettings, onNext, onPrev]);
 
   // MIDI Remote Control Handlers for SongReader (Scroll & Navigation)
   useEffect(() => {
@@ -1639,6 +1705,10 @@ export const SongReader: React.FC<SongReaderProps> = ({
                     type="button"
                     onClick={() => {
                       setShowSettingsDrawer(false);
+                      if (song) {
+                        setSelectedSong(song);
+                      }
+                      setEditorReturnTarget(isInSetlist ? 'setlistLive' : 'stage');
                       setActiveTab('editor');
                     }}
                     className="flex items-center gap-2 p-2 sm:p-2.5 rounded-xl bg-gradient-to-br from-amber-500/20 via-amber-600/10 to-[#18181F] hover:from-amber-500/30 hover:via-amber-600/20 border border-amber-500/40 hover:border-amber-400 text-left transition-all cursor-pointer group shadow-md shadow-amber-950/30 active:scale-98"
@@ -1717,8 +1787,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
 
               <div className={isPadCollapsed ? 'hidden' : 'mt-2.5 pt-2.5 border-t border-sky-500/20'}>
                 <PadControl 
-                  songKey={parsedData.key || song.key} 
-                  transposeOffset={effectiveTransposeOffset}
+                  songKey={effectiveBaseKey} 
                   onToggleCollapse={togglePadCollapse}
                 />
               </div>
@@ -1871,59 +1940,118 @@ export const SongReader: React.FC<SongReaderProps> = ({
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveAudioSource('youtube');
-                    setShowSettingsDrawer(false);
-                    setShowAudioPlayer(true);
-                    setIsAudioPlayerMinimized(false);
-                  }}
-                  className="flex items-center gap-2 p-2.5 rounded-xl bg-gradient-to-br from-red-600/25 via-red-900/15 to-[#16161C] hover:from-red-600/35 hover:via-red-900/25 border border-red-500/40 hover:border-red-400 text-white font-bold text-xs transition-all cursor-pointer group shadow-md shadow-red-950/30 hover:shadow-red-950/50 active:scale-98 text-left"
-                  title="Lancer le lecteur YouTube"
-                >
-                  <div className="w-7 h-7 rounded-lg bg-red-600/20 border border-red-500/30 flex items-center justify-center text-red-500 shrink-0 group-hover:scale-110 group-hover:bg-red-600/30 transition-transform shadow-xs">
-                    <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
-                      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-                    </svg>
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="font-bold text-xs text-white group-hover:text-red-200 transition-colors">
-                      YouTube
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (hasYoutubeEmbed) {
+                        setActiveAudioSource('youtube');
+                        setShowSettingsDrawer(false);
+                        setShowAudioPlayer(true);
+                        setIsAudioPlayerMinimized(false);
+                      } else {
+                        setShowSpotifyConfig(false);
+                        setShowYoutubeConfig(prev => !prev);
+                        setYoutubeInputUrl(effectiveYoutubeUrl || '');
+                      }
+                    }}
+                    className={`w-full flex items-center gap-2 p-2.5 ${hasYoutubeEmbed && canManageSongs ? 'pr-8' : ''} rounded-xl bg-gradient-to-br from-red-600/25 via-red-900/15 to-[#16161C] hover:from-red-600/35 hover:via-red-900/25 border border-red-500/40 hover:border-red-400 text-white font-bold text-xs transition-all cursor-pointer group shadow-md shadow-red-950/30 hover:shadow-red-950/50 active:scale-98 text-left`}
+                    title={hasYoutubeEmbed ? "Lancer le lecteur YouTube" : "Ajouter un lien YouTube pour ce chant"}
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-red-600/20 border border-red-500/30 flex items-center justify-center text-red-500 shrink-0 group-hover:scale-110 group-hover:bg-red-600/30 transition-transform shadow-xs">
+                      <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                        <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                      </svg>
                     </div>
-                  </div>
-                </button>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-bold text-xs text-white group-hover:text-red-200 transition-colors">
+                        YouTube
+                      </div>
+                      {!hasYoutubeEmbed && (
+                        <div className="text-[10px] font-normal text-red-300/80 truncate">
+                          + Ajouter lien
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                  {hasYoutubeEmbed && canManageSongs && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowSpotifyConfig(false);
+                        setShowYoutubeConfig(prev => !prev);
+                        setYoutubeInputUrl(effectiveYoutubeUrl || '');
+                      }}
+                      className={`absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-colors cursor-pointer ${
+                        showYoutubeConfig
+                          ? 'bg-red-500/30 text-white'
+                          : 'text-red-300/80 hover:text-white hover:bg-red-500/20'
+                      }`}
+                      title="Modifier le lien YouTube"
+                      aria-label="Modifier le lien YouTube"
+                    >
+                      <Pencil className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
 
-                <a
-                  href={`https://open.spotify.com/search/${encodeURIComponent([parsedData.title || song.title, parsedData.artist || song.artist].filter(Boolean).join(' '))}`}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    if (hasSpotifyEmbed) {
-                      setActiveAudioSource('spotify');
-                      setShowSettingsDrawer(false);
-                      setShowAudioPlayer(true);
-                      setIsAudioPlayerMinimized(false);
-                    } else {
-                      setShowSpotifyConfig(prev => !prev);
-                      setSpotifyInputUrl(effectiveSpotifyUrl || '');
-                    }
-                  }}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 p-2.5 rounded-xl bg-gradient-to-br from-emerald-600/25 via-emerald-900/15 to-[#16161C] hover:from-emerald-600/35 hover:via-emerald-900/25 border border-emerald-500/40 hover:border-emerald-400 text-white font-bold text-xs transition-all cursor-pointer group shadow-md shadow-emerald-950/30 hover:shadow-emerald-950/50 active:scale-98"
-                  title={hasSpotifyEmbed ? "Écouter sur le petit lecteur Spotify sans quitter l'app" : "Configurer le petit lecteur Spotify (sans quitter l'app)"}
-                >
-                  <div className="w-7 h-7 rounded-lg bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0 group-hover:scale-110 group-hover:bg-emerald-600/30 transition-transform shadow-xs">
-                    <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
-                      <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
-                    </svg>
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="font-bold text-xs text-white group-hover:text-emerald-200 transition-colors">
-                      Spotify
+                <div className="relative">
+                  <a
+                    href={`https://open.spotify.com/search/${encodeURIComponent([parsedData.title || song.title, parsedData.artist || song.artist].filter(Boolean).join(' '))}`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (hasSpotifyEmbed) {
+                        setActiveAudioSource('spotify');
+                        setShowSettingsDrawer(false);
+                        setShowAudioPlayer(true);
+                        setIsAudioPlayerMinimized(false);
+                      } else {
+                        setShowYoutubeConfig(false);
+                        setShowSpotifyConfig(prev => !prev);
+                        setSpotifyInputUrl(effectiveSpotifyUrl || '');
+                      }
+                    }}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`w-full flex items-center gap-2 p-2.5 ${hasSpotifyEmbed && canManageSongs ? 'pr-8' : ''} rounded-xl bg-gradient-to-br from-emerald-600/25 via-emerald-900/15 to-[#16161C] hover:from-emerald-600/35 hover:via-emerald-900/25 border border-emerald-500/40 hover:border-emerald-400 text-white font-bold text-xs transition-all cursor-pointer group shadow-md shadow-emerald-950/30 hover:shadow-emerald-950/50 active:scale-98`}
+                    title={hasSpotifyEmbed ? "Écouter sur le petit lecteur Spotify sans quitter l'app" : "Ajouter un lien Spotify pour ce chant"}
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0 group-hover:scale-110 group-hover:bg-emerald-600/30 transition-transform shadow-xs">
+                      <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                        <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+                      </svg>
                     </div>
-                  </div>
-                </a>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-bold text-xs text-white group-hover:text-emerald-200 transition-colors">
+                        Spotify
+                      </div>
+                      {!hasSpotifyEmbed && (
+                        <div className="text-[10px] font-normal text-emerald-300/80 truncate">
+                          + Ajouter lien
+                        </div>
+                      )}
+                    </div>
+                  </a>
+                  {hasSpotifyEmbed && canManageSongs && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowYoutubeConfig(false);
+                        setShowSpotifyConfig(prev => !prev);
+                        setSpotifyInputUrl(effectiveSpotifyUrl || '');
+                      }}
+                      className={`absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-colors cursor-pointer ${
+                        showSpotifyConfig
+                          ? 'bg-emerald-500/30 text-white'
+                          : 'text-emerald-300/80 hover:text-white hover:bg-emerald-500/20'
+                      }`}
+                      title="Modifier le lien Spotify"
+                      aria-label="Modifier le lien Spotify"
+                    >
+                      <Pencil className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
                 {effectiveAudioUrl && !effectiveYoutubeUrl && !hasSpotifyEmbed && (
                   <button
                     type="button"
@@ -1948,6 +2076,68 @@ export const SongReader: React.FC<SongReaderProps> = ({
                 )}
               </div>
 
+              {/* Panneau de configuration rapide YouTube */}
+              {showYoutubeConfig && (
+                <div className="mt-2.5 p-2.5 rounded-xl bg-[#1A1416] border border-red-500/40 text-xs animate-in fade-in zoom-in-95 duration-100">
+                  <div className="text-[11px] font-bold text-red-400 mb-1 flex items-center justify-between">
+                    <span>Lier une vidéo YouTube</span>
+                    <button 
+                      type="button" 
+                      onClick={() => setShowYoutubeConfig(false)}
+                      className="text-gray-400 hover:text-white p-0.5 cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-gray-400 mb-2 leading-relaxed">
+                    Collez le lien YouTube pour l'enregistrer et l'écouter directement dans l'application.
+                  </p>
+                  <div className="flex gap-1.5 mb-2">
+                    <input
+                      type="url"
+                      value={youtubeInputUrl}
+                      onChange={(e) => setYoutubeInputUrl(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && youtubeInputUrl.trim()) {
+                          e.preventDefault();
+                          handleSaveYoutubeUrl();
+                        }
+                      }}
+                      placeholder="https://www.youtube.com/watch?v=..."
+                      className="flex-1 px-2.5 py-1.5 rounded-lg bg-[#1C1C22] border border-[#3A3A44] text-xs text-white placeholder-gray-500 focus:outline-none focus:border-red-500 font-mono"
+                    />
+                    <button
+                      type="button"
+                      disabled={!youtubeInputUrl.trim() || isSavingYoutube}
+                      onClick={() => handleSaveYoutubeUrl()}
+                      className="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white font-bold text-xs cursor-pointer transition-colors shrink-0 shadow-xs"
+                    >
+                      {isSavingYoutube ? '...' : 'Écouter'}
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between text-[10px]">
+                    <a
+                      href={`https://www.youtube.com/results?search_query=${encodeURIComponent([parsedData.title || song.title, parsedData.artist || song.artist].filter(Boolean).join(' '))}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-red-400 hover:underline flex items-center gap-1"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      <span>Chercher sur YouTube pour copier le lien</span>
+                    </a>
+                    {effectiveYoutubeUrl && (
+                      <button
+                        type="button"
+                        onClick={() => handleSaveYoutubeUrl('')}
+                        className="text-rose-400 hover:text-rose-300 hover:underline cursor-pointer"
+                      >
+                        Retirer le lien
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Panneau de configuration rapide Spotify */}
               {showSpotifyConfig && (
                 <div className="mt-2.5 p-2.5 rounded-xl bg-[#141822] border border-emerald-500/40 text-xs animate-in fade-in zoom-in-95 duration-100">
@@ -1956,19 +2146,25 @@ export const SongReader: React.FC<SongReaderProps> = ({
                     <button 
                       type="button" 
                       onClick={() => setShowSpotifyConfig(false)}
-                      className="text-gray-400 hover:text-white p-0.5"
+                      className="text-gray-400 hover:text-white p-0.5 cursor-pointer"
                     >
                       ✕
                     </button>
                   </div>
                   <p className="text-[10px] text-gray-400 mb-2 leading-relaxed">
-                    Collez le lien Spotify pour l'écouter directement dans le petit lecteur sans quitter l'application.
+                    Collez le lien Spotify pour l'enregistrer et l'écouter directement dans le petit lecteur.
                   </p>
                   <div className="flex gap-1.5 mb-2">
                     <input
                       type="url"
                       value={spotifyInputUrl}
                       onChange={(e) => setSpotifyInputUrl(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && spotifyInputUrl.trim()) {
+                          e.preventDefault();
+                          handleSaveSpotifyUrl();
+                        }
+                      }}
                       placeholder="https://open.spotify.com/track/..."
                       className="flex-1 px-2.5 py-1.5 rounded-lg bg-[#1C1C22] border border-[#3A3A44] text-xs text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 font-mono"
                     />
@@ -2053,16 +2249,14 @@ export const SongReader: React.FC<SongReaderProps> = ({
               <div className="flex items-center gap-1">
                 <span className="font-semibold text-neutral-500 uppercase text-[10px] tracking-wider">Tonalité :</span>
                 <span className="font-mono font-bold text-black text-sm">{baseKeyDisplay}</span>
-                {effectiveTransposeOffset !== 0 && (
-                  <span className="text-neutral-600 font-mono text-[11px]">
-                    ({effectiveTransposeOffset > 0 ? `+${effectiveTransposeOffset}` : effectiveTransposeOffset})
-                  </span>
-                )}
               </div>
               {effectiveCapo > 0 && (
                 <div className="flex items-center gap-1">
                   <span className="font-semibold text-neutral-500 uppercase text-[10px] tracking-wider">Capo :</span>
                   <span className="font-mono font-bold text-black">{effectiveCapo}</span>
+                  {capoPlayedKey && (
+                    <span className="text-neutral-600 font-mono text-[11px]">(Joué {capoPlayedKey})</span>
+                  )}
                 </div>
               )}
               <div className="flex items-center gap-1">
@@ -2152,9 +2346,9 @@ export const SongReader: React.FC<SongReaderProps> = ({
                         title="Tonalité (cliquer pour modifier)"
                       >
                         {baseKeyDisplay}
-                        {effectiveTransposeOffset !== 0 && (
-                          <span className="text-amber-400 ml-1 text-[10px]">
-                            ({effectiveTransposeOffset > 0 ? `+${effectiveTransposeOffset}` : effectiveTransposeOffset})
+                        {effectiveCapo > 0 && (
+                          <span className="text-purple-400 ml-1 text-[10px]">
+                            (Capo {effectiveCapo})
                           </span>
                         )}
                       </button>
@@ -2487,7 +2681,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
               </div>
             )}
 
-            {/* Single Line Toolbar: Stylized Inline Controls with Dropdowns for Tonalité, Transposition & BPM */}
+            {/* Single Line Toolbar: Stylized Inline Controls with Dropdowns for Tonalité, Capo & BPM */}
             {metaVis.controlsBar && (
               <div className="flex items-center gap-2 flex-wrap text-xs">
                 {/* Tonalité : Liste déroulante */}
@@ -2498,7 +2692,6 @@ export const SongReader: React.FC<SongReaderProps> = ({
                   onClick={() => {
                     const next = !showKeyMenu;
                     setShowKeyMenu(next);
-                    setShowTransposeMenu(false);
                     setShowCapoMenu(false);
                     setShowTempoMenu(false);
                     setShowZoomMenu(false);
@@ -2517,15 +2710,6 @@ export const SongReader: React.FC<SongReaderProps> = ({
                   <Music className="w-3.5 h-3.5 text-blue-400 shrink-0" style={{ width: `${Math.max(12, Math.round(displaySettings.typography.metadataSize * 0.9))}px`, height: `${Math.max(12, Math.round(displaySettings.typography.metadataSize * 0.9))}px` }} />
                   <span className="text-gray-400 font-sans hidden sm:inline" style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}>Tonalité :</span>
                   <span className="text-blue-400 font-bold font-mono" style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}>{baseKeyDisplay}</span>
-                  {effectiveTransposeOffset !== 0 && transposedKeyDisplay && (
-                    <span 
-                      className="text-amber-400 font-bold font-mono ml-0.5" 
-                      style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
-                      title={`Transposition piano : ${effectiveTransposeOffset > 0 ? `+${effectiveTransposeOffset}` : effectiveTransposeOffset} demi-tons (sonorité réelle : ${transposedKeyDisplay})`}
-                    >
-                      (Sonne {transposedKeyDisplay})
-                    </span>
-                  )}
                   <ChevronDown className={`w-3 h-3 text-blue-400/80 transition-transform ${showKeyMenu ? 'rotate-180' : ''}`} style={{ width: `${Math.max(11, Math.round(displaySettings.typography.metadataSize * 0.8))}px`, height: `${Math.max(11, Math.round(displaySettings.typography.metadataSize * 0.8))}px` }} />
                 </button>
 
@@ -2553,194 +2737,6 @@ export const SongReader: React.FC<SongReaderProps> = ({
                 )}
               </div>
 
-              {/* Transposition : Liste déroulante en deux colonnes */}
-              <div className="relative inline-block">
-                <button
-                  ref={transposeButtonRef}
-                  type="button"
-                  onClick={() => {
-                    const next = !showTransposeMenu;
-                    setShowTransposeMenu(next);
-                    setShowKeyMenu(false);
-                    setShowCapoMenu(false);
-                    setShowTempoMenu(false);
-                    setShowZoomMenu(false);
-                    if (next) {
-                      setTransposePopoverStyle(calculatePopoverPos(transposeButtonRef.current));
-                    }
-                  }}
-                  className={`min-h-[32px] py-1 inline-flex items-center gap-1.5 px-2.5 rounded-lg border font-mono shadow-xs transition-all cursor-pointer ${
-                    showTransposeMenu
-                      ? 'bg-amber-950/40 border-amber-500 text-amber-300 ring-1 ring-amber-500/40'
-                      : effectiveTransposeOffset !== 0
-                        ? 'bg-amber-950/30 hover:bg-amber-950/50 border-amber-500/40 text-amber-300'
-                        : 'bg-[#141416] hover:bg-[#1A1A1E] border-[#242428] hover:border-amber-500/40 text-gray-300'
-                  }`}
-                  style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
-                  title="Cliquer pour choisir la transposition (logique piano) - liste déroulante"
-                >
-                  <ArrowUpDown className="w-3.5 h-3.5 text-amber-400 shrink-0" style={{ width: `${Math.max(12, Math.round(displaySettings.typography.metadataSize * 0.9))}px`, height: `${Math.max(12, Math.round(displaySettings.typography.metadataSize * 0.9))}px` }} />
-                  <span className="text-amber-400/90 font-sans shrink-0 hidden sm:inline" style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}>Transpose :</span>
-                  <span className={`px-1.5 py-0.5 rounded font-mono font-bold ${
-                    effectiveTransposeOffset !== 0
-                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                      : 'bg-[#18181C] text-gray-300 border border-[#242428]'
-                  }`}
-                  style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
-                  >
-                    {effectiveTransposeOffset === 0 
-                      ? '0' 
-                      : (effectiveTransposeOffset > 0 ? `+${effectiveTransposeOffset}` : `${effectiveTransposeOffset}`)}
-                  </span>
-                  {effectiveTransposeOffset !== 0 && transposedKeyDisplay && (
-                    <span className="text-amber-300/90 font-mono font-semibold hidden md:inline" style={{ fontSize: `${Math.max(10, displaySettings.typography.metadataSize - 1)}px` }}>
-                      (Sonne {transposedKeyDisplay})
-                    </span>
-                  )}
-                  <ChevronDown className={`w-3 h-3 text-amber-400/80 transition-transform ${showTransposeMenu ? 'rotate-180' : ''}`} style={{ width: `${Math.max(11, Math.round(displaySettings.typography.metadataSize * 0.8))}px`, height: `${Math.max(11, Math.round(displaySettings.typography.metadataSize * 0.8))}px` }} />
-                </button>
-
-                {showTransposeMenu && (
-                  <>
-                    <div 
-                      className="fixed inset-0 z-40" 
-                      onClick={() => setShowTransposeMenu(false)} 
-                    />
-                    <div 
-                      style={transposePopoverStyle}
-                      className="absolute top-full mt-1.5 z-50 w-72 max-w-[calc(100vw-24px)] bg-[#16161A] border border-[#2E2E36] rounded-xl shadow-2xl p-2.5 backdrop-blur-md animate-in fade-in zoom-in-95 duration-100 box-border"
-                    >
-                      <div className="text-[11px] font-semibold text-gray-400 pb-2 mb-2 border-b border-[#282830] flex items-center justify-between">
-                        <div className="flex items-center gap-1.5">
-                          <span>Transposition</span>
-                          <span className="text-[10px] text-gray-500 font-normal">(logique piano)</span>
-                        </div>
-                        {effectiveTransposeOffset !== 0 ? (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              handleSetTransposeOffset(0);
-                              setShowTransposeMenu(false);
-                            }}
-                            className="text-[10px] text-amber-400 hover:underline cursor-pointer"
-                          >
-                            Rétablir à 0
-                          </button>
-                        ) : (
-                          <span className="text-[10px] text-amber-400 font-mono">0</span>
-                        )}
-                      </div>
-
-                      {/* Info Logique Piano / Clavier */}
-                      <div className="mb-2 p-1.5 rounded-lg bg-[#111116] border border-[#262632] text-[10px] text-gray-400 leading-tight">
-                        🎹 Les accords écrits restent <strong className="text-blue-300">{baseKeyDisplay}</strong>. Le transpose modifie la sonorité réelle comme sur un piano électronique.
-                      </div>
-
-                      {/* Option centrale 0 : Tonalité d'origine */}
-                      <div className="mb-2 pb-2 border-b border-[#282830]">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            handleSetTransposeOffset(0);
-                            setShowTransposeMenu(false);
-                          }}
-                          className={`w-full py-1.5 px-2 rounded-lg font-mono text-xs transition-colors flex items-center justify-between cursor-pointer ${
-                            effectiveTransposeOffset === 0
-                              ? 'bg-amber-600 text-white font-bold shadow-xs'
-                              : 'bg-[#1C1C22] text-gray-300 hover:bg-[#25252D] hover:text-white border border-[#2E2E36]'
-                          }`}
-                        >
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-bold">0</span>
-                            <span className="text-gray-400 text-[11px]">Origine</span>
-                          </div>
-                          {baseKey && (
-                            <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded ${
-                              effectiveTransposeOffset === 0 ? 'bg-amber-700/80 text-white' : 'bg-[#202026] text-blue-300 border border-[#2A2A32]'
-                            }`}>
-                              {baseKeyDisplay}
-                            </span>
-                          )}
-                        </button>
-                      </div>
-
-                      {/* Deux colonnes compactes */}
-                      <div className="grid grid-cols-2 gap-1.5 text-xs">
-                        {/* Colonne Gauche : Baisser */}
-                        <div className="grid grid-cols-1 gap-1 max-h-60 overflow-y-auto pr-0.5 custom-scrollbar">
-                          {TRANSPOSE_DOWN_STEPS.map((step) => {
-                            const isSelected = effectiveTransposeOffset === step;
-                            const resultingKey = baseKey ? transposeChord(baseKey, step, stageSettings.notation) : '';
-                            return (
-                              <button
-                                key={step}
-                                type="button"
-                                onClick={() => {
-                                  handleSetTransposeOffset(step);
-                                  setShowTransposeMenu(false);
-                                }}
-                                className={`w-full py-1 px-1.5 rounded-md font-mono text-xs transition-colors flex items-center justify-between cursor-pointer ${
-                                  isSelected
-                                    ? 'bg-rose-600 text-white font-bold shadow-xs'
-                                    : 'text-gray-300 hover:bg-[#25252D] hover:text-white'
-                                }`}
-                                title={`Accords écrits : ${baseKeyDisplay} • Sonorité produite : ${resultingKey}`}
-                              >
-                                <span className={isSelected ? 'text-white' : 'text-rose-300/90 font-medium'}>
-                                  {step}
-                                </span>
-                                {resultingKey && (
-                                  <span className={`text-[10px] font-bold px-1 rounded ${
-                                    isSelected ? 'bg-rose-700/80 text-white' : 'bg-[#202026] text-amber-300 border border-[#2A2A32]'
-                                  }`}>
-                                    Sonne {resultingKey}
-                                  </span>
-                                )}
-                              </button>
-                            );
-                          })}
-                        </div>
-
-                        {/* Colonne Droite : Augmenter */}
-                        <div className="grid grid-cols-1 gap-1 max-h-60 overflow-y-auto pr-0.5 custom-scrollbar border-l border-[#282830] pl-1.5">
-                          {TRANSPOSE_UP_STEPS.map((step) => {
-                            const isSelected = effectiveTransposeOffset === step;
-                            const resultingKey = baseKey ? transposeChord(baseKey, step, stageSettings.notation) : '';
-                            return (
-                              <button
-                                key={step}
-                                type="button"
-                                onClick={() => {
-                                  handleSetTransposeOffset(step);
-                                  setShowTransposeMenu(false);
-                                }}
-                                className={`w-full py-1 px-1.5 rounded-md font-mono text-xs transition-colors flex items-center justify-between cursor-pointer ${
-                                  isSelected
-                                    ? 'bg-emerald-600 text-white font-bold shadow-xs'
-                                    : 'text-gray-300 hover:bg-[#25252D] hover:text-white'
-                                }`}
-                                title={`Accords écrits : ${baseKeyDisplay} • Sonorité produite : ${resultingKey}`}
-                              >
-                                <span className={isSelected ? 'text-white' : 'text-emerald-300/90 font-medium'}>
-                                  +{step}
-                                </span>
-                                {resultingKey && (
-                                  <span className={`text-[10px] font-bold px-1 rounded ${
-                                    isSelected ? 'bg-emerald-700/80 text-white' : 'bg-[#202026] text-amber-300 border border-[#2A2A32]'
-                                  }`}>
-                                    Sonne {resultingKey}
-                                  </span>
-                                )}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-
               {/* Capodastre : Module stylisé avec affichage et sélection */}
               <div className="relative inline-block">
                 <button
@@ -2751,7 +2747,6 @@ export const SongReader: React.FC<SongReaderProps> = ({
                     const next = !showCapoMenu;
                     setShowCapoMenu(next);
                     setShowKeyMenu(false);
-                    setShowTransposeMenu(false);
                     setShowTempoMenu(false);
                     setShowZoomMenu(false);
                     if (next) {
@@ -2773,7 +2768,12 @@ export const SongReader: React.FC<SongReaderProps> = ({
                   <span className="text-purple-400 font-bold font-mono" style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}>
                     {effectiveCapo > 0 ? effectiveCapo : '0'}
                   </span>
-                  {personalCapo > 0 && (
+                  {effectiveCapo > 0 && capoPlayedKey && (
+                    <span className="text-purple-300/90 font-mono font-semibold hidden md:inline" style={{ fontSize: `${Math.max(10, displaySettings.typography.metadataSize - 1)}px` }}>
+                      (Joué {capoPlayedKey})
+                    </span>
+                  )}
+                  {personalCapo !== undefined && (
                     <span className="px-1 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 font-sans hidden sm:inline" style={{ fontSize: `${Math.max(9, displaySettings.typography.metadataSize - 2)}px` }}>
                       Perso
                     </span>
@@ -2796,7 +2796,18 @@ export const SongReader: React.FC<SongReaderProps> = ({
                           <SlidersHorizontal className="w-3.5 h-3.5" />
                           <span>Capodastre ({isSetlistMode && canManageSetlists ? 'Défaut Setlist' : 'Personnel'})</span>
                         </span>
-                        <span className="text-[10px] text-purple-400 font-mono">Actuel : {effectiveCapo > 0 ? `Case ${effectiveCapo}` : 'Aucun'}</span>
+                        <div className="flex items-center gap-2">
+                          {personalCapo !== undefined && (
+                            <button
+                              type="button"
+                              onClick={handleResetPersonalCapo}
+                              className="text-[10px] text-amber-400 hover:underline cursor-pointer"
+                            >
+                              Défaut ({defaultCapo > 0 ? defaultCapo : '0'})
+                            </button>
+                          )}
+                          <span className="text-[10px] text-purple-400 font-mono">Actuel : {effectiveCapo > 0 ? `Case ${effectiveCapo}` : 'Aucun'}</span>
+                        </div>
                       </div>
 
                       <div className="grid grid-cols-4 gap-1.5 text-xs mb-2">
@@ -2820,10 +2831,16 @@ export const SongReader: React.FC<SongReaderProps> = ({
                         })}
                       </div>
 
+                      {effectiveCapo > 0 && capoPlayedKey && (
+                        <div className="mb-2 p-1.5 rounded bg-purple-500/10 border border-purple-500/25 text-[10px] text-purple-200 leading-tight">
+                          Capo {effectiveCapo} : accords affichés en <strong className="font-mono text-white">{capoPlayedKey}</strong> (sonne en <strong className="font-mono text-blue-300">{baseKeyDisplay}</strong>).
+                        </div>
+                      )}
+
                       <p className="text-[10px] text-gray-400 bg-[#101014] p-1.5 rounded border border-[#222228] leading-tight">
-                        🎸 {isSetlistMode && canManageSetlists 
+                        {isSetlistMode && canManageSetlists 
                           ? "En tant que responsable, vous fixez le capodastre par défaut pour cette setlist." 
-                          : "Ce réglage est mémorisé sur votre appareil et n'affecte pas les autres musiciens."}
+                          : "Ce réglage est mémorisé sur votre appareil uniquement pour ce chant."}
                       </p>
                     </div>
                   </>
@@ -2840,7 +2857,6 @@ export const SongReader: React.FC<SongReaderProps> = ({
                     const next = !showTempoMenu;
                     setShowTempoMenu(next);
                     setShowKeyMenu(false);
-                    setShowTransposeMenu(false);
                     setShowCapoMenu(false);
                     setShowZoomMenu(false);
                     if (next) {
@@ -3224,9 +3240,9 @@ export const SongReader: React.FC<SongReaderProps> = ({
                                       color: displaySettings.chordColor || '#60a5fa'
                                     }}
                                     title={displayedChord 
-                                      ? (effectiveTransposeOffset !== 0 && transposedKeyDisplay
-                                          ? `Accord joué : ${displayedChord} - Sonnera ${transposeChord(item.chord, auditoryTransposeSemitones, stageSettings.notation)} au clavier`
-                                          : `Diagramme de l accord ${displayedChord}`)
+                                      ? (effectiveCapo > 0
+                                          ? `Accord joué : ${displayedChord} (Capo ${effectiveCapo}) • Son réel : ${transposeChord(item.chord, baseKeySemitones, stageSettings.notation)}`
+                                          : `Diagramme de l'accord ${displayedChord}`)
                                       : undefined}
                                   >
                                     {displayedChord || '\u00A0'}
@@ -3354,7 +3370,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                   >
                     {renderSongSections(
                       parsedTranslatedData.sections, 
-                      getSemitoneDifference((parsedTranslatedData.key || translatedSong.key || catalogBaseKey), effectiveBaseKey) % 12, 
+                      ((getSemitoneDifference((parsedTranslatedData.key || translatedSong.key || catalogBaseKey), effectiveBaseKey) - effectiveCapo) % 12 + 12) % 12, 
                       true
                     )}
                   </div>
@@ -3686,7 +3702,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
         songChords={allSongChords}
         notation={stageSettings.notation}
         onSelectChord={(ch) => setChordModalData(prev => ({ ...prev, chord: ch }))}
-        transposeOffset={effectiveTransposeOffset}
+        capo={effectiveCapo}
       />
 
       {/* Language Version & Relations Modal */}

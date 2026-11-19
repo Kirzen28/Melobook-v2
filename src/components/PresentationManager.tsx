@@ -30,6 +30,15 @@ import { getLinkedSongVersions, getLanguageMeta, PRESET_LANGUAGES } from '../uti
 import { PresentationBackgroundModal } from './PresentationBackgroundModal';
 import { BibleProjectionModule } from './BibleProjectionModule';
 import { MediaProjectionModule } from './MediaProjectionModule';
+import { AiTranslationModal } from './AiTranslationModal';
+import {
+  AiSongTranslation,
+  buildChordProFromTranslation,
+  toVirtualTranslatedSong,
+  getSavedAiTranslations,
+  saveAiTranslationToStorage,
+  deleteAiTranslationFromStorage
+} from '../utils/aiTranslationUtils';
 import { BiblePassageData } from '../types';
 import { 
   Tv, 
@@ -66,7 +75,9 @@ import {
   BookOpen,
   Columns,
   Globe,
-  Lock
+  Lock,
+  Languages,
+  Edit3
 } from 'lucide-react';
 
 export interface QueueItem {
@@ -90,7 +101,17 @@ const getTodayDateString = (): string => {
 };
 
 export const PresentationManager: React.FC = () => {
-  const { songs, setlists, selectedSetlist, setActiveTab, showNotification, linkSongs } = useApp();
+  const {
+    songs,
+    setlists,
+    selectedSetlist,
+    showNotification,
+    linkSongs,
+    createSong,
+    updateSong,
+    currentUser,
+    isGuest
+  } = useApp();
 
   // File de chants pour la projection avec support multi-setlists
   const [queueItems, setQueueItems] = useState<QueueItem[]>(() => {
@@ -342,6 +363,17 @@ export const PresentationManager: React.FC = () => {
   const [showBilingualModal, setShowBilingualModal] = useState<boolean>(false);
   const [bilingualSearchQuery, setBilingualSearchQuery] = useState<string>('');
 
+  // Traduction automatique par IA & édition manuelle locale (persistance localStorage)
+  const [aiTranslations, setAiTranslations] = useState<Record<string, AiSongTranslation>>(() =>
+    getSavedAiTranslations()
+  );
+  const [isAiTranslateModalOpen, setIsAiTranslateModalOpen] = useState<boolean>(false);
+  const [aiTranslateInitialEdit, setAiTranslateInitialEdit] = useState<boolean>(false);
+
+  const canSaveTranslationToLibrary = Boolean(
+    !isGuest && currentUser && ['admin', 'leader', 'editor'].includes(currentUser.role)
+  );
+
   const handleToggleBilingualMode = useCallback(() => {
     setIsBilingualMode(prev => {
       const next = !prev;
@@ -543,6 +575,10 @@ export const PresentationManager: React.FC = () => {
     return songs.find(s => s.id === currentQueueItem.songId) || null;
   }, [currentQueueItem, songs]);
 
+  useEffect(() => {
+    setSelectedSecondarySongId(null);
+  }, [currentSong?.id]);
+
   // Slides calculées pour le live direct biblique
   const liveDirectSlides: PresentationSlide[] = useMemo(() => {
     if (!liveDirectBible) return [];
@@ -562,9 +598,17 @@ export const PresentationManager: React.FC = () => {
     return getLinkedSongVersions(currentSong, songs);
   }, [currentSong, songs]);
 
-  // Version traduite sélectionnée pour la projection bilingue
+  const activeAiTranslation = useMemo(() => {
+    if (!currentSong) return null;
+    return aiTranslations[currentSong.id] || null;
+  }, [currentSong, aiTranslations]);
+
+  // Version traduite sélectionnée pour la projection bilingue (liée ou traduction IA)
   const secondarySong: Song | null = useMemo(() => {
     if (!isBilingualMode || !currentSong) return null;
+    if (selectedSecondarySongId === `ai_${currentSong.id}` && activeAiTranslation) {
+      return toVirtualTranslatedSong(currentSong, activeAiTranslation);
+    }
     if (selectedSecondarySongId) {
       const found = songs.find(s => s.id === selectedSecondarySongId);
       if (found) return found;
@@ -572,8 +616,90 @@ export const PresentationManager: React.FC = () => {
     if (availableLinkedVersions.length > 0) {
       return availableLinkedVersions[0];
     }
+    if (activeAiTranslation) {
+      return toVirtualTranslatedSong(currentSong, activeAiTranslation);
+    }
     return null;
-  }, [isBilingualMode, currentSong, selectedSecondarySongId, songs, availableLinkedVersions]);
+  }, [isBilingualMode, currentSong, selectedSecondarySongId, songs, availableLinkedVersions, activeAiTranslation]);
+
+  const handleApplyAiTranslation = useCallback((translation: AiSongTranslation) => {
+    const nextMap = saveAiTranslationToStorage(translation);
+    setAiTranslations(nextMap);
+    setSelectedSecondarySongId(`ai_${translation.sourceSongId}`);
+    setIsBilingualMode(true);
+    try {
+      localStorage.setItem('melobook_presentation_bilingual_mode', 'true');
+    } catch {}
+    showNotification?.({
+      title: 'Traduction appliquée en projection',
+      message: `${translation.translatedTitle} (${translation.targetLanguage})`,
+      type: 'success'
+    });
+  }, [showNotification]);
+
+  const handleSaveAiTranslationToLibrary = useCallback(async (translation: AiSongTranslation) => {
+    if (!currentSong) return;
+    const chordPro = buildChordProFromTranslation(translation.translatedTitle, translation.blocks);
+    const existingLinkedId =
+      translation.linkedSongId ||
+      (secondarySong && !secondarySong.id.startsWith('ai_') ? secondarySong.id : undefined);
+
+    let targetId = existingLinkedId;
+    if (existingLinkedId) {
+      await updateSong(existingLinkedId, {
+        title: translation.translatedTitle,
+        language: translation.targetLanguage,
+        contentChordPro: chordPro
+      });
+    } else {
+      targetId = await createSong({
+        title: translation.translatedTitle,
+        artist: currentSong.artist,
+        key: currentSong.key,
+        tempo: currentSong.tempo,
+        timeSignature: currentSong.timeSignature,
+        tags: currentSong.tags ? [...currentSong.tags] : [],
+        language: translation.targetLanguage,
+        linkedSongIds: [currentSong.id],
+        notes: `Traduction IA (${translation.targetLanguage})`,
+        contentChordPro: chordPro
+      });
+      if (targetId) {
+        await linkSongs(currentSong.id, targetId);
+      }
+    }
+
+    if (targetId) {
+      const savedMap = saveAiTranslationToStorage({
+        ...translation,
+        linkedSongId: targetId
+      });
+      setAiTranslations(savedMap);
+      setSelectedSecondarySongId(targetId);
+    }
+    setIsBilingualMode(true);
+    try {
+      localStorage.setItem('melobook_presentation_bilingual_mode', 'true');
+    } catch {}
+    showNotification?.({
+      title: existingLinkedId ? 'Chant traduit mis à jour' : 'Traduction enregistrée et liée',
+      message: `${translation.translatedTitle} (${translation.targetLanguage})`,
+      type: 'success'
+    });
+  }, [currentSong, secondarySong, updateSong, createSong, linkSongs, showNotification]);
+
+  const handleDeleteLocalAiTranslation = useCallback((sourceSongId: string) => {
+    const nextMap = deleteAiTranslationFromStorage(sourceSongId);
+    setAiTranslations(nextMap);
+    if (selectedSecondarySongId === `ai_${sourceSongId}`) {
+      setSelectedSecondarySongId(null);
+    }
+    showNotification?.({
+      title: 'Traduction locale supprimée',
+      message: 'Vous pouvez relancer une traduction IA à tout moment.',
+      type: 'info'
+    });
+  }, [selectedSecondarySongId, showNotification]);
 
   // Slides calculées pour l'élément actif de la file
   const queueItemSlides: PresentationSlide[] = useMemo(() => {
@@ -1623,7 +1749,7 @@ export const PresentationManager: React.FC = () => {
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-wrap">
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-2 sm:gap-2.5">
             <Tv className="w-5 h-5 sm:w-6 sm:h-6 text-blue-500 shrink-0" />
-            <span>Mode Présentation</span>
+            <span>Mode Projection</span>
           </h1>
         </div>
 
@@ -1848,101 +1974,149 @@ export const PresentationManager: React.FC = () => {
                     </button>
                   </div>
 
-                  {/* Contrôles Mode Bilingue (uniquement pour les chants) */}
+                  {/* Contrôles Mode Bilingue & Traduction IA (uniquement pour les chants) */}
                   {currentSong && currentQueueItem?.type !== 'bible' && (
                     <div className="flex items-center gap-2 flex-wrap pl-2 border-l border-[#202028]">
+                      {/* Bouton Traduction IA (pour traduire automatiquement un chant sans version liée ou générer/revoir une traduction) */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAiTranslateInitialEdit(false);
+                          setIsAiTranslateModalOpen(true);
+                        }}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${
+                          availableLinkedVersions.length === 0
+                            ? 'bg-gradient-to-r from-cyan-600/25 to-indigo-600/25 hover:from-cyan-600/40 hover:to-indigo-600/40 text-cyan-200 border-cyan-500/50 shadow-xs'
+                            : 'bg-[#181822] hover:bg-cyan-950/30 text-cyan-300 border-cyan-500/30'
+                        }`}
+                        title={
+                          availableLinkedVersions.length === 0
+                            ? "Traduire automatiquement les paroles par IA (tokens gratuits)"
+                            : "Traduire ce chant par IA dans une autre langue"
+                        }
+                      >
+                        <Languages className="w-3.5 h-3.5 text-cyan-400" />
+                        <span>Traduire IA</span>
+                        {activeAiTranslation && (
+                          <span className="text-[9px] font-mono px-1 rounded bg-cyan-500/25 text-cyan-200">
+                            {getLanguageMeta(activeAiTranslation.targetLanguage).code}
+                          </span>
+                        )}
+                      </button>
+
+                      {/* Bouton Mode Édition manuelle de la traduction */}
+                      {(activeAiTranslation || (isBilingualMode && secondarySong)) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAiTranslateInitialEdit(true);
+                            setIsAiTranslateModalOpen(true);
+                          }}
+                          className="px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border bg-amber-600/15 hover:bg-amber-600/30 text-amber-200 border-amber-500/40"
+                          title="Éditer manuellement la traduction des paroles"
+                        >
+                          <Edit3 className="w-3.5 h-3.5 text-amber-400" />
+                          <span>Éditer trad.</span>
+                        </button>
+                      )}
+
                       {/* Bouton Toggle Bilingue */}
                       <button
-                      type="button"
-                      onClick={handleToggleBilingualMode}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${
-                        isBilingualMode
-                          ? 'bg-indigo-600 border-indigo-500 text-white shadow-xs ring-1 ring-indigo-400/50'
-                          : 'bg-[#181822] hover:bg-indigo-950/30 text-indigo-300 border-indigo-500/30'
-                      }`}
-                      title={isBilingualMode ? "Désactiver le mode bilingue" : "Activer la projection bilingue (original + traduction)"}
-                    >
-                      <Columns className="w-3.5 h-3.5" />
-                      <span>Bilingue</span>
-                      {isBilingualMode && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-                      )}
-                    </button>
+                        type="button"
+                        onClick={handleToggleBilingualMode}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${
+                          isBilingualMode
+                            ? 'bg-indigo-600 border-indigo-500 text-white shadow-xs ring-1 ring-indigo-400/50'
+                            : 'bg-[#181822] hover:bg-indigo-950/30 text-indigo-300 border-indigo-500/30'
+                        }`}
+                        title={isBilingualMode ? "Désactiver le mode bilingue" : "Activer la projection bilingue (original + traduction)"}
+                      >
+                        <Columns className="w-3.5 h-3.5" />
+                        <span>Bilingue</span>
+                        {isBilingualMode && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                        )}
+                      </button>
 
-                    {/* Options quand bilingue est actif */}
-                    {isBilingualMode && (
-                      <div className="flex items-center gap-1.5 animate-in fade-in zoom-in-95 duration-100">
-                        {/* Sélecteur de version traduite */}
-                        {availableLinkedVersions.length > 0 ? (
-                          <div className="relative">
-                            <select
-                              value={secondarySong?.id || ''}
-                              onChange={(e) => setSelectedSecondarySongId(e.target.value)}
-                              className="bg-[#181824] border border-indigo-500/40 rounded-lg px-2.5 py-1 text-xs text-indigo-200 cursor-pointer focus:outline-none focus:border-indigo-400 font-medium appearance-none pr-6"
-                              title="Changer la version traduite à projeter"
-                            >
-                              {availableLinkedVersions.map((lv) => {
-                                const lMeta = getLanguageMeta(lv.language);
-                                return (
-                                  <option key={lv.id} value={lv.id} className="bg-[#141418] text-white">
-                                    {lMeta.code} • {lv.title}
+                      {/* Options quand bilingue est actif */}
+                      {isBilingualMode && (
+                        <div className="flex items-center gap-1.5 animate-in fade-in zoom-in-95 duration-100">
+                          {/* Sélecteur de version traduite */}
+                          {(availableLinkedVersions.length > 0 || activeAiTranslation) ? (
+                            <div className="relative">
+                              <select
+                                value={secondarySong?.id || ''}
+                                onChange={(e) => setSelectedSecondarySongId(e.target.value)}
+                                className="bg-[#181824] border border-indigo-500/40 rounded-lg px-2.5 py-1 text-xs text-indigo-200 cursor-pointer focus:outline-none focus:border-indigo-400 font-medium appearance-none pr-6"
+                                title="Changer la version traduite à projeter"
+                              >
+                                {availableLinkedVersions.map((lv) => {
+                                  const lMeta = getLanguageMeta(lv.language);
+                                  return (
+                                    <option key={lv.id} value={lv.id} className="bg-[#141418] text-white">
+                                      {lMeta.code} • {lv.title}
+                                    </option>
+                                  );
+                                })}
+                                {activeAiTranslation && (
+                                  <option value={`ai_${currentSong.id}`} className="bg-[#141418] text-cyan-200">
+                                    IA ({getLanguageMeta(activeAiTranslation.targetLanguage).code}) • {activeAiTranslation.translatedTitle}
                                   </option>
-                                );
-                              })}
-                            </select>
-                            <ChevronDown className="w-3 h-3 text-indigo-400 pointer-events-none absolute right-2 top-1/2 -translate-y-1/2" />
-                          </div>
-                        ) : (
+                                )}
+                              </select>
+                              <ChevronDown className="w-3 h-3 text-indigo-400 pointer-events-none absolute right-2 top-1/2 -translate-y-1/2" />
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setShowBilingualModal(true)}
+                              className="px-2 py-1 rounded-lg bg-indigo-950/50 hover:bg-indigo-900/50 border border-indigo-500/40 text-[11px] font-medium text-indigo-300 flex items-center gap-1 cursor-pointer"
+                              title="Lier ou choisir une version traduite"
+                            >
+                              <Globe className="w-3 h-3 text-indigo-400" />
+                              <span>{secondarySong ? `${getLanguageMeta(secondarySong.language).code} • ${secondarySong.title}` : 'Lier une traduction'}</span>
+                            </button>
+                          )}
+
+                          {/* Bouton pour ouvrir la recherche dans tout le répertoire */}
                           <button
                             type="button"
                             onClick={() => setShowBilingualModal(true)}
-                            className="px-2 py-1 rounded-lg bg-indigo-950/50 hover:bg-indigo-900/50 border border-indigo-500/40 text-[11px] font-medium text-indigo-300 flex items-center gap-1 cursor-pointer"
-                            title="Lier ou choisir une version traduite"
+                            className="p-1 rounded-lg bg-[#181824] hover:bg-[#202030] text-indigo-300 border border-indigo-500/40 transition-colors cursor-pointer"
+                            title="Lier un autre chant du répertoire pour la projection bilingue"
                           >
-                            <Globe className="w-3 h-3 text-indigo-400" />
-                            <span>{secondarySong ? `${getLanguageMeta(secondarySong.language).code} • ${secondarySong.title}` : 'Lier une traduction'}</span>
+                            <Plus className="w-3.5 h-3.5" />
                           </button>
-                        )}
 
-                        {/* Bouton pour ouvrir la recherche dans tout le répertoire */}
-                        <button
-                          type="button"
-                          onClick={() => setShowBilingualModal(true)}
-                          className="p-1 rounded-lg bg-[#181824] hover:bg-[#202030] text-indigo-300 border border-indigo-500/40 transition-colors cursor-pointer"
-                          title="Lier un autre chant du répertoire pour la projection bilingue"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                        </button>
-
-                        {/* Choix du format : Sous-titres intercalés OU 2 Colonnes */}
-                        <div className="flex items-center rounded-lg bg-[#16161E] border border-[#2B2B38] p-0.5 text-[11px]">
-                          <button
-                            type="button"
-                            onClick={() => handleSetBilingualFormat('stacked')}
-                            className={`px-2 py-0.5 rounded-md font-semibold transition-colors cursor-pointer ${
-                              bilingualFormat === 'stacked'
-                                ? 'bg-indigo-600 text-white shadow-xs'
-                                : 'text-gray-400 hover:text-white'
-                            }`}
-                            title="Sous-titres : paroles originales en grand, traduction sous chaque ligne"
-                          >
-                            Sous-titres
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleSetBilingualFormat('columns')}
-                            className={`px-2 py-0.5 rounded-md font-semibold transition-colors cursor-pointer ${
-                              bilingualFormat === 'columns'
-                                ? 'bg-indigo-600 text-white shadow-xs'
-                                : 'text-gray-400 hover:text-white'
-                            }`}
-                            title="2 Colonnes : original à gauche, traduction à droite"
-                          >
-                            2 Colonnes
-                          </button>
+                          {/* Choix du format : Sous-titres intercalés OU 2 Colonnes */}
+                          <div className="flex items-center rounded-lg bg-[#16161E] border border-[#2B2B38] p-0.5 text-[11px]">
+                            <button
+                              type="button"
+                              onClick={() => handleSetBilingualFormat('stacked')}
+                              className={`px-2 py-0.5 rounded-md font-semibold transition-colors cursor-pointer ${
+                                bilingualFormat === 'stacked'
+                                  ? 'bg-indigo-600 text-white shadow-xs'
+                                  : 'text-gray-400 hover:text-white'
+                              }`}
+                              title="Sous-titres : paroles originales en grand, traduction sous chaque ligne"
+                            >
+                              Sous-titres
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleSetBilingualFormat('columns')}
+                              className={`px-2 py-0.5 rounded-md font-semibold transition-colors cursor-pointer ${
+                                bilingualFormat === 'columns'
+                                  ? 'bg-indigo-600 text-white shadow-xs'
+                                  : 'text-gray-400 hover:text-white'
+                              }`}
+                              title="2 Colonnes : original à gauche, traduction à droite"
+                            >
+                              2 Colonnes
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
                     </div>
                   )}
                 </div>
@@ -1973,7 +2147,7 @@ export const PresentationManager: React.FC = () => {
                   Sélectionnez un élément dans la file pour afficher ses sections.
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 max-h-[460px] overflow-y-auto pr-1 custom-scrollbar">
+                <div className="grid grid-cols-1 gap-2.5 max-h-[460px] overflow-y-auto pr-1 custom-scrollbar">
                   {currentSlides.map((slide, sIdx) => {
                     const isCurrent = sIdx === clampedSlideIndex;
                     const isBibleSlide = slide.itemType === 'bible';
@@ -1990,7 +2164,7 @@ export const PresentationManager: React.FC = () => {
                           }
                           setIsBlackout(false);
                         }}
-                        className={`text-left p-3.5 rounded-xl border flex flex-col justify-between min-h-[110px] transition-all cursor-pointer relative overflow-hidden group ${
+                        className={`text-left p-3.5 rounded-xl border flex flex-col justify-between transition-all cursor-pointer relative overflow-hidden group ${
                           isCurrent
                             ? isBibleSlide
                               ? 'bg-amber-950/50 border-amber-400 ring-2 ring-amber-500/40 text-white shadow-lg shadow-amber-950/50'
@@ -3001,7 +3175,21 @@ export const PresentationManager: React.FC = () => {
                 Versions traduites liées
               </span>
               {availableLinkedVersions.length === 0 ? (
-                <p className="text-xs text-gray-500 italic">Aucune version n'est encore liée à ce chant.</p>
+                <div className="space-y-2">
+                  <p className="text-xs text-gray-500 italic">Aucune version n'est encore liée à ce chant.</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowBilingualModal(false);
+                      setAiTranslateInitialEdit(false);
+                      setIsAiTranslateModalOpen(true);
+                    }}
+                    className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-cyan-600/25 to-indigo-600/25 hover:from-cyan-600/40 hover:to-indigo-600/40 border border-cyan-500/40 text-cyan-200 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-all"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>Traduire automatiquement par IA</span>
+                  </button>
+                </div>
               ) : (
                 <div className="space-y-1.5 max-h-40 overflow-y-auto custom-scrollbar">
                   {availableLinkedVersions.map((lv) => {
@@ -3218,6 +3406,24 @@ export const PresentationManager: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal de traduction automatique par IA et d'édition manuelle */}
+      {currentSong && (
+        <AiTranslationModal
+          isOpen={isAiTranslateModalOpen}
+          onClose={() => setIsAiTranslateModalOpen(false)}
+          song={currentSong}
+          existingAiTranslation={activeAiTranslation}
+          existingLinkedSong={
+            secondarySong && !secondarySong.id.startsWith('ai_') ? secondarySong : null
+          }
+          initialEditMode={aiTranslateInitialEdit}
+          canSaveToLibrary={canSaveTranslationToLibrary}
+          onApplyForProjection={handleApplyAiTranslation}
+          onSaveToLibrary={handleSaveAiTranslationToLibrary}
+          onDeleteLocalTranslation={handleDeleteLocalAiTranslation}
+        />
       )}
 
     </div>

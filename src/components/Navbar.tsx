@@ -251,7 +251,7 @@ export const Navbar: React.FC = () => {
                   />
                 )}
                 <Tv className="w-3.5 h-3.5 text-blue-400" />
-                <span>Présentation</span>
+                <span>Projection</span>
               </button>
 
               <button
@@ -600,7 +600,7 @@ export const Navbar: React.FC = () => {
                     >
                       <div className="flex items-center gap-2.5">
                         <Tv className="w-3.5 h-3.5 text-blue-400" />
-                        <span>Mode Présentation</span>
+                        <span>Mode Projection</span>
                       </div>
                       {activeTab === 'presentation' && (
                         <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>

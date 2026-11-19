@@ -10,7 +10,6 @@ import {
   ShieldCheck, 
   UserCheck, 
   Sparkles, 
-  Database, 
   Share2, 
   Layers,
   ArrowRight,
@@ -24,7 +23,6 @@ import {
   Award,
   Pencil,
   X,
-  HelpCircle,
   ChevronDown,
   BookOpen,
   Eye,
@@ -36,56 +34,16 @@ import {
   FileEdit,
   Monitor,
   RefreshCw,
-  Link2
+  Link2,
+  QrCode
 } from 'lucide-react';
 import { UserRole, Group } from '../types';
 import { AssignMembersModal } from './AssignMembersModal';
 import { RoleMatrixModal } from './RoleMatrixModal';
 import { RoleHierarchyChart } from './RoleHierarchyChart';
-
-// Composant Tooltip interactif compact (hover & click/touch)
-const InfoTooltip: React.FC<{ content: React.ReactNode; label?: string }> = ({ content, label = "Informations" }) => {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleOutside = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    if (open) {
-      document.addEventListener('mousedown', handleOutside);
-      return () => document.removeEventListener('mousedown', handleOutside);
-    }
-  }, [open]);
-
-  return (
-    <div 
-      ref={ref} 
-      className="relative inline-flex items-center"
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-    >
-      <button
-        type="button"
-        onClick={() => setOpen(prev => !prev)}
-        className="p-1 rounded text-gray-400 hover:text-blue-400 hover:bg-[#1E1E24] transition-colors cursor-pointer"
-        title={label}
-        aria-label={label}
-      >
-        <HelpCircle className="w-3.5 h-3.5" />
-      </button>
-
-      {open && (
-        <div className="absolute right-0 sm:left-1/2 sm:-translate-x-1/2 bottom-full mb-2 w-64 sm:w-72 p-2.5 rounded-lg bg-[#18181E] border border-[#2E2E38] shadow-2xl text-[11px] text-gray-300 leading-normal z-50 animate-in fade-in duration-150">
-          {content}
-          <div className="hidden sm:block absolute left-1/2 -translate-x-1/2 top-full -mt-1 border-4 border-transparent border-t-[#18181E]" />
-        </div>
-      )}
-    </div>
-  );
-};
+import { GuestQrCodeModal } from './GuestQrCodeModal';
+import { GuestQrScannerModal } from './GuestQrScannerModal';
+import { DuplicateCleanerSection } from './DuplicateCleanerSection';
 
 // Configuration détaillée des rôles avec l'intégralité des informations du tooltip
 const ROLE_CONFIGS: Record<UserRole, {
@@ -363,7 +321,7 @@ const RoleDropdown: React.FC<{
 
       {isOpen && (
         <div 
-          className={`absolute ${align === 'right' ? 'right-0' : 'left-0'} top-full mt-1.5 w-80 sm:w-96 bg-[#121217] border border-[#2E2E38] rounded-xl shadow-2xl p-2.5 z-50 animate-in fade-in zoom-in-95 duration-100 text-left`}
+          className={`absolute ${align === 'right' ? 'left-0 sm:left-auto sm:right-0' : 'left-0'} top-full mt-1.5 w-[min(20rem,calc(100vw-2.5rem))] sm:w-96 bg-[#121217] border border-[#2E2E38] rounded-xl shadow-2xl p-2.5 z-50 animate-in fade-in zoom-in-95 duration-100 text-left`}
         >
           <div className="flex items-center justify-between px-2 py-1.5 border-b border-[#24242C] mb-2">
             <div className="flex items-center gap-1.5 text-xs font-bold text-white">
@@ -454,7 +412,6 @@ export const GroupManager: React.FC = () => {
     updateGroup,
     deleteGroup,
     joinGroup, 
-    seedDemoDataToFirestore,
     allUsers,
     updateUserRole,
     bulkUpdateUserRole,
@@ -477,17 +434,18 @@ export const GroupManager: React.FC = () => {
   const [joinCodeInput, setJoinCodeInput] = useState('');
   const [joinStatus, setJoinStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [isCopied, setIsCopied] = useState(false);
+  const [isMemberLinkCopied, setIsMemberLinkCopied] = useState(false);
   const [isGuestCopied, setIsGuestCopied] = useState(false);
   const [isGuestLinkCopied, setIsGuestLinkCopied] = useState(false);
   const [isUpdatingGuestMode, setIsUpdatingGuestMode] = useState(false);
   const [isRegeneratingGuestCode, setIsRegeneratingGuestCode] = useState(false);
-  const [isSeeding, setIsSeeding] = useState(false);
-  const [seedSuccess, setSeedSuccess] = useState(false);
+  const [qrModalMode, setQrModalMode] = useState<'guest' | 'member' | null>(null);
+  const [shareAccessTab, setShareAccessTab] = useState<'member' | 'guest'>('member');
+  const [isJoinQrScannerOpen, setIsJoinQrScannerOpen] = useState(false);
 
   // Modal d'assignation multiselect
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [assignModalTargetGroupId, setAssignModalTargetGroupId] = useState<string | undefined>(undefined);
-  const [memberFilterTab, setMemberFilterTab] = useState<'all' | 'libraryOnly'>('all');
   const [memberRoleFilter, setMemberRoleFilter] = useState<string>('all');
   const [isRoleMatrixOpen, setIsRoleMatrixOpen] = useState(false);
 
@@ -506,6 +464,8 @@ export const GroupManager: React.FC = () => {
   const [libraryToDelete, setLibraryToDelete] = useState<Group | null>(null);
   const [isDeletingLibrary, setIsDeletingLibrary] = useState(false);
   const [deleteAssociatedData, setDeleteAssociatedData] = useState(true);
+
+  const [isDuplicatesOpen, setIsDuplicatesOpen] = useState(false);
 
   const canDeleteLibrary = (g: Group) => {
     return Boolean(currentUser?.uid && g.ownerId === currentUser.uid);
@@ -551,16 +511,16 @@ export const GroupManager: React.FC = () => {
     return allUsers.filter(u => isMemberOfGroup(g.id, g.members, u.uid)).length;
   }, [allUsers, isMemberOfGroup]);
 
+  const libraryMembersCount = useMemo(() => {
+    return allUsers.filter(u => isMemberOfGroup(currentGroup?.id, currentGroup?.members, u.uid)).length;
+  }, [allUsers, currentGroup?.id, currentGroup?.members, isMemberOfGroup]);
+
   const filteredUsers = useMemo(() => {
     return allUsers.filter(u => {
-      const matchesRole = memberRoleFilter === 'all' || u.role === memberRoleFilter;
-      if (!matchesRole) return false;
-      if (memberFilterTab === 'libraryOnly') {
-        return isMemberOfGroup(currentGroup?.id, currentGroup?.members, u.uid);
-      }
-      return true;
+      if (!isMemberOfGroup(currentGroup?.id, currentGroup?.members, u.uid)) return false;
+      return memberRoleFilter === 'all' || u.role === memberRoleFilter;
     });
-  }, [allUsers, memberRoleFilter, memberFilterTab, currentGroup?.id, currentGroup?.members, isMemberOfGroup]);
+  }, [allUsers, memberRoleFilter, currentGroup?.id, currentGroup?.members, isMemberOfGroup]);
 
   const isAllSelected = filteredUsers.length > 0 && filteredUsers.every(u => selectedUserUids.includes(u.uid));
   const isSomeSelected = filteredUsers.some(u => selectedUserUids.includes(u.uid)) && !isAllSelected;
@@ -631,6 +591,14 @@ export const GroupManager: React.FC = () => {
     navigator.clipboard.writeText(currentGroup.inviteCode);
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2000);
+  };
+
+  const handleCopyInviteLink = () => {
+    if (!currentGroup?.inviteCode) return;
+    const url = `${window.location.origin}/?inviteCode=${encodeURIComponent(currentGroup.inviteCode)}`;
+    navigator.clipboard.writeText(url);
+    setIsMemberLinkCopied(true);
+    setTimeout(() => setIsMemberLinkCopied(false), 2000);
   };
 
   const handleCopyGuestCode = () => {
@@ -714,16 +682,17 @@ export const GroupManager: React.FC = () => {
     }
   };
 
-  const handleSeedData = async () => {
-    setIsSeeding(true);
-    try {
-      await seedDemoDataToFirestore();
-      setSeedSuccess(true);
-      setTimeout(() => setSeedSuccess(false), 4000);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsSeeding(false);
+  const handleScannedJoinCode = async (scannedCode: string) => {
+    setIsJoinQrScannerOpen(false);
+    setJoinCodeInput(scannedCode);
+    const success = await joinGroup(scannedCode);
+    if (success) {
+      setJoinStatus('success');
+      setJoinCodeInput('');
+      setTimeout(() => setJoinStatus('idle'), 3000);
+    } else {
+      setJoinStatus('error');
+      setTimeout(() => setJoinStatus('idle'), 3000);
     }
   };
 
@@ -764,32 +733,55 @@ export const GroupManager: React.FC = () => {
         </div>
       </div>
 
-      {/* Espace Unifié : Vos Bibliothèques, Bibliothèque Active & Rôles des Membres */}
+      {/* Espace Unifié : Sélection de Bibliothèque, Actions & Rôles des Membres */}
       <div className="bg-[#111112] border border-[#222224] rounded-2xl p-4 sm:p-6 mb-8 shadow-sm space-y-6">
         
-        {/* 1. En-tête : Bibliothèque Active, Actions & Code d'invitation */}
-        {currentGroup && (
-          <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 pb-5 border-b border-[#222224]">
-            {/* Colonne gauche : Identité de la bibliothèque active et code d'invitation ergonomique */}
-            <div className="flex-1 min-w-0 space-y-2">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-blue-600/20 text-blue-400 border border-blue-500/30">
-                  Bibliothèque Active
-                </span>
-                <InfoTooltip 
-                  label="Identifiant technique" 
-                  content={`ID : ${currentGroup.id}`} 
-                />
-                {!canManageGroups && (
-                  <span className="text-[10px] text-gray-500 flex items-center gap-1 font-medium bg-[#16161A] px-2 py-0.5 rounded border border-[#222228]">
-                    <Lock className="w-3 h-3 text-gray-500" />
-                    <span>Consultation seule</span>
-                  </span>
-                )}
+        {/* 1. En-tête unifié : Sélecteur de bibliothèque, Actions, Invitation & Accès Invité */}
+        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 pb-5 border-b border-[#222224]">
+          {/* Colonne gauche : Sélecteur + identité + partages */}
+          <div className="flex-1 min-w-0 space-y-2.5">
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="relative inline-flex items-center min-w-[210px] max-w-full">
+                <Library className="w-3.5 h-3.5 text-blue-400 absolute left-3 pointer-events-none shrink-0" />
+                <select
+                  aria-label="Choisir la bibliothèque active"
+                  value={currentGroup?.id || ''}
+                  onChange={(e) => {
+                    if (e.target.value) switchGroup(e.target.value);
+                  }}
+                  disabled={groups.length === 0}
+                  className="appearance-none bg-[#16161C] hover:bg-[#1C1C24] border border-[#2E2E3A] focus:border-blue-500 rounded-lg pl-8 pr-8 py-1.5 text-xs sm:text-sm font-bold text-white focus:outline-none transition-colors cursor-pointer max-w-full truncate"
+                >
+                  {groups.length === 0 ? (
+                    <option value="">Aucune bibliothèque</option>
+                  ) : (
+                    groups
+                      .filter(g => !currentUser?.uid || g.ownerId === currentUser.uid || (g.members || []).includes(currentUser.uid))
+                      .map((g, index) => {
+                        const isOwner = Boolean(currentUser?.uid && g.ownerId === currentUser.uid);
+                        const memberCount = (g.members || []).length;
+                        return (
+                          <option key={g.id || `group-${index}`} value={g.id} className="bg-[#141418] text-white">
+                            {g.name} ({isOwner ? 'Propriétaire' : 'Membre'} · {memberCount} membre{memberCount > 1 ? 's' : ''})
+                          </option>
+                        );
+                      })
+                  )}
+                </select>
+                <ChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-2.5 pointer-events-none shrink-0" />
               </div>
 
-              {isEditingGroup ? (
-                <form onSubmit={handleSaveGroupEdit} className="mt-3 space-y-2.5 max-w-lg">
+              {currentGroup && !canManageGroups && (
+                <span className="text-[10px] text-gray-500 flex items-center gap-1 font-medium bg-[#16161A] px-2 py-0.5 rounded border border-[#222228]">
+                  <Lock className="w-3 h-3 text-gray-500" />
+                  <span>Consultation seule</span>
+                </span>
+              )}
+            </div>
+
+            {currentGroup && (
+              isEditingGroup ? (
+                <form onSubmit={handleSaveGroupEdit} className="mt-2 space-y-2.5 max-w-lg">
                   <div>
                     <label className="text-[11px] font-semibold text-gray-400 block mb-1">Nom de la bibliothèque :</label>
                     <input
@@ -840,118 +832,177 @@ export const GroupManager: React.FC = () => {
                   </div>
                 </form>
               ) : (
-                <div className="space-y-2.5">
-                  <div>
-                    <h2 className="text-lg sm:text-xl font-bold text-white">
-                      {currentGroup.name}
-                    </h2>
-                    {currentGroup.description && (
-                      <p className="text-xs text-gray-300 mt-1">
-                        {currentGroup.description}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Identifiant de la bibliothèque à partager */}
-                  <div className="inline-flex items-center gap-2.5 px-3 py-1.5 rounded-lg bg-[#16161C] border border-[#2A2A35]">
-                    <KeyRound className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                    <div className="text-[11px] text-gray-400">
-                      Identifiant de la bibliothèque :{' '}
-                      <span className="font-mono font-bold text-blue-300 tracking-wider select-all">
-                        {currentGroup.inviteCode}
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleCopyInviteCode}
-                      className="px-2 py-0.5 rounded bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 text-[10px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-                    >
-                      {isCopied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                      <span>{isCopied ? 'Copié' : 'Copier'}</span>
-                    </button>
-                  </div>
-
-                  {/* Accès Invité (Lecture seule) — Propriétaire uniquement */}
-                  {currentUser?.uid && currentGroup.ownerId === currentUser.uid && (
-                    <div className="mt-2 p-3 rounded-xl bg-[#15151A] border border-[#262630] max-w-2xl space-y-2.5">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <Eye className={`w-3.5 h-3.5 shrink-0 ${currentGroup.guestEnabled ? 'text-amber-400' : 'text-gray-500'}`} />
-                          <span className="text-xs font-semibold text-white">Accès Invité (Lecture seule)</span>
-                          <span
-                            className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${
-                              currentGroup.guestEnabled
-                                ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
-                                : 'bg-[#1D1D24] text-gray-400 border-[#2D2D38]'
-                            }`}
-                          >
-                            {currentGroup.guestEnabled ? 'Activé' : 'Désactivé'}
-                          </span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={handleToggleGuestMode}
-                          disabled={isUpdatingGuestMode}
-                          className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 border transition-colors cursor-pointer disabled:opacity-50 ${
-                            currentGroup.guestEnabled
-                              ? 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border-amber-500/30'
-                              : 'bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-300 border-emerald-500/30'
-                          }`}
-                        >
-                          {isUpdatingGuestMode && <Loader2 className="w-3 h-3 animate-spin" />}
-                          <span>{currentGroup.guestEnabled ? 'Désactiver le mode invité' : 'Activer le mode invité'}</span>
-                        </button>
-                      </div>
-
-                      <p className="text-[11px] text-gray-400 leading-relaxed">
-                        {currentGroup.guestEnabled
-                          ? 'Les invités peuvent consulter le répertoire, les setlists et utiliser les outils (Accordeur, Métronome, Pads, Piano) sans compte ni droit de modification.'
-                          : 'Désactivé par défaut. Activez ce mode pour générer un code d’accès dédié en lecture seule, distinct du code membre.'}
-                      </p>
-
-                      {currentGroup.guestEnabled && currentGroup.guestCode && (
-                        <div className="flex flex-wrap items-center gap-2 pt-1">
-                          <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-[#101014] border border-[#2A2A35]">
-                            <span className="text-[11px] text-gray-400">Code invité :</span>
-                            <span className="font-mono font-bold text-xs text-amber-300 tracking-wider select-all">
-                              {currentGroup.guestCode}
-                            </span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={handleCopyGuestCode}
-                            className="px-2.5 py-1 rounded-lg bg-[#1C1C22] hover:bg-[#26262F] text-gray-200 border border-[#32323D] text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-                          >
-                            {isGuestCopied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                            <span>{isGuestCopied ? 'Code copié' : 'Copier le code'}</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleCopyGuestLink}
-                            className="px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-                          >
-                            {isGuestLinkCopied ? <Check className="w-3 h-3 text-emerald-400" /> : <Link2 className="w-3 h-3" />}
-                            <span>{isGuestLinkCopied ? 'Lien copié' : 'Copier le lien'}</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleRegenerateGuestCode}
-                            disabled={isRegeneratingGuestCode}
-                            className="px-2.5 py-1 rounded-lg bg-[#1C1C22] hover:bg-[#26262F] text-gray-300 hover:text-white border border-[#32323D] text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
-                            title="Révoquer l'ancien code et en générer un nouveau"
-                          >
-                            <RefreshCw className={`w-3 h-3 ${isRegeneratingGuestCode ? 'animate-spin' : ''}`} />
-                            <span>Régénérer</span>
-                          </button>
-                        </div>
-                      )}
-                    </div>
+                <div className="space-y-2">
+                  {currentGroup.description && (
+                    <p className="text-xs text-gray-300">
+                      {currentGroup.description}
+                    </p>
                   )}
-                </div>
-              )}
-            </div>
 
-            {/* Colonne droite : Actions principales de gestion de la bibliothèque */}
+                  <div className="flex flex-col items-start gap-2">
+                    {(() => {
+                      const isOwner = Boolean(currentUser?.uid && currentGroup.ownerId === currentUser.uid);
+                      const activeShareTab = isOwner ? shareAccessTab : 'member';
+                      return (
+                        <>
+                          {isOwner && (
+                            <div className="inline-flex items-center gap-1 bg-[#0C0C0F] p-0.5 rounded-lg border border-[#24242D]">
+                              <button
+                                type="button"
+                                onClick={() => setShareAccessTab('member')}
+                                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                                  activeShareTab === 'member'
+                                    ? 'bg-[#1C1C24] text-blue-300 border border-[#323240] shadow-xs'
+                                    : 'text-gray-400 hover:text-white'
+                                }`}
+                              >
+                                <KeyRound className="w-3 h-3" />
+                                <span>Invitation membre</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setShareAccessTab('guest')}
+                                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                                  activeShareTab === 'guest'
+                                    ? 'bg-[#1C1C24] text-amber-300 border border-[#323240] shadow-xs'
+                                    : 'text-gray-400 hover:text-white'
+                                }`}
+                              >
+                                <Eye className="w-3 h-3" />
+                                <span>Accès invité</span>
+                                <span
+                                  className={`w-1.5 h-1.5 rounded-full ${
+                                    currentGroup.guestEnabled ? 'bg-emerald-400' : 'bg-gray-500'
+                                  }`}
+                                />
+                              </button>
+                            </div>
+                          )}
+
+                          {activeShareTab === 'member' ? (
+                            <div className="inline-flex flex-wrap items-center gap-2 px-3 py-1.5 rounded-lg bg-[#16161C] border border-[#2A2A35]">
+                              <KeyRound className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                              <div className="text-[11px] text-gray-400">
+                                Identifiant membre :{' '}
+                                <span className="font-mono font-bold text-blue-300 tracking-wider select-all">
+                                  {currentGroup.inviteCode}
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={handleCopyInviteCode}
+                                className="px-2 py-0.5 rounded bg-[#1E1E26] hover:bg-[#282834] text-gray-200 border border-[#343440] text-[10px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                              >
+                                {isCopied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                                <span>{isCopied ? 'Copié' : 'Copier'}</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleCopyInviteLink}
+                                className="px-2 py-0.5 rounded bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 text-[10px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                                title="Copier le lien d'inscription directe à cette bibliothèque"
+                              >
+                                {isMemberLinkCopied ? <Check className="w-3 h-3 text-emerald-400" /> : <Link2 className="w-3 h-3" />}
+                                <span>{isMemberLinkCopied ? 'Lien copié' : 'Copier le lien'}</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setQrModalMode('member')}
+                                className="px-2 py-0.5 rounded bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-[10px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                                title="Afficher et télécharger le QR Code d'invitation membre"
+                              >
+                                <QrCode className="w-3 h-3" />
+                                <span>QR Code</span>
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="inline-flex flex-wrap items-center gap-2 px-3 py-1.5 rounded-lg bg-[#16161C] border border-[#2A2A35]">
+                              <Eye className={`w-3.5 h-3.5 shrink-0 ${currentGroup.guestEnabled ? 'text-amber-400' : 'text-gray-500'}`} />
+                              <span className="text-[11px] text-gray-400">Accès invité :</span>
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={Boolean(currentGroup.guestEnabled)}
+                                aria-label="Activer ou désactiver l'accès invité"
+                                onClick={handleToggleGuestMode}
+                                disabled={isUpdatingGuestMode}
+                                className="inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50 focus:outline-none group"
+                                title={currentGroup.guestEnabled ? 'Cliquer pour désactiver le mode invité' : 'Cliquer pour activer le mode invité (lecture seule)'}
+                              >
+                                <span
+                                  className={`relative inline-flex h-4.5 w-8 shrink-0 items-center rounded-full border border-transparent transition-colors duration-200 ${
+                                    currentGroup.guestEnabled ? 'bg-emerald-500' : 'bg-[#2E2E36]'
+                                  }`}
+                                >
+                                  <span
+                                    className={`pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform duration-200 ${
+                                      currentGroup.guestEnabled ? 'translate-x-3.5' : 'translate-x-0.5'
+                                    }`}
+                                  />
+                                </span>
+                                <span className={`text-[10px] font-semibold flex items-center gap-1 ${
+                                  currentGroup.guestEnabled ? 'text-emerald-300' : 'text-gray-400 group-hover:text-gray-200'
+                                }`}>
+                                  {isUpdatingGuestMode && <Loader2 className="w-3 h-3 animate-spin" />}
+                                  <span>{currentGroup.guestEnabled ? 'Activé' : 'Désactivé'}</span>
+                                </span>
+                              </button>
+
+                              {currentGroup.guestEnabled && currentGroup.guestCode && (
+                                <>
+                                  <span className="font-mono font-bold text-[11px] text-amber-300 tracking-wider select-all">
+                                    {currentGroup.guestCode}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={handleCopyGuestCode}
+                                    className="px-2 py-0.5 rounded bg-[#1E1E26] hover:bg-[#282834] text-gray-200 border border-[#343440] text-[10px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                                  >
+                                    {isGuestCopied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                                    <span>{isGuestCopied ? 'Copié' : 'Copier'}</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={handleCopyGuestLink}
+                                    className="px-2 py-0.5 rounded bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-[10px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                                  >
+                                    {isGuestLinkCopied ? <Check className="w-3 h-3 text-emerald-400" /> : <Link2 className="w-3 h-3" />}
+                                    <span>{isGuestLinkCopied ? 'Lien copié' : 'Copier le lien'}</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setQrModalMode('guest')}
+                                    className="px-2 py-0.5 rounded bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-[10px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                                    title="Afficher et télécharger le QR Code invité"
+                                  >
+                                    <QrCode className="w-3 h-3" />
+                                    <span>QR Code</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={handleRegenerateGuestCode}
+                                    disabled={isRegeneratingGuestCode}
+                                    className="px-2 py-0.5 rounded bg-[#1E1E26] hover:bg-[#282834] text-gray-300 hover:text-white border border-[#343440] text-[10px] font-semibold flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
+                                    title="Révoquer l'ancien code et en générer un nouveau"
+                                  >
+                                    <RefreshCw className={`w-3 h-3 ${isRegeneratingGuestCode ? 'animate-spin' : ''}`} />
+                                    <span>Régénérer</span>
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+              )
+            )}
+          </div>
+
+          {/* Colonne droite : Actions principales de gestion de la bibliothèque */}
+          {currentGroup && (
             <div className="flex items-center gap-2 shrink-0 flex-wrap md:self-start">
               {canManageGroups && !isEditingGroup && (
                 <>
@@ -987,106 +1038,11 @@ export const GroupManager: React.FC = () => {
                 </button>
               )}
             </div>
-          </div>
-        )}
-
-        {/* 2. Sélecteur intégré : Vos Bibliothèques */}
-        <div>
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-3 mb-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <Library className="w-4 h-4 text-blue-400" />
-                <h3 className="text-xs sm:text-sm font-bold text-white">Vos Bibliothèques — {groups.length} au total</h3>
-              </div>
-              <p className="text-[11px] text-gray-400 mt-0.5">
-                Chaque bibliothèque est privée : seuls les membres et administrateurs qui en font partie peuvent la voir et y accéder.
-              </p>
-            </div>
-            <span className="text-[11px] text-gray-400 hidden sm:inline whitespace-nowrap">
-              Cliquez pour changer de bibliothèque active
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
-            {groups.map((g, index) => {
-              const isActive = currentGroup?.id === g.id;
-              const groupKey = g.id ? `group-${g.id}-${index}` : `group-${index}`;
-              const userCanDelete = canDeleteLibrary(g);
-              return (
-                <div
-                  key={groupKey}
-                  onClick={() => switchGroup(g.id)}
-                  className={`p-3 rounded-lg border text-left transition-all cursor-pointer flex flex-col justify-between group/card ${
-                    isActive 
-                      ? 'bg-blue-600/15 border-blue-500/50 shadow-xs ring-1 ring-blue-500/30' 
-                      : 'bg-[#16161A] hover:bg-[#1E1E24] border-[#2A2A32] text-gray-300'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-2 mb-1.5">
-                    <span className={`font-semibold text-xs truncate ${isActive ? 'text-white' : 'text-gray-200'}`}>
-                      {g.name}
-                    </span>
-                    {isActive ? (
-                      <span className="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-500 text-white flex items-center gap-1">
-                        <Check className="w-2.5 h-2.5" /> Actif
-                      </span>
-                    ) : (
-                      <span className="shrink-0 text-[10px] text-gray-400 group-hover/card:text-blue-400 font-mono">
-                        {g.inviteCode}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex items-center justify-between text-[11px] text-gray-400 mt-1">
-                    <span>{(g.members || []).length} membre{(g.members || []).length > 1 ? 's' : ''}</span>
-                    <div className="flex items-center gap-1.5">
-                      {canManageGroups && isActive && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openAssignModal(g.id);
-                          }}
-                          className="p-1 rounded text-gray-400 hover:text-blue-400 hover:bg-blue-500/20 transition-colors cursor-pointer"
-                          title={`Assigner des membres à ${g.name}`}
-                          aria-label={`Assigner des membres à ${g.name}`}
-                        >
-                          <UserPlus className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-
-                      {userCanDelete ? (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setLibraryToDelete(g);
-                          }}
-                          className="p-1 rounded text-gray-400 hover:text-rose-400 hover:bg-rose-500/20 transition-colors cursor-pointer"
-                          title={`Supprimer la bibliothèque « ${g.name} »`}
-                          aria-label={`Supprimer la bibliothèque ${g.name}`}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      ) : (
-                        <span className="p-1 text-gray-600" title="Suppression réservée au créateur de cette bibliothèque">
-                          <Lock className="w-3 h-3" />
-                        </span>
-                      )}
-
-                      <span className="text-[10px] text-blue-400 font-medium">
-                        {isActive ? 'Active' : 'Activer →'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          )}
         </div>
 
-        {/* 3. Séparateur et Section Membres & Rôles */}
-        <div className="pt-5 border-t border-[#222224]">
+        {/* 2. Section Membres & Rôles */}
+        <div>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-[#222224]/60">
               <div className="flex items-center gap-2.5">
                 <div className="w-7 h-7 rounded-lg bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0">
@@ -1094,11 +1050,6 @@ export const GroupManager: React.FC = () => {
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="text-xs sm:text-sm font-bold text-white">Rôles & Membres</h3>
-
-                  <InfoTooltip 
-                    label="Permissions des rôles" 
-                    content="Admin : gestion totale, bibliothèques, rôles. Responsable : direction musicale, setlists, tonalités. Éditeur : chants et accords. Membre : pupitre & transposition perso. Régie : projection." 
-                  />
 
                   <button
                     type="button"
@@ -1166,29 +1117,11 @@ export const GroupManager: React.FC = () => {
             <>
             {/* Filtrage des membres de la bibliothèque active */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 mb-3">
-              <div className="flex items-center gap-1 bg-[#16161C] p-1 rounded-lg border border-[#262632] w-fit">
-                <button
-                  type="button"
-                  onClick={() => setMemberFilterTab('all')}
-                  className={`px-3 py-1 rounded text-xs font-semibold transition-colors cursor-pointer ${
-                    memberFilterTab === 'all'
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  Tous les comptes — {allUsers.length}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMemberFilterTab('libraryOnly')}
-                  className={`px-3 py-1 rounded text-xs font-semibold transition-colors cursor-pointer ${
-                    memberFilterTab === 'libraryOnly'
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  Membres de cette bibliothèque — {allUsers.filter(u => isMemberOfGroup(currentGroup?.id, currentGroup?.members, u.uid)).length}
-                </button>
+              <div className="text-xs font-semibold text-gray-300 flex items-center gap-2">
+                <span>Membres de cette bibliothèque</span>
+                <span className="px-2 py-0.5 rounded-md bg-[#16161C] border border-[#262632] text-blue-400 font-bold">
+                  {libraryMembersCount}
+                </span>
               </div>
 
               <RoleFilterDropdown
@@ -1198,10 +1131,10 @@ export const GroupManager: React.FC = () => {
             </div>
 
             {/* Liste des utilisateurs inscrits avec gestion de rôle et assignation */}
-            {allUsers.length > 0 ? (
-              <div className="border border-[#222228] rounded-lg bg-[#141416] overflow-hidden">
+            {libraryMembersCount > 0 ? (
+              <div className="border border-[#222228] rounded-lg bg-[#141416]">
                 {/* Barre d'en-tête de la liste */}
-                <div className="px-3 py-2 bg-[#101014] border-b border-[#222228] flex items-center justify-between text-[11px] text-gray-400">
+                <div className="px-3 py-2 bg-[#101014] border-b border-[#222228] rounded-t-lg flex items-center justify-between text-[11px] text-gray-400">
                   <div className="flex items-center gap-2.5">
                     {canManageGroups && (
                       <button
@@ -1246,11 +1179,11 @@ export const GroupManager: React.FC = () => {
                     return (
                       <div 
                         key={userKey} 
-                        className={`p-2.5 sm:p-3 flex items-center justify-between gap-3 text-xs transition-colors ${
+                        className={`p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3 text-xs transition-colors ${
                           isSelected ? 'bg-blue-600/10' : 'hover:bg-[#181820]/60'
                         }`}
                       >
-                        <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
                           {canManageGroups && (
                             <button
                               type="button"
@@ -1266,7 +1199,7 @@ export const GroupManager: React.FC = () => {
                             </button>
                           )}
 
-                          <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-[11px] shrink-0 ${
+                          <div className={`w-8 h-8 sm:w-7 sm:h-7 rounded-full flex items-center justify-center font-bold text-xs sm:text-[11px] shrink-0 ${
                             isAdmin 
                               ? 'bg-blue-600/30 text-blue-300 border border-blue-500/40' 
                               : isLeader
@@ -1279,11 +1212,11 @@ export const GroupManager: React.FC = () => {
                           }`}>
                             {u.displayName ? u.displayName.charAt(0).toUpperCase() : 'U'}
                           </div>
-                          <div className="min-w-0">
-                            <div className="font-semibold text-white truncate flex items-center gap-1.5">
-                              <span>{u.displayName || 'Utilisateur'}</span>
+                          <div className="min-w-0 flex-1">
+                            <div className="font-semibold text-white flex items-center gap-1.5 min-w-0">
+                              <span className="truncate">{u.displayName || 'Utilisateur'}</span>
                               {isSelf && (
-                                <span className="text-[9px] px-1.5 py-0.2 rounded bg-blue-600/20 text-blue-300 border border-blue-500/30 font-medium">
+                                <span className="text-[9px] px-1.5 py-0.2 rounded bg-blue-600/20 text-blue-300 border border-blue-500/30 font-medium shrink-0">
                                   Vous
                                 </span>
                               )}
@@ -1294,7 +1227,7 @@ export const GroupManager: React.FC = () => {
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2 shrink-0">
+                        <div className={`flex items-center justify-between sm:justify-end gap-2 shrink-0 ${canManageGroups ? 'pl-6 sm:pl-0' : 'pl-10 sm:pl-0'}`}>
                           {/* Statut d'assignation à la bibliothèque active */}
                           {isAssigned ? (
                             <span className="hidden sm:inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-medium">
@@ -1313,33 +1246,35 @@ export const GroupManager: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => removeMemberFromGroup(currentGroup.id, u.uid)}
-                                className="px-2 py-1 rounded text-[10px] font-semibold text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 transition-colors cursor-pointer flex items-center gap-1"
+                                className="order-2 sm:order-1 px-2.5 py-1.5 sm:px-2 sm:py-1 rounded-lg sm:rounded text-[11px] sm:text-[10px] font-semibold text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 transition-colors cursor-pointer flex items-center gap-1.5 sm:gap-1 shrink-0"
                                 title="Retirer de cette bibliothèque"
                               >
-                                <UserMinus className="w-3 h-3" />
+                                <UserMinus className="w-3.5 h-3.5 sm:w-3 sm:h-3" />
                                 <span>Retirer</span>
                               </button>
                             ) : (
                               <button
                                 type="button"
                                 onClick={() => assignMembersToGroup(currentGroup.id, [u.uid])}
-                                className="px-2 py-1 rounded text-[10px] font-semibold text-blue-400 hover:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 transition-colors cursor-pointer flex items-center gap-1"
+                                className="order-2 sm:order-1 px-2.5 py-1.5 sm:px-2 sm:py-1 rounded-lg sm:rounded text-[11px] sm:text-[10px] font-semibold text-blue-400 hover:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 transition-colors cursor-pointer flex items-center gap-1.5 sm:gap-1 shrink-0"
                                 title="Assigner à cette bibliothèque"
                               >
-                                <UserPlus className="w-3 h-3" />
+                                <UserPlus className="w-3.5 h-3.5 sm:w-3 sm:h-3" />
                                 <span>+ Assigner</span>
                               </button>
                             )
                           )}
 
                           {canManageGroups ? (
-                            <RoleDropdown
-                              value={u.role || 'member'}
-                              onChange={(newRole) => updateUserRole(u.uid, newRole)}
-                              align="right"
-                            />
+                            <div className="order-1 sm:order-2">
+                              <RoleDropdown
+                                value={u.role || 'member'}
+                                onChange={(newRole) => updateUserRole(u.uid, newRole)}
+                                align="right"
+                              />
+                            </div>
                           ) : (
-                            <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold border ${
+                            <span className={`order-1 sm:order-2 px-2 py-0.5 rounded-md text-[11px] font-bold border ${
                               isAdmin 
                                 ? 'bg-blue-600/20 text-blue-300 border-blue-500/40' 
                                 : isLeader
@@ -1380,10 +1315,6 @@ export const GroupManager: React.FC = () => {
               <h3 className="text-sm font-bold text-white">Rejoindre ou Créer une Bibliothèque</h3>
             </div>
           </div>
-          <InfoTooltip 
-            label="Informations bibliothèques" 
-            content="Entrez un code à 6 caractères pour synchroniser une bibliothèque existante, ou créez un nouvel espace indépendant pour vos chants et setlists, réservé à l'Administrateur."
-          />
         </div>
 
         {/* Grille : 2 colonnes en laptop (lg:), 2 lignes en smartphone et tablette (grid-cols-1) */}
@@ -1395,10 +1326,6 @@ export const GroupManager: React.FC = () => {
                 <KeyRound className="w-3.5 h-3.5 text-blue-400" />
                 Rejoindre une bibliothèque existante
               </span>
-              <InfoTooltip 
-                label="Aide Rejoindre" 
-                content="Entrez le code à 6 caractères exemple LOUAN7 pour accéder immédiatement à la bibliothèque partagée de chants et de setlists."
-              />
             </div>
 
             <form onSubmit={handleJoinGroup} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
@@ -1417,6 +1344,15 @@ export const GroupManager: React.FC = () => {
                 className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-xs transition-all active:scale-98 disabled:opacity-50 cursor-pointer whitespace-nowrap"
               >
                 Rejoindre
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsJoinQrScannerOpen(true)}
+                className="px-3 py-1.5 rounded-lg bg-[#18181E] hover:bg-[#22222C] border border-[#2E2E3A] text-cyan-300 hover:text-cyan-200 font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+                title="Scanner un QR code d'invitation membre"
+              >
+                <QrCode className="w-3.5 h-3.5" />
+                <span>Scanner</span>
               </button>
             </form>
 
@@ -1440,10 +1376,6 @@ export const GroupManager: React.FC = () => {
                 <Plus className="w-3.5 h-3.5 text-blue-400" />
                 Créer une nouvelle bibliothèque
               </span>
-              <InfoTooltip 
-                label="Aide Création" 
-                content="Crée un nouvel espace avec sa propre base de données dédiée (chants, dossiers, setlists, pads) et son propre identifiant de partage pour vos musiciens."
-              />
             </div>
 
             {currentUser ? (
@@ -1484,26 +1416,15 @@ export const GroupManager: React.FC = () => {
         </div>
       </div>
 
-      {/* Cloud Firestore Demo Seeder Tool */}
-      <div className="bg-[#111112] border border-[#222224] rounded-lg p-5 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
-        <div>
-          <h3 className="text-xs font-bold text-white flex items-center gap-2">
-            <Database className="w-3.5 h-3.5 text-blue-400" />
-            <span>Synchronisation Firestore & Chants de Démonstration</span>
-          </h3>
-          <p className="text-xs text-gray-400 mt-0.5">
-            Injecte le répertoire d'exemple avec 6 chants ChordPro, dossiers et 2 setlists dans Cloud Firestore.
-          </p>
+      {/* Nettoyage des doublons (réservé au propriétaire de la bibliothèque active) */}
+      {currentGroup && currentUser?.uid && currentGroup.ownerId === currentUser.uid && (
+        <div className="mb-8">
+          <DuplicateCleanerSection
+            isOpen={isDuplicatesOpen}
+            onToggle={() => setIsDuplicatesOpen(prev => !prev)}
+          />
         </div>
-
-        <button
-          onClick={handleSeedData}
-          disabled={isSeeding}
-          className="px-3.5 py-1.5 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-200 hover:text-white border border-[#333] font-medium text-xs transition-colors whitespace-nowrap"
-        >
-          {seedSuccess ? 'Synchronisé avec succès !' : (isSeeding ? 'Synchronisation...' : 'Restaurer Chants Démo')}
-        </button>
-      </div>
+      )}
 
       {/* Modal de suppression de bibliothèque avec avertissement et options */}
       {libraryToDelete && (
@@ -1675,6 +1596,33 @@ export const GroupManager: React.FC = () => {
           </div>
         </div>
       )}
+
+      {currentGroup && qrModalMode === 'member' && currentGroup.inviteCode && (
+        <GuestQrCodeModal
+          isOpen
+          onClose={() => setQrModalMode(null)}
+          mode="member"
+          code={currentGroup.inviteCode}
+          libraryName={currentGroup.name}
+        />
+      )}
+
+      {currentGroup?.guestEnabled && currentGroup.guestCode && qrModalMode === 'guest' && (
+        <GuestQrCodeModal
+          isOpen
+          onClose={() => setQrModalMode(null)}
+          mode="guest"
+          guestCode={currentGroup.guestCode}
+          libraryName={currentGroup.name}
+        />
+      )}
+
+      <GuestQrScannerModal
+        isOpen={isJoinQrScannerOpen}
+        onClose={() => setIsJoinQrScannerOpen(false)}
+        onScanCode={handleScannedJoinCode}
+        mode="member"
+      />
 
     </div>
   );

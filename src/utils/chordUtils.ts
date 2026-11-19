@@ -61,7 +61,7 @@ export function transposeChord(chordString: string, semitones: number, notation:
   const rawRoot = match[1].charAt(0).toUpperCase() + (match[1].length > 1 ? match[1].charAt(1) : '');
   const extension = match[2];
 
-  const preferFlats = chordString.includes('b') || chordString.startsWith('F') || chordString.startsWith('Bb') || chordString.startsWith('Eb');
+  const preferFlats = rawRoot.includes('b') || rawRoot === 'F';
   const transposedRoot = transposeNote(rawRoot, semitones, preferFlats);
 
   if (notation === 'latin') {

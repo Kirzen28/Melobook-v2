@@ -9,19 +9,22 @@ import {
   SwitchCamera,
   QrCode
 } from 'lucide-react';
-import { extractGuestCodeFromQr } from '../utils/guestCodeParser';
+import { extractGuestCodeFromQr, extractInviteCodeFromQr } from '../utils/guestCodeParser';
 
 interface GuestQrScannerModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onScanCode: (guestCode: string) => void;
+  onScanCode: (code: string) => void;
+  mode?: 'guest' | 'member';
 }
 
 export const GuestQrScannerModal: React.FC<GuestQrScannerModalProps> = ({
   isOpen,
   onClose,
-  onScanCode
+  onScanCode,
+  mode = 'guest'
 }) => {
+  const isMember = mode === 'member';
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -50,7 +53,7 @@ export const GuestQrScannerModal: React.FC<GuestQrScannerModalProps> = ({
 
   const handleDecodedText = useCallback(
     (rawText: string, source: 'camera' | 'image') => {
-      const code = extractGuestCodeFromQr(rawText);
+      const code = isMember ? extractInviteCodeFromQr(rawText) : extractGuestCodeFromQr(rawText);
       if (code) {
         stopCamera();
         onScanCode(code);
@@ -58,17 +61,25 @@ export const GuestQrScannerModal: React.FC<GuestQrScannerModalProps> = ({
       }
 
       if (source === 'image') {
-        setScanFeedback("Ce QR code ne contient pas de code d'accès invité Melobook valide.");
+        setScanFeedback(
+          isMember
+            ? "Ce QR code ne contient pas d'identifiant d'invitation Melobook valide."
+            : "Ce QR code ne contient pas de code d'accès invité Melobook valide."
+        );
       } else {
         const now = Date.now();
         if (now - lastInvalidWarningRef.current > 2000) {
           lastInvalidWarningRef.current = now;
-          setScanFeedback("QR code détecté, mais aucun code invité Melobook n'y figure.");
+          setScanFeedback(
+            isMember
+              ? "QR code détecté, mais aucun identifiant de bibliothèque Melobook n'y figure."
+              : "QR code détecté, mais aucun code invité Melobook n'y figure."
+          );
         }
       }
       return false;
     },
-    [onScanCode, stopCamera]
+    [isMember, onScanCode, stopCamera]
   );
 
   useEffect(() => {
@@ -231,15 +242,15 @@ export const GuestQrScannerModal: React.FC<GuestQrScannerModalProps> = ({
       className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150"
       role="dialog"
       aria-modal="true"
-      aria-label="Scanner un QR code invité"
+      aria-label={isMember ? "Scanner un QR code d'invitation" : "Scanner un QR code invité"}
     >
       <div className="w-full max-w-md bg-[#121215] border border-[#282832] rounded-2xl overflow-hidden shadow-2xl">
         {/* Header */}
         <div className="px-4 py-3.5 bg-[#16161B] border-b border-[#24242E] flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <QrCode className="w-4 h-4 text-cyan-400 shrink-0" />
+            <QrCode className={`w-4 h-4 shrink-0 ${isMember ? 'text-blue-400' : 'text-cyan-400'}`} />
             <h3 className="text-sm font-bold text-white truncate">
-              Scanner un QR code invité
+              {isMember ? "Scanner un QR code d'invitation" : "Scanner un QR code invité"}
             </h3>
           </div>
           <div className="flex items-center gap-1.5">
@@ -319,7 +330,9 @@ export const GuestQrScannerModal: React.FC<GuestQrScannerModalProps> = ({
           )}
 
           <p className="text-[11px] text-gray-400 text-center leading-relaxed">
-            Pointez la caméra vers le QR code d'accès invité partagé par le propriétaire de la bibliothèque.
+            {isMember
+              ? "Pointez la caméra vers le QR code d'invitation partagé pour rejoindre cette bibliothèque."
+              : "Pointez la caméra vers le QR code d'accès invité partagé par le propriétaire de la bibliothèque."}
           </p>
 
           {/* Upload QR image fallback */}

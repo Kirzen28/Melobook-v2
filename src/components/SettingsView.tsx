@@ -41,7 +41,6 @@ import {
   FileEdit,
   FileDown,
   Settings2,
-  ArrowUpDown,
   SlidersHorizontal,
   Shield,
   Copyright
@@ -62,7 +61,6 @@ import {
 import { SectionColors, SongTypographySettings, SectionBorders, SongMetadataVisibility, PreviewMetadataVisibility } from '../types';
 import { transposeChord, stripParentheses, LATIN_NOTES } from '../utils/chordUtils';
 import { getLanguageMeta } from '../utils/languageUtils';
-import { DuplicateCleanerSection } from './DuplicateCleanerSection';
 
 const METADATA_TOGGLE_ITEMS: Array<{
   key: keyof PreviewMetadataVisibility;
@@ -78,7 +76,7 @@ const METADATA_TOGGLE_ITEMS: Array<{
   { key: 'tags', label: 'Catégories', iconName: 'Tag', description: 'Badges de catégories et thèmes' },
   { key: 'ccli', label: 'CCLI', iconName: 'Shield', description: 'Numéro CCLI SongSelect' },
   { key: 'copyright', label: 'Copyright', iconName: 'Copyright', description: 'Droits d\'auteur et mentions légales' },
-  { key: 'controlsBar', label: 'Tonalité & Tempo', iconName: 'Music', description: 'Barre de contrôles (Tonalité, Transpose, BPM)' },
+  { key: 'controlsBar', label: 'Tonalité & Tempo', iconName: 'Music', description: 'Barre de contrôles (Tonalité, Capo, BPM)' },
   { key: 'notes', label: 'Note du chant', iconName: 'Bookmark', description: 'Bannière d\'instructions et directives' },
   { key: 'actions', label: 'Actions rapides', iconName: 'Maximize2', description: 'Boutons plein écran, éditer, PDF, options' },
   { key: 'vocalArrangement', label: 'Voix +', iconName: 'Mic', description: 'Badge arrangement vocal sur les sections' },
@@ -580,13 +578,11 @@ export const SettingsView: React.FC = () => {
   type SettingsCategory = 
     | 'display'
     | 'midi'
-    | 'duplicates'
     | 'offline';
 
   const [openCategories, setOpenCategories] = useState<Record<SettingsCategory, boolean>>({
     display: false,      // Plié par défaut sur tous les appareils
     midi: false,
-    duplicates: false,
     offline: false,
   });
 
@@ -603,7 +599,6 @@ export const SettingsView: React.FC = () => {
     setOpenCategories({
       display: nextState,
       midi: nextState,
-      duplicates: nextState,
       offline: nextState,
     });
   };
@@ -1310,7 +1305,7 @@ export const SettingsView: React.FC = () => {
                 <ChevronDown className="w-3 h-3 text-blue-400/80" style={{ width: `${Math.max(11, Math.round(typography.metadataSize * 0.8))}px`, height: `${Math.max(11, Math.round(typography.metadataSize * 0.8))}px` }} />
               </div>
 
-              {/* Transpose */}
+              {/* Capo */}
               <div 
                 className={`min-h-[32px] py-1 inline-flex items-center gap-1.5 px-2.5 rounded-lg border font-mono shadow-xs ${
                   effectivePreviewTheme === 'light'
@@ -1319,18 +1314,12 @@ export const SettingsView: React.FC = () => {
                 }`}
                 style={{ fontSize: `${typography.metadataSize}px` }}
               >
-                <ArrowUpDown className="w-3.5 h-3.5 text-amber-400 shrink-0" style={{ width: `${Math.max(12, Math.round(typography.metadataSize * 0.9))}px`, height: `${Math.max(12, Math.round(typography.metadataSize * 0.9))}px` }} />
-                <span className="text-amber-400/90 font-sans shrink-0 hidden sm:inline" style={{ fontSize: `${typography.metadataSize}px` }}>Transpose :</span>
-                <span className={`px-1.5 py-0.5 rounded font-mono font-bold ${
-                  stageSettings.transposeOffset !== 0
-                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                    : effectivePreviewTheme === 'light' ? 'bg-gray-200 text-gray-700' : 'bg-[#18181C] text-gray-300 border border-[#242428]'
-                }`}
-                style={{ fontSize: `${typography.metadataSize}px` }}
-                >
-                  {stageSettings.transposeOffset === 0 ? '0' : (stageSettings.transposeOffset > 0 ? `+${stageSettings.transposeOffset}` : `${stageSettings.transposeOffset}`)}
+                <SlidersHorizontal className="w-3.5 h-3.5 text-purple-400 shrink-0" style={{ width: `${Math.max(12, Math.round(typography.metadataSize * 0.9))}px`, height: `${Math.max(12, Math.round(typography.metadataSize * 0.9))}px` }} />
+                <span className="text-gray-400 font-sans shrink-0 hidden sm:inline" style={{ fontSize: `${typography.metadataSize}px` }}>Capo :</span>
+                <span className="text-purple-400 font-bold font-mono" style={{ fontSize: `${typography.metadataSize}px` }}>
+                  {stageSettings.capo || 0}
                 </span>
-                <ChevronDown className="w-3 h-3 text-amber-400/80" style={{ width: `${Math.max(11, Math.round(typography.metadataSize * 0.8))}px`, height: `${Math.max(11, Math.round(typography.metadataSize * 0.8))}px` }} />
+                <ChevronDown className="w-3 h-3 text-purple-400/80" style={{ width: `${Math.max(11, Math.round(typography.metadataSize * 0.8))}px`, height: `${Math.max(11, Math.round(typography.metadataSize * 0.8))}px` }} />
               </div>
 
               {/* Tempo */}
@@ -1474,7 +1463,7 @@ export const SettingsView: React.FC = () => {
                     <div key={lIdx} className="flex flex-wrap items-end">
                       {line.pairs.map((pair, pIdx) => {
                         const displayedChord = pair.chord
-                          ? transposeChord(pair.chord, stageSettings.transposeOffset, stageSettings.notation)
+                          ? transposeChord(pair.chord, -(stageSettings.capo || 0), stageSettings.notation)
                           : '';
 
                         return (
@@ -2040,12 +2029,6 @@ export const SettingsView: React.FC = () => {
             </div>
             </div>
           </div>
-
-          {/* 7. NETTOYAGE & GESTION DES DOUBLONS */}
-          <DuplicateCleanerSection 
-            isOpen={openCategories.duplicates}
-            onToggle={() => toggleCategory('duplicates')}
-          />
 
           {/* 8. STOCKAGE HORS-LIGNE & INDEXEDDB */}
           <div className="bg-[#121214] border border-[#242428] rounded-xl overflow-hidden shadow-sm">

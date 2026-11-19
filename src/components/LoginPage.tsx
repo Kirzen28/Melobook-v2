@@ -42,10 +42,28 @@ export const LoginPage: React.FC = () => {
     handleSignOut
   } = useApp();
 
-  const [tab, setTab] = useState<'signin' | 'signup'>('signin');
+  const initialInviteCode = (() => {
+    if (typeof window === 'undefined') return '';
+    const params = new URLSearchParams(window.location.search);
+    const hashParams = window.location.hash ? new URLSearchParams(window.location.hash.replace(/^#/, '')) : null;
+    if (params.get('guestCode') || params.get('guest') || hashParams?.get('guestCode') || hashParams?.get('guest')) {
+      return '';
+    }
+    return (
+      params.get('inviteCode') ||
+      params.get('joinCode') ||
+      params.get('invite') ||
+      hashParams?.get('inviteCode') ||
+      hashParams?.get('joinCode') ||
+      hashParams?.get('invite') ||
+      ''
+    ).trim().toUpperCase();
+  })();
+
+  const [tab, setTab] = useState<'signin' | 'signup'>(initialInviteCode ? 'signup' : 'signin');
   const [isResetPassword, setIsResetPassword] = useState(false);
   const [isGuestEntry, setIsGuestEntry] = useState(false);
-  const [isQrScannerOpen, setIsQrScannerOpen] = useState(false);
+  const [qrScannerMode, setQrScannerMode] = useState<'guest' | 'member' | null>(null);
   const [guestCodeInput, setGuestCodeInput] = useState(() => {
     if (typeof window === 'undefined') return '';
     const params = new URLSearchParams(window.location.search);
@@ -55,14 +73,15 @@ export const LoginPage: React.FC = () => {
   // Account fields
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [displayName, setDisplayName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [firstName, setFirstName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
   // Library choice fields (signup & onboarding)
-  const [libraryChoice, setLibraryChoice] = useState<LibraryChoiceMode>('create');
+  const [libraryChoice, setLibraryChoice] = useState<LibraryChoiceMode>(initialInviteCode ? 'join' : 'create');
   const [libraryName, setLibraryName] = useState('');
   const [libraryDescription, setLibraryDescription] = useState('');
-  const [libraryIdentifier, setLibraryIdentifier] = useState('');
+  const [libraryIdentifier, setLibraryIdentifier] = useState(initialInviteCode);
 
   // Feedback
   const [loading, setLoading] = useState(false);
@@ -165,8 +184,8 @@ export const LoginPage: React.FC = () => {
     }
 
     if (tab === 'signup') {
-      if (!displayName.trim()) {
-        setErrorMsg('Veuillez renseigner votre nom ou prénom.');
+      if (!lastName.trim() || !firstName.trim()) {
+        setErrorMsg('Veuillez renseigner votre nom et votre prénom.');
         return;
       }
       if (!isPasswordStrongEnough) {
@@ -187,7 +206,7 @@ export const LoginPage: React.FC = () => {
 
     try {
       if (tab === 'signup') {
-        const finalName = displayName.trim() || cleanEmail.split('@')[0];
+        const finalName = `${lastName.trim()} ${firstName.trim()}`.trim() || cleanEmail.split('@')[0];
         setSignupInProgress(true);
         try {
           const userCred = await createUserWithEmailAndPassword(auth, cleanEmail, password);
@@ -279,7 +298,7 @@ export const LoginPage: React.FC = () => {
   };
 
   const handleScannedGuestCode = async (scannedCode: string) => {
-    setIsQrScannerOpen(false);
+    setQrScannerMode(null);
     setIsGuestEntry(true);
     setIsResetPassword(false);
     setGuestCodeInput(scannedCode);
@@ -293,6 +312,17 @@ export const LoginPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleScannedMemberInviteCode = (scannedCode: string) => {
+    setQrScannerMode(null);
+    setIsGuestEntry(false);
+    setIsResetPassword(false);
+    setTab('signup');
+    setLibraryChoice('join');
+    setLibraryIdentifier(scannedCode);
+    setErrorMsg('');
+    setSuccessMsg(`Code bibliothèque « ${scannedCode} » détecté. Complétez votre compte pour rejoindre la bibliothèque.`);
   };
 
   const renderLibraryChoiceFields = () => (
@@ -391,19 +421,33 @@ export const LoginPage: React.FC = () => {
           <label className="block text-[11px] font-medium text-gray-300">
             Identifiant de la bibliothèque
           </label>
-          <div className="relative">
-            <KeyRound className="w-3.5 h-3.5 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Ex: K7M4P9"
-              value={libraryIdentifier}
-              onChange={(e) => setLibraryIdentifier(e.target.value.toUpperCase())}
-              className="w-full bg-[#18181B] border border-[#2E2E33] focus:border-blue-500 rounded-lg pl-9 pr-3 py-2 text-xs font-mono font-bold tracking-wider text-blue-300 placeholder-gray-500 focus:outline-none transition-colors"
-              required
-            />
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <KeyRound className="w-3.5 h-3.5 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Ex: K7M4P9"
+                value={libraryIdentifier}
+                onChange={(e) => setLibraryIdentifier(e.target.value.toUpperCase())}
+                className="w-full bg-[#18181B] border border-[#2E2E33] focus:border-blue-500 rounded-lg pl-9 pr-3 py-2 text-xs font-mono font-bold tracking-wider text-blue-300 placeholder-gray-500 focus:outline-none transition-colors"
+                required
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setErrorMsg('');
+                setQrScannerMode('member');
+              }}
+              className="px-2.5 py-2 rounded-lg bg-[#18181E] hover:bg-[#22222C] border border-[#2E2E3A] text-cyan-300 hover:text-cyan-200 text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
+              title="Scanner le QR code d'invitation d'une bibliothèque"
+            >
+              <QrCode className="w-3.5 h-3.5" />
+              <span>Scanner</span>
+            </button>
           </div>
           <p className="text-[10px] text-gray-400 leading-relaxed">
-            Demandez le code ou l'identifiant au responsable de la bibliothèque pour accéder directement à sa base de données.
+            Saisissez l'identifiant ou scannez le QR code partagé par le responsable de la bibliothèque pour accéder directement à sa base de données.
           </p>
         </div>
       )}
@@ -542,7 +586,7 @@ export const LoginPage: React.FC = () => {
                       type="button"
                       onClick={() => {
                         setErrorMsg('');
-                        setIsQrScannerOpen(true);
+                        setQrScannerMode('guest');
                       }}
                       className="px-3 py-2 rounded-xl bg-[#18181E] hover:bg-[#22222C] border border-[#2E2E3A] text-cyan-300 hover:text-cyan-200 text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
                       title="Scanner un QR code invité avec la caméra"
@@ -646,20 +690,41 @@ export const LoginPage: React.FC = () => {
 
               <form onSubmit={handleEmailPasswordSubmit} className="space-y-3.5">
                 {tab === 'signup' && !isResetPassword && (
-                  <div>
-                    <label className="block text-xs font-medium text-gray-300 mb-1.5">
-                      NOM Prénom
-                    </label>
-                    <div className="relative">
-                      <UserIcon className="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" />
-                      <input
-                        type="text"
-                        placeholder="Alex - Clavier"
-                        value={displayName}
-                        onChange={(e) => setDisplayName(e.target.value)}
-                        className="w-full bg-[#18181B] border border-[#2E2E33] focus:border-blue-500 rounded-xl pl-9 pr-3.5 py-2 text-xs text-white placeholder-gray-500 focus:outline-none transition-colors"
-                        required
-                      />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-300 mb-1.5">
+                        NOM
+                      </label>
+                      <div className="relative">
+                        <UserIcon className="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          autoComplete="family-name"
+                          placeholder="Dupont"
+                          value={lastName}
+                          onChange={(e) => setLastName(e.target.value)}
+                          className="w-full bg-[#18181B] border border-[#2E2E33] focus:border-blue-500 rounded-xl pl-9 pr-3.5 py-2 text-xs text-white placeholder-gray-500 focus:outline-none transition-colors"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-300 mb-1.5">
+                        Prénom
+                      </label>
+                      <div className="relative">
+                        <UserIcon className="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          autoComplete="given-name"
+                          placeholder="Alex"
+                          value={firstName}
+                          onChange={(e) => setFirstName(e.target.value)}
+                          className="w-full bg-[#18181B] border border-[#2E2E33] focus:border-blue-500 rounded-xl pl-9 pr-3.5 py-2 text-xs text-white placeholder-gray-500 focus:outline-none transition-colors"
+                          required
+                        />
+                      </div>
                     </div>
                   </div>
                 )}
@@ -840,7 +905,7 @@ export const LoginPage: React.FC = () => {
                       onClick={() => {
                         setErrorMsg('');
                         setSuccessMsg('');
-                        setIsQrScannerOpen(true);
+                        setQrScannerMode('guest');
                       }}
                       className="py-2 px-3 rounded-xl bg-[#16161B] hover:bg-[#1E1E26] border border-cyan-500/30 text-xs font-semibold text-cyan-300 hover:text-cyan-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                       title="Scanner le QR code invité d'une bibliothèque"
@@ -857,9 +922,10 @@ export const LoginPage: React.FC = () => {
       </div>
 
       <GuestQrScannerModal
-        isOpen={isQrScannerOpen}
-        onClose={() => setIsQrScannerOpen(false)}
-        onScanCode={handleScannedGuestCode}
+        isOpen={qrScannerMode !== null}
+        onClose={() => setQrScannerMode(null)}
+        onScanCode={qrScannerMode === 'member' ? handleScannedMemberInviteCode : handleScannedGuestCode}
+        mode={qrScannerMode === 'member' ? 'member' : 'guest'}
       />
     </div>
   );

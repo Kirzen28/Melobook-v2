@@ -2,7 +2,7 @@ import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, Type, ThinkingLevel } from '@google/genai';
 import { searchShirSongs, getShirSongDetail } from './server/shirService';
 import { searchUltimateGuitar, getUltimateGuitarSongDetail } from './server/ultimateGuitarService';
 import { searchWorshipTogether, getWorshipTogetherSongDetail } from './server/worshipTogetherService';
@@ -436,6 +436,140 @@ Renvoie UNIQUEMENT un tableau JSON valide de 6 à 12 images:
     } catch (err: any) {
       console.error('Erreur /api/media/search:', err);
       return res.status(500).json({ error: err.message || 'Erreur recherche média' });
+    }
+  });
+
+  // Traduction automatique de paroles de chants pour le mode projection (tokens gratuits Gemini)
+  app.post('/api/translate-lyrics', async (req, res) => {
+    try {
+      const { title, sourceLanguage, targetLanguage, blocks } = req.body || {};
+
+      if (!targetLanguage || typeof targetLanguage !== 'string' || !targetLanguage.trim()) {
+        return res.status(400).json({ error: 'La langue cible est requise.' });
+      }
+      if (!Array.isArray(blocks) || blocks.length === 0) {
+        return res.status(400).json({ error: 'Aucune parole à traduire.' });
+      }
+
+      const ai = getAIClient();
+      if (!ai) {
+        return res.status(500).json({ error: 'Clé API Gemini non configurée sur le serveur.' });
+      }
+
+      const sanitizedBlocks = blocks.map((b: any, idx: number) => ({
+        index: idx,
+        sectionTitle: String(b?.sectionTitle || 'Paroles'),
+        lines: Array.isArray(b?.lines) ? b.lines.map((l: any) => String(l ?? '')) : []
+      }));
+
+      const prompt = `Traduis ce chant en ${targetLanguage.trim()}${sourceLanguage ? ` (langue source : ${sourceLanguage})` : ''}.
+Titre original : ${String(title || 'Sans titre')}
+
+Règles strictes :
+1. Conserve le sens spirituel, poétique et chantable des paroles.
+2. Pour chaque bloc (index 0 à ${sanitizedBlocks.length - 1}), renvoie EXACTEMENT le même nombre de lignes dans "lines" que dans le bloc d'entrée, dans le même ordre, pour que les sous-titres restent synchronisés ligne par ligne.
+3. Ne mets aucun accord entre crochets [C] dans les paroles traduites.
+4. Traduis aussi le titre dans "translatedTitle" et les noms de section (ex: Couplet 1 -> Verse 1, Refrain -> Chorus) dans la langue cible.
+
+Blocs à traduire :
+${JSON.stringify(sanitizedBlocks)}`;
+
+      const candidateModels = ['gemini-4-hydrogen', 'gemini-3.1-flash-lite'];
+      let rawText = '';
+      let lastErr: any = null;
+
+      for (const modelName of candidateModels) {
+        try {
+          const config: any = {
+            systemInstruction:
+              'Tu es un traducteur spécialisé en chants chrétiens, louange et cantiques. Tu réponds uniquement en JSON conforme au schéma demandé, en respectant exactement le nombre de blocs et le nombre de lignes par bloc.',
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                translatedTitle: {
+                  type: Type.STRING,
+                  description: 'Titre du chant traduit dans la langue cible.'
+                },
+                blocks: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      index: { type: Type.INTEGER },
+                      sectionTitle: { type: Type.STRING },
+                      lines: {
+                        type: Type.ARRAY,
+                        items: { type: Type.STRING }
+                      }
+                    },
+                    required: ['sectionTitle', 'lines']
+                  }
+                }
+              },
+              required: ['translatedTitle', 'blocks']
+            }
+          };
+
+          if (modelName === 'gemini-4-hydrogen') {
+            config.thinkingConfig = { thinkingLevel: ThinkingLevel.LOW };
+          }
+
+          const response = await ai.models.generateContent({
+            model: modelName,
+            contents: prompt,
+            config
+          });
+          rawText = response.text || '';
+          if (rawText) break;
+        } catch (err: any) {
+          lastErr = err;
+          // Retry with next free-tier model on transient/quota errors
+        }
+      }
+
+      if (!rawText) {
+        const status = lastErr?.status || 500;
+        const msg = lastErr?.message || 'Échec de la traduction IA Gemini.';
+        return res.status(status >= 400 && status < 600 ? status : 500).json({ error: msg });
+      }
+
+      let parsed: any;
+      try {
+        parsed = JSON.parse(rawText);
+      } catch {
+        const match = rawText.match(/\{[\s\S]*\}/);
+        if (!match) {
+          return res.status(502).json({ error: 'Réponse JSON invalide du modèle de traduction.' });
+        }
+        parsed = JSON.parse(match[0]);
+      }
+
+      const translatedBlocks = sanitizedBlocks.map((orig: any, idx: number) => {
+        const candidate =
+          (Array.isArray(parsed?.blocks)
+            ? parsed.blocks.find((b: any) => b?.index === idx) || parsed.blocks[idx]
+            : null) || {};
+        const rawLines: string[] = Array.isArray(candidate.lines)
+          ? candidate.lines.map((l: any) => String(l ?? '').trim())
+          : [];
+        const alignedLines = orig.lines.map((_: string, lineIdx: number) => rawLines[lineIdx] ?? '');
+        return {
+          sectionTitle: String(candidate.sectionTitle || orig.sectionTitle),
+          originalLines: orig.lines,
+          translatedLines: alignedLines
+        };
+      });
+
+      return res.json({
+        ok: true,
+        translatedTitle: String(parsed?.translatedTitle || title || ''),
+        blocks: translatedBlocks
+      });
+    } catch (err: any) {
+      console.error('Erreur /api/translate-lyrics:', err);
+      const status = err?.status && err.status >= 400 && err.status < 600 ? err.status : 500;
+      return res.status(status).json({ error: err?.message || 'Erreur serveur lors de la traduction.' });
     }
   });
 

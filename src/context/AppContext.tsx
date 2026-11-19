@@ -48,7 +48,6 @@ import {
   handleFirestoreError
 } from '../firebase';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { SAMPLE_SONGS, SAMPLE_SETLISTS, SAMPLE_SETLIST_HISTORY } from '../data/sampleSongs';
 import { getSongDuration } from '../utils/chordUtils';
 import { detectSongLanguage } from '../utils/languageUtils';
 import { 
@@ -152,6 +151,10 @@ interface AppContextType {
   setSelectedSetlist: (setlist: Setlist | null) => void;
   activeSetlistIndex: number;
   setActiveSetlistIndex: (index: number) => void;
+  isLiveSetlistOpen: boolean;
+  setIsLiveSetlistOpen: (open: boolean) => void;
+  editorReturnTarget: 'stage' | 'setlistLive' | 'repertoire' | null;
+  setEditorReturnTarget: (target: 'stage' | 'setlistLive' | 'repertoire' | null) => void;
   stageSettings: StageSettings;
   updateStageSettings: (settings: Partial<StageSettings>) => void;
   displaySettings: DisplaySettings;
@@ -261,7 +264,6 @@ interface AppContextType {
   bulkDeleteUserAccounts: (userIds: string[]) => Promise<boolean>;
   setAdminByEmail: (targetEmail: string, role?: UserRole) => Promise<void>;
   handleSignOut: () => Promise<void>;
-  seedDemoDataToFirestore: () => Promise<void>;
 
   // Profile picture management
   uploadProfilePicture: (fileOrBlob: Blob | File) => Promise<string>;
@@ -303,6 +305,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const resolvedTab = isGuest && (tab === 'editor' || tab === 'groups' || tab === 'settings')
       ? 'repertoire'
       : tab;
+    if (resolvedTab !== 'setlists' && resolvedTab !== 'editor') {
+      setIsLiveSetlistOpen(false);
+      setEditorReturnTarget(null);
+    }
     setActiveTabState(resolvedTab);
     if (!isGuest && typeof window !== 'undefined') {
       localStorage.setItem('songbook_active_tab', resolvedTab);
@@ -319,6 +325,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [selectedSong, setSelectedSong] = useState<Song | null>(null);
   const [selectedSetlist, setSelectedSetlist] = useState<Setlist | null>(null);
   const [activeSetlistIndex, setActiveSetlistIndex] = useState<number>(0);
+  const [isLiveSetlistOpen, setIsLiveSetlistOpen] = useState<boolean>(false);
+  const [editorReturnTarget, setEditorReturnTarget] = useState<'stage' | 'setlistLive' | 'repertoire' | null>(null);
 
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -1413,10 +1421,116 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [authLoading, isGuest, enterGuestMode, showNotification]);
 
+  const libraryMemberDocsRef = useRef<UserProfile[]>([]);
+  const resolvedUserProfilesRef = useRef<Record<string, Partial<UserProfile>>>({});
+  const backfilledMemberKeysRef = useRef<Set<string>>(new Set());
+  const fetchedUserLookupKeysRef = useRef<Set<string>>(new Set());
+
+  const reconcileLibraryMembers = useCallback((
+    snapDocs: UserProfile[],
+    group: Group | null,
+    user: UserProfile | null
+  ): UserProfile[] => {
+    const targetGroupId = group?.id;
+    if (!targetGroupId || !user?.uid) return [];
+
+    const byUid = new Map<string, UserProfile>();
+    for (const docItem of snapDocs) {
+      byUid.set(docItem.uid, docItem);
+    }
+
+    const expectedUids = Array.from(new Set([
+      ...(Array.isArray(group.members) ? group.members : []),
+      ...(group.ownerId ? [group.ownerId] : [])
+    ])).filter(Boolean);
+
+    const isCurUserAdmin = group.ownerId === user.uid || group.memberRoles?.[user.uid] === 'admin';
+
+    for (const uid of expectedUids) {
+      if (byUid.has(uid)) continue;
+
+      const roleInGroup: UserRole = group.ownerId === uid
+        ? 'admin'
+        : (group.memberRoles?.[uid] || (uid === user.uid ? user.role : undefined) || 'member');
+
+      if (uid === user.uid) {
+        const displayName = (user.displayName || user.email?.split('@')[0] || 'Musicien').trim().slice(0, 120) || 'Musicien';
+        const validPhoto = user.photoURL && user.photoURL.length <= 2048 ? user.photoURL : undefined;
+        byUid.set(uid, {
+          uid,
+          email: user.email || '',
+          displayName,
+          photoURL: user.photoURL,
+          currentGroupId: targetGroupId,
+          role: roleInGroup
+        });
+
+        const backfillKey = `${targetGroupId}:${uid}`;
+        if (!backfilledMemberKeysRef.current.has(backfillKey)) {
+          backfilledMemberKeysRef.current.add(backfillKey);
+          setDoc(doc(db, 'groups', targetGroupId, 'members', uid), stripUndefined({
+            uid,
+            displayName,
+            photoURL: validPhoto,
+            role: roleInGroup,
+            joinedAt: serverTimestamp()
+          }), { merge: true }).catch(() => {});
+        }
+      } else {
+        const cachedProfile = resolvedUserProfilesRef.current[uid];
+        const fallbackName = (cachedProfile?.displayName || `Membre (${uid.slice(0, 6)})`).trim().slice(0, 120);
+        byUid.set(uid, {
+          uid,
+          email: cachedProfile?.email || '',
+          displayName: fallbackName,
+          photoURL: cachedProfile?.photoURL,
+          currentGroupId: targetGroupId,
+          role: roleInGroup
+        });
+
+        const lookupKey = `${targetGroupId}:${uid}`;
+        if (!fetchedUserLookupKeysRef.current.has(lookupKey)) {
+          fetchedUserLookupKeysRef.current.add(lookupKey);
+          getDoc(doc(db, 'users', uid)).then((userSnap) => {
+            if (!userSnap.exists()) return;
+            const uData = userSnap.data() as Partial<UserProfile>;
+            const resolvedName = (uData.displayName || uData.email?.split('@')[0] || `Membre (${uid.slice(0, 6)})`).trim().slice(0, 120);
+            resolvedUserProfilesRef.current[uid] = {
+              displayName: resolvedName,
+              email: uData.email || '',
+              photoURL: uData.photoURL
+            };
+            setAllUsers(prev => prev.map(item => item.uid === uid ? {
+              ...item,
+              displayName: resolvedName,
+              email: uData.email || item.email,
+              photoURL: uData.photoURL ?? item.photoURL
+            } : item));
+
+            if (isCurUserAdmin && !backfilledMemberKeysRef.current.has(lookupKey)) {
+              backfilledMemberKeysRef.current.add(lookupKey);
+              const validPhoto = uData.photoURL && uData.photoURL.length <= 2048 ? uData.photoURL : undefined;
+              setDoc(doc(db, 'groups', targetGroupId, 'members', uid), stripUndefined({
+                uid,
+                displayName: resolvedName,
+                photoURL: validPhoto,
+                role: roleInGroup,
+                joinedAt: serverTimestamp()
+              }), { merge: true }).catch(() => {});
+            }
+          }).catch(() => {});
+        }
+      }
+    }
+
+    return Array.from(byUid.values());
+  }, []);
+
   // Synchronisation en temps réel des membres de la bibliothèque active uniquement (isolation stricte)
   useEffect(() => {
     const targetGroupId = currentGroup?.id;
     if (!targetGroupId || !currentUser?.uid || isGuest) {
+      libraryMemberDocsRef.current = [];
       setAllUsers([]);
       return;
     }
@@ -1427,24 +1541,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       snap.forEach(d => {
         const data = d.data() as Partial<UserProfile>;
         const uid = data.uid || d.id;
+        const cached = resolvedUserProfilesRef.current[uid];
         mList.push({
           uid,
-          email: data.email || (uid === currentUser.uid ? currentUser.email : ''),
-          displayName: data.displayName || 'Musicien',
-          photoURL: data.photoURL,
+          email: data.email || cached?.email || (uid === currentUser.uid ? currentUser.email : ''),
+          displayName: data.displayName || cached?.displayName || 'Musicien',
+          photoURL: data.photoURL || cached?.photoURL,
           currentGroupId: targetGroupId,
           role: (data.role as UserRole) || 'member'
         });
       });
-      setAllUsers(mList);
+      libraryMemberDocsRef.current = mList;
+      setAllUsers(reconcileLibraryMembers(mList, currentGroup, currentUser));
     }, (err) => {
       if (err?.code !== 'unavailable') {
         console.warn('Library members snapshot note:', membersPath, err.message);
       }
+      setAllUsers(reconcileLibraryMembers(libraryMemberDocsRef.current, currentGroup, currentUser));
     });
 
     return () => unsubMembers();
-  }, [currentGroup?.id, currentUser?.uid, currentUser?.email, isGuest]);
+  }, [currentGroup?.id, currentUser?.uid, currentUser?.email, isGuest, reconcileLibraryMembers]);
+
+  // Réconciliation immédiate si currentGroup.members ou memberRoles change sans recréer le listener Firestore
+  useEffect(() => {
+    if (!currentGroup?.id || !currentUser?.uid || isGuest) return;
+    setAllUsers(reconcileLibraryMembers(libraryMemberDocsRef.current, currentGroup, currentUser));
+  }, [currentGroup, currentUser, isGuest, reconcileLibraryMembers]);
 
   // Synchronisation en temps réel de la base de données dédiée de la bibliothèque active (/groups/{groupId}/...)
   useEffect(() => {
@@ -1612,34 +1735,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     return () => unsubGroups();
   }, [currentUser?.uid, isGuest]);
-
-  // Seed demo songs into the active library's dedicated database
-  const seedDemoDataToFirestore = useCallback(async () => {
-    if (blockIfGuest()) return;
-    const groupId = currentGroup?.id;
-    if (!groupId) return;
-    try {
-      const demoSongs = SAMPLE_SONGS.map(song => ({ ...song, groupId }));
-      const demoSetlists = SAMPLE_SETLISTS.map(st => ({ ...st, groupId }));
-      const demoHistory = SAMPLE_SETLIST_HISTORY.map(rec => ({ ...rec, groupId }));
-
-      for (const song of demoSongs) {
-        await setDoc(doc(db, 'groups', groupId, 'songs', song.id), stripUndefined({ ...song, createdAt: serverTimestamp(), updatedAt: serverTimestamp() }));
-      }
-      for (const setlist of demoSetlists) {
-        await setDoc(doc(db, 'groups', groupId, 'setlists', setlist.id), stripUndefined({ ...setlist, createdAt: serverTimestamp() }));
-      }
-      for (const record of demoHistory) {
-        await setDoc(doc(db, 'groups', groupId, 'setlist_history', record.id), stripUndefined({ ...record, createdAt: serverTimestamp() }));
-      }
-      setSongs(demoSongs);
-      setSetlists(demoSetlists);
-      setSetlistHistory(demoHistory);
-      showNotification('Chants de démonstration ajoutés à cette bibliothèque');
-    } catch (e) {
-      console.error('Error seeding demo data:', e);
-    }
-  }, [currentGroup?.id, showNotification]);
 
   // Song Actions (scopées dans /groups/{groupId}/songs)
   const createSong = useCallback(async (songData: Omit<Song, 'id' | 'groupId' | 'createdAt' | 'updatedAt'>) => {
@@ -2397,6 +2492,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     try {
       await updateDoc(doc(db, 'groups', groupId), { members: uniqueUids, updatedAt: serverTimestamp() });
+      for (const uid of uniqueUids) {
+        if (!(targetGroup?.members || []).includes(uid)) {
+          const profile = allUsers.find(u => u.uid === uid);
+          const roleInGroup: UserRole = targetGroup?.ownerId === uid ? 'admin' : (targetGroup?.memberRoles?.[uid] || profile?.role || 'member');
+          const validPhoto = profile?.photoURL && profile.photoURL.length <= 2048 ? profile.photoURL : undefined;
+          await setDoc(doc(db, 'groups', groupId, 'members', uid), stripUndefined({
+            uid,
+            displayName: (profile?.displayName || `Membre (${uid.slice(0, 6)})`).slice(0, 120),
+            photoURL: validPhoto,
+            role: roleInGroup,
+            joinedAt: serverTimestamp()
+          }), { merge: true }).catch(() => {});
+        }
+      }
       for (const rUid of removedUids) {
         await deleteDoc(doc(db, 'groups', groupId, 'members', rUid)).catch(() => {});
       }
@@ -2411,7 +2520,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     showNotification('Membres de la bibliothèque synchronisés avec succès');
     return true;
-  }, [allGroups, isLibraryAdminForGroup, currentGroup?.id, showNotification]);
+  }, [allGroups, allUsers, isLibraryAdminForGroup, currentGroup?.id, showNotification]);
 
   const assignMembersToGroup = useCallback(async (groupId: string, memberUids: string[]): Promise<boolean> => {
     if (blockIfGuest()) return false;
@@ -2426,6 +2535,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     try {
       await updateDoc(doc(db, 'groups', groupId), { members: mergedMembers, updatedAt: serverTimestamp() });
+      for (const uid of memberUids) {
+        if (!existingMembers.includes(uid)) {
+          const profile = allUsers.find(u => u.uid === uid);
+          const roleInGroup: UserRole = targetGroup.ownerId === uid ? 'admin' : (targetGroup.memberRoles?.[uid] || profile?.role || 'member');
+          const validPhoto = profile?.photoURL && profile.photoURL.length <= 2048 ? profile.photoURL : undefined;
+          await setDoc(doc(db, 'groups', groupId, 'members', uid), stripUndefined({
+            uid,
+            displayName: (profile?.displayName || `Membre (${uid.slice(0, 6)})`).slice(0, 120),
+            photoURL: validPhoto,
+            role: roleInGroup,
+            joinedAt: serverTimestamp()
+          }), { merge: true }).catch(() => {});
+        }
+      }
     } catch (e) {
       console.warn('Assign members note:', e);
     }
@@ -2437,7 +2560,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     showNotification('Membres assignés avec succès à la bibliothèque');
     return true;
-  }, [allGroups, isLibraryAdminForGroup, currentGroup?.id, showNotification]);
+  }, [allGroups, allUsers, isLibraryAdminForGroup, currentGroup?.id, showNotification]);
 
   const removeMemberFromGroup = useCallback(async (groupId: string, memberUid: string): Promise<boolean> => {
     if (blockIfGuest()) return false;
@@ -3108,6 +3231,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setSelectedSetlist,
       activeSetlistIndex,
       setActiveSetlistIndex,
+      isLiveSetlistOpen,
+      setIsLiveSetlistOpen,
+      editorReturnTarget,
+      setEditorReturnTarget,
       stageSettings,
       updateStageSettings,
       displaySettings,
@@ -3174,7 +3301,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       removeMemberFromLibrary: removeMemberFromGroup,
       setLibraryMembers: setGroupMembers,
       handleSignOut,
-      seedDemoDataToFirestore,
       uploadProfilePicture,
       removeProfilePicture,
       customPads,

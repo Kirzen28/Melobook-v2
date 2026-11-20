@@ -20,7 +20,8 @@ import {
   parseTimeSignatureToBeats,
   getYouTubeEmbedUrl,
   getSpotifyEmbedUrl,
-  isDirectAudioUrl
+  isDirectAudioUrl,
+  isChordGridToken
 } from '../utils/chordUtils';
 import { cacheSongInWorker } from '../utils/pwaCache';
 import { getSectionColor, getSectionBorderStyles } from '../utils/displayDefaults';
@@ -83,7 +84,8 @@ import {
   Tv,
   Search,
   ExternalLink,
-  Pencil
+  Pencil,
+  Disc
 } from 'lucide-react';
 import { 
   buildPresentationSlides, 
@@ -517,10 +519,24 @@ export const SongReader: React.FC<SongReaderProps> = ({
     if (!parsedData) return [];
     const set = new Set<string>();
     parsedData.sections.forEach(sec => {
+      const secOffset = visualChordTransposeSemitones + (sec.transposeOffset || 0);
       sec.lines.forEach(l => {
+        if (l.type === 'grid_row' && l.gridBars) {
+          l.gridBars.forEach(bar => {
+            bar.beats.forEach(beat => {
+              if (isChordGridToken(beat)) {
+                const chordStr = transposeChord(beat, secOffset, stageSettings.notation);
+                if (chordStr && chordStr.trim()) {
+                  set.add(chordStr.trim());
+                }
+              }
+            });
+          });
+          return;
+        }
         l.items.forEach(item => {
           if (item.chord) {
-            const chordStr = transposeChord(item.chord, visualChordTransposeSemitones, stageSettings.notation);
+            const chordStr = transposeChord(item.chord, secOffset, stageSettings.notation);
             if (chordStr && chordStr.trim()) {
               set.add(chordStr.trim());
             }
@@ -1444,12 +1460,202 @@ export const SongReader: React.FC<SongReaderProps> = ({
     }
   };
 
+  const renderSectionLinesList = (section: any, effectiveSectionOffset: number, linesSpacingClass: string, isTranslatedCol: boolean) => {
+    const groupedLines: Array<
+      | { kind: 'line'; line: any; key: number }
+      | { kind: 'tab_block'; rows: string[]; key: number }
+    > = [];
+
+    (section.lines || []).forEach((line: any, lIdx: number) => {
+      if (line.type === 'tab_row') {
+        const prev = groupedLines[groupedLines.length - 1];
+        if (prev && prev.kind === 'tab_block') {
+          prev.rows.push(line.tabText || '');
+        } else {
+          groupedLines.push({ kind: 'tab_block', rows: [line.tabText || ''], key: lIdx });
+        }
+      } else {
+        groupedLines.push({ kind: 'line', line, key: lIdx });
+      }
+    });
+
+    return (
+      <div className={`${linesSpacingClass} font-chord leading-relaxed print:space-y-1.5`}>
+        {groupedLines.map((entry) => {
+          if (entry.kind === 'tab_block') {
+            return (
+              <pre
+                key={`tab-${entry.key}`}
+                className="font-mono text-xs sm:text-sm text-sky-200/95 bg-[#101014]/70 border border-[#24242C] rounded-md px-3 py-2 overflow-x-auto leading-snug whitespace-pre print:bg-transparent print:border-neutral-300 print:text-black"
+              >
+                {entry.rows.join('\n')}
+              </pre>
+            );
+          }
+
+          const { line, key: lIdx } = entry;
+
+          if (line.type === 'empty') {
+            return <div key={lIdx} className="h-3 print:h-2" />;
+          }
+
+          if (line.type === 'comment') {
+            return (
+              <p key={lIdx} className="text-xs sm:text-sm text-sky-300/90 font-medium print:text-neutral-700">
+                {line.comment}
+              </p>
+            );
+          }
+
+          if (line.type === 'comment_italic') {
+            return (
+              <p key={lIdx} className="text-xs sm:text-sm italic text-cyan-300/90 print:text-neutral-700">
+                {line.comment}
+              </p>
+            );
+          }
+
+          if (line.type === 'comment_box') {
+            return (
+              <div
+                key={lIdx}
+                className="inline-block px-2.5 py-1 rounded border border-amber-500/40 bg-amber-950/20 text-xs sm:text-sm font-medium text-amber-200 print:border-neutral-400 print:bg-neutral-50 print:text-black"
+              >
+                {line.comment}
+              </div>
+            );
+          }
+
+          if (line.type === 'grid_row' && line.gridBars) {
+            return (
+              <div
+                key={lIdx}
+                className="font-mono tabular-nums flex flex-wrap items-center gap-y-1.5 text-sm print:text-black"
+              >
+                {line.gridBars.map((bar: any, bIdx: number) => (
+                  <React.Fragment key={bIdx}>
+                    {bar.repeatStart && (
+                      <span className="font-bold text-amber-400 mr-1 print:text-black">|:</span>
+                    )}
+                    {!bar.repeatStart && bIdx === 0 && (
+                      <span className="text-gray-500 mr-1 print:text-neutral-500">|</span>
+                    )}
+                    <div className="inline-flex items-center gap-1.5">
+                      {bar.beats.map((beat: string, beatIdx: number) => {
+                        if (isChordGridToken(beat)) {
+                          const displayedBeat = transposeChord(beat, effectiveSectionOffset, stageSettings.notation);
+                          if (!stageSettings.showChords) {
+                            return (
+                              <span key={beatIdx} className="text-gray-500 px-0.5 print:text-neutral-500">
+                                /
+                              </span>
+                            );
+                          }
+                          return (
+                            <button
+                              key={beatIdx}
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (displayedBeat) {
+                                  setChordModalData({ isOpen: true, chord: displayedBeat });
+                                }
+                              }}
+                              className="font-mono font-bold hover:underline cursor-pointer px-0.5 transition-all active:scale-95 print:cursor-default print:hover:no-underline print:text-blue-800"
+                              style={{
+                                fontSize: `${displaySettings.typography.chordSize}px`,
+                                color: displaySettings.chordColor || '#60a5fa'
+                              }}
+                              title={`Diagramme de l'accord ${displayedBeat}`}
+                            >
+                              {displayedBeat}
+                            </button>
+                          );
+                        }
+                        return (
+                          <span key={beatIdx} className="text-gray-500 px-0.5 print:text-neutral-500">
+                            {beat}
+                          </span>
+                        );
+                      })}
+                    </div>
+                    {bar.repeatEnd ? (
+                      <span className="font-bold text-amber-400 mx-1.5 print:text-black">:|</span>
+                    ) : (
+                      <span className="text-gray-500 mx-1.5 print:text-neutral-500">|</span>
+                    )}
+                  </React.Fragment>
+                ))}
+              </div>
+            );
+          }
+
+          return (
+            <div key={lIdx} className="flex flex-wrap items-end gap-x-0.5 print:leading-tight">
+              {line.items.map((item: any, iIdx: number) => {
+                const displayedChord = item.chord
+                  ? transposeChord(item.chord, effectiveSectionOffset, stageSettings.notation)
+                  : '';
+
+                return (
+                  <div key={iIdx} className="inline-flex flex-col items-start">
+                    {item.annotation && (
+                      <span className="text-[11px] italic text-amber-300/90 leading-none mb-0.5 pr-1 print:text-neutral-700">
+                        ({item.annotation})
+                      </span>
+                    )}
+                    {stageSettings.showChords && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (displayedChord) {
+                            setChordModalData({
+                              isOpen: true,
+                              chord: displayedChord
+                            });
+                          }
+                        }}
+                        className={`chord-badge font-mono font-bold hover:underline select-none leading-none mb-1 pr-1 text-left inline-flex items-center cursor-pointer transition-all active:scale-95 group/chord print:cursor-default print:hover:no-underline print:text-blue-800 print:mb-0.5 ${
+                          displayedChord ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                        }`}
+                        style={{
+                          fontSize: `${displaySettings.typography.chordSize}px`,
+                          color: displaySettings.chordColor || '#60a5fa'
+                        }}
+                        title={displayedChord
+                          ? (!isTranslatedCol && effectiveCapo > 0
+                              ? `Accord joué : ${displayedChord} (Capo ${effectiveCapo}) • Son réel : ${transposeChord(item.chord, baseKeySemitones + (section.transposeOffset || 0), stageSettings.notation)}`
+                              : `Diagramme de l'accord ${displayedChord}`)
+                          : undefined}
+                      >
+                        {displayedChord || '\u00A0'}
+                      </button>
+                    )}
+
+                    <span
+                      className="text-[#E0E0E0] font-sans tracking-normal whitespace-pre print:text-black print:font-normal"
+                      style={{ fontSize: `${displaySettings.typography.lyricsSize}px` }}
+                    >
+                      {item.lyrics || (item.chord ? ' ' : '')}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   const renderSongSections = (sectionsToRender: any[], semitonesOffset: number, isTranslatedCol: boolean) => {
     return sectionsToRender.map((section, sIdx) => {
       const secColor = getSectionColor(section.type, displaySettings.sectionColors);
       const sectionRepeat = (!isTranslatedCol && setlistOverride?.sectionRepeats && setlistOverride.sectionRepeats[sIdx] !== undefined)
         ? setlistOverride.sectionRepeats[sIdx]
         : (section.repeat || 1);
+      const effectiveSectionOffset = semitonesOffset + (section.transposeOffset || 0);
 
       const sectionTitle = (section.title && section.title.trim()) || (
         section.type === 'verse' ? `Couplet ${sIdx + 1}` :
@@ -1466,10 +1672,12 @@ export const SongReader: React.FC<SongReaderProps> = ({
         section.type && section.type !== 'general' ? section.type : ''
       );
 
+      const hasSectionMeta = Boolean(section.isChorusRecall || section.key || section.tempo || section.timeSignature || section.transposeOffset);
       const isSectionHeaderVisible = metaVis.sectionHeaders !== false;
       const hasVisibleHeader = Boolean(
         (isSectionHeaderVisible && sectionTitle) ||
-        sectionRepeat > 1 || 
+        sectionRepeat > 1 ||
+        hasSectionMeta ||
         (!isTranslatedCol && metaVis.vocalArrangement && (section.vocals?.length || section.vocal))
       );
 
@@ -1513,6 +1721,12 @@ export const SongReader: React.FC<SongReaderProps> = ({
                   </span>
                 ) : null}
 
+                {section.isChorusRecall && (
+                  <span className="text-[10px] font-medium uppercase tracking-wider text-blue-300/80 border border-blue-500/30 bg-blue-950/30 px-1.5 py-0.5 rounded print:text-neutral-700 print:border-neutral-400">
+                    Rappel
+                  </span>
+                )}
+
                 {sectionRepeat > 1 && (
                   <span 
                     className="inline-flex items-center gap-1 px-2 py-0.5 rounded border bg-emerald-950/40 border-emerald-500/50 text-emerald-300 font-bold font-mono select-none print:bg-neutral-100 print:border-neutral-400 print:text-neutral-900 print:text-[9.5pt]"
@@ -1527,6 +1741,17 @@ export const SongReader: React.FC<SongReaderProps> = ({
                       className="text-emerald-400 shrink-0 print:text-neutral-800" 
                     />
                     <span>x{sectionRepeat}</span>
+                  </span>
+                )}
+
+                {(section.key || section.transposeOffset || section.tempo || section.timeSignature) && (
+                  <span className="text-[11px] font-mono text-gray-300/90 print:text-neutral-700">
+                    {[
+                      section.key ? `Ton: ${transposeChord(section.key, semitonesOffset, stageSettings.notation)}` : '',
+                      section.transposeOffset ? `${section.transposeOffset > 0 ? '+' : ''}${section.transposeOffset}t` : '',
+                      section.tempo ? `${section.tempo} BPM` : '',
+                      section.timeSignature || ''
+                    ].filter(Boolean).join(' · ')}
                   </span>
                 )}
               </div>
@@ -1544,59 +1769,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
             </div>
           )}
 
-          <div className={`${linesSpacingClass} font-chord leading-relaxed print:space-y-1.5`}>
-            {section.lines.map((line: any, lIdx: number) => {
-              if (line.type === 'empty') {
-                return <div key={lIdx} className="h-3 print:h-2" />;
-              }
-
-              return (
-                <div key={lIdx} className="flex flex-wrap items-end gap-x-0.5 print:leading-tight">
-                  {line.items.map((item: any, iIdx: number) => {
-                    const displayedChord = item.chord 
-                      ? transposeChord(item.chord, semitonesOffset, stageSettings.notation) 
-                      : '';
-
-                    return (
-                      <div key={iIdx} className="inline-flex flex-col items-start">
-                        {stageSettings.showChords && (
-                          <button 
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (displayedChord) {
-                                setChordModalData({
-                                  isOpen: true,
-                                  chord: displayedChord
-                                });
-                              }
-                            }}
-                            className={`chord-badge font-mono font-bold hover:underline select-none leading-none mb-1 pr-1 text-left inline-flex items-center cursor-pointer transition-all active:scale-95 group/chord print:cursor-default print:hover:no-underline print:text-blue-800 print:mb-0.5 ${
-                              displayedChord ? 'opacity-100' : 'opacity-0 pointer-events-none'
-                            }`}
-                            style={{ 
-                              fontSize: `${displaySettings.typography.chordSize}px`,
-                              color: displaySettings.chordColor || '#60a5fa'
-                            }}
-                            title={displayedChord ? `Diagramme de l'accord ${displayedChord}` : undefined}
-                          >
-                            {displayedChord || '\u00A0'}
-                          </button>
-                        )}
-                        
-                        <span 
-                          className="text-[#E0E0E0] font-sans tracking-normal whitespace-pre print:text-black print:font-normal"
-                          style={{ fontSize: `${displaySettings.typography.lyricsSize}px` }}
-                        >
-                          {item.lyrics || (item.chord ? ' ' : '')}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })}
-          </div>
+          {renderSectionLinesList(section, effectiveSectionOffset, linesSpacingClass, isTranslatedCol)}
         </div>
       );
     });
@@ -2224,9 +2397,12 @@ export const SongReader: React.FC<SongReaderProps> = ({
                 <h1 className="text-2xl font-bold tracking-tight text-black leading-tight">
                   {stripParentheses(parsedData.title || song.title)}
                 </h1>
-                {song.artist && (
+                {(song.artist || (metaVis.album !== false && (song.album || parsedData.album))) && (
                   <p className="text-sm font-semibold text-neutral-700 italic mt-0.5">
-                    {song.artist}
+                    {[
+                      song.artist,
+                      metaVis.album !== false ? (song.album || parsedData.album || '').trim() : ''
+                    ].filter(Boolean).join(' · ')}
                   </p>
                 )}
               </div>
@@ -2669,15 +2845,30 @@ export const SongReader: React.FC<SongReaderProps> = ({
               )}
             </div>
 
-            {/* Ligne Artiste */}
-            {metaVis.artist && song.artist && (
+            {/* Ligne Artiste & Album */}
+            {((metaVis.artist && song.artist) || (metaVis.album !== false && (song.album || parsedData.album))) && (
               <div className="w-full flex items-center gap-1.5 sm:gap-2 flex-wrap mb-1.5 sm:mb-2 text-xs">
-                <div 
-                  className="text-gray-300 font-medium break-words shrink-0"
-                  style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
-                >
-                  {song.artist}
-                </div>
+                {metaVis.artist && song.artist && (
+                  <div 
+                    className="text-gray-300 font-medium break-words shrink-0"
+                    style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
+                  >
+                    {song.artist}
+                  </div>
+                )}
+                {metaVis.artist && song.artist && metaVis.album !== false && (song.album || parsedData.album) && (
+                  <span className="text-gray-600 select-none">·</span>
+                )}
+                {metaVis.album !== false && (song.album || parsedData.album) && (
+                  <div
+                    className="inline-flex items-center gap-1 text-gray-400 break-words shrink-0"
+                    style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
+                    title={`Album : ${(song.album || parsedData.album || '').trim()}`}
+                  >
+                    <Disc className="w-3.5 h-3.5 text-gray-500 shrink-0" />
+                    <span>{(song.album || parsedData.album || '').trim()}</span>
+                  </div>
+                )}
               </div>
             )}
 
@@ -3104,6 +3295,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
               const sectionRepeat = (setlistOverride?.sectionRepeats && setlistOverride.sectionRepeats[sIdx] !== undefined)
                 ? setlistOverride.sectionRepeats[sIdx]
                 : (section.repeat || 1);
+              const effectiveSectionOffset = visualChordTransposeSemitones + (section.transposeOffset || 0);
 
               // Résolution robuste du nom de la section (ex: "Intro", "Couplet 1", "Refrain", "Pont", etc.)
               const sectionTitle = (section.title && section.title.trim()) || (
@@ -3121,11 +3313,13 @@ export const SongReader: React.FC<SongReaderProps> = ({
                 section.type && section.type !== 'general' ? section.type : ''
               );
 
+              const hasSectionMeta = Boolean(section.isChorusRecall || section.key || section.tempo || section.timeSignature || section.transposeOffset);
               // Le nom des sections doit être visible
               const isSectionHeaderVisible = metaVis.sectionHeaders !== false;
               const hasVisibleHeader = Boolean(
                 (isSectionHeaderVisible && sectionTitle) ||
-                sectionRepeat > 1 || 
+                sectionRepeat > 1 ||
+                hasSectionMeta ||
                 (metaVis.vocalArrangement && (section.vocals?.length || section.vocal))
               );
 
@@ -3170,6 +3364,12 @@ export const SongReader: React.FC<SongReaderProps> = ({
                           </span>
                         ) : null}
 
+                        {section.isChorusRecall && (
+                          <span className="text-[10px] font-medium uppercase tracking-wider text-blue-300/80 border border-blue-500/30 bg-blue-950/30 px-1.5 py-0.5 rounded print:text-neutral-700 print:border-neutral-400">
+                            Rappel
+                          </span>
+                        )}
+
                         {/* Section Repeat Badge (Lecture seule) */}
                         {sectionRepeat > 1 && (
                           <span 
@@ -3185,6 +3385,17 @@ export const SongReader: React.FC<SongReaderProps> = ({
                               className="text-emerald-400 shrink-0 print:text-neutral-800" 
                             />
                             <span>x{sectionRepeat}</span>
+                          </span>
+                        )}
+
+                        {(section.key || section.transposeOffset || section.tempo || section.timeSignature) && (
+                          <span className="text-[11px] font-mono text-gray-300/90 print:text-neutral-700">
+                            {[
+                              section.key ? `Ton: ${transposeChord(section.key, visualChordTransposeSemitones, stageSettings.notation)}` : '',
+                              section.transposeOffset ? `${section.transposeOffset > 0 ? '+' : ''}${section.transposeOffset}t` : '',
+                              section.tempo ? `${section.tempo} BPM` : '',
+                              section.timeSignature || ''
+                            ].filter(Boolean).join(' · ')}
                           </span>
                         )}
                       </div>
@@ -3204,65 +3415,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                   )}
 
                   {/* Section Lines */}
-                  <div className={`${linesSpacingClass} font-chord leading-relaxed print:space-y-1.5`}>
-                    {section.lines.map((line, lIdx) => {
-                      if (line.type === 'empty') {
-                        return <div key={lIdx} className="h-3 print:h-2" />;
-                      }
-
-                      return (
-                        <div key={lIdx} className="flex flex-wrap items-end gap-x-0.5 print:leading-tight">
-                          {line.items.map((item, iIdx) => {
-                            const displayedChord = item.chord 
-                              ? transposeChord(item.chord, visualChordTransposeSemitones, stageSettings.notation) 
-                              : '';
-
-                            return (
-                              <div key={iIdx} className="inline-flex flex-col items-start">
-                                 {/* Chord on top - Clickable to open Chord Library Diagram */}
-                                {stageSettings.showChords && (
-                                  <button 
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      if (displayedChord) {
-                                        setChordModalData({
-                                          isOpen: true,
-                                          chord: displayedChord
-                                        });
-                                      }
-                                    }}
-                                    className={`chord-badge font-mono font-bold hover:underline select-none leading-none mb-1 pr-1 text-left inline-flex items-center cursor-pointer transition-all active:scale-95 group/chord print:cursor-default print:hover:no-underline print:text-blue-800 print:mb-0.5 ${
-                                      displayedChord ? 'opacity-100' : 'opacity-0 pointer-events-none'
-                                    }`}
-                                    style={{ 
-                                      fontSize: `${displaySettings.typography.chordSize}px`,
-                                      color: displaySettings.chordColor || '#60a5fa'
-                                    }}
-                                    title={displayedChord 
-                                      ? (effectiveCapo > 0
-                                          ? `Accord joué : ${displayedChord} (Capo ${effectiveCapo}) • Son réel : ${transposeChord(item.chord, baseKeySemitones, stageSettings.notation)}`
-                                          : `Diagramme de l'accord ${displayedChord}`)
-                                      : undefined}
-                                  >
-                                    {displayedChord || '\u00A0'}
-                                  </button>
-                                )}
-                                
-                                {/* Syllable / Lyric */}
-                                <span 
-                                  className="text-[#E0E0E0] font-sans tracking-normal whitespace-pre print:text-black print:font-normal"
-                                  style={{ fontSize: `${displaySettings.typography.lyricsSize}px` }}
-                                >
-                                  {item.lyrics || (item.chord ? ' ' : '')}
-                                </span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      );
-                    })}
-                  </div>
+                  {renderSectionLinesList(section, effectiveSectionOffset, linesSpacingClass, false)}
                 </div>
               );
             })}

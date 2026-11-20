@@ -227,7 +227,23 @@ const STORAGE_KEY = 'melobook_presentation_state';
 export const FONT_SCALE_KEY = 'melobook_presentation_font_scale';
 export const BACKGROUND_IMAGE_KEY = 'melobook_presentation_bg_image';
 export const BACKGROUND_OVERLAY_KEY = 'melobook_presentation_bg_overlay';
+export const AUTO_LAYOUT_KEY = 'melobook_presentation_auto_layout';
 const MAX_LINES_PER_SLIDE = 4; // Découpage automatique adapté pour lisibilité projection
+
+export function getSavedAutoLayout(): boolean {
+  try {
+    const raw = localStorage.getItem(AUTO_LAYOUT_KEY);
+    if (raw === 'false') return false;
+    if (raw === 'true') return true;
+  } catch {}
+  return true;
+}
+
+export function saveAutoLayout(enabled: boolean): void {
+  try {
+    localStorage.setItem(AUTO_LAYOUT_KEY, enabled ? 'true' : 'false');
+  } catch {}
+}
 
 export function getSavedFontScale(): number {
   try {
@@ -292,78 +308,220 @@ function getChannel(): BroadcastChannel | null {
   return sharedChannel;
 }
 
-/**
- * Construit la liste des slides pour la projection à partir du ChordPro
- * avec découpage automatique par section et sous-groupes de lignes
- */
-export function buildPresentationSlides(
-  chordProText: string,
-  explicitTitle?: string,
-  maxLines: number = MAX_LINES_PER_SLIDE
-): PresentationSlide[] {
-  const parsed: ParsedSongData = parseChordPro(chordProText || '');
-  const rawTitle = explicitTitle || parsed.title || 'Sans titre';
-  const songTitle = stripParentheses(rawTitle);
+interface LayoutBudget {
+  effectiveMaxLines: number;
+  charBudget: number;
+}
 
-  const rawSlides: { sectionTitle: string; lines: string[] }[] = [];
+function computeSongLayoutBudget(allLines: string[], baseMaxLines: number): LayoutBudget {
+  const nonEmpty = allLines.filter(l => l.length > 0);
+  if (nonEmpty.length === 0) {
+    return { effectiveMaxLines: baseMaxLines, charBudget: 180 };
+  }
+  const totalChars = nonEmpty.reduce((acc, l) => acc + l.length, 0);
+  const avgLineLen = totalChars / nonEmpty.length;
+
+  // Adapte le budget de lignes et de caractères selon la longueur globale du chant
+  if (avgLineLen > 52 || totalChars > 950) {
+    return {
+      effectiveMaxLines: Math.max(2, Math.min(baseMaxLines, 2)),
+      charBudget: 145
+    };
+  }
+  if (avgLineLen > 38 || totalChars > 550) {
+    return {
+      effectiveMaxLines: Math.max(2, Math.min(baseMaxLines, 3)),
+      charBudget: 175
+    };
+  }
+  return {
+    effectiveMaxLines: Math.max(1, baseMaxLines),
+    charBudget: 210
+  };
+}
+
+/**
+ * Découpe un bloc de lignes en k slides équilibrées (évite les orphelins de 1 ligne et les écarts de longueur)
+ */
+function partitionLinesBalanced(lines: string[], budget: LayoutBudget): string[][] {
+  if (lines.length === 0) return [];
+  const totalChars = lines.reduce((sum, l) => sum + l.length, 0);
+  const minByLines = Math.ceil(lines.length / budget.effectiveMaxLines);
+  const minByChars = Math.ceil(totalChars / budget.charBudget);
+  let k = Math.max(1, minByLines, minByChars);
+  k = Math.min(k, lines.length);
+
+  if (k === 1) return [lines];
+
+  // Répartition équilibrée en caractères tout en respectant des tailles de groupes homogènes
+  const findBestSplit = (partCount: number): string[][] => {
+    const n = lines.length;
+    const prefixChars = new Array<number>(n + 1).fill(0);
+    for (let i = 0; i < n; i++) {
+      prefixChars[i + 1] = prefixChars[i] + lines[i].length;
+    }
+    const targetChars = prefixChars[n] / partCount;
+    const minLinesPerPart = Math.max(1, Math.floor(n / partCount) - 1);
+    const maxLinesPerPart = Math.min(budget.effectiveMaxLines, Math.ceil(n / partCount) + 1);
+
+    // DP coût = max(écart quadratique chars) + pénalité si déséquilibre de lignes > 1
+    const dp: number[][] = Array.from({ length: partCount + 1 }, () => new Array(n + 1).fill(Infinity));
+    const prevIdx: number[][] = Array.from({ length: partCount + 1 }, () => new Array(n + 1).fill(-1));
+    dp[0][0] = 0;
+
+    for (let p = 1; p <= partCount; p++) {
+      for (let i = p; i <= n; i++) {
+        for (let j = p - 1; j < i; j++) {
+          const len = i - j;
+          if (len > budget.effectiveMaxLines && partCount < n) continue;
+          if (len < minLinesPerPart || len > maxLinesPerPart) continue;
+          if (dp[p - 1][j] === Infinity) continue;
+
+          const chunkChars = prefixChars[i] - prefixChars[j];
+          const charDiff = chunkChars - targetChars;
+          const idealLen = n / partCount;
+          const linePenalty = Math.abs(len - idealLen) * 180;
+          const cost = dp[p - 1][j] + charDiff * charDiff + linePenalty;
+          if (cost < dp[p][i]) {
+            dp[p][i] = cost;
+            prevIdx[p][i] = j;
+          }
+        }
+      }
+    }
+
+    // Fallback répartition arithmétique homogène si aucune contrainte stricte satisfaite
+    if (dp[partCount][n] === Infinity) {
+      const base = Math.floor(n / partCount);
+      const rem = n % partCount;
+      const chunks: string[][] = [];
+      let cursor = 0;
+      for (let p = 0; p < partCount; p++) {
+        const take = base + (p < rem ? 1 : 0);
+        chunks.push(lines.slice(cursor, cursor + take));
+        cursor += take;
+      }
+      return chunks;
+    }
+
+    const bounds: number[] = [];
+    let cur = n;
+    for (let p = partCount; p >= 1; p--) {
+      const start = prevIdx[p][cur];
+      bounds.unshift(start);
+      cur = start;
+    }
+    const chunks: string[][] = [];
+    for (let p = 0; p < partCount; p++) {
+      const start = bounds[p];
+      const end = p + 1 < partCount ? bounds[p + 1] : n;
+      chunks.push(lines.slice(start, end));
+    }
+    return chunks;
+  };
+
+  let result = findBestSplit(k);
+  // Si un bloc dépasse nettement le budget et a plus d'une ligne, augmente k d'un cran si possible
+  while (
+    k < lines.length &&
+    result.some(chunk => chunk.length > 1 && chunk.reduce((s, l) => s + l.length, 0) > budget.charBudget * 1.25)
+  ) {
+    k++;
+    result = findBestSplit(k);
+  }
+  return result;
+}
+
+function extractSongSectionsForProjection(parsed: ParsedSongData): { secTitle: string; stanzas: string[][] }[] {
+  const sectionsOut: { secTitle: string; stanzas: string[][] }[] = [];
 
   for (const section of parsed.sections) {
     const secTitle = (section.title || section.type || '').trim();
     const typeLower = (section.type || '').toLowerCase();
 
+    if (section.blockKind === 'grid' || section.blockKind === 'tab' || typeLower === 'grid' || typeLower === 'tab') {
+      continue;
+    }
+
     // Ignorer les sections purement instrumentales sans paroles
     if (['solo', 'intro', 'outro', 'interlude', 'instrumental'].includes(typeLower) && (!secTitle || /intro|solo|instru/i.test(secTitle))) {
-      const hasAnyLyrics = section.lines.some(l => 
-        l.items.some(it => it.lyrics && it.lyrics.trim().length > 0)
+      const hasAnyLyrics = section.lines.some(l =>
+        l.type === 'lyrics' && l.items.some(it => it.lyrics && it.lyrics.trim().length > 0)
       );
       if (!hasAnyLyrics) continue;
     }
 
-    // Extraire les lignes de paroles
-    const sectionLyricLines: string[] = [];
+    const stanzas: string[][] = [];
+    let currentStanza: string[] = [];
+
     for (const l of section.lines) {
       if (l.type === 'empty') {
-        if (sectionLyricLines.length > 0 && sectionLyricLines[sectionLyricLines.length - 1] !== '') {
-          sectionLyricLines.push('');
+        if (currentStanza.length > 0) {
+          stanzas.push(currentStanza);
+          currentStanza = [];
         }
+        continue;
+      }
+
+      if (l.type === 'comment' || l.type === 'comment_italic' || l.type === 'comment_box' || l.type === 'grid_row' || l.type === 'tab_row') {
         continue;
       }
 
       const text = l.items.map(it => it.lyrics || '').join('').trim();
       if (text) {
-        sectionLyricLines.push(text);
+        currentStanza.push(text);
       }
     }
+    if (currentStanza.length > 0) {
+      stanzas.push(currentStanza);
+    }
 
-    // Si pas de paroles dans la section, passer
-    if (sectionLyricLines.length === 0) continue;
+    if (stanzas.length === 0) continue;
+    sectionsOut.push({ secTitle, stanzas });
+  }
 
-    // Découpage automatique des lignes en blocs de maxLines max
-    let currentChunk: string[] = [];
+  return sectionsOut;
+}
+
+/**
+ * Construit la liste des slides pour la projection à partir du ChordPro
+ * avec découpage par section (standard ou équilibré automatiquement selon la longueur du texte)
+ */
+export function buildPresentationSlides(
+  chordProText: string,
+  explicitTitle?: string,
+  maxLines: number = MAX_LINES_PER_SLIDE,
+  options?: { autoLayout?: boolean }
+): PresentationSlide[] {
+  const parsed: ParsedSongData = parseChordPro(chordProText || '');
+  const rawTitle = explicitTitle || parsed.title || 'Sans titre';
+  const songTitle = stripParentheses(rawTitle);
+  const useAutoLayout = Boolean(options?.autoLayout);
+
+  const sections = extractSongSectionsForProjection(parsed);
+  const allLyricLines = sections.flatMap(sec => sec.stanzas.flatMap(st => st));
+  const budget = useAutoLayout
+    ? computeSongLayoutBudget(allLyricLines, maxLines)
+    : { effectiveMaxLines: maxLines, charBudget: Infinity };
+
+  const rawSlides: { sectionTitle: string; lines: string[] }[] = [];
+
+  for (const section of sections) {
     const chunks: string[][] = [];
 
-    for (const line of sectionLyricLines) {
-      if (line === '') {
-        if (currentChunk.length > 0) {
-          chunks.push(currentChunk);
-          currentChunk = [];
+    for (const stanza of section.stanzas) {
+      if (useAutoLayout) {
+        chunks.push(...partitionLinesBalanced(stanza, budget));
+      } else {
+        for (let i = 0; i < stanza.length; i += maxLines) {
+          chunks.push(stanza.slice(i, i + maxLines));
         }
-        continue;
       }
-
-      currentChunk.push(line);
-      if (currentChunk.length >= maxLines) {
-        chunks.push(currentChunk);
-        currentChunk = [];
-      }
-    }
-    if (currentChunk.length > 0) {
-      chunks.push(currentChunk);
     }
 
     // Créer les slides pour cette section
     chunks.forEach((chunkLines, chunkIdx) => {
-      let subTitle = secTitle || 'Paroles';
+      let subTitle = section.secTitle || 'Paroles';
       if (chunks.length > 1) {
         subTitle = `${subTitle} (${chunkIdx + 1}/${chunks.length})`;
       }
@@ -376,17 +534,24 @@ export function buildPresentationSlides(
 
   // Fallback si le chant n'a pas de paroles reconnues
   if (rawSlides.length === 0) {
-    // Si chordProText contient des lignes de texte brut
     const fallbackLines = (chordProText || '')
       .split('\n')
+      .filter(l => !l.trim().startsWith('#'))
       .map(l => l.replace(/\[[^\]]*\]/g, '').replace(/\{[^}]*\}/g, '').trim())
       .filter(Boolean);
 
     if (fallbackLines.length > 0) {
-      rawSlides.push({
-        sectionTitle: 'Paroles',
-        lines: fallbackLines.slice(0, 4)
-      });
+      if (useAutoLayout) {
+        const fbBudget = computeSongLayoutBudget(fallbackLines, maxLines);
+        for (const chunk of partitionLinesBalanced(fallbackLines, fbBudget)) {
+          rawSlides.push({ sectionTitle: 'Paroles', lines: chunk });
+        }
+      } else {
+        rawSlides.push({
+          sectionTitle: 'Paroles',
+          lines: fallbackLines.slice(0, maxLines)
+        });
+      }
     } else {
       rawSlides.push({
         sectionTitle: '',
@@ -417,10 +582,91 @@ export function buildBilingualPresentationSlides(
   primaryLang: string = 'Français',
   secondaryLang: string = 'Anglais',
   format: 'stacked' | 'columns' = 'stacked',
-  maxLines: number = format === 'stacked' ? 3 : 4
+  maxLines: number = format === 'stacked' ? 3 : 4,
+  options?: { autoLayout?: boolean }
 ): PresentationSlide[] {
-  const pSlides = buildPresentationSlides(primaryChordPro, primaryTitle, maxLines);
-  const sSlides = buildPresentationSlides(secondaryChordPro, secondaryTitle, maxLines);
+  const useAutoLayout = Boolean(options?.autoLayout);
+
+  // Si mise en page auto et structures identiques, synchroniser les coupes sur la langue la plus longue
+  if (useAutoLayout) {
+    const pParsed = parseChordPro(primaryChordPro || '');
+    const sParsed = parseChordPro(secondaryChordPro || '');
+    const pSections = extractSongSectionsForProjection(pParsed);
+    const sSections = extractSongSectionsForProjection(sParsed);
+
+    const sameStructure =
+      pSections.length > 0 &&
+      pSections.length === sSections.length &&
+      pSections.every((ps, i) =>
+        ps.stanzas.length === sSections[i].stanzas.length &&
+        ps.stanzas.every((st, j) => st.length === sSections[i].stanzas[j].length)
+      );
+
+    if (sameStructure) {
+      const combinedMaxLines = pSections.flatMap((ps, i) =>
+        ps.stanzas.flatMap((st, j) =>
+          st.map((line, lIdx) => {
+            const sLine = sSections[i].stanzas[j][lIdx] || '';
+            return line.length >= sLine.length ? line : sLine;
+          })
+        )
+      );
+      const sharedBudget = computeSongLayoutBudget(combinedMaxLines, maxLines);
+      const rawPaired: { sectionTitle: string; lines: string[]; secondaryLines: string[] }[] = [];
+
+      pSections.forEach((ps, sIdx) => {
+        const secChunksP: string[][] = [];
+        const secChunksS: string[][] = [];
+
+        ps.stanzas.forEach((pStanza, stIdx) => {
+          const sStanza = sSections[sIdx].stanzas[stIdx];
+          const maxStanza = pStanza.map((l, k) => (l.length >= sStanza[k].length ? l : sStanza[k]));
+          const splitMax = partitionLinesBalanced(maxStanza, sharedBudget);
+
+          let cursor = 0;
+          for (const part of splitMax) {
+            secChunksP.push(pStanza.slice(cursor, cursor + part.length));
+            secChunksS.push(sStanza.slice(cursor, cursor + part.length));
+            cursor += part.length;
+          }
+        });
+
+        secChunksP.forEach((chunkP, cIdx) => {
+          let subTitle = ps.secTitle || 'Paroles';
+          if (secChunksP.length > 1) {
+            subTitle = `${subTitle} (${cIdx + 1}/${secChunksP.length})`;
+          }
+          rawPaired.push({
+            sectionTitle: subTitle,
+            lines: chunkP,
+            secondaryLines: secChunksS[cIdx] || []
+          });
+        });
+      });
+
+      if (rawPaired.length > 0) {
+        const totalSlides = rawPaired.length;
+        return rawPaired.map((item, i) => ({
+          id: `bilingual_slide_${i}`,
+          songTitle: stripParentheses(primaryTitle),
+          sectionTitle: item.sectionTitle,
+          lines: item.lines,
+          slideIndex: i,
+          totalSlides,
+          itemType: 'song',
+          isBilingual: true,
+          bilingualFormat: format,
+          primaryLanguage: primaryLang,
+          secondaryLines: item.secondaryLines,
+          secondarySongTitle: stripParentheses(secondaryTitle),
+          secondaryLanguage: secondaryLang
+        }));
+      }
+    }
+  }
+
+  const pSlides = buildPresentationSlides(primaryChordPro, primaryTitle, maxLines, { autoLayout: useAutoLayout });
+  const sSlides = buildPresentationSlides(secondaryChordPro, secondaryTitle, maxLines, { autoLayout: useAutoLayout });
 
   if (pSlides.length === 0 && sSlides.length === 0) return [];
   if (pSlides.length === 0) return sSlides;
@@ -890,4 +1136,34 @@ export function testPresentationSlides(): boolean {
 
   const slides = buildPresentationSlides(sampleChordPro, 'Grand Dieu', 4);
   return slides.length >= 2 && slides[0].lines.length <= 4 && !slides[0].lines[0].includes('[C]');
+}
+
+/**
+ * Auto-vérification de la mise en page automatique équilibrée
+ */
+export function testAutoLayoutSlides(): void {
+  const fiveLines = `
+{c: Couplet 1}
+Ligne un assez courte
+Ligne deux assez courte
+Ligne trois assez courte
+Ligne quatre assez courte
+Ligne cinq assez courte
+`;
+  const balanced5 = buildPresentationSlides(fiveLines, 'Test 5', 4, { autoLayout: true });
+  if (balanced5.length !== 2 || balanced5[0].lines.length !== 3 || balanced5[1].lines.length !== 2) {
+    throw new Error(`Expected balanced [3, 2] split for 5 lines, got ${JSON.stringify(balanced5.map(s => s.lines.length))}`);
+  }
+
+  const denseFourLines = `
+{c: Couplet long}
+Car Dieu a tant aimé le monde qu'il a donné son unique Fils
+Afin que quiconque croit en lui ne périsse jamais mais vive
+Son amour infini demeure à jamais gravé dans nos coeurs
+Nous élevons nos voix ensemble pour célébrer sa grâce pure
+`;
+  const balancedDense = buildPresentationSlides(denseFourLines, 'Test Dense', 4, { autoLayout: true });
+  if (balancedDense.length !== 2 || balancedDense[0].lines.length !== 2 || balancedDense[1].lines.length !== 2) {
+    throw new Error(`Expected balanced [2, 2] split for dense lines, got ${JSON.stringify(balancedDense.map(s => s.lines.length))}`);
+  }
 }

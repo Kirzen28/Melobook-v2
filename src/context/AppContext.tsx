@@ -558,6 +558,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showTempo: false,
     showDuration: false,
     showCategories: false,
+    showAlbum: true,
     showCcli: false,
     showCopyright: false,
   };
@@ -573,6 +574,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           showTempo: parsed.showTempo === true,
           showDuration: parsed.showDuration === true,
           showCategories: parsed.showCategories === true,
+          showAlbum: parsed.showAlbum !== false,
           showCcli: parsed.showCcli === true,
           showCopyright: parsed.showCopyright === true,
         };

@@ -71,7 +71,8 @@ import {
   Loader2,
   Shield,
   Copyright,
-  Undo2
+  Undo2,
+  Disc
 } from 'lucide-react';
 
 const SAMPLE_TEMPLATE = `{title: Mon Nouveau Chant}
@@ -136,6 +137,18 @@ export const SongEditor: React.FC = () => {
   // Basic Song Metadata
   const [title, setTitle] = useState(selectedSong?.title || '');
   const [artist, setArtist] = useState(selectedSong?.artist || '');
+  const [album, setAlbum] = useState(selectedSong?.album || '');
+  const [isAlbumDropdownOpen, setIsAlbumDropdownOpen] = useState(false);
+  const [albumSearchQuery, setAlbumSearchQuery] = useState('');
+  const [customAlbums, setCustomAlbums] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('melobook_custom_albums');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const albumDropdownRef = useRef<HTMLDivElement>(null);
   const [selectedArtists, setSelectedArtists] = useState<string[]>(() => parseArtistsString(selectedSong?.artist));
   const [isArtistDropdownOpen, setIsArtistDropdownOpen] = useState(false);
   const [artistSearchQuery, setArtistSearchQuery] = useState('');
@@ -163,21 +176,7 @@ export const SongEditor: React.FC = () => {
   const handleKeyUpdate = (newRoot: string, newAccidental: '' | '#' | 'b', newIsMinor: boolean) => {
     const newKey = `${newRoot}${newAccidental}${newIsMinor ? 'm' : ''}`;
     setKey(newKey);
-    setContentChordPro(visualSectionsToChordPro(visualSections, {
-      title,
-      artist,
-      key: newKey,
-      tempo: Number(bpm || tempo) || 100,
-      bpm: Number(bpm || tempo) || 100,
-      timeSignature,
-      duration,
-      capo,
-      ccli,
-      copyright,
-      youtubeUrl,
-      audioUrl,
-      spotifyUrl
-    }));
+    setContentChordPro(visualSectionsToChordPro(visualSections, buildChordProMetadata({ key: newKey })));
   };
 
   const handleSelectRoot = (note: string) => {
@@ -237,21 +236,46 @@ export const SongEditor: React.FC = () => {
     }
   };
 
+  const buildChordProMetadata = (overrides?: Partial<{
+    title: string;
+    artist: string;
+    album: string;
+    key: string;
+    tempo: number;
+    bpm: number;
+    timeSignature: string;
+    duration: string;
+    capo: number;
+    ccli: string;
+    copyright: string;
+    youtubeUrl: string;
+    audioUrl: string;
+    spotifyUrl: string;
+  }>) => ({
+    title: title.trim(),
+    artist: artist.trim(),
+    album: album.trim(),
+    key,
+    tempo: Number(bpm || tempo) || 100,
+    bpm: Number(bpm || tempo) || 100,
+    timeSignature,
+    duration,
+    capo: Number(capo) || 0,
+    ccli: ccli.trim(),
+    copyright: copyright.trim(),
+    youtubeUrl: youtubeUrl.trim(),
+    audioUrl: audioUrl.trim(),
+    spotifyUrl: spotifyUrl.trim(),
+    ...overrides
+  });
+
   const handleUndo = () => {
     if (undoStackRef.current.length === 0) return;
     const previous = undoStackRef.current.pop();
     setCanUndo(undoStackRef.current.length > 0);
     if (previous) {
       setVisualSections(previous);
-      setContentChordPro(visualSectionsToChordPro(previous, {
-        title,
-        artist,
-        key,
-        tempo,
-        timeSignature,
-        duration,
-        capo
-      }));
+      setContentChordPro(visualSectionsToChordPro(previous, buildChordProMetadata()));
       showNotification('Action annulée', 'info');
     }
   };
@@ -348,6 +372,9 @@ export const SongEditor: React.FC = () => {
       if (artistDropdownRef.current && !artistDropdownRef.current.contains(e.target as Node)) {
         setIsArtistDropdownOpen(false);
       }
+      if (albumDropdownRef.current && !albumDropdownRef.current.contains(e.target as Node)) {
+        setIsAlbumDropdownOpen(false);
+      }
       if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(e.target as Node)) {
         setIsCategoryDropdownOpen(false);
       }
@@ -439,6 +466,55 @@ export const SongEditor: React.FC = () => {
     setArtistSearchQuery('');
   };
 
+  // Compute all available albums across songs and custom additions
+  const allAvailableAlbums = useMemo(() => {
+    const map = new Map<string, string>();
+    const addAlbum = (val?: string) => {
+      const trimmed = val?.trim();
+      if (!trimmed) return;
+      const lower = trimmed.toLowerCase();
+      if (!map.has(lower)) map.set(lower, trimmed);
+    };
+    songs.forEach(s => addAlbum(s.album));
+    customAlbums.forEach(addAlbum);
+    addAlbum(album);
+    return Array.from(map.values()).sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
+  }, [songs, customAlbums, album]);
+
+  const filteredAlbumsList = useMemo(() => {
+    if (!albumSearchQuery.trim()) return allAvailableAlbums;
+    const q = albumSearchQuery.toLowerCase().trim();
+    return allAvailableAlbums.filter(a => a.toLowerCase().includes(q));
+  }, [allAvailableAlbums, albumSearchQuery]);
+
+  const handleSelectAlbum = (albumName: string) => {
+    const trimmed = albumName.trim();
+    if (!trimmed) return;
+    const isSame = album.trim().toLowerCase() === trimmed.toLowerCase();
+    setAlbum(isSame ? '' : trimmed);
+    setIsAlbumDropdownOpen(false);
+    setAlbumSearchQuery('');
+  };
+
+  const handleCreateAlbum = (rawInput?: string) => {
+    const trimmed = (rawInput !== undefined ? rawInput : albumSearchQuery).trim();
+    if (!trimmed) return;
+    const existing = allAvailableAlbums.find(a => a.toLowerCase() === trimmed.toLowerCase());
+    const finalName = existing || trimmed;
+    if (!existing && !customAlbums.some(a => a.toLowerCase() === finalName.toLowerCase())) {
+      const updated = [...customAlbums, finalName];
+      setCustomAlbums(updated);
+      try {
+        localStorage.setItem('melobook_custom_albums', JSON.stringify(updated));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    setAlbum(finalName);
+    setAlbumSearchQuery('');
+    setIsAlbumDropdownOpen(false);
+  };
+
   // Compute all available categories
   const allAvailableCategories = useMemo(() => {
     const set = new Set<string>();
@@ -504,6 +580,7 @@ export const SongEditor: React.FC = () => {
       setDetectedLangInfo(detected);
 
       const parsedMeta = parseChordPro(selectedSong.contentChordPro || selectedSong.content || '');
+      setAlbum(selectedSong.album || parsedMeta.album || '');
       setCcli(selectedSong.ccli || parsedMeta.ccli || '');
       setCopyright(selectedSong.copyright || parsedMeta.copyright || '');
       setYoutubeUrl(selectedSong.youtubeUrl || parsedMeta.youtubeUrl || '');
@@ -518,6 +595,7 @@ export const SongEditor: React.FC = () => {
     } else {
       setTitle('');
       setArtist('');
+      setAlbum('');
       setSelectedArtists([]);
       setKey('C');
       setTempo(100);
@@ -592,15 +670,7 @@ export const SongEditor: React.FC = () => {
     );
     const renumbered = recomputeSectionTitles(updatedSections);
     setVisualSections(renumbered);
-    const newChordPro = visualSectionsToChordPro(renumbered, {
-      title,
-      artist,
-      key,
-      tempo,
-      timeSignature,
-      duration,
-      capo
-    });
+    const newChordPro = visualSectionsToChordPro(renumbered, buildChordProMetadata());
     setContentChordPro(newChordPro);
 
     // If language has not been manually pinned, re-evaluate with updated lyrics
@@ -612,21 +682,88 @@ export const SongEditor: React.FC = () => {
   };
 
   // Add a new section
-  const handleAddNewSection = (type: VisualSection['type'] = 'verse', customTitle?: string, afterIndex?: number) => {
+  const handleAddNewSection = (
+    type: VisualSection['type'] = 'verse',
+    customTitle?: string,
+    afterIndex?: number,
+    blockKind?: VisualSection['blockKind']
+  ) => {
     pushHistory(visualSections);
-    const newSection: VisualSection = {
-      id: generateId('sec'),
-      type,
-      title: '',
-      vocals: [],
-      lines: [
-        {
+
+    let newSection: VisualSection;
+    if (blockKind === 'chorus_recall') {
+      const targetChorus = visualSections.find(s => s.type === 'chorus' && !s.isChorusRecall && s.blockKind !== 'chorus_recall');
+      const recallLabel = targetChorus?.title || 'Refrain';
+      newSection = {
+        id: generateId('sec'),
+        type: 'chorus',
+        title: recallLabel,
+        blockKind: 'chorus_recall',
+        isChorusRecall: true,
+        recallLabel,
+        vocals: [],
+        repeat: 1,
+        lines: []
+      };
+    } else if (type === 'grid' || blockKind === 'grid') {
+      const c1 = songChords[0] || 'C';
+      const c2 = songChords[1] || 'G';
+      const c3 = songChords[2] || 'Am';
+      const c4 = songChords[3] || 'F';
+      newSection = {
+        id: generateId('sec'),
+        type: 'grid',
+        title: customTitle || 'Grille',
+        blockKind: 'grid',
+        vocals: [],
+        repeat: 1,
+        lines: [
+          {
+            id: generateId('line'),
+            type: 'grid_row',
+            items: [],
+            gridRaw: `|: ${c1} . ${c2} . | ${c3} . ${c4} . :|`
+          }
+        ]
+      };
+    } else if (type === 'tab' || blockKind === 'tab') {
+      newSection = {
+        id: generateId('sec'),
+        type: 'tab',
+        title: customTitle || 'Tablature',
+        blockKind: 'tab',
+        vocals: [],
+        repeat: 1,
+        lines: [
+          'e|-----------0-----------|',
+          'B|---------1---1---------|',
+          'G|-------0-------0-------|',
+          'D|-----2-----------2-----|',
+          'A|---3---------------3---|',
+          'E|-----------------------|'
+        ].map(tabText => ({
           id: generateId('line'),
-          type: 'lyrics',
-          items: [{ id: generateId('it'), chord: songChords[0] || 'G', lyrics: 'Entrez les paroles ici' }]
-        }
-      ]
-    };
+          type: 'tab_row',
+          items: [],
+          tabText
+        }))
+      };
+    } else {
+      newSection = {
+        id: generateId('sec'),
+        type,
+        title: customTitle || '',
+        blockKind: 'lyrics',
+        vocals: [],
+        lines: [
+          {
+            id: generateId('line'),
+            type: 'lyrics',
+            items: [{ id: generateId('it'), chord: songChords[0] || 'G', lyrics: 'Entrez les paroles ici' }]
+          }
+        ]
+      };
+    }
 
     const updated = [...visualSections];
     if (afterIndex !== undefined && afterIndex >= 0 && afterIndex < updated.length) {
@@ -636,7 +773,7 @@ export const SongEditor: React.FC = () => {
     }
     const renumbered = recomputeSectionTitles(updated);
     setVisualSections(renumbered);
-    setContentChordPro(visualSectionsToChordPro(renumbered, { title, artist, key, tempo, timeSignature, duration, capo }));
+    setContentChordPro(visualSectionsToChordPro(renumbered, buildChordProMetadata()));
   };
 
   // Create custom section from modal
@@ -658,19 +795,17 @@ export const SongEditor: React.FC = () => {
     const source = visualSections[sourceIndex];
 
     const duplicatedLines: VisualLine[] = source.lines.map(l => ({
+      ...l,
       id: generateId('line'),
-      type: l.type,
       items: l.items.map(it => ({
-        id: generateId('it'),
-        chord: it.chord,
-        lyrics: it.lyrics
+        ...it,
+        id: generateId('it')
       }))
     }));
 
     const duplicatedSection: VisualSection = {
+      ...source,
       id: generateId('sec'),
-      type: source.type,
-      title: source.title,
       vocals: [...source.vocals],
       repeat: source.repeat || 1,
       lines: duplicatedLines
@@ -680,7 +815,7 @@ export const SongEditor: React.FC = () => {
     updated.splice(sourceIndex + 1, 0, duplicatedSection);
     const renumbered = recomputeSectionTitles(updated);
     setVisualSections(renumbered);
-    setContentChordPro(visualSectionsToChordPro(renumbered, { title, artist, key, tempo, timeSignature, duration, capo }));
+    setContentChordPro(visualSectionsToChordPro(renumbered, buildChordProMetadata()));
   };
 
   // Split section at cursor: keep head in current section, create new section with tail
@@ -703,6 +838,7 @@ export const SongEditor: React.FC = () => {
       id: generateId('sec'),
       type: source.type,
       title: source.title,
+      blockKind: source.blockKind,
       vocals: [...(source.vocals || [])],
       repeat: 1,
       lines: tailLines.length > 0 ? tailLines : [{
@@ -717,7 +853,7 @@ export const SongEditor: React.FC = () => {
     updated.splice(sourceIndex + 1, 0, newSection);
     const renumbered = recomputeSectionTitles(updated);
     setVisualSections(renumbered);
-    setContentChordPro(visualSectionsToChordPro(renumbered, { title, artist, key, tempo, timeSignature, duration, capo }));
+    setContentChordPro(visualSectionsToChordPro(renumbered, buildChordProMetadata()));
     showNotification('Section scindée avec succès', 'success');
   };
 
@@ -727,7 +863,7 @@ export const SongEditor: React.FC = () => {
     const updated = visualSections.filter(s => s.id !== sectionId);
     const renumbered = recomputeSectionTitles(updated);
     setVisualSections(renumbered);
-    setContentChordPro(visualSectionsToChordPro(renumbered, { title, artist, key, tempo, timeSignature, duration, capo }));
+    setContentChordPro(visualSectionsToChordPro(renumbered, buildChordProMetadata()));
   };
 
   // Move section by index
@@ -739,7 +875,7 @@ export const SongEditor: React.FC = () => {
     updated.splice(toIndex, 0, moved);
     const renumbered = recomputeSectionTitles(updated);
     setVisualSections(renumbered);
-    setContentChordPro(visualSectionsToChordPro(renumbered, { title, artist, key, tempo, timeSignature, duration, capo }));
+    setContentChordPro(visualSectionsToChordPro(renumbered, buildChordProMetadata()));
   };
 
   // Drag and drop handlers
@@ -808,7 +944,7 @@ export const SongEditor: React.FC = () => {
     });
 
     setVisualSections(updatedSections);
-    setContentChordPro(visualSectionsToChordPro(updatedSections, { title, artist, key, tempo, timeSignature, duration, capo }));
+    setContentChordPro(visualSectionsToChordPro(updatedSections, buildChordProMetadata()));
   };
 
   // Delete chord from picker modal
@@ -837,7 +973,7 @@ export const SongEditor: React.FC = () => {
     });
 
     setVisualSections(updatedSections);
-    setContentChordPro(visualSectionsToChordPro(updatedSections, { title, artist, key, tempo, timeSignature, duration, capo }));
+    setContentChordPro(visualSectionsToChordPro(updatedSections, buildChordProMetadata()));
   };
 
   // Save Song to Firebase or Local Repertoire
@@ -861,25 +997,17 @@ export const SongEditor: React.FC = () => {
       : key.trim().toUpperCase();
 
     // Ensure ChordPro content is up to date from visual sections
-    const finalChordPro = visualSectionsToChordPro(visualSections, {
-      title: title.trim(),
-      artist: artist.trim(),
+    const finalChordPro = visualSectionsToChordPro(visualSections, buildChordProMetadata({
       key: resolvedKey,
       tempo: resolvedBpm,
       bpm: resolvedBpm,
-      timeSignature,
-      duration: resolvedDuration,
-      capo: Number(capo) || 0,
-      ccli: ccli.trim(),
-      copyright: copyright.trim(),
-      youtubeUrl: youtubeUrl.trim(),
-      audioUrl: audioUrl.trim(),
-      spotifyUrl: spotifyUrl.trim()
-    });
+      duration: resolvedDuration
+    }));
 
     const songData: Partial<Song> = {
       title: title.trim(),
       artist: artist.trim(),
+      album: album.trim(),
       key: resolvedKey,
       tempo: resolvedBpm,
       bpm: resolvedBpm,
@@ -1070,7 +1198,7 @@ export const SongEditor: React.FC = () => {
 
             <div className="grid grid-cols-12 gap-3.5 sm:gap-4 items-start">
               {/* Titre */}
-              <div className="col-span-12 sm:col-span-6">
+              <div className="col-span-12 sm:col-span-6 lg:col-span-4">
                 <label className="block text-xs sm:text-[13px] font-semibold text-gray-300 mb-1.5">
                   Titre du chant <span className="text-rose-400">*</span>
                 </label>
@@ -1085,7 +1213,7 @@ export const SongEditor: React.FC = () => {
               </div>
 
               {/* Artiste ou Auteur (Multi-sélection & création rapide) */}
-              <div className="col-span-12 sm:col-span-6 relative" ref={artistDropdownRef}>
+              <div className="col-span-12 sm:col-span-6 lg:col-span-4 relative" ref={artistDropdownRef}>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="text-xs sm:text-[13px] font-semibold text-gray-300 flex items-center gap-1.5 truncate">
                     <Users className="w-3.5 h-3.5 text-purple-400" />
@@ -1232,6 +1360,151 @@ export const SongEditor: React.FC = () => {
                   </div>
                 )}
               </div>
+
+              {/* Album (Sélection & création rapide) */}
+              <div className="col-span-12 lg:col-span-4 relative" ref={albumDropdownRef}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs sm:text-[13px] font-semibold text-gray-300 flex items-center gap-1.5 truncate">
+                    <Disc className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Album</span>
+                  </label>
+                  {album.trim() && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setAlbum('');
+                      }}
+                      className="text-xs text-gray-400 hover:text-white transition-colors cursor-pointer"
+                      title="Effacer l'album"
+                    >
+                      Effacer
+                    </button>
+                  )}
+                </div>
+
+                <div
+                  id="song-album-select"
+                  onClick={() => setIsAlbumDropdownOpen(!isAlbumDropdownOpen)}
+                  className={`min-h-[40px] w-full bg-[#1A1A1E] border ${
+                    isAlbumDropdownOpen ? 'border-amber-500 ring-2 ring-amber-500/25' : 'border-[#33333A] hover:border-[#4B4B55]'
+                  } rounded-xl px-3 py-1.5 flex items-center gap-1.5 cursor-pointer transition-all shadow-2xs`}
+                >
+                  {!album.trim() ? (
+                    <span className="text-gray-400 text-sm truncate">Choisir ou créer un album...</span>
+                  ) : (
+                    <span
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/15 text-amber-200 border border-amber-500/35 text-xs font-medium min-w-0"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <span className="truncate max-w-[200px]">{album}</span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setAlbum('');
+                        }}
+                        className="hover:text-white transition-colors p-0.5 rounded cursor-pointer shrink-0"
+                        title={`Retirer ${album}`}
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  )}
+                  <ChevronDown className={`w-4 h-4 text-gray-400 ml-auto shrink-0 transition-transform duration-200 ${isAlbumDropdownOpen ? 'rotate-180' : ''}`} />
+                </div>
+
+                {isAlbumDropdownOpen && (
+                  <div className="absolute left-0 right-0 top-full mt-1.5 bg-[#141417] border border-[#2E2E36] rounded-xl shadow-2xl z-50 p-3 text-sm animate-in fade-in duration-100 min-w-[260px]">
+                    {/* Champ de recherche & création rapide */}
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="relative flex-1">
+                        <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-2.5" />
+                        <input
+                          id="album-search-input"
+                          type="text"
+                          placeholder="Rechercher ou créer un album..."
+                          value={albumSearchQuery}
+                          onChange={(e) => setAlbumSearchQuery(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleCreateAlbum(albumSearchQuery);
+                            }
+                          }}
+                          className="w-full bg-[#1A1A1E] border border-[#33333A] rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-amber-500"
+                          autoFocus
+                        />
+                      </div>
+                      {albumSearchQuery.trim() && (
+                        <button
+                          type="button"
+                          onClick={() => handleCreateAlbum(albumSearchQuery)}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer"
+                          title="Créer et sélectionner cet album"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Créer</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Invitation de création rapide si l'album n'existe pas */}
+                    {albumSearchQuery.trim() && !allAvailableAlbums.some(a => a.toLowerCase() === albumSearchQuery.trim().toLowerCase()) && (
+                      <button
+                        type="button"
+                        onClick={() => handleCreateAlbum(albumSearchQuery)}
+                        className="w-full mb-2 p-2 rounded-lg bg-amber-950/40 border border-amber-800/40 hover:bg-amber-900/50 hover:border-amber-600/50 cursor-pointer flex items-center justify-between text-amber-200 transition-colors text-left"
+                      >
+                        <div className="flex items-center gap-1.5 truncate">
+                          <Plus className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                          <span className="truncate">Créer <strong className="text-white font-semibold">« {albumSearchQuery.trim()} »</strong></span>
+                        </div>
+                        <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded font-mono ml-2 shrink-0">Entrée ↵</span>
+                      </button>
+                    )}
+
+                    {/* Liste des albums */}
+                    <div className="max-h-48 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
+                      {filteredAlbumsList.length === 0 ? (
+                        <div className="py-4 text-center text-gray-500 text-xs">
+                          Aucun album existant ne correspond.
+                        </div>
+                      ) : (
+                        filteredAlbumsList.map((alb) => {
+                          const isSelected = album.trim().toLowerCase() === alb.toLowerCase();
+                          return (
+                            <div
+                              key={alb}
+                              onClick={() => handleSelectAlbum(alb)}
+                              className={`flex items-center justify-between px-3 py-1.5 rounded-lg cursor-pointer transition-colors ${
+                                isSelected
+                                  ? 'bg-amber-500/15 text-amber-200 font-medium'
+                                  : 'hover:bg-[#1C1C1E] text-gray-300'
+                              }`}
+                            >
+                              <span className="truncate">{alb}</span>
+                              <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors shrink-0 ${
+                                isSelected
+                                  ? 'bg-amber-600 border-amber-500 text-white'
+                                  : 'border-[#444] bg-[#1C1C1E]'
+                              }`}>
+                                {isSelected && <Check className="w-3 h-3 stroke-[2.5]" />}
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+
+                    {/* Footer résumé */}
+                    <div className="mt-2 pt-1.5 border-t border-[#222] flex items-center justify-between text-xs text-gray-500">
+                      <span>{filteredAlbumsList.length} album(s) disponible(s)</span>
+                      {album.trim() && <span className="text-amber-400 font-medium truncate max-w-[140px]">{album.trim()}</span>}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -1270,21 +1543,7 @@ export const SongEditor: React.FC = () => {
                       currentKey={key || 'C'}
                       onKeyChange={(newKey) => {
                         setKey(newKey);
-                        setContentChordPro(visualSectionsToChordPro(visualSections, {
-                          title,
-                          artist,
-                          key: newKey,
-                          tempo: Number(bpm || tempo) || 100,
-                          bpm: Number(bpm || tempo) || 100,
-                          timeSignature,
-                          duration,
-                          capo,
-                          ccli,
-                          copyright,
-                          youtubeUrl,
-                          audioUrl,
-                          spotifyUrl
-                        }));
+                        setContentChordPro(visualSectionsToChordPro(visualSections, buildChordProMetadata({ key: newKey })));
                       }}
                       onClose={() => setIsKeyPickerOpen(false)}
                       modeLock="both"
@@ -1776,6 +2035,22 @@ export const SongEditor: React.FC = () => {
                             </button>
                           );
                         })}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleAddNewSection('chorus', 'Refrain', undefined, 'chorus_recall');
+                            setIsAddSectionDropdownOpen(false);
+                          }}
+                          className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs hover:bg-[#232329] text-amber-200 transition-colors text-left group cursor-pointer"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-amber-500" />
+                            <span className="font-medium group-hover:text-white">Rappel Refrain {'{chorus}'}</span>
+                          </div>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded border bg-amber-600/20 border-amber-500/30 text-amber-300">
+                            + Rappel
+                          </span>
+                        </button>
                       </div>
                     </div>
                   )}
@@ -1792,6 +2067,7 @@ export const SongEditor: React.FC = () => {
                       section={sec}
                       index={sIdx}
                       totalSections={visualSections.length}
+                      allSections={visualSections}
                       onUpdateSection={handleUpdateSection}
                       onDuplicateSection={handleDuplicateSection}
                       onDeleteSection={handleDeleteSection}
@@ -1878,6 +2154,22 @@ export const SongEditor: React.FC = () => {
                                   </button>
                                 );
                               })}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  handleAddNewSection('chorus', 'Refrain', sIdx, 'chorus_recall');
+                                  setActiveInsertSectionIndex(null);
+                                }}
+                                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs hover:bg-[#232329] text-amber-200 transition-colors text-left group cursor-pointer"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className="w-2 h-2 rounded-full bg-amber-500" />
+                                  <span className="font-medium group-hover:text-white">Rappel Refrain {'{chorus}'}</span>
+                                </div>
+                                <span className="text-[10px] px-1.5 py-0.5 rounded border bg-amber-600/20 border-amber-500/30 text-amber-300">
+                                  + Rappel
+                                </span>
+                              </button>
                             </div>
 
                             {customSectionList.length > 0 && (

@@ -43,7 +43,8 @@ import {
   Settings2,
   SlidersHorizontal,
   Shield,
-  Copyright
+  Copyright,
+  Disc
 } from 'lucide-react';
 import { useMidi } from '../context/MidiContext';
 import { MidiSettingsModal } from './MidiSettingsModal';
@@ -73,6 +74,7 @@ const METADATA_TOGGLE_ITEMS: Array<{
   { key: 'language', label: 'Langue', iconName: 'Globe', description: 'Badge langue (ex: FR, EN)' },
   { key: 'duration', label: 'Durée', iconName: 'Clock', description: 'Badge durée (ex: 04:30)' },
   { key: 'artist', label: 'Artiste', iconName: 'Type', description: 'Nom de l\'artiste ou groupe' },
+  { key: 'album', label: 'Album', iconName: 'Disc', description: 'Nom de l\'album du chant' },
   { key: 'tags', label: 'Catégories', iconName: 'Tag', description: 'Badges de catégories et thèmes' },
   { key: 'ccli', label: 'CCLI', iconName: 'Shield', description: 'Numéro CCLI SongSelect' },
   { key: 'copyright', label: 'Copyright', iconName: 'Copyright', description: 'Droits d\'auteur et mentions légales' },
@@ -560,7 +562,9 @@ export const SettingsView: React.FC = () => {
     cacheAllSongsOffline,
     clearOfflineStorage,
     isInstallable,
-    promptInstall
+    promptInstall,
+    songCardMetadata,
+    updateSongCardMetadata
   } = useApp();
 
   const { 
@@ -697,6 +701,7 @@ export const SettingsView: React.FC = () => {
     const allOn: SongMetadataVisibility = {
       title: true,
       artist: true,
+      album: true,
       language: true,
       duration: true,
       tags: true,
@@ -716,6 +721,7 @@ export const SettingsView: React.FC = () => {
     const allOff: SongMetadataVisibility = {
       title: false,
       artist: false,
+      album: false,
       language: false,
       duration: false,
       tags: false,
@@ -738,6 +744,7 @@ export const SettingsView: React.FC = () => {
     return {
       title: 'Lorem Ipsum Dolor Sit Amet',
       artist: 'Consectetur Adipiscing & Band',
+      album: 'Adoration Vol. 4',
       language: 'Latin',
       duration: '04:45',
       tags: ['Lorem Ipsum', 'Adoration', 'Praise & Worship', 'Exemple Multisection'],
@@ -1011,6 +1018,7 @@ export const SettingsView: React.FC = () => {
                   {item.key === 'language' && <Globe className="w-3 h-3 text-blue-400" />}
                   {item.key === 'duration' && <Clock className="w-3 h-3 text-cyan-400" />}
                   {item.key === 'artist' && <Type className="w-3 h-3 text-gray-300" />}
+                  {item.key === 'album' && <Disc className="w-3 h-3 text-gray-300" />}
                   {item.key === 'tags' && <Tag className="w-3 h-3 text-blue-400" />}
                   {item.key === 'ccli' && <Shield className="w-3 h-3 text-blue-400" />}
                   {item.key === 'copyright' && <Copyright className="w-3 h-3 text-emerald-400" />}
@@ -1164,8 +1172,8 @@ export const SettingsView: React.FC = () => {
             )}
           </div>
 
-          {/* Ligne 2: Artiste, Catégories, CCLI & Copyright */}
-          {(previewMetadata.artist || (previewMetadata.tags && activeSongData.tags.length > 0) || (previewMetadata.ccli && activeSongData.ccli) || (previewMetadata.copyright && activeSongData.copyright)) && (
+          {/* Ligne 2: Artiste, Album, Catégories, CCLI & Copyright */}
+          {(previewMetadata.artist || (previewMetadata.album !== false && activeSongData.album) || (previewMetadata.tags && activeSongData.tags.length > 0) || (previewMetadata.ccli && activeSongData.ccli) || (previewMetadata.copyright && activeSongData.copyright)) && (
             <div className="w-full flex items-center gap-1.5 sm:gap-2 flex-wrap mb-1 text-xs">
               {previewMetadata.artist && (
                 <div 
@@ -1184,6 +1192,25 @@ export const SettingsView: React.FC = () => {
                   title="Cliquer pour modifier la taille des métadonnées"
                 >
                   {activeSongData.artist}
+                </div>
+              )}
+
+              {previewMetadata.album !== false && activeSongData.album && (
+                <div
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedPreviewElement({ type: 'metadata', label: 'Album' });
+                  }}
+                  className={`inline-flex items-center gap-1 break-words shrink-0 cursor-pointer transition-all rounded px-1.5 py-0.5 ${
+                    previewMetadata.artist ? 'sm:border-l sm:border-[#2A2A2E] sm:pl-2' : ''
+                  } ${
+                    effectivePreviewTheme === 'light' ? 'text-gray-500' : 'text-gray-400'
+                  }`}
+                  style={{ fontSize: `${typography.metadataSize}px` }}
+                  title="Album du chant"
+                >
+                  <Disc className="w-3 h-3 text-gray-500 shrink-0" />
+                  <span>{activeSongData.album}</span>
                 </div>
               )}
 
@@ -1740,6 +1767,33 @@ export const SettingsView: React.FC = () => {
                     <span>Système</span>
                   </button>
                 </div>
+              </div>
+
+              {/* Repertoire Card: Album Visibility */}
+              <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex items-center justify-between gap-3 sm:col-span-2 lg:col-span-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Disc className="w-4 h-4 text-blue-400 shrink-0" />
+                  <div className="min-w-0">
+                    <span className="text-xs font-bold text-gray-200 block">Album dans le répertoire</span>
+                    <span className="text-[11px] text-gray-400 block truncate">
+                      Afficher le nom de l&apos;album sur les cartes de la liste des chants
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => updateSongCardMetadata({ showAlbum: !(songCardMetadata.showAlbum !== false) })}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                    songCardMetadata.showAlbum !== false ? 'bg-blue-600' : 'bg-[#2E2E34]'
+                  }`}
+                  aria-label="Afficher l'album dans le répertoire"
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                      songCardMetadata.showAlbum !== false ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
               </div>
 
             </div>

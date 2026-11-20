@@ -85,6 +85,7 @@
         "groupId": { "type": "string", "maxLength": 128 },
         "title": { "type": "string", "maxLength": 240 },
         "artist": { "type": "string", "maxLength": 200 },
+        "album": { "type": "string", "maxLength": 200 },
         "key": { "type": "string", "maxLength": 24 },
         "tempo": { "type": "number" },
         "bpm": { "type": "number" },

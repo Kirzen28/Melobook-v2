@@ -132,7 +132,7 @@ service cloud.firestore {
     function isValidSong(data, groupId) {
       return data.keys().hasAll(['id', 'groupId', 'title', 'contentChordPro'])
         && data.keys().hasOnly([
-          'id', 'groupId', 'title', 'artist', 'key', 'tempo', 'bpm', 'timeSignature',
+          'id', 'groupId', 'title', 'artist', 'album', 'key', 'tempo', 'bpm', 'timeSignature',
           'duration', 'durationMode', 'ccli', 'copyright', 'youtubeUrl', 'audioUrl',
           'spotifyUrl', 'contentChordPro', 'content', 'folderId', 'capo', 'tags',
           'language', 'linkedSongIds', 'notes', 'createdAt', 'updatedAt'
@@ -141,6 +141,7 @@ service cloud.firestore {
         && data.groupId == groupId
         && data.title is string && data.title.size() >= 1 && data.title.size() <= 240
         && (!('artist' in data) || (data.artist is string && data.artist.size() <= 200))
+        && (!('album' in data) || (data.album is string && data.album.size() <= 200))
         && (!('key' in data) || (data.key is string && data.key.size() <= 24))
         && (!('tempo' in data) || data.tempo is number)
         && (!('bpm' in data) || data.bpm is number)

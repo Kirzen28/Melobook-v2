@@ -13,6 +13,8 @@ import {
   PresentationState,
   getSavedFontScale,
   saveFontScale,
+  getSavedAutoLayout,
+  saveAutoLayout,
   getSavedBackgroundImage,
   saveBackgroundImage,
   getSavedBackgroundOverlay,
@@ -77,7 +79,8 @@ import {
   Globe,
   Lock,
   Languages,
-  Edit3
+  Edit3,
+  LayoutGrid
 } from 'lucide-react';
 
 export interface QueueItem {
@@ -373,6 +376,25 @@ export const PresentationManager: React.FC = () => {
   const canSaveTranslationToLibrary = Boolean(
     !isGuest && currentUser && ['admin', 'leader', 'editor'].includes(currentUser.role)
   );
+
+  // Mise en page automatique équilibrée (divise selon la longueur du texte)
+  const [autoLayout, setAutoLayout] = useState<boolean>(() => getSavedAutoLayout());
+
+  const handleToggleAutoLayout = useCallback(() => {
+    setAutoLayout(prev => {
+      const next = !prev;
+      saveAutoLayout(next);
+      setActiveSlideIndex(0);
+      showNotification?.({
+        title: next ? 'Mise en page auto activée' : 'Mise en page standard (4 lignes max)',
+        message: next
+          ? 'Les paroles sont divisées en slides équilibrées selon la longueur du chant.'
+          : 'Découpage fixe classique par blocs de 4 lignes.',
+        type: 'info'
+      });
+      return next;
+    });
+  }, [showNotification]);
 
   const handleToggleBilingualMode = useCallback(() => {
     setIsBilingualMode(prev => {
@@ -724,16 +746,19 @@ export const PresentationManager: React.FC = () => {
           currentSong.language || 'Français',
           secondarySong.language || 'Anglais',
           bilingualFormat,
-          bilingualFormat === 'stacked' ? 3 : 4
+          bilingualFormat === 'stacked' ? 3 : 4,
+          { autoLayout }
         );
       }
       return buildPresentationSlides(
         currentSong.contentChordPro || currentSong.content || '',
-        currentSong.title
+        currentSong.title,
+        undefined,
+        { autoLayout }
       );
     }
     return [];
-  }, [currentQueueItem, currentSong, isBilingualMode, secondarySong, bilingualFormat]);
+  }, [currentQueueItem, currentSong, isBilingualMode, secondarySong, bilingualFormat, autoLayout]);
 
   // Slides actuellement diffusées : priorité au Live Direct Biblique si actif
   const currentSlides: PresentationSlide[] = liveDirectBible ? liveDirectSlides : queueItemSlides;
@@ -980,11 +1005,14 @@ export const PresentationManager: React.FC = () => {
           targetSong.language || 'Français',
           secondarySong.language || 'Anglais',
           bilingualFormat,
-          bilingualFormat === 'stacked' ? 3 : 4
+          bilingualFormat === 'stacked' ? 3 : 4,
+          { autoLayout }
         )
       : buildPresentationSlides(
           targetSong.contentChordPro || targetSong.content || '',
-          targetSong.title
+          targetSong.title,
+          undefined,
+          { autoLayout }
         );
     const validIdx = Math.max(0, Math.min(Math.max(0, slides.length - 1), slideIdx));
     const slide = slides[validIdx] || slides[0];
@@ -1023,7 +1051,7 @@ export const PresentationManager: React.FC = () => {
         }, '*');
       }
     } catch {}
-  }, [isBilingualMode, secondarySong, bilingualFormat]);
+  }, [isBilingualMode, secondarySong, bilingualFormat, autoLayout]);
 
   // Synchronisation continue dès que le chant, la slide, l'échelle, le fond, le décompte, le live biblique ou le média change
   useEffect(() => {
@@ -1067,6 +1095,7 @@ export const PresentationManager: React.FC = () => {
     isBilingualMode,
     secondarySong,
     bilingualFormat,
+    autoLayout,
     broadcastCurrentState
   ]);
 
@@ -1188,7 +1217,12 @@ export const PresentationManager: React.FC = () => {
       } else if (prevItem.songId) {
         const prevSong = songs.find(s => s.id === prevItem.songId);
         if (prevSong) {
-          prevSlidesCount = buildPresentationSlides(prevSong.contentChordPro || prevSong.content || '', prevSong.title).length;
+          prevSlidesCount = buildPresentationSlides(
+            prevSong.contentChordPro || prevSong.content || '',
+            prevSong.title,
+            undefined,
+            { autoLayout }
+          ).length;
         }
       }
       setActiveSongIndex(prevIdx);
@@ -2019,6 +2053,25 @@ export const PresentationManager: React.FC = () => {
                           <span>Éditer trad.</span>
                         </button>
                       )}
+
+                      {/* Bouton Mise en page automatique équilibrée */}
+                      <button
+                        type="button"
+                        onClick={handleToggleAutoLayout}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${
+                          autoLayout
+                            ? 'bg-emerald-600/25 border-emerald-500/50 text-emerald-200 shadow-xs'
+                            : 'bg-[#181822] hover:bg-emerald-950/30 text-gray-300 border-[#2D2D3A]'
+                        }`}
+                        title={
+                          autoLayout
+                            ? 'Mise en page auto active : divise les paroles en slides équilibrées selon la longueur du chant'
+                            : 'Activer la mise en page automatique équilibrée'
+                        }
+                      >
+                        <LayoutGrid className={`w-3.5 h-3.5 ${autoLayout ? 'text-emerald-400' : 'text-gray-400'}`} />
+                        <span>Mise en page auto</span>
+                      </button>
 
                       {/* Bouton Toggle Bilingue */}
                       <button

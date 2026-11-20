@@ -1,9 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Setlist, Song } from '../types';
 import { 
   Calendar as CalendarIcon, 
   ChevronLeft, 
   ChevronRight, 
+  ChevronDown,
   Plus, 
   Play, 
   Clock, 
@@ -71,6 +72,48 @@ export const SetlistCalendarView: React.FC<SetlistCalendarViewProps> = ({
   const [currentMonth, setCurrentMonth] = useState<number>(today.getMonth());
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [isMonthYearPickerOpen, setIsMonthYearPickerOpen] = useState<boolean>(false);
+  const [pickerYear, setPickerYear] = useState<number>(today.getFullYear());
+  const pickerContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isMonthYearPickerOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (pickerContainerRef.current && !pickerContainerRef.current.contains(e.target as Node)) {
+        setIsMonthYearPickerOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsMonthYearPickerOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isMonthYearPickerOpen]);
+
+  const yearOptions = useMemo(() => {
+    const startYear = 2000;
+    const endYear = Math.max(today.getFullYear() + 15, currentYear + 5);
+    const list: number[] = [];
+    for (let y = startYear; y <= endYear; y++) list.push(y);
+    return list;
+  }, [today, currentYear]);
+
+  const handleToggleMonthYearPicker = () => {
+    setIsMonthYearPickerOpen(prev => {
+      if (!prev) setPickerYear(currentYear);
+      return !prev;
+    });
+  };
+
+  const handleSelectMonthYear = (monthIdx: number, yearVal: number) => {
+    setCurrentYear(yearVal);
+    setCurrentMonth(monthIdx);
+    setIsMonthYearPickerOpen(false);
+  };
 
   // Month navigation
   const handlePrevMonth = () => {
@@ -228,10 +271,17 @@ export const SetlistCalendarView: React.FC<SetlistCalendarViewProps> = ({
           {/* Calendar Header: Month & Year Navigator + Aujourd'hui */}
           <div className="flex items-center justify-between gap-3 pb-3 border-b border-[#1F1F24] flex-wrap">
             <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-              <div className="flex items-center bg-[#17171C] border border-[#2A2A30] rounded-xl p-1 shadow-inner">
+              <div
+                ref={pickerContainerRef}
+                onClick={handleToggleMonthYearPicker}
+                className="relative flex items-center bg-[#17171C] border border-[#2A2A30] rounded-xl p-1 shadow-inner cursor-pointer"
+              >
                 <button
                   type="button"
-                  onClick={handlePrevMonth}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handlePrevMonth();
+                  }}
                   className="p-1.5 rounded-lg text-gray-300 hover:text-white hover:bg-[#23232A] transition-colors"
                   title="Mois précédent"
                   aria-label="Mois précédent"
@@ -239,21 +289,95 @@ export const SetlistCalendarView: React.FC<SetlistCalendarViewProps> = ({
                   <ChevronLeft className="w-4 h-4" />
                 </button>
 
-                <div className="px-3 py-1 text-center min-w-[140px] sm:min-w-[160px]">
+                <div
+                  className="px-3 py-1 text-center min-w-[140px] sm:min-w-[160px] rounded-lg hover:bg-[#23232A] transition-colors flex items-center justify-center gap-1.5"
+                  title="Choisir le mois et l'année"
+                >
                   <span className="text-sm sm:text-base font-bold text-white capitalize">
                     {MONTH_NAMES_FR[currentMonth]} {currentYear}
                   </span>
+                  <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform ${isMonthYearPickerOpen ? 'rotate-180 text-blue-400' : ''}`} />
                 </div>
 
                 <button
                   type="button"
-                  onClick={handleNextMonth}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleNextMonth();
+                  }}
                   className="p-1.5 rounded-lg text-gray-300 hover:text-white hover:bg-[#23232A] transition-colors"
                   title="Mois suivant"
                   aria-label="Mois suivant"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
+
+                {isMonthYearPickerOpen && (
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    className="absolute left-0 top-full mt-2 z-50 w-72 bg-[#141418] border border-[#2C2C34] rounded-2xl p-3.5 shadow-2xl animate-in fade-in zoom-in-95 duration-150 cursor-default"
+                  >
+                    {/* Sélecteur d'année */}
+                    <div className="flex items-center justify-between gap-2 pb-2.5 mb-2.5 border-b border-[#22222A]">
+                      <button
+                        type="button"
+                        onClick={() => setPickerYear(y => y - 1)}
+                        className="p-1.5 rounded-lg bg-[#1C1C22] hover:bg-[#26262F] text-gray-300 hover:text-white border border-[#2D2D36] transition-colors cursor-pointer"
+                        title="Année précédente"
+                        aria-label="Année précédente"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+
+                      <select
+                        value={pickerYear}
+                        onChange={(e) => setPickerYear(Number(e.target.value))}
+                        className="bg-[#1C1C22] border border-[#2D2D36] hover:border-blue-500/50 rounded-lg px-3 py-1 text-sm font-bold text-white focus:outline-none focus:border-blue-500 cursor-pointer text-center"
+                        aria-label="Sélectionner l'année"
+                      >
+                        {yearOptions.map(y => (
+                          <option key={y} value={y} className="bg-[#141418] text-white">
+                            {y}
+                          </option>
+                        ))}
+                      </select>
+
+                      <button
+                        type="button"
+                        onClick={() => setPickerYear(y => y + 1)}
+                        className="p-1.5 rounded-lg bg-[#1C1C22] hover:bg-[#26262F] text-gray-300 hover:text-white border border-[#2D2D36] transition-colors cursor-pointer"
+                        title="Année suivante"
+                        aria-label="Année suivante"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {/* Grille des 12 mois */}
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {MONTH_NAMES_FR.map((monthName, mIdx) => {
+                        const isActiveSelection = mIdx === currentMonth && pickerYear === currentYear;
+                        const isThisMonth = mIdx === today.getMonth() && pickerYear === today.getFullYear();
+                        return (
+                          <button
+                            key={monthName}
+                            type="button"
+                            onClick={() => handleSelectMonthYear(mIdx, pickerYear)}
+                            className={`py-2 px-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer truncate ${
+                              isActiveSelection
+                                ? 'bg-blue-600 text-white shadow-sm ring-1 ring-blue-400/50'
+                                : isThisMonth
+                                ? 'bg-blue-950/30 text-blue-300 border border-blue-500/40 hover:bg-blue-900/40'
+                                : 'bg-[#1A1A20] text-gray-300 hover:bg-[#24242D] hover:text-white border border-[#25252E]'
+                            }`}
+                          >
+                            {monthName}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <button

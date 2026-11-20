@@ -34,29 +34,32 @@ export const EXTERNAL_SONGS_DATABASE: ExternalSongItem[] = [
 {tempo: 72}
 {time: 4/4}
 
-{c: Couplet 1}
+{start_of_verse: label="Couplet 1"}
 [D]Que ma vie [A/C#]Te glorifie,
 [Bm]Que ma vie [F#m/A]Te glorifie,
 [G]Que ma [D/F#]vie Te glori[Em7]fie, Sei[A7]gneur !
 [D]Que ma vie [A/C#]Te glorifie,
 [Bm]Que ma vie [F#m/A]Te glorifie,
 [G]Que ma [A7]vie Te glori[D]fie !
+{end_of_verse}
 
-{c: Couplet 2}
+{start_of_verse: label="Couplet 2"}
 [D]Prends mon cœur [A/C#]et transforme-le,
 [Bm]Prends mon cœur [F#m/A]et transforme-le,
 [G]Prends mon [D/F#]cœur et trans[Em7]forme-le, Sei[A7]gneur !
 [D]Prends mon cœur [A/C#]et transforme-le,
 [Bm]Prends mon cœur [F#m/A]et transforme-le,
 [G]Prends mon [A7]cœur et transforme-[D]le !
+{end_of_verse}
 
-{c: Couplet 3}
+{start_of_verse: label="Couplet 3"}
 [D]Que Ton Esprit [A/C#]remplisse mon âme,
 [Bm]Que Ton Esprit [F#m/A]remplisse mon âme,
 [G]Que Ton Es[D/F#]prit remplisse [Em7]mon âme, Sei[A7]gneur !
 [D]Que Ton Esprit [A/C#]remplisse mon âme,
 [Bm]Que Ton Esprit [F#m/A]remplisse mon âme,
-[G]Que Ton Es[A7]prit remplisse [D]mon âme !`
+[G]Que Ton Es[A7]prit remplisse [D]mon âme !
+{end_of_verse}`
   },
   {
     id: 'ext-shir-2',
@@ -75,31 +78,35 @@ export const EXTERNAL_SONGS_DATABASE: ExternalSongItem[] = [
 {tempo: 68}
 {time: 4/4}
 
-{c: Couplet 1}
+{start_of_verse: label="Couplet 1"}
 [D]De tout temps Tu étais le Verbe
 Au[G]près du Père [Bm]au plus haut [A]lieu
 La [Bm]gloire cachée [A/C#]de la créa[D]tion
 Re[G]vêtue de [Bm]Ton grand a[A]mour
+{end_of_verse}
 
-{c: Refrain 1}
+{start_of_chorus: label="Refrain 1"}
 Ce nom est si [D]merveilleux, ce nom est si [A]merveilleux
 Le nom de [Bm]Jésus-[A]Christ mon [G]Roi
 Ce nom est si [D/F#]merveilleux, Sa beauté est sans pa[A]reille
 Ce nom est si [Bm]merveil[A]leux, le nom de [G]Jésus
+{end_of_chorus}
 
-{c: Couplet 2}
+{start_of_verse: label="Couplet 2"}
 [D]Tu n'as pas voulu du paradis
 Sans [G]nous alors [Bm]Tu es ve[A]nu
 Mon [Bm]péché était [A/C#]grand, Ton a[D]mour plus fort
 Rien [G]ne pouvait [Bm]nous sépa[A]rer
+{end_of_verse}
 
-{c: Refrain 2}
+{start_of_chorus: label="Refrain 2"}
 Ce nom est si [D]glorieux, ce nom est si [A]glorieux
 Le nom de [Bm]Jésus-[A]Christ mon [G]Roi
 Ce nom est si [D/F#]glorieux, Sa beauté est sans pa[A]reille
 Ce nom est si [Bm]glo[A]rieux, le nom de [G]Jésus
+{end_of_chorus}
 
-{c: Pont}
+{start_of_bridge: label="Pont"}
 La mort a failli, [G]le voile s'est déchi[A]ré
 Le péché et la tombe [Bm]sont vaincus [F#m]
 Le ciel retentit [G]de louanges infinies [A]
@@ -109,12 +116,14 @@ Tu n'as point d'égal, [G]Tu n'as point de rival [A]
 Dès maintenant et à ja[Bm]mais Tu règnes [F#m]
 À Toi le royaume, [G]à Toi la puissance [A]
 À Toi la gloire à ja[Bm]mais [A]
+{end_of_bridge}
 
-{c: Refrain 3}
+{start_of_chorus: label="Refrain 3"}
 Ce nom est si [D]puissant, ce nom est si [A]puissant
 Le nom de [Bm]Jésus-[A]Christ mon [G]Roi
 Ce nom est si [D/F#]puissant, rien ne peut Lui ré[A]sister
-Ce nom est si [Bm]puis[A]sant, le nom de [G]Jésus`
+Ce nom est si [Bm]puis[A]sant, le nom de [G]Jésus
+{end_of_chorus}`
   },
   {
     id: 'ext-wt-1',
@@ -133,29 +142,33 @@ Ce nom est si [Bm]puis[A]sant, le nom de [G]Jésus`
 {tempo: 73}
 {time: 4/4}
 
-{c: Chorus}
+{start_of_chorus: label="Chorus"}
 Bless the [C]Lord, O my [G]soul, [D/F#]O my [Em]soul
 [C]Worship His [G]holy [Dsus4]name [D]
 Sing like [C]never be[Em]fore, [C] [D] [Em]O my soul
 I'll [C]worship Your [D]holy [G]name
+{end_of_chorus}
 
-{c: Verse 1}
+{start_of_verse: label="Verse 1"}
 The [C]sun comes [G]up, it's a [D]new day [Em]dawning
 [C]It's time to [G]sing Your [D]song a[Em]gain
 What[C]ever may [G]pass, and what[D]ever lies be[Em]fore me
 [C2]Let me be [G]singing when the [Dsus4]eve - [D]ning [G]comes
+{end_of_verse}
 
-{c: Verse 2}
+{start_of_verse: label="Verse 2"}
 You're [C]rich in [G]love, and You're [D]slow to [Em]anger
 Your [C]name is [G]great, and Your [D]heart is [Em]kind
 For [C]all Your [G]goodness I will [D]keep on [Em]singing
 [C2]Ten thousand [G]reasons for my [Dsus4]heart [D]to [G]find
+{end_of_verse}
 
-{c: Verse 3}
+{start_of_verse: label="Verse 3"}
 And [C]on that [G]day when my [D]strength is [Em]failing
 The [C]end draws [G]near and my [D]time has [Em]come
 [C]Still my [G]soul will sing Your [D]praise un[Em]ending
-[C2]Ten thousand [G]years and then for[Dsus4]e - [D]ver[G]more`
+[C2]Ten thousand [G]years and then for[Dsus4]e - [D]ver[G]more
+{end_of_verse}`
   },
   {
     id: 'ext-shir-3',
@@ -174,20 +187,23 @@ The [C]end draws [G]near and my [D]time has [Em]come
 {tempo: 75}
 {time: 4/4}
 
-{c: Intro}
+{start_of_intro: label="Intro"}
 [G] [D] [A] [Bm] [G] [D] [A]
+{end_of_intro}
 
-{c: Couplet 1}
+{start_of_verse: label="Couplet 1"}
 [G]Prosterné [D]à [A/C#]tes pi[Bm]eds, je vi[G]ens, Jés[D]us, devant[Asus4] toi,[A]
 [G]Adorer, [D]ma[A/C#]gnifi[Bm]er celu[G]i qui s’e[D]st sacr[Asus4]ifié.[A]
 Quitta[Em]nt ton père po[Bm]ur la terre, tu [G]as laiss[D]é ta gl[Asus4]oire[A]
 Et, [Em]au calvaire, tu t’e[Bm]s offert ; tu [G]es le ro[D]i de gl[Asus4]oire.[A]
+{end_of_verse}
 
-{c: Refrain}
+{start_of_chorus: label="Refrain"}
 Pour qui t[G]u es, j’é[Dsus4]lève ton saint nom.[D]
 Pour qui t[G]u es, je veux [Bm]te donner la gl[A/C#]oire.[D]
 Pour qui t[G]u es, j’a[Dsus4]pporte mes louanges.[D]
-Tu es le [G]roi, le [A]roi de gloire, Jés[D]us.`
+Tu es le [G]roi, le [A]roi de gloire, Jés[D]us.
+{end_of_chorus}`
   },
   {
     id: 'ext-shir-3b',
@@ -206,20 +222,23 @@ Tu es le [G]roi, le [A]roi de gloire, Jés[D]us.`
 {tempo: 72}
 {time: 4/4}
 
-{c: Intro}
+{start_of_intro: label="Intro"}
 [C] [G/B] [Am] [F]
+{end_of_intro}
 
-{c: Couplet 1}
+{start_of_verse: label="Couplet 1"}
 [C]À l’agneau de [C9]Dieu, qui est [F]assis dans les [G2]cieux,
 [C]Soient honneur et [C9]gloire : il rem[F]porta la vic[Gsus4]toir[G]e.
 [Am]Que tout ge[F]nou fléchisse devant le [G]grand [E/G#]roi ;
 [Am]Que de nos [F]cœurs jaillisse : Allélu[Gsus4]ia !
+{end_of_verse}
 
-{c: Refrain}
+{start_of_chorus: label="Refrain"}
 Emmanu[C]el, Emmanu[Am]el,
 Dieu avec [F]nous, venu par[G]mi nous.
 Emmanu[C]el, Emmanu[Am]el,
-Sois magni[F]fié, Jésus notre [G]roi.`
+Sois magni[F]fié, Jésus notre [G]roi.
+{end_of_chorus}`
   },
   {
     id: 'ext-jem-1',
@@ -238,17 +257,19 @@ Sois magni[F]fié, Jésus notre [G]roi.`
 {tempo: 76}
 {time: 4/4}
 
-{c: Couplet}
+{start_of_verse: label="Couplet"}
 [G]Majesté, [C]à Lui la majesté !
 [G]À Jésus soient louange, [Em]honneur [Am7]et gloi[D7]re.
 [G]Majesté, [C]autorité suprême
 [G/D]Du haut des cieux, Son règne [D7]vient sur Son peu[G]ple.
+{end_of_verse}
 
-{c: Refrain}
+{start_of_chorus: label="Refrain"}
 Exal[Am7]tons [D7]et célébrons le [G]nom de Jésus !
 Glori[Am7]fions, [D7]magni[B7]fions [Em]Jésus le [Am7]Roi [D7]!
 [G]Majesté, [C]à Lui la majesté !
-[G/D]Il est mort, est ressuscité, [D7]Il est [G]Seigneur !`
+[G/D]Il est mort, est ressuscité, [D7]Il est [G]Seigneur !
+{end_of_chorus}`
   },
   {
     id: 'ext-ug-1',
@@ -267,29 +288,33 @@ Glori[Am7]fions, [D7]magni[B7]fions [Em]Jésus le [Am7]Roi [D7]!
 {tempo: 68}
 {time: 4/4}
 
-{c: Verse 1}
+{start_of_verse: label="Verse 1"}
 You are [A]here, moving in our [E]midst
 I worship [B]You, I worship [C#m]You
 You are [A]here, working in this [E]place
 I worship [B]You, I worship [C#m]You
+{end_of_verse}
 
-{c: Chorus}
+{start_of_chorus: label="Chorus"}
 (You are) [A]Way Maker, Miracle Worker, [E]Promise Keeper
 Light in the darkness, [B]my God, that is who You [C#m]are
 [A]Way Maker, Miracle Worker, [E]Promise Keeper
 Light in the darkness, [B]my God, that is who You [C#m]are
+{end_of_chorus}
 
-{c: Verse 2}
+{start_of_verse: label="Verse 2"}
 You are [A]here, touching every [E]heart
 I worship [B]You, I worship [C#m]You
 You are [A]here, healing every [E]heart
 I worship [B]You, I worship [C#m]You
+{end_of_verse}
 
-{c: Bridge}
+{start_of_bridge: label="Bridge"}
 Even when I [A]don't see it, You're working
 Even when I [E]don't feel it, You're working
 You never [B]stop, You never stop working
-You never [C#m]stop, You never stop working`
+You never [C#m]stop, You never stop working
+{end_of_bridge}`
   },
   {
     id: 'ext-lacuerda-1',
@@ -308,26 +333,30 @@ You never [C#m]stop, You never stop working`
 {tempo: 78}
 {time: 4/4}
 
-{c: Verso 1}
+{start_of_verse: label="Verso 1"}
 El es[G]plendor de un Rey, ves[Em7]tido en majestad
 La tierra ale[C2]gre está, la tierra alegre está
 Se cu[G]bre de Su luz, la os[Em7]curidad huyó
 Y tiembla a [C2]Su voz, tiembla a Su voz
+{end_of_verse}
 
-{c: Coro}
+{start_of_chorus: label="Coro"}
 Cuán [G]grande es Dios, cántale
 Cuán [Em7]grande es Dios, y todos lo verán
 Cuán [C]grande, cuán [D]grande es [G]Dios
+{end_of_chorus}
 
-{c: Verso 2}
+{start_of_verse: label="Verso 2"}
 Su [G]trono eterno es, el [Em7]tiempo en Sus manos
 Principio [C2]y el fin, principio y el fin
 La [G]Trinidad en Dios, el [Em7]Padre, Hijo y Espíritu
 Cordero [C2]y el León, Cordero y el León
+{end_of_verse}
 
-{c: Puente}
+{start_of_bridge: label="Puente"}
 Y Tu [G]Nombre sobre todo es, [Em7]digno de alabar
-Y mi [C]ser dirá: Cuán [D]grande es [G]Dios`
+Y mi [C]ser dirá: Cuán [D]grande es [G]Dios
+{end_of_bridge}`
   },
   {
     id: 'ext-shir-4',
@@ -346,29 +375,33 @@ Y mi [C]ser dirá: Cuán [D]grande es [G]Dios`
 {tempo: 70}
 {time: 6/8}
 
-{c: Couplet 1}
+{start_of_verse: label="Couplet 1"}
 J'ai cher[B]ché dans ce monde
 Mais [E/B]rien n'a pu com[B]bler ce vide en moi
 Aucun [G#m7]trésor d'ici-bas
 Ne com[F#]parera à Ta pré[E]sence
+{end_of_verse}
 
-{c: Refrain}
+{start_of_chorus: label="Refrain"}
 Il n'y a [B]rien qui vaille plus que Toi
 Il n'y a [G#m7]rien qui vaille plus que Toi
 Rien [E]ne Te ressemble, [B/D#]rien ne Te sur[C#m7]passe
 Mon [E]Dieu, il n'y a rien
+{end_of_chorus}
 
-{c: Couplet 2}
+{start_of_verse: label="Couplet 2"}
 Je n'ai [B]plus peur de rien
 Ve[E/B]nu avec mes [B]hontes et mes fardeaux
 Tu m'ac[G#m7]cueilles comme un ami
 Ton a[F#]mour ne me repoussera [E]jamais
+{end_of_verse}
 
-{c: Pont}
+{start_of_bridge: label="Pont"}
 Tu transformes les tom[B]beaux en jardins [E/B] [B]
 Tu transformes nos os [B]secs en une armée [E/B] [B]
 Tu transformes nos deuils [G#m7]en cris de joie
-Tu es le seul qui [E]puisse le faire, Tu es le seul !`
+Tu es le seul qui [E]puisse le faire, Tu es le seul !
+{end_of_bridge}`
   },
   {
     id: 'ext-jem-2',
@@ -387,14 +420,15 @@ Tu es le seul qui [E]puisse le faire, Tu es le seul !`
 {tempo: 105}
 {time: 4/4}
 
-{c: Couplet 1}
+{start_of_verse: label="Couplet 1"}
 [G]Seigneur, Ta lu[C/G]mière nous é[G]claire [D/F#]
 Au [Em]milieu des té[Am]nèbres de la [D]terre
 [C]Jésus, Lu[D/C]mière du monde, [Bm]brille en ce [Em]lieu
 [C]Libère-[D/C]nous par la vé[Bm]rité de [Em]Dieu
 [F]Brille sur [D]moi, [F]brille sur [D]moi !
+{end_of_verse}
 
-{c: Refrain}
+{start_of_chorus: label="Refrain"}
 [G]Brille, Jé[D/F#]sus, brille !
 [C/E]Remplis ce [G/D]monde de la [Am]gloire du [C/D]Père [D]!
 [G]Brûle, Es[D/F#]prit, brûle !
@@ -402,7 +436,8 @@ Au [Em]milieu des té[Am]nèbres de la [D]terre
 [G]Coule, [D/F#]fleuve de vie !
 Inonde [C/E]toutes les na[G/D]tions de [Am]grâce et d'a[C/D]mour [D]!
 [G]Envoie [D/F#]Ta parole,
-[C/E]Et que la [D7]lumière [G]soit !`
+[C/E]Et que la [D7]lumière [G]soit !
+{end_of_chorus}`
   },
   {
     id: 'ext-shir-5',
@@ -421,29 +456,33 @@ Inonde [C/E]toutes les na[G/D]tions de [Am]grâce et d'a[C/D]mour [D]!
 {tempo: 73}
 {time: 4/4}
 
-{c: Refrain}
+{start_of_chorus: label="Refrain"}
 Mon [C]âme bénis [G]le Seigneur, [D/F#]ô mon [Em]âme
 [C]Bénis Son [G]saint [Dsus4]Nom [D]
 Chante [C]comme jamais, [Em] [C] [D] [Em]ô mon âme
 Je [C]bénis Ton [D]saint [G]Nom
+{end_of_chorus}
 
-{c: Couplet 1}
+{start_of_verse: label="Couplet 1"}
 Le [C]soleil se [G]lève, un nou[D]veau jour com[Em]mence
 [C]C'est le moment [G]de Te lou[D]er en[Em]core
 Qu'im[C]porte ce qui [G]m'attend et [D]ce qui peut sur[Em]venir
 [C2]Que je chante [G]encore au cou[Dsus4]cher [D]du so[G]leil
+{end_of_verse}
 
-{c: Couplet 2}
+{start_of_verse: label="Couplet 2"}
 Riche [C]en amour [G]et lent à [D]la co[Em]lère
 Ton [C]Nom est grand, [G]Ton cœur est [D]si bon [Em]
 Pour [C]tous Tes bien[G]faits je veux [D]chanter sans [Em]cesse
 [C2]J'ai dix mille [G]raisons de lou[Dsus4]er [D]mon [G]Dieu
+{end_of_verse}
 
-{c: Couplet 3}
+{start_of_verse: label="Couplet 3"}
 Et [C]quand ce jour [G]viendra où [D]mes forces fai[Em]bliront
 Où [C]la fin sera [G]proche et mon [D]heure son[Em]née
 Mon [C]âme chantera [G]encore Tes [D]louanges éter[Em]nelles
-[C2]Pendant dix mille [G]ans et pour l'é[Dsus4]ter - [D]ni[G]té`
+[C2]Pendant dix mille [G]ans et pour l'é[Dsus4]ter - [D]ni[G]té
+{end_of_verse}`
   },
   {
     id: 'ext-wt-2',
@@ -462,29 +501,33 @@ Mon [C]âme chantera [G]encore Tes [D]louanges éter[Em]nelles
 {tempo: 70}
 {time: 4/4}
 
-{c: Verse 1}
+{start_of_verse: label="Verse 1"}
 I love You [G]Lord, for Your [C]mercy never [G]fails me
 All my [Em]days, I've been [C]held in Your [D]hands
 From the moment that I [Em]wake up [C]until I lay my [G]head [D/F#] [Em]
 I will [C]sing of the [D]goodness of [G]God
+{end_of_verse}
 
-{c: Chorus}
+{start_of_chorus: label="Chorus"}
 All my [C]life You have been [G]faithful
 All my [C]life You have been so, so [G]good [D]
 With every [C]breath that I am [G]able [D/F#] [Em]
 I will [C]sing of the [D]goodness of [G]God
+{end_of_chorus}
 
-{c: Verse 2}
+{start_of_verse: label="Verse 2"}
 I love Your [G]voice, You have [C]led me through the [G]fire
 In darkest [Em]night, You are [C]close like no [D]other
 I've known You as a [Em]Father, [C]I've known You as a [G]Friend [D/F#] [Em]
 And I have [C]lived in the [D]goodness of [G]God
+{end_of_verse}
 
-{c: Bridge}
+{start_of_bridge: label="Bridge"}
 Your goodness is [G/B]running after, it's [C]running after [D]me [G]
 Your goodness is [G/B]running after, it's [C]running after [D]me [G]
 With my life [G/B]laid down, I'm sur[C]rendered now, I give You [D]every[Em]thing
-Your goodness is [G/B]running after, it's [C]running after [D]me [G]`
+Your goodness is [G/B]running after, it's [C]running after [D]me [G]
+{end_of_bridge}`
   },
   {
     id: 'ext-shir-6',
@@ -503,16 +546,18 @@ Your goodness is [G/B]running after, it's [C]running after [D]me [G]`
 {tempo: 120}
 {time: 4/4}
 
-{c: Couplet 1}
+{start_of_verse: label="Couplet 1"}
 [Em]Je louerai l'Éternel de [Am]tout mon cœur,
 [D]Je raconterai toutes [G]Tes mer[B7]veilles,
 [Em]Je chanterai Ton Nom, [Am]je ferai de Toi
 Le su[B7]jet de ma joie [Em]!
+{end_of_verse}
 
-{c: Refrain}
+{start_of_chorus: label="Refrain"}
 Alle[G]luia, alle[D]luia !
 Je fe[Am]rai de Toi le su[B7]jet de ma joie !
 Alle[Em]luia, alle[Am]luia !
-Je fe[B7]rai de Toi le sujet de ma [Em]joie !`
+Je fe[B7]rai de Toi le sujet de ma [Em]joie !
+{end_of_chorus}`
   }
 ];

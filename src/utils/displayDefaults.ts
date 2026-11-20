@@ -13,6 +13,7 @@ export const DEFAULT_CHORD_COLOR = '#60a5fa';
 export const DEFAULT_SONG_METADATA_VISIBILITY: SongMetadataVisibility = {
   title: true,
   artist: true,
+  album: true,
   language: true,
   duration: true,
   tags: true,

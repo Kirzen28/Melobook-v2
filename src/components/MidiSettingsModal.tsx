@@ -33,6 +33,7 @@ interface MidiSettingsModalProps {
 export const MidiSettingsModal: React.FC<MidiSettingsModalProps> = ({ isOpen, onClose }) => {
   const {
     isSupported,
+    permissionState,
     isEnabled,
     setIsEnabled,
     devices,
@@ -128,6 +129,35 @@ export const MidiSettingsModal: React.FC<MidiSettingsModalProps> = ({ isOpen, on
                 Le contrôle MIDI matériel nécessite Google Chrome, Microsoft Edge, Opera, Brave ou un navigateur compatible sur Android. Sur Safari / iOS, privilégiez un pédalier Bluetooth en mode clavier (touches fléchées / PageUp / PageDown) ou l'application WebMIDI Browser.
               </span>
             </div>
+          </div>
+        )}
+
+        {/* Autorisation MIDI à la demande */}
+        {isSupported && permissionState !== 'granted' && (
+          <div className="p-3 mx-4 mt-4 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-200 text-xs flex items-center justify-between gap-3">
+            <div className="flex items-start gap-2.5">
+              <AlertCircle className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+              <div>
+                <strong className="font-semibold block text-blue-300">
+                  {permissionState === 'denied'
+                    ? 'Accès MIDI refusé par le navigateur'
+                    : 'Autorisation MIDI requise pour détecter votre appareil'}
+                </strong>
+                <span className="text-[11px] text-blue-200/80">
+                  {permissionState === 'denied'
+                    ? 'Autorisez l’accès aux périphériques MIDI dans les paramètres du navigateur puis réessayez.'
+                    : 'Branchez ou allumez votre appareil MIDI puis cliquez pour autoriser la connexion.'}
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shrink-0 transition-colors cursor-pointer"
+            >
+              {isRefreshing ? 'Connexion...' : 'Autoriser MIDI'}
+            </button>
           </div>
         )}
 

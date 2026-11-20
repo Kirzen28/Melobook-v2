@@ -308,6 +308,7 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
       await onImportSong({
         title: fullSong.title,
         artist: fullSong.artist,
+        album: (fullSong as any).album || parsed.album || undefined,
         key: fullSong.key || parsed.key || 'C',
         tempo: fullSong.tempo || parsed.tempo || 100,
         timeSignature: fullSong.timeSignature || parsed.timeSignature || '4/4',
@@ -335,6 +336,7 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
         await onImportAndEdit({
           title: fullSong.title,
           artist: fullSong.artist,
+          album: (fullSong as any).album || parsed.album || undefined,
           key: fullSong.key || parsed.key || 'C',
           tempo: fullSong.tempo || parsed.tempo || 100,
           timeSignature: fullSong.timeSignature || parsed.timeSignature || '4/4',
@@ -381,6 +383,7 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
         
         let title = file.name.replace(/\.(cho|pro|chopro|txt|crd)$/i, '');
         let artist = '';
+        let album: string | undefined = undefined;
         let key = 'C';
         let tempo = 100;
         let duration: string | undefined = undefined;
@@ -400,6 +403,7 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
             const val = match[2].trim();
             if (tag === 'title' || tag === 't') title = val;
             if (tag === 'artist' || tag === 'a' || tag === 'subtitle' || tag === 'st') artist = val;
+            if (tag === 'album' || tag === 'al') album = val;
             if (tag === 'key' || tag === 'k') key = val;
             if (tag === 'tempo' || tag === 'bpm') tempo = parseInt(val, 10) || 100;
             if (tag === 'duration' || tag === 'd' || tag === 'dur') duration = val;
@@ -411,6 +415,7 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
         await onImportSong({
           title,
           artist,
+          album,
           key,
           tempo,
           duration,
@@ -455,6 +460,7 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
     let finalContent = manualText;
     let detectedTitle = manualTitle.trim() || 'Nouveau Chant';
     let detectedArtist = manualArtist.trim() || '';
+    let detectedAlbum: string | undefined = undefined;
     let detectedKey = manualKey || 'C';
     let detectedTempo = manualTempo || 100;
     let detectedDuration: string | undefined = undefined;
@@ -473,6 +479,7 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
         const val = match[2].trim();
         if ((tag === 'title' || tag === 't') && !manualTitle.trim()) detectedTitle = val;
         if ((tag === 'artist' || tag === 'a' || tag === 'subtitle' || tag === 'st') && !manualArtist.trim()) detectedArtist = val;
+        if (tag === 'album' || tag === 'al') detectedAlbum = val;
         if ((tag === 'key' || tag === 'k') && !manualKey) detectedKey = val;
         if ((tag === 'tempo' || tag === 'bpm') && !manualTempo) detectedTempo = parseInt(val, 10) || 100;
         if (tag === 'duration' || tag === 'd' || tag === 'dur') detectedDuration = val;
@@ -484,6 +491,7 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
     await onImportSong({
       title: detectedTitle,
       artist: detectedArtist,
+      album: detectedAlbum,
       key: detectedKey,
       tempo: detectedTempo,
       duration: detectedDuration,

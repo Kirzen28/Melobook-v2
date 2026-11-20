@@ -1,5 +1,5 @@
 import { Song } from '../types';
-import { parseChordPro } from './chordUtils';
+import { parseChordPro, detectSectionTypeFromTitle } from './chordUtils';
 import { buildPresentationSlides } from './presentationUtils';
 
 export interface AiTranslationBlock {
@@ -128,11 +128,35 @@ export function buildChordProFromTranslation(
     lines.push(`{title: ${translatedTitle.trim()}}`);
   }
 
+  const tagMap: Record<string, string> = {
+    verse: 'verse',
+    chorus: 'chorus',
+    bridge: 'bridge',
+    pre_chorus: 'pre_chorus',
+    intro: 'intro',
+    outro: 'outro',
+    solo: 'solo',
+    interlude: 'interlude',
+    instrumental: 'instrumental',
+    tag: 'tag',
+    finale: 'finale',
+  };
+
+  let openSectionTag: string | null = null;
+
   blocks.forEach((block, idx) => {
     const cleanSec = (block.sectionTitle || 'Paroles').trim();
     if (idx === 0 || !block.sameSectionAsPrevious) {
+      if (openSectionTag) {
+        lines.push(`{end_of_${openSectionTag}}`);
+        openSectionTag = null;
+      }
       if (lines.length > 0) lines.push('');
-      lines.push(`{c: ${cleanSec}}`);
+      const detected = detectSectionTypeFromTitle(cleanSec);
+      const secTag = (detected.isKnown && tagMap[detected.type]) ? tagMap[detected.type] : 'verse';
+      const escapedLabel = cleanSec.replace(/"/g, '\\"');
+      lines.push(`{start_of_${secTag}: label="${escapedLabel}"}`);
+      openSectionTag = secTag;
     } else {
       lines.push('');
     }
@@ -145,6 +169,10 @@ export function buildChordProFromTranslation(
       lines.push(l);
     });
   });
+
+  if (openSectionTag) {
+    lines.push(`{end_of_${openSectionTag}}`);
+  }
 
   return lines.join('\n');
 }

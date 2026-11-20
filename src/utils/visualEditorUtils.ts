@@ -1,15 +1,19 @@
-import { ParsedSection, ParsedLine, ParsedItem, parseChordPro, extractVocalTag } from './chordUtils';
+import { parseChordPro, parseGridLine, isChordGridToken } from './chordUtils';
 
 export interface VisualItem {
   id: string;
   chord: string;
   lyrics: string;
+  annotation?: string;
 }
 
 export interface VisualLine {
   id: string;
-  type: 'lyrics' | 'empty';
+  type: 'lyrics' | 'empty' | 'comment' | 'comment_italic' | 'comment_box' | 'hash_comment' | 'grid_row' | 'tab_row';
   items: VisualItem[];
+  comment?: string;
+  gridRaw?: string;
+  tabText?: string;
 }
 
 export type VisualSectionType =
@@ -24,6 +28,8 @@ export type VisualSectionType =
   | 'instrumental'
   | 'tag'
   | 'finale'
+  | 'grid'
+  | 'tab'
   | 'general'
   | (string & {});
 
@@ -33,12 +39,39 @@ export interface VisualSection {
   title: string;
   vocals: string[];
   repeat?: number;
+  blockKind?: 'lyrics' | 'grid' | 'tab' | 'chorus_recall';
+  key?: string;
+  tempo?: number;
+  timeSignature?: string;
+  transposeOffset?: number;
+  isChorusRecall?: boolean;
+  recallLabel?: string;
   lines: VisualLine[];
 }
 
 // Generate unique ID
 export function generateId(prefix = 'id'): string {
   return `${prefix}_${Math.random().toString(36).substr(2, 9)}_${Date.now().toString(36)}`;
+}
+
+const SECTION_TAG_SERIALIZATION_MAP: Record<string, string> = {
+  verse: 'verse',
+  chorus: 'chorus',
+  bridge: 'bridge',
+  pre_chorus: 'pre_chorus',
+  intro: 'intro',
+  outro: 'outro',
+  solo: 'solo',
+  interlude: 'interlude',
+  instrumental: 'instrumental',
+  tag: 'tag',
+  finale: 'finale',
+  grid: 'grid',
+  tab: 'tab',
+};
+
+function escapeChordProAttr(value: string): string {
+  return (value || '').replace(/"/g, '\\"').trim();
 }
 
 /**
@@ -53,6 +86,7 @@ export function chordProToVisualSections(chordProText: string): VisualSection[] 
         id: generateId('sec'),
         type: 'verse',
         title: 'Couplet 1',
+        blockKind: 'lyrics',
         vocals: [],
         repeat: 1,
         lines: [
@@ -76,10 +110,38 @@ export function chordProToVisualSections(chordProText: string): VisualSection[] 
         };
       }
 
+      if (line.type === 'comment' || line.type === 'comment_italic' || line.type === 'comment_box') {
+        return {
+          id: generateId(`line_${secIdx}_${lIdx}`),
+          type: line.type,
+          items: [],
+          comment: line.comment || ''
+        };
+      }
+
+      if (line.type === 'grid_row') {
+        return {
+          id: generateId(`line_${secIdx}_${lIdx}`),
+          type: 'grid_row',
+          items: [],
+          gridRaw: line.gridRaw || ''
+        };
+      }
+
+      if (line.type === 'tab_row') {
+        return {
+          id: generateId(`line_${secIdx}_${lIdx}`),
+          type: 'tab_row',
+          items: [],
+          tabText: line.tabText ?? ''
+        };
+      }
+
       const items: VisualItem[] = line.items.map((it, itIdx) => ({
         id: generateId(`it_${secIdx}_${lIdx}_${itIdx}`),
         chord: it.chord || '',
-        lyrics: it.lyrics || ''
+        lyrics: it.lyrics || '',
+        ...(it.annotation ? { annotation: it.annotation } : {})
       }));
 
       // Ensure at least one item if empty lyrics line
@@ -111,16 +173,29 @@ export function chordProToVisualSections(chordProText: string): VisualSection[] 
       else if (sec.type === 'instrumental') sectionTitle = 'Instrumental';
       else if (sec.type === 'tag') sectionTitle = 'Tag';
       else if (sec.type === 'finale') sectionTitle = 'Finale';
+      else if (sec.type === 'grid') sectionTitle = 'Grille';
+      else if (sec.type === 'tab') sectionTitle = 'Tablature';
       else if (sec.type === 'verse') sectionTitle = `Couplet ${secIdx + 1}`;
       else sectionTitle = SECTION_TYPES_CONFIG[sec.type]?.label || sec.type || 'Section';
     }
+
+    const inferredBlockKind: VisualSection['blockKind'] = sec.isChorusRecall
+      ? 'chorus_recall'
+      : sec.blockKind || (sec.type === 'grid' ? 'grid' : sec.type === 'tab' ? 'tab' : 'lyrics');
 
     return {
       id: generateId(`sec_${secIdx}`),
       type: sec.type || 'general',
       title: sectionTitle,
+      blockKind: inferredBlockKind,
       vocals: sec.vocals || (sec.vocal ? [sec.vocal] : []),
       repeat: sec.repeat || 1,
+      ...(sec.key ? { key: sec.key } : {}),
+      ...(sec.tempo ? { tempo: sec.tempo } : {}),
+      ...(sec.timeSignature ? { timeSignature: sec.timeSignature } : {}),
+      ...(sec.transposeOffset ? { transposeOffset: sec.transposeOffset } : {}),
+      ...(sec.isChorusRecall ? { isChorusRecall: true } : {}),
+      ...(sec.recallLabel ? { recallLabel: sec.recallLabel } : {}),
       lines
     };
   });
@@ -130,21 +205,32 @@ export function chordProToVisualSections(chordProText: string): VisualSection[] 
 
 /**
  * Automatically compute section titles based on their type and appearance order.
- * If there are multiple sections of the same type in the song, they are sequentially numbered:
- * e.g. "Couplet 1", "Couplet 2", "Refrain 1", "Refrain 2".
- * If there is only one section of that type in the song, it gets the clean base label:
- * e.g. "Intro", "Pont", "Refrain", "Outro", "Couplet".
+ * Chorus recall blocks ({chorus}) preserve their target recallLabel and do not renumber main choruses.
  */
 export function recomputeSectionTitles(sections: VisualSection[]): VisualSection[] {
   const counts: Record<string, number> = {};
   sections.forEach((sec) => {
+    if (sec.blockKind === 'chorus_recall' || sec.isChorusRecall) return;
     const typeKey = (sec.type || 'general').trim().toLowerCase();
     counts[typeKey] = (counts[typeKey] || 0) + 1;
   });
 
+  const standardLabelsPattern = Object.values(SECTION_TYPES_CONFIG)
+    .map(c => c.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .concat(['Section', 'Pr[ée][- ]?refrain'])
+    .join('|');
+  const standardTitleRegex = new RegExp(`^(?:${standardLabelsPattern})(?:\\s+\\d+)?$`, 'i');
+
   const runningIndex: Record<string, number> = {};
 
   return sections.map((sec) => {
+    if (sec.blockKind === 'chorus_recall' || sec.isChorusRecall) {
+      return {
+        ...sec,
+        title: sec.recallLabel || sec.title || 'Refrain'
+      };
+    }
+
     const typeKey = (sec.type || 'general').trim().toLowerCase();
     runningIndex[typeKey] = (runningIndex[typeKey] || 0) + 1;
     const totalForType = counts[typeKey] || 1;
@@ -152,6 +238,11 @@ export function recomputeSectionTitles(sections: VisualSection[]): VisualSection
 
     const config = getSectionTypeConfig(sec.type);
     const baseLabel = config.label || sec.type || 'Section';
+    const trimmedTitle = (sec.title || '').trim();
+
+    if (trimmedTitle && !standardTitleRegex.test(trimmedTitle)) {
+      return sec;
+    }
 
     const autoTitle = totalForType > 1 ? `${baseLabel} ${currentIndex}` : baseLabel;
 
@@ -163,13 +254,14 @@ export function recomputeSectionTitles(sections: VisualSection[]): VisualSection
 }
 
 /**
- * Convert VisualSection array and metadata back into standard ChordPro text
+ * Convert VisualSection array and metadata back into normalized ChordPro v6 text
  */
 export function visualSectionsToChordPro(
   sections: VisualSection[],
   metadata?: {
     title?: string;
     artist?: string;
+    album?: string;
     key?: string;
     tempo?: number;
     bpm?: number;
@@ -188,6 +280,7 @@ export function visualSectionsToChordPro(
   // Metadata headers
   if (metadata?.title) lines.push(`{title: ${metadata.title}}`);
   if (metadata?.artist) lines.push(`{artist: ${metadata.artist}}`);
+  if (metadata?.album) lines.push(`{album: ${metadata.album}}`);
   if (metadata?.key) lines.push(`{key: ${metadata.key}}`);
   const resolvedTempo = metadata?.bpm || metadata?.tempo;
   if (resolvedTempo) lines.push(`{tempo: ${resolvedTempo}}`);
@@ -205,26 +298,58 @@ export function visualSectionsToChordPro(
   }
 
   sections.forEach((sec, sIdx) => {
-    // Section Header
-    const tags: string[] = [];
+    const isRecall = sec.blockKind === 'chorus_recall' || sec.isChorusRecall;
+    if (isRecall) {
+      const targetLabel = (sec.recallLabel || sec.title || '').trim();
+      const attrs: string[] = [];
+      if (targetLabel && targetLabel.toLowerCase() !== 'refrain') {
+        attrs.push(`label="${escapeChordProAttr(targetLabel)}"`);
+      }
+      if (sec.repeat && sec.repeat > 1) {
+        attrs.push(`repeat="${sec.repeat}"`);
+      }
+      if (sec.vocals && sec.vocals.length > 0) {
+        const cleanVocals = sec.vocals.map(v => v.trim()).filter(Boolean);
+        if (cleanVocals.length > 0) {
+          attrs.push(`vocal="${escapeChordProAttr(cleanVocals.join(', '))}"`);
+        }
+      }
+      lines.push(attrs.length > 0 ? `{chorus: ${attrs.join(' ')}}` : '{chorus}');
+      if (sIdx < sections.length - 1) lines.push('');
+      return;
+    }
+
+    const effectiveKind = sec.blockKind || (sec.type === 'grid' ? 'grid' : sec.type === 'tab' ? 'tab' : 'lyrics');
+    const typeKey = effectiveKind === 'grid'
+      ? 'grid'
+      : effectiveKind === 'tab'
+        ? 'tab'
+        : (SECTION_TAG_SERIALIZATION_MAP[(sec.type || '').toLowerCase()] || 'part');
+
+    const label = escapeChordProAttr(sec.title || getSectionTypeConfig(sec.type).label || 'Section');
+    lines.push(`{start_of_${typeKey}: label="${label}"}`);
+
+    // Dedicated ChordPro v6 block-scoped directives
     if (sec.repeat && sec.repeat > 1) {
-      tags.push(`x${sec.repeat}`);
+      lines.push(`{repeat: ${sec.repeat}}`);
     }
     if (sec.vocals && sec.vocals.length > 0) {
-      sec.vocals.forEach(v => { if (v && v.trim()) tags.push(v.trim()); });
+      const cleanVocals = sec.vocals.map(v => v.trim()).filter(Boolean);
+      if (cleanVocals.length > 0) {
+        lines.push(`{vocal: ${cleanVocals.join(', ')}}`);
+      }
     }
-
-    const tagsStr = tags.length > 0 ? ` [${tags.join(', ')}]` : '';
-    const headerTitle = `${sec.title || 'Section'}${tagsStr}`;
-
-    if (sec.type === 'chorus') {
-      lines.push(`{soc: ${headerTitle}}`);
-    } else if (sec.type === 'bridge') {
-      lines.push(`{sob: ${headerTitle}}`);
-    } else if (sec.type === 'verse') {
-      lines.push(`{sov: ${headerTitle}}`);
-    } else {
-      lines.push(`{c: ${headerTitle}}`);
+    if (sec.key && sec.key.trim()) {
+      lines.push(`{key: ${sec.key.trim()}}`);
+    }
+    if (typeof sec.transposeOffset === 'number' && sec.transposeOffset !== 0) {
+      lines.push(`{transpose: ${sec.transposeOffset > 0 ? `+${sec.transposeOffset}` : sec.transposeOffset}}`);
+    }
+    if (sec.tempo && sec.tempo > 0) {
+      lines.push(`{tempo: ${sec.tempo}}`);
+    }
+    if (sec.timeSignature && sec.timeSignature.trim()) {
+      lines.push(`{time: ${sec.timeSignature.trim()}}`);
     }
 
     // Lines in section
@@ -233,9 +358,36 @@ export function visualSectionsToChordPro(
         lines.push('');
         return;
       }
+      if (line.type === 'comment') {
+        lines.push(`{c: ${line.comment || ''}}`);
+        return;
+      }
+      if (line.type === 'comment_italic') {
+        lines.push(`{ci: ${line.comment || ''}}`);
+        return;
+      }
+      if (line.type === 'comment_box') {
+        lines.push(`{cb: ${line.comment || ''}}`);
+        return;
+      }
+      if (line.type === 'hash_comment') {
+        lines.push(`# ${line.comment || ''}`);
+        return;
+      }
+      if (line.type === 'grid_row') {
+        lines.push(line.gridRaw || '');
+        return;
+      }
+      if (line.type === 'tab_row') {
+        lines.push(line.tabText ?? '');
+        return;
+      }
 
       let lineStr = '';
       line.items.forEach((it) => {
+        if (it.annotation && it.annotation.trim()) {
+          lineStr += `[*${it.annotation.trim()}]`;
+        }
         if (it.chord && it.chord.trim()) {
           lineStr += `[${it.chord.trim()}]`;
         }
@@ -245,13 +397,7 @@ export function visualSectionsToChordPro(
       lines.push(lineStr);
     });
 
-    if (sec.type === 'chorus') {
-      lines.push('{eoc}');
-    } else if (sec.type === 'bridge') {
-      lines.push('{eob}');
-    } else if (sec.type === 'verse') {
-      lines.push('{eov}');
-    }
+    lines.push(`{end_of_${typeKey}}`);
 
     if (sIdx < sections.length - 1) {
       lines.push('');
@@ -262,13 +408,23 @@ export function visualSectionsToChordPro(
 }
 
 /**
- * Extract all unique chords currently used in the visual sections
+ * Extract all unique chords currently used in the visual sections (lyrics + chord grids)
  */
 export function extractAllChordsFromSections(sections: VisualSection[]): string[] {
   const set = new Set<string>();
   sections.forEach(sec => {
+    if (sec.blockKind === 'chorus_recall' || sec.isChorusRecall) return;
     sec.lines.forEach(line => {
-      if (line.type !== 'empty') {
+      if (line.type === 'grid_row' && line.gridRaw) {
+        const bars = parseGridLine(line.gridRaw);
+        bars.forEach(bar => {
+          bar.beats.forEach(beat => {
+            if (isChordGridToken(beat)) {
+              set.add(beat.trim());
+            }
+          });
+        });
+      } else if (line.type === 'lyrics') {
         line.items.forEach(it => {
           if (it.chord && it.chord.trim()) {
             set.add(it.chord.trim());
@@ -482,6 +638,22 @@ export const SECTION_TYPES_CONFIG: Record<string, SectionTypeConfig> = {
     borderAccent: 'border-l-red-500',
     cardBorder: 'border-red-500/60 hover:border-red-400'
   },
+  grid: {
+    label: 'Grille',
+    badgeBg: 'bg-amber-600/20',
+    badgeBorder: 'border-amber-500/40',
+    badgeText: 'text-amber-300',
+    borderAccent: 'border-l-amber-500',
+    cardBorder: 'border-amber-500/60 hover:border-amber-400'
+  },
+  tab: {
+    label: 'Tablature',
+    badgeBg: 'bg-sky-600/20',
+    badgeBorder: 'border-sky-500/40',
+    badgeText: 'text-sky-300',
+    borderAccent: 'border-l-sky-500',
+    cardBorder: 'border-sky-500/60 hover:border-sky-400'
+  },
   general: {
     label: 'Autre',
     badgeBg: 'bg-gray-600/20',
@@ -504,6 +676,8 @@ export const STANDARD_SECTION_TYPES = [
   { key: 'instrumental', label: 'Instrumental' },
   { key: 'tag', label: 'Tag' },
   { key: 'finale', label: 'Finale' },
+  { key: 'grid', label: 'Grille' },
+  { key: 'tab', label: 'Tablature' },
   { key: 'general', label: 'Autre' },
 ] as const;
 

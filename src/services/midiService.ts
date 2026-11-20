@@ -9,10 +9,13 @@ import {
 
 const STORAGE_KEY = 'melobook_midi_settings_v1';
 
+export type MidiPermissionState = 'prompt' | 'granted' | 'denied' | 'unsupported';
+
 export class MidiService {
   private midiAccess: any = null;
   private isInitialized = false;
   private isSupported = typeof window !== 'undefined' && 'requestMIDIAccess' in navigator;
+  private permissionState: MidiPermissionState = this.isSupported ? 'prompt' : 'unsupported';
   private settings: MidiSettings = {
     enabled: true,
     selectedInputId: 'all',
@@ -23,6 +26,7 @@ export class MidiService {
   private deviceListeners: Set<(devices: MidiDevice[]) => void> = new Set();
   private messageListeners: Set<(event: MidiEventData) => void> = new Set();
   private actionTriggerListeners: Set<(action: MidiAction, label: string) => void> = new Set();
+  private permissionListeners: Set<(state: MidiPermissionState) => void> = new Set();
   private learnCallback: ((data: { type: 'cc' | 'note' | 'pc'; number: number; channel: number }) => void) | null = null;
 
   // Debounce map to prevent rapid double-triggers from noisy footswitches
@@ -34,6 +38,64 @@ export class MidiService {
 
   public checkSupport(): boolean {
     return this.isSupported;
+  }
+
+  public getPermissionState(): MidiPermissionState {
+    return this.permissionState;
+  }
+
+  public getIsInitialized(): boolean {
+    return this.isInitialized;
+  }
+
+  private setPermissionState(next: MidiPermissionState): void {
+    if (this.permissionState === next) return;
+    this.permissionState = next;
+    for (const listener of this.permissionListeners) {
+      listener(next);
+    }
+  }
+
+  public onPermissionChange(callback: (state: MidiPermissionState) => void): () => void {
+    this.permissionListeners.add(callback);
+    callback(this.permissionState);
+    return () => {
+      this.permissionListeners.delete(callback);
+    };
+  }
+
+  /**
+   * Vérifie silencieusement l'autorisation MIDI sans déclencher de popup navigateur.
+   * Initialise uniquement si la permission est déjà accordée ('granted').
+   */
+  public async checkPermissionSilently(): Promise<MidiPermissionState> {
+    if (!this.isSupported) {
+      this.setPermissionState('unsupported');
+      return 'unsupported';
+    }
+
+    try {
+      if (typeof navigator !== 'undefined' && navigator.permissions?.query) {
+        const status = await navigator.permissions.query({ name: 'midi' as PermissionName });
+        const state = status.state as MidiPermissionState;
+        this.setPermissionState(state);
+        status.onchange = () => {
+          const updated = status.state as MidiPermissionState;
+          this.setPermissionState(updated);
+          if (updated === 'granted' && !this.isInitialized) {
+            void this.init();
+          }
+        };
+        if (state === 'granted') {
+          await this.init();
+        }
+        return state;
+      }
+    } catch {
+      // Navigateurs sans support de permissions.query({ name: 'midi' })
+    }
+
+    return this.permissionState;
   }
 
   public getSettings(): MidiSettings {
@@ -97,10 +159,12 @@ export class MidiService {
 
   public async init(): Promise<boolean> {
     if (!this.isSupported) {
+      this.setPermissionState('unsupported');
       return false;
     }
 
     if (this.isInitialized && this.midiAccess) {
+      this.setPermissionState('granted');
       return true;
     }
 
@@ -108,6 +172,7 @@ export class MidiService {
       // @ts-ignore - Web MIDI API
       this.midiAccess = await navigator.requestMIDIAccess({ sysex: false });
       this.isInitialized = true;
+      this.setPermissionState('granted');
 
       // Listen for connected / disconnected MIDI devices
       this.midiAccess.onstatechange = () => {
@@ -118,7 +183,10 @@ export class MidiService {
       this.attachInputListeners();
       this.notifyDevicesChanged();
       return true;
-    } catch (err) {
+    } catch (err: any) {
+      if (err?.name === 'NotAllowedError' || err?.name === 'SecurityError') {
+        this.setPermissionState('denied');
+      }
       console.warn('Web MIDI Access request failed or denied:', err);
       return false;
     }

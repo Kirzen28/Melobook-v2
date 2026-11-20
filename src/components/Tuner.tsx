@@ -255,6 +255,11 @@ export const Tuner: React.FC = () => {
   const oscRef = useRef<OscillatorNode | null>(null);
   const gainRef = useRef<GainNode | null>(null);
   const isMountedRef = useRef<boolean>(true);
+  const isTunerOpenRef = useRef<boolean>(isTunerOpen);
+
+  useEffect(() => {
+    isTunerOpenRef.current = isTunerOpen;
+  }, [isTunerOpen]);
 
   const currentInstrument = useMemo(() => {
     return TUNER_INSTRUMENTS.find(i => i.id === selectedInstrumentId) || TUNER_INSTRUMENTS[0];
@@ -396,8 +401,9 @@ export const Tuner: React.FC = () => {
         }
       }
 
-      if (!isMountedRef.current) {
+      if (!isMountedRef.current || !isTunerOpenRef.current) {
         stream.getTracks().forEach(t => t.stop());
+        setIsRequestingPermission(false);
         return;
       }
 
@@ -575,10 +581,13 @@ export const Tuner: React.FC = () => {
 
   useEffect(() => {
     isMountedRef.current = true;
-    startListening();
 
     const handleTunerMicEvent = () => {
-      startListening();
+      if (isTunerOpenRef.current) {
+        void startListening();
+      } else {
+        setIsTunerOpen(true);
+      }
     };
 
     window.addEventListener('melobook:request-tuner-mic', handleTunerMicEvent);
@@ -592,7 +601,7 @@ export const Tuner: React.FC = () => {
         audioContextRef.current.close();
       }
     };
-  }, []);
+  }, [setIsTunerOpen]);
 
   useEffect(() => {
     setSelectedStringId(null);
@@ -600,7 +609,9 @@ export const Tuner: React.FC = () => {
   }, [selectedInstrumentId]);
 
   useEffect(() => {
-    if (!isTunerOpen) {
+    if (isTunerOpen) {
+      void startListening();
+    } else {
       stopListening();
       stopReferenceTone();
     }

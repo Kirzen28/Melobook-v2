@@ -7,7 +7,8 @@ import {
   ParsedSection,
   parseDurationToSeconds,
   formatSetlistDuration,
-  getSongDuration
+  getSongDuration,
+  isChordGridToken
 } from './chordUtils';
 
 export interface PdfExportOptions {
@@ -283,16 +284,18 @@ export async function generateSetlistPdf(
     doc.setTextColor(colors.text[0], colors.text[1], colors.text[2]);
     const cleanTitle = parsedData.title || song.title;
     const artistText = (parsedData.artist || song.artist || '').trim();
-    const maxTitleWidth = artistText ? contentWidth - 58 : contentWidth - 10;
+    const albumText = (parsedData.album || song.album || '').trim();
+    const rightHeaderText = [artistText, albumText].filter(Boolean).join(' · ');
+    const maxTitleWidth = rightHeaderText ? contentWidth - 68 : contentWidth - 10;
     const splitTitle = doc.splitTextToSize(cleanTitle, maxTitleWidth);
     doc.text(splitTitle[0] || cleanTitle, marginX + 5, textY);
 
-    if (artistText) {
+    if (rightHeaderText) {
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(metaSize);
       doc.setTextColor(colors.textMuted[0], colors.textMuted[1], colors.textMuted[2]);
-      const safeArtist = artistText.length > 32 ? artistText.substring(0, 30) + '...' : artistText;
-      doc.text(safeArtist, marginX + contentWidth - 5, textY, { align: 'right' });
+      const safeRight = rightHeaderText.length > 38 ? rightHeaderText.substring(0, 36) + '...' : rightHeaderText;
+      doc.text(safeRight, marginX + contentWidth - 5, textY, { align: 'right' });
     }
 
     // Divider line above single-line metadata
@@ -388,17 +391,34 @@ export async function generateSetlistPdf(
         secBgColor = isDark ? [28, 22, 34] : [250, 245, 255];
       }
 
+      const sectionOffset = offset + (section.transposeOffset || 0);
       const secStartY = currentY;
 
-      // Section Header (Title + Vocal Badges aligned side by side)
+      // Section Header (Title + Scoped Meta + Vocal Badges aligned side by side)
       const vocalsList = (section.vocals && section.vocals.length > 0) ? section.vocals : (section.vocal ? [section.vocal] : []);
-      if (section.title || vocalsList.length > 0) {
-        // Section Title Pill
+      const metaTagParts: string[] = [];
+      if (section.isChorusRecall) metaTagParts.push('Rappel');
+      if (section.repeat && section.repeat > 1) metaTagParts.push(`x${section.repeat}`);
+      if (section.key) metaTagParts.push(`Ton: ${transposeChord(section.key, offset, options.notation)}`);
+      if (section.transposeOffset) metaTagParts.push(`${section.transposeOffset > 0 ? '+' : ''}${section.transposeOffset}t`);
+      if (section.tempo) metaTagParts.push(`${section.tempo} BPM`);
+      if (section.timeSignature) metaTagParts.push(section.timeSignature);
+
+      if (section.title || metaTagParts.length > 0 || vocalsList.length > 0) {
+        let titleEndX = marginX + 4;
         if (section.title) {
           doc.setFont('helvetica', 'bold');
           doc.setFontSize(sectionTitleSize);
           doc.setTextColor(secBorderColor[0], secBorderColor[1], secBorderColor[2]);
-          doc.text(section.title.toUpperCase(), marginX + 4, currentY + 4);
+          const upperTitle = section.title.toUpperCase();
+          doc.text(upperTitle, marginX + 4, currentY + 4);
+          titleEndX += doc.getTextWidth(upperTitle) + 3;
+        }
+        if (metaTagParts.length > 0) {
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(8);
+          doc.setTextColor(colors.textMuted[0], colors.textMuted[1], colors.textMuted[2]);
+          doc.text(metaTagParts.join(' · '), titleEndX, currentY + 4);
         }
 
         // Vocal Arrangement Pastilles aligned side by side on the right
@@ -458,36 +478,121 @@ export async function generateSetlistPdf(
           currentY += 8;
         }
 
-        if (line.type === 'lyrics') {
-          // Check if there are chords in this line
-          const hasChords = options.showChords && line.items.some(item => !!item.chord);
+        if (line.type === 'comment' || line.type === 'comment_italic') {
+          doc.setFont('helvetica', line.type === 'comment_italic' ? 'italic' : 'normal');
+          doc.setFontSize(Math.max(8, lyricsSize - 1));
+          doc.setTextColor(colors.textMuted[0], colors.textMuted[1], colors.textMuted[2]);
+          const splitComment = doc.splitTextToSize(line.comment || '', contentWidth - 8);
+          doc.text(splitComment, marginX + 4, currentY + 3.5);
+          currentY += Math.max(1, splitComment.length) * 4.5;
+          continue;
+        }
 
+        if (line.type === 'comment_box') {
+          const boxText = line.comment || '';
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(Math.max(8, lyricsSize - 1));
+          const textW = Math.min(contentWidth - 8, doc.getTextWidth(boxText) + 6);
+          doc.setDrawColor(colors.border[0], colors.border[1], colors.border[2]);
+          doc.setLineWidth(0.3);
+          doc.rect(marginX + 4, currentY, textW, 5.5, 'S');
+          doc.setTextColor(colors.text[0], colors.text[1], colors.text[2]);
+          doc.text(boxText, marginX + 7, currentY + 3.8);
+          currentY += 7;
+          continue;
+        }
+
+        if (line.type === 'tab_row') {
+          doc.setFont('courier', 'normal');
+          doc.setFontSize(Math.max(7.5, chordSize - 1.5));
+          doc.setTextColor(colors.text[0], colors.text[1], colors.text[2]);
+          doc.text(line.tabText || '', marginX + 4, currentY + 3.5);
+          currentY += 4.2 * scale;
+          continue;
+        }
+
+        if (line.type === 'grid_row' && line.gridBars) {
+          let gx = marginX + 4;
+          const gy = currentY + 3.8;
+          doc.setFontSize(chordSize);
+          line.gridBars.forEach((bar, bIdx) => {
+            if (bar.repeatStart) {
+              doc.setFont('courier', 'bold');
+              doc.setTextColor(colors.primary[0], colors.primary[1], colors.primary[2]);
+              doc.text('|: ', gx, gy);
+              gx += doc.getTextWidth('|: ');
+            } else if (bIdx === 0) {
+              doc.setFont('courier', 'normal');
+              doc.setTextColor(colors.textMuted[0], colors.textMuted[1], colors.textMuted[2]);
+              doc.text('| ', gx, gy);
+              gx += doc.getTextWidth('| ');
+            }
+
+            bar.beats.forEach((beat) => {
+              if (isChordGridToken(beat)) {
+                const disp = options.showChords
+                  ? transposeChord(beat, sectionOffset, options.notation)
+                  : '/';
+                doc.setFont('courier', 'bold');
+                doc.setTextColor(colors.chord[0], colors.chord[1], colors.chord[2]);
+                doc.text(`${disp} `, gx, gy);
+                gx += doc.getTextWidth(`${disp} `);
+              } else {
+                doc.setFont('courier', 'normal');
+                doc.setTextColor(colors.textMuted[0], colors.textMuted[1], colors.textMuted[2]);
+                doc.text(`${beat} `, gx, gy);
+                gx += doc.getTextWidth(`${beat} `);
+              }
+            });
+
+            const closeSym = bar.repeatEnd ? ':| ' : '| ';
+            doc.setFont('courier', bar.repeatEnd ? 'bold' : 'normal');
+            doc.setTextColor(
+              bar.repeatEnd ? colors.primary[0] : colors.textMuted[0],
+              bar.repeatEnd ? colors.primary[1] : colors.textMuted[1],
+              bar.repeatEnd ? colors.primary[2] : colors.textMuted[2]
+            );
+            doc.text(closeSym, gx, gy);
+            gx += doc.getTextWidth(closeSym);
+          });
+          currentY += 5.8 * scale;
+          continue;
+        }
+
+        if (line.type === 'lyrics') {
+          const hasChordsOrAnn = (options.showChords && line.items.some(item => !!item.chord)) || line.items.some(item => !!item.annotation);
           let currentX = marginX + 4;
 
-          if (hasChords) {
-            // Draw chords row first
+          if (hasChordsOrAnn) {
             doc.setFont('courier', 'bold');
             doc.setFontSize(chordSize);
-            doc.setTextColor(colors.chord[0], colors.chord[1], colors.chord[2]);
 
             let chordX = currentX;
             line.items.forEach(item => {
-              const transposedChord = item.chord
-                ? (offset !== 0 ? transposeChord(item.chord, offset, options.notation) : (options.notation === 'latin' ? transposeChord(item.chord, 0, 'latin') : item.chord))
+              const transposedChord = options.showChords && item.chord
+                ? transposeChord(item.chord, sectionOffset, options.notation)
                 : '';
+              const annText = item.annotation ? `(${item.annotation})` : '';
+              const topLabel = [transposedChord, annText].filter(Boolean).join(' ');
 
-              if (transposedChord) {
-                doc.text(transposedChord, chordX, currentY + 3.5);
+              if (topLabel) {
+                doc.setFont('courier', transposedChord ? 'bold' : 'normal');
+                doc.setFontSize(transposedChord ? chordSize : Math.max(7.5, chordSize - 1.5));
+                doc.setTextColor(
+                  transposedChord ? colors.chord[0] : colors.textMuted[0],
+                  transposedChord ? colors.chord[1] : colors.textMuted[1],
+                  transposedChord ? colors.chord[2] : colors.textMuted[2]
+                );
+                doc.text(topLabel, chordX, currentY + 3.5);
               }
 
-              // Advance X based on lyrics or chord width
               doc.setFont('helvetica', 'normal');
               doc.setFontSize(lyricsSize);
               const lyricsWidth = doc.getTextWidth(item.lyrics || ' ');
               doc.setFont('courier', 'bold');
               doc.setFontSize(chordSize);
-              const chordWidth = doc.getTextWidth(transposedChord ? transposedChord + ' ' : '');
-              
+              const chordWidth = doc.getTextWidth(topLabel ? topLabel + ' ' : '');
+
               chordX += Math.max(lyricsWidth, chordWidth);
             });
 
@@ -507,12 +612,14 @@ export async function generateSetlistPdf(
 
             const lyricsWidth = doc.getTextWidth(item.lyrics || ' ');
             const transposedChord = options.showChords && item.chord
-              ? (offset !== 0 ? transposeChord(item.chord, offset, options.notation) : (options.notation === 'latin' ? transposeChord(item.chord, 0, 'latin') : item.chord))
+              ? transposeChord(item.chord, sectionOffset, options.notation)
               : '';
-            
+            const annText = item.annotation ? `(${item.annotation})` : '';
+            const topLabel = [transposedChord, annText].filter(Boolean).join(' ');
+
             doc.setFont('courier', 'bold');
             doc.setFontSize(chordSize);
-            const chordWidth = doc.getTextWidth(transposedChord ? transposedChord + ' ' : '');
+            const chordWidth = doc.getTextWidth(topLabel ? topLabel + ' ' : '');
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(lyricsSize);
 

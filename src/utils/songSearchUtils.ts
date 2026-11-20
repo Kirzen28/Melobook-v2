@@ -26,8 +26,9 @@ export function normalizeSearchString(str: string): string {
  */
 export function extractCleanLyrics(chordPro: string): string {
   if (!chordPro) return '';
-  const withoutDirectives = chordPro.replace(/\{[^}]*\}/g, ' ');
-  const withoutChords = withoutDirectives.replace(/\[[^\]]*\]/g, '');
+  const withoutHashComments = chordPro.replace(/^\s*#.*$/gm, ' ');
+  const withoutDirectives = withoutHashComments.replace(/\{[^}]*\}/g, ' ');
+  const withoutChords = withoutDirectives.replace(/\[\*[^\]]*\]/g, ' ').replace(/\[[^\]]*\]/g, '');
   return normalizeSearchString(withoutChords);
 }
 
@@ -95,6 +96,7 @@ export function getSongSearchScore(song: Song, rawQuery: string): number {
 
   const normTitle = normalizeSearchString(song.title);
   const normArtist = normalizeSearchString(song.artist || '');
+  const normAlbum = normalizeSearchString(song.album || '');
   const cleanLyrics = extractCleanLyrics(song.contentChordPro || '');
   const normTags = (song.tags || []).map(t => normalizeSearchString(t)).join(' ');
   const normLang = normalizeSearchString(song.language || '');
@@ -123,6 +125,15 @@ export function getSongSearchScore(song: Song, rawQuery: string): number {
       score += 4000;
     } else if (normArtist.includes(normQuery)) {
       score += 2500;
+    }
+  }
+
+  // 2b. MATCH SUR L'ALBUM
+  if (normAlbum) {
+    if (normAlbum === normQuery) {
+      score += 2200;
+    } else if (normAlbum.includes(normQuery)) {
+      score += 1500;
     }
   }
 

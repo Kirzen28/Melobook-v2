@@ -25,20 +25,25 @@ export function isChordToken(token: string): boolean {
   return ANGLO_CHORD_REGEX.test(clean) || LATIN_CHORD_REGEX.test(clean);
 }
 
-export type LineClassificationType = 'empty' | 'chord_line' | 'lyrics_line' | 'chordpro_line';
+export type LineClassificationType =
+  | 'empty'
+  | 'chord_line'
+  | 'lyrics_line'
+  | 'chordpro_line'
+  | 'comment'
+  | 'comment_italic'
+  | 'comment_box'
+  | 'hash_comment';
 
 export interface LineClassification {
   type: LineClassificationType;
   chords?: { chord: string; index: number }[];
+  commentText?: string;
   isLatin?: boolean;
 }
 
 /**
- * Analyzes a raw line of text to determine if it is:
- * - 'empty': blank or contains only whitespace / space ("Ligne vide se fera juste en ajoutant un espace")
- * - 'chord_line': line containing mostly chords (Latin or Anglo-saxon)
- * - 'lyrics_line': line of lyrics or words
- * - 'chordpro_line': line containing [Chord] tags
+ * Analyzes a raw line of text to determine its type
  */
 export function classifyLine(rawLine: string): LineClassification {
   // Empty line or space-only line
@@ -46,8 +51,29 @@ export function classifyLine(rawLine: string): LineClassification {
     return { type: 'empty' };
   }
 
-  // ChordPro bracketed chords: e.g. [G]Voici ou [Sol]Voici
-  if (/\[[A-Ga-gDoReMiFaSolLaSi#b♯♭][^\]]*\]/.test(rawLine)) {
+  const trimmed = rawLine.trim();
+
+  if (trimmed.startsWith('#')) {
+    return { type: 'hash_comment', commentText: trimmed.slice(1).trim() };
+  }
+
+  const directiveMatch = trimmed.match(/^\{([a-zA-Z_]+)\s*:\s*([\s\S]*?)\}$/);
+  if (directiveMatch) {
+    const tag = directiveMatch[1].toLowerCase();
+    const val = directiveMatch[2].trim();
+    if (tag === 'c' || tag === 'comment') {
+      return { type: 'comment', commentText: val };
+    }
+    if (tag === 'ci' || tag === 'comment_italic') {
+      return { type: 'comment_italic', commentText: val };
+    }
+    if (tag === 'cb' || tag === 'comment_box') {
+      return { type: 'comment_box', commentText: val };
+    }
+  }
+
+  // ChordPro bracketed chords or inline [*annotations]: e.g. [G]Voici or [*Crescendo]
+  if (/\[(?:[A-Ga-gDoReMiFaSolLaSi#b♯♭\*])[^\]]*\]/.test(rawLine)) {
     return { type: 'chordpro_line' };
   }
 
@@ -86,7 +112,7 @@ export function classifyLine(rawLine: string): LineClassification {
 }
 
 /**
- * Converts intuitive multi-line text (chords above lyrics, ChordPro bracketed chords, or pure chords/lyrics)
+ * Converts intuitive multi-line text (chords above lyrics, ChordPro bracketed chords, comments, annotations)
  * into structured VisualLine[].
  */
 export function convertIntuitiveTextToVisualLines(text: string): VisualLine[] {
@@ -109,7 +135,24 @@ export function convertIntuitiveTextToVisualLines(text: string): VisualLine[] {
       continue;
     }
 
-    // 2. ChordPro bracketed line: [G]Voici [C]les paroles
+    // 1b. Comment / annotation directives & hash comments
+    if (
+      info.type === 'comment' ||
+      info.type === 'comment_italic' ||
+      info.type === 'comment_box' ||
+      info.type === 'hash_comment'
+    ) {
+      result.push({
+        id: generateId('line_cmt'),
+        type: info.type,
+        items: [],
+        comment: info.commentText || ''
+      });
+      i++;
+      continue;
+    }
+
+    // 2. ChordPro bracketed line: [G]Voici [C]les paroles [*forte]
     if (info.type === 'chordpro_line') {
       const items: VisualItem[] = [];
       const chordRegex = /\[(.*?)\]([^\[]*)/g;
@@ -131,11 +174,32 @@ export function convertIntuitiveTextToVisualLines(text: string): VisualLine[] {
       }
 
       while ((match = chordRegex.exec(raw)) !== null) {
-        items.push({
-          id: generateId('it'),
-          chord: match[1].trim(),
-          lyrics: match[2]
-        });
+        const inside = match[1].trim();
+        const trailingLyrics = match[2];
+        if (inside.startsWith('*')) {
+          const noteText = inside.slice(1).trim();
+          if (noteText) {
+            items.push({
+              id: generateId('it'),
+              chord: '',
+              lyrics: '',
+              annotation: noteText
+            });
+          }
+          if (trailingLyrics) {
+            items.push({
+              id: generateId('it'),
+              chord: '',
+              lyrics: trailingLyrics
+            });
+          }
+        } else {
+          items.push({
+            id: generateId('it'),
+            chord: inside,
+            lyrics: trailingLyrics
+          });
+        }
       }
 
       if (items.length === 0) {
@@ -248,7 +312,7 @@ export function convertIntuitiveTextToVisualLines(text: string): VisualLine[] {
 }
 
 /**
- * Converts VisualLine[] into intuitive text with chords aligned above lyrics.
+ * Converts VisualLine[] into intuitive text with chords aligned above lyrics (or inline ChordPro when annotations exist).
  */
 export function convertVisualLinesToIntuitiveText(lines: VisualLine[]): string {
   if (!lines || lines.length === 0) return '';
@@ -259,24 +323,59 @@ export function convertVisualLinesToIntuitiveText(lines: VisualLine[]): string {
     const line = lines[idx];
 
     if (line.type === 'empty') {
-      // Empty line / line with a space
       output.push(' ');
+      continue;
+    }
+    if (line.type === 'comment') {
+      output.push(`{c: ${line.comment || ''}}`);
+      continue;
+    }
+    if (line.type === 'comment_italic') {
+      output.push(`{ci: ${line.comment || ''}}`);
+      continue;
+    }
+    if (line.type === 'comment_box') {
+      output.push(`{cb: ${line.comment || ''}}`);
+      continue;
+    }
+    if (line.type === 'hash_comment') {
+      output.push(`# ${line.comment || ''}`);
+      continue;
+    }
+    if (line.type === 'grid_row') {
+      output.push(line.gridRaw || '');
+      continue;
+    }
+    if (line.type === 'tab_row') {
+      output.push(line.tabText ?? '');
       continue;
     }
 
     const items = line.items || [];
     const hasAnyChords = items.some(it => Boolean(it.chord && it.chord.trim()));
+    const hasAnyAnnotations = items.some(it => Boolean(it.annotation && it.annotation.trim()));
     const allEmptyLyrics = items.every(it => !it.lyrics || it.lyrics.trim() === '');
 
+    if (hasAnyAnnotations) {
+      // Preserve exact positions with inline ChordPro syntax
+      const inline = items
+        .map(it => {
+          const ann = it.annotation && it.annotation.trim() ? `[*${it.annotation.trim()}]` : '';
+          const ch = it.chord && it.chord.trim() ? `[${it.chord.trim()}]` : '';
+          return `${ann}${ch}${it.lyrics || ''}`;
+        })
+        .join('');
+      output.push(inline);
+      continue;
+    }
+
     if (!hasAnyChords) {
-      // Just lyrics
       const text = items.map(it => it.lyrics || '').join('');
       output.push(text);
       continue;
     }
 
     if (allEmptyLyrics) {
-      // Pure chords line (e.g. Intro: G  C  Em  D or Sol  Do  Mim  Re)
       const chordLine = items
         .map(it => (it.chord || '').trim())
         .filter(Boolean)
@@ -336,6 +435,13 @@ export function extractTextChordStats(text: string): {
     const info = classifyLine(l);
     if (info.type === 'empty') {
       totalEmptyLines++;
+    } else if (
+      info.type === 'comment' ||
+      info.type === 'comment_italic' ||
+      info.type === 'comment_box' ||
+      info.type === 'hash_comment'
+    ) {
+      continue;
     } else if (info.type === 'chord_line') {
       totalChordLines++;
       if (info.isLatin) latinCount++;
@@ -348,7 +454,7 @@ export function extractTextChordStats(text: string): {
       if (matches) {
         matches.forEach(m => {
           const clean = m.replace(/[\[\]]/g, '').trim();
-          if (clean) uniqueChords.add(clean);
+          if (clean && !clean.startsWith('*')) uniqueChords.add(clean);
         });
       }
     } else {

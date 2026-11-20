@@ -36,6 +36,7 @@ export interface Song {
   groupId: string;
   title: string;
   artist: string;
+  album?: string;
   key: string;
   tempo: number;
   bpm?: number; // BPM (Beats Per Minute) explicit metadata
@@ -157,6 +158,7 @@ export interface SectionBorders {
 export interface SongMetadataVisibility {
   title?: boolean;
   artist: boolean;
+  album?: boolean;
   language: boolean;
   duration: boolean;
   tags: boolean;
@@ -184,6 +186,7 @@ export interface SongCardMetadataSettings {
   showTempo: boolean;
   showDuration: boolean;
   showCategories: boolean;
+  showAlbum?: boolean;
   showCcli?: boolean;
   showCopyright?: boolean;
 }

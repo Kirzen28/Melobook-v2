@@ -113,19 +113,52 @@ export function parseShirSongHtml(html: string, pageTitle: string) {
   const blocks = [...html.matchAll(/<div class="songchorus">|<\/div>|<div class="songcomment">([\s\S]*?)<\/div>|<table[^>]*class="songline"[^>]*>([\s\S]*?)<\/table>/gi)];
 
   let inChorus = false;
+  let openBlockTag: string | null = null;
+
+  const detectShirSectionTag = (label: string): string | null => {
+    const lower = label.trim().toLowerCase();
+    if (/^(?:pre[- ]?chorus|pr[ée][- ]?refrain|pc\d*|pr\d*)$/i.test(lower) || lower.includes('pré-refrain') || lower.includes('pre-refrain') || lower.includes('pre-chorus')) return 'pre_chorus';
+    if (/^(?:c\d+|r\d+|chorus|refrain)\b/i.test(lower) || lower.includes('refrain') || lower.includes('chorus')) return 'chorus';
+    if (/^(?:v\d+|verse|couplet|strophe)\b/i.test(lower) || lower.includes('couplet') || lower.includes('verse') || lower.includes('strophe')) return 'verse';
+    if (/^(?:b\d+|p\d+|bridge|pont)\b/i.test(lower) || lower.includes('pont') || lower.includes('bridge')) return 'bridge';
+    if (/^(?:in|intro\d*)\b/i.test(lower) || lower.includes('intro')) return 'intro';
+    if (/^(?:outro\d*|out|fin|finale\d*)\b/i.test(lower) || lower.includes('outro') || lower.includes('finale')) return 'outro';
+    if (/^(?:solo\d*)\b/i.test(lower) || lower.includes('solo')) return 'solo';
+    if (/^(?:interlude\d*)\b/i.test(lower) || lower.includes('interlude')) return 'interlude';
+    if (/^(?:instru\w*)\b/i.test(lower) || lower.includes('instrumental')) return 'instrumental';
+    if (/^(?:tag\d*|coda\d*)\b/i.test(lower) || lower.includes('tag') || lower.includes('coda')) return 'tag';
+    return null;
+  };
+
+  const closeOpenBlock = () => {
+    if (openBlockTag) {
+      chordProLines.push(`{end_of_${openBlockTag}}`);
+      chordProLines.push('');
+      openBlockTag = null;
+    }
+  };
 
   for (const b of blocks) {
     const raw = b[0];
     if (raw.includes('class="songchorus"')) {
+      closeOpenBlock();
       inChorus = true;
-      chordProLines.push('{c: Refrain}');
+      chordProLines.push('{start_of_chorus: label="Refrain"}');
+      openBlockTag = 'chorus';
     } else if (raw === '</div>' && inChorus) {
       inChorus = false;
-      chordProLines.push('');
+      closeOpenBlock();
     } else if (b[1]) {
       const comm = b[1].replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&#160;/g, ' ').trim();
       if (comm && !comm.startsWith('©') && !comm.startsWith('shir.fr') && !/^[A-G][#b]?m?$/.test(comm) && comm.length < 50) {
-        chordProLines.push(`{c: ${comm}}`);
+        const secTag = !inChorus ? detectShirSectionTag(comm) : null;
+        if (secTag) {
+          closeOpenBlock();
+          chordProLines.push(`{start_of_${secTag}: label="${comm.replace(/"/g, '\\"')}"}`);
+          openBlockTag = secTag;
+        } else {
+          chordProLines.push(`{c: ${comm}}`);
+        }
       }
     } else if (b[2]) {
       const table = b[2];
@@ -160,6 +193,8 @@ export function parseShirSongHtml(html: string, pageTitle: string) {
       }
     }
   }
+
+  closeOpenBlock();
 
   return {
     title,

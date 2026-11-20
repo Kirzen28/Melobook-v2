@@ -17,7 +17,13 @@ import {
   FileText, 
   CornerDownLeft,
   Repeat,
-  Scissors
+  Scissors,
+  SlidersHorizontal,
+  MessageSquare,
+  Italic,
+  Square,
+  Highlighter,
+  EyeOff
 } from 'lucide-react';
 import { 
   VisualSection, 
@@ -38,7 +44,7 @@ import {
   classifyLine,
   isChordToken
 } from '../../utils/intuitiveChordParser';
-import { getVocalBadgeStyle } from '../../utils/chordUtils';
+import { getVocalBadgeStyle, isChordGridToken } from '../../utils/chordUtils';
 import { getSectionColor } from '../../utils/displayDefaults';
 import { useApp } from '../../context/AppContext';
 import { VocalArrangementSelector } from './VocalArrangementSelector';
@@ -47,6 +53,7 @@ interface VisualSectionCardProps {
   section: VisualSection;
   index: number;
   totalSections: number;
+  allSections?: VisualSection[];
   onUpdateSection: (updated: VisualSection) => void;
   onDuplicateSection: (secId: string) => void;
   onDeleteSection: (secId: string) => void;
@@ -72,10 +79,22 @@ interface VisualSectionCardProps {
   onSplitSection?: (sectionId: string, headLines: VisualLine[], tailLines: VisualLine[]) => void;
 }
 
+const DEFAULT_TAB_LINES = [
+  'e|-----------0-----------|',
+  'B|---------1---1---------|',
+  'G|-------0-------0-------|',
+  'D|-----2-----------2-----|',
+  'A|---3---------------3---|',
+  'E|-----------------------|'
+];
+
+const DEFAULT_GRID_TEXT = '|: C . G . | Am . F . :|';
+
 export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
   section,
   index,
   totalSections,
+  allSections,
   onUpdateSection,
   onDuplicateSection,
   onDeleteSection,
@@ -99,6 +118,18 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
   const chordColor = displaySettings?.chordColor || '#60a5fa';
   const [localCollapsed, setLocalCollapsed] = useState(false);
   const isSectionCollapsed = controlledIsCollapsed !== undefined ? controlledIsCollapsed : localCollapsed;
+
+  const effectiveBlockKind: 'lyrics' | 'grid' | 'tab' | 'chorus_recall' = section.isChorusRecall
+    ? 'chorus_recall'
+    : section.blockKind || (section.type === 'grid' ? 'grid' : section.type === 'tab' ? 'tab' : 'lyrics');
+
+  const hasSectionModulation = Boolean(
+    (section.key && section.key.trim()) ||
+    (typeof section.transposeOffset === 'number' && section.transposeOffset !== 0) ||
+    (section.tempo && section.tempo > 0) ||
+    (section.timeSignature && section.timeSignature.trim())
+  );
+  const [showModulationBar, setShowModulationBar] = useState(false);
 
   const handleToggleCollapse = () => {
     if (onToggleCollapse) {
@@ -151,11 +182,40 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
 
   const cardRef = useRef<HTMLDivElement>(null);
 
+  const getLinesAsRawText = (sec: VisualSection): string => {
+    if (sec.blockKind === 'grid' || sec.type === 'grid') {
+      return sec.lines
+        .map(l => (l.type === 'grid_row' ? (l.gridRaw || '') : convertVisualLinesToIntuitiveText([l])))
+        .join('\n');
+    }
+    if (sec.blockKind === 'tab' || sec.type === 'tab') {
+      return sec.lines
+        .map(l => (l.type === 'tab_row' ? (l.tabText ?? '') : convertVisualLinesToIntuitiveText([l])))
+        .join('\n');
+    }
+    return convertVisualLinesToIntuitiveText(sec.lines);
+  };
+
   // Intuitive unified text field state
-  const [rawText, setRawText] = useState(() => convertVisualLinesToIntuitiveText(section.lines));
+  const [rawText, setRawText] = useState(() => getLinesAsRawText(section));
   const isTypingRef = useRef(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
+  const noteInputRef = useRef<HTMLInputElement>(null);
+  const savedSelectionRef = useRef<{ start: number; end: number }>({ start: 0, end: 0 });
+
+  type QuickNoteKind = 'comment' | 'comment_italic' | 'comment_box' | 'annotation' | 'hash_comment';
+  const [activeNoteType, setActiveNoteType] = useState<QuickNoteKind | null>(null);
+  const [noteDraft, setNoteDraft] = useState('');
+
+  const captureTextareaSelection = (el?: HTMLTextAreaElement | null) => {
+    const target = el || textareaRef.current;
+    if (!target) return;
+    savedSelectionRef.current = {
+      start: target.selectionStart ?? rawText.length,
+      end: target.selectionEnd ?? rawText.length
+    };
+  };
 
   const handleScroll = (e: React.UIEvent<HTMLTextAreaElement>) => {
     if (backdropRef.current) {
@@ -167,41 +227,82 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
   // Synchronize text when section changes externally and user is not actively typing
   useEffect(() => {
     if (!isTypingRef.current) {
-      setRawText(convertVisualLinesToIntuitiveText(section.lines));
+      setRawText(getLinesAsRawText(section));
     }
-  }, [section.id, section.lines]);
-
-  // Mini popover state for splitting section at cursor
-  const [splitPopover, setSplitPopover] = useState<{
-    visible: boolean;
-    charIndex: number;
-    x: number;
-    y: number;
-  } | null>(null);
-
-  // Close split popover on click outside
-  useEffect(() => {
-    const handleGlobalClick = (e: MouseEvent) => {
-      if (splitPopover?.visible) {
-        const target = e.target as HTMLElement;
-        if (!target.closest('.split-section-popover') && !target.closest('textarea')) {
-          setSplitPopover(null);
-        }
-      }
-    };
-    window.addEventListener('mousedown', handleGlobalClick);
-    return () => window.removeEventListener('mousedown', handleGlobalClick);
-  }, [splitPopover]);
+  }, [section.id, section.lines, section.blockKind, section.type]);
 
   // Detected chord stats
   const chordStats = useMemo(() => {
     return extractTextChordStats(rawText);
   }, [rawText]);
 
-  // Renders syntax-highlighted lines differentiating chords (bold blue + soft tint) from lyrics (white)
+  const availableChoruses = useMemo(() => {
+    return (allSections || []).filter(
+      s => s.id !== section.id && s.type === 'chorus' && !s.isChorusRecall && s.blockKind !== 'chorus_recall'
+    );
+  }, [allSections, section.id]);
+
+  const matchedRecallChorus = useMemo(() => {
+    if (effectiveBlockKind !== 'chorus_recall') return undefined;
+    const target = (section.recallLabel || section.title || '').trim().toLowerCase();
+    return (
+      availableChoruses.find(c => (c.title || '').trim().toLowerCase() === target) ||
+      availableChoruses[availableChoruses.length - 1]
+    );
+  }, [effectiveBlockKind, section.recallLabel, section.title, availableChoruses]);
+
+  // Renders syntax-highlighted lines differentiating chords, annotations, comments, grid bars
   const renderHighlightedContent = (text: string) => {
     if (!text) return null;
     const lines = text.split('\n');
+
+    if (effectiveBlockKind === 'grid') {
+      return (
+        <>
+          {lines.map((line, idx) => {
+            const isLast = idx === lines.length - 1;
+            const tokens = line.split(/(\s+|\|:|:\||\|\||\|)/g);
+            return (
+              <React.Fragment key={idx}>
+                {tokens.map((tok, tIdx) => {
+                  if (!tok) return null;
+                  if (tok === '|:' || tok === ':|' || tok === '||' || tok === '|') {
+                    return <span key={tIdx} className="text-amber-400 font-bold">{tok}</span>;
+                  }
+                  if (isChordGridToken(tok)) {
+                    return <span key={tIdx} style={{ color: chordColor }} className="font-bold">{tok}</span>;
+                  }
+                  if (tok === '.' || tok === '%' || tok === '/') {
+                    return <span key={tIdx} className="text-gray-500">{tok}</span>;
+                  }
+                  return <span key={tIdx} className="text-gray-300">{tok}</span>;
+                })}
+                {!isLast && '\n'}
+              </React.Fragment>
+            );
+          })}
+          {text.endsWith('\n') && '\u00A0'}
+        </>
+      );
+    }
+
+    if (effectiveBlockKind === 'tab') {
+      return (
+        <>
+          {lines.map((line, idx) => {
+            const isLast = idx === lines.length - 1;
+            return (
+              <React.Fragment key={idx}>
+                <span className="text-sky-200">{line || '\u00A0'}</span>
+                {!isLast && '\n'}
+              </React.Fragment>
+            );
+          })}
+          {text.endsWith('\n') && '\u00A0'}
+        </>
+      );
+    }
+
     return (
       <>
         {lines.map((line, idx) => {
@@ -212,9 +313,24 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
 
           if (lineInfo.type === 'empty') {
             renderedLine = <span>&nbsp;</span>;
+          } else if (lineInfo.type === 'hash_comment') {
+            renderedLine = <span className="text-gray-500 italic">{line}</span>;
+          } else if (lineInfo.type === 'comment') {
+            renderedLine = <span className="text-sky-300/90 font-medium">{line}</span>;
+          } else if (lineInfo.type === 'comment_italic') {
+            renderedLine = <span className="text-cyan-300/90 italic">{line}</span>;
+          } else if (lineInfo.type === 'comment_box') {
+            renderedLine = <span className="text-amber-300 font-semibold">{line}</span>;
           } else if (lineInfo.type === 'chordpro_line') {
             const parts = line.split(/(\[[^\]]+\])/g);
             renderedLine = parts.map((part, pIdx) => {
+              if (part.startsWith('[*') && part.endsWith(']')) {
+                return (
+                  <span key={pIdx} className="text-amber-300 italic font-medium">
+                    {part}
+                  </span>
+                );
+              }
               if (part.startsWith('[') && part.endsWith(']')) {
                 return (
                   <span key={pIdx} style={{ color: chordColor }} className="font-bold font-mono">
@@ -265,7 +381,26 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
   const handleTextChange = (newVal: string) => {
     isTypingRef.current = true;
     setRawText(newVal);
-    const updatedLines = convertIntuitiveTextToVisualLines(newVal);
+
+    let updatedLines: VisualLine[];
+    if (effectiveBlockKind === 'grid') {
+      updatedLines = newVal.split('\n').map((rawLine) => {
+        if (!rawLine.trim()) {
+          return { id: generateId('line_emp'), type: 'empty', items: [] };
+        }
+        return { id: generateId('line_grid'), type: 'grid_row', items: [], gridRaw: rawLine };
+      });
+    } else if (effectiveBlockKind === 'tab') {
+      updatedLines = newVal.split('\n').map((rawLine) => ({
+        id: generateId('line_tab'),
+        type: 'tab_row',
+        items: [],
+        tabText: rawLine
+      }));
+    } else {
+      updatedLines = convertIntuitiveTextToVisualLines(newVal);
+    }
+
     onUpdateSection({
       ...section,
       lines: updatedLines
@@ -275,68 +410,160 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
     }, 200);
   };
 
-  // Quick insertion of a chord at current caret position
-  const handleInsertChord = (chord: string) => {
-    const el = textareaRef.current;
-    if (!el) {
-      const nextText = rawText ? `${rawText}\n${chord} ` : `${chord} `;
-      handleTextChange(nextText);
-      return;
-    }
-    const start = el.selectionStart || 0;
-    const end = el.selectionEnd || 0;
-    const before = rawText.substring(0, start);
-    const after = rawText.substring(end);
-    const inserted = `${chord} `;
-    const newText = before + inserted + after;
-    handleTextChange(newText);
-    setTimeout(() => {
-      el.focus();
-      el.setSelectionRange(start + inserted.length, start + inserted.length);
-    }, 10);
-  };
+  // Switch blockKind (Paroles / Grille / Tablature / Rappel Refrain)
+  const handleBlockKindChange = (nextKind: 'lyrics' | 'grid' | 'tab' | 'chorus_recall') => {
+    if (nextKind === effectiveBlockKind) return;
 
-  // Handle click in textarea to open mini split popover
-  const handleTextareaClick = (e: React.MouseEvent<HTMLTextAreaElement>) => {
-    const el = e.currentTarget;
-    const caret = el.selectionStart;
-    if (caret === null || caret === undefined) return;
-
-    // Do not trigger if at the very beginning or very end of empty text
-    if (!rawText.trim()) {
-      setSplitPopover(null);
+    if (nextKind === 'chorus_recall') {
+      const targetTitle = availableChoruses[0]?.title || 'Refrain';
+      onUpdateSection({
+        ...section,
+        type: 'chorus',
+        blockKind: 'chorus_recall',
+        isChorusRecall: true,
+        recallLabel: targetTitle,
+        title: targetTitle,
+        lines: []
+      });
       return;
     }
 
-    const rect = el.getBoundingClientRect();
-    // Relative coordinates within the textarea container
-    const relativeX = Math.max(12, Math.min(rect.width - 150, e.clientX - rect.left));
-    const relativeY = Math.max(8, e.clientY - rect.top);
+    if (nextKind === 'grid') {
+      const existingGridLines = rawText.trim()
+        ? rawText.split('\n').map(r => (
+            r.trim()
+              ? { id: generateId('line_grid'), type: 'grid_row' as const, items: [], gridRaw: r }
+              : { id: generateId('line_emp'), type: 'empty' as const, items: [] }
+          ))
+        : [{ id: generateId('line_grid'), type: 'grid_row' as const, items: [], gridRaw: DEFAULT_GRID_TEXT }];
+      onUpdateSection({
+        ...section,
+        type: 'grid',
+        blockKind: 'grid',
+        isChorusRecall: false,
+        recallLabel: undefined,
+        lines: existingGridLines
+      });
+      return;
+    }
 
-    setSplitPopover({
-      visible: true,
-      charIndex: caret,
-      x: relativeX,
-      y: relativeY
+    if (nextKind === 'tab') {
+      const tabSource = rawText.trim() ? rawText.split('\n') : DEFAULT_TAB_LINES;
+      onUpdateSection({
+        ...section,
+        type: 'tab',
+        blockKind: 'tab',
+        isChorusRecall: false,
+        recallLabel: undefined,
+        lines: tabSource.map(tabText => ({
+          id: generateId('line_tab'),
+          type: 'tab_row' as const,
+          items: [],
+          tabText
+        }))
+      });
+      return;
+    }
+
+    // Switching back to lyrics
+    const nextType = (section.type === 'grid' || section.type === 'tab') ? 'verse' : section.type;
+    onUpdateSection({
+      ...section,
+      type: nextType,
+      blockKind: 'lyrics',
+      isChorusRecall: false,
+      recallLabel: undefined,
+      lines: convertIntuitiveTextToVisualLines(rawText)
     });
   };
 
-  // Perform split at charIndex: divide rawText into two parts and create new section
+  // Quick insertion of snippet at current caret position
+  const handleInsertSnippet = (snippet: string, asNewLine = false, explicitPos?: number) => {
+    const el = textareaRef.current;
+    const basePos = explicitPos !== undefined
+      ? explicitPos
+      : el
+        ? (el.selectionStart ?? rawText.length)
+        : rawText.length;
+    const start = Math.max(0, Math.min(rawText.length, basePos));
+    const before = rawText.substring(0, start);
+    const after = rawText.substring(start);
+    const needsLeadingNewline = asNewLine && before.length > 0 && !before.endsWith('\n');
+    const needsTrailingNewline = asNewLine && after.length > 0 && !after.startsWith('\n');
+    const inserted = `${needsLeadingNewline ? '\n' : ''}${snippet}${needsTrailingNewline ? '\n' : ''}`;
+    const newText = before + inserted + after;
+    handleTextChange(newText);
+    setTimeout(() => {
+      const targetEl = textareaRef.current;
+      if (targetEl) {
+        targetEl.focus();
+        const cursorPos = start + inserted.length;
+        targetEl.setSelectionRange(cursorPos, cursorPos);
+        savedSelectionRef.current = { start: cursorPos, end: cursorPos };
+      }
+    }, 15);
+  };
+
+  const handleOpenNoteComposer = (kind: QuickNoteKind) => {
+    if (activeNoteType === kind) {
+      setActiveNoteType(null);
+      return;
+    }
+    if (textareaRef.current) {
+      captureTextareaSelection(textareaRef.current);
+    } else if (!rawText) {
+      savedSelectionRef.current = { start: 0, end: 0 };
+    }
+    setActiveNoteType(kind);
+    setTimeout(() => {
+      noteInputRef.current?.focus();
+    }, 10);
+  };
+
+  const handleSubmitNoteComposer = () => {
+    const clean = noteDraft.trim();
+    if (!activeNoteType || !clean) return;
+
+    let formatted = '';
+    let asNewLine = true;
+    if (activeNoteType === 'comment') formatted = `{c: ${clean}}`;
+    else if (activeNoteType === 'comment_italic') formatted = `{ci: ${clean}}`;
+    else if (activeNoteType === 'comment_box') formatted = `{cb: ${clean}}`;
+    else if (activeNoteType === 'hash_comment') formatted = `# ${clean}`;
+    else {
+      formatted = `[*${clean}] `;
+      asNewLine = false;
+    }
+
+    const insertPos = rawText ? savedSelectionRef.current.start : 0;
+    handleInsertSnippet(formatted, asNewLine, insertPos);
+    setNoteDraft('');
+    setActiveNoteType(null);
+  };
+
+  // Quick insertion of a chord at current caret position
+  const handleInsertChord = (chord: string) => {
+    handleInsertSnippet(`${chord} `, false);
+  };
+
+  // Perform split at current/saved cursor position: divide rawText into two parts and create new section
   const handlePerformSplitSection = () => {
-    if (!splitPopover) return;
-    const { charIndex } = splitPopover;
+    if (!rawText.trim()) return;
+    const el = textareaRef.current;
+    const rawPos = el && document.activeElement === el
+      ? (el.selectionStart ?? savedSelectionRef.current.start)
+      : savedSelectionRef.current.start;
+    const charIndex = Math.max(0, Math.min(rawText.length, rawPos));
 
-    let headText = rawText.substring(0, charIndex);
-    let tailText = rawText.substring(charIndex);
+    const headText = rawText.substring(0, charIndex);
+    const tailText = rawText.substring(charIndex);
 
-    // If caret was inside a line, split at nearest clean line break or cleanly cut
     const headLines = convertIntuitiveTextToVisualLines(headText);
     const tailLines = convertIntuitiveTextToVisualLines(tailText);
 
     if (onSplitSection) {
       onSplitSection(section.id, headLines, tailLines);
     } else {
-      // Fallback: update this section with head, add section after with tail
       onUpdateSection({
         ...section,
         lines: headLines
@@ -345,8 +572,6 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
         onAddSection(section.type, section.title, index);
       }
     }
-
-    setSplitPopover(null);
   };
 
   // Floating "+" button above cursor position
@@ -474,7 +699,7 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
     const list = [...customTypes];
     const standardKeys = new Set([
       'verse', 'chorus', 'pre_chorus', 'bridge', 'intro', 'outro', 
-      'solo', 'interlude', 'instrumental', 'tag', 'finale', 'general'
+      'solo', 'interlude', 'instrumental', 'tag', 'finale', 'grid', 'tab', 'general'
     ]);
     if (section.type && !standardKeys.has(section.type) && !list.some(t => t.toLowerCase() === section.type.toLowerCase())) {
       list.push(section.type);
@@ -488,10 +713,20 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
       setIsCreatingCustomType(true);
       return;
     }
+    if (newTypeVal === 'grid') {
+      handleBlockKindChange('grid');
+      return;
+    }
+    if (newTypeVal === 'tab') {
+      handleBlockKindChange('tab');
+      return;
+    }
 
     onUpdateSection({
       ...section,
-      type: newTypeVal
+      type: newTypeVal,
+      blockKind: effectiveBlockKind === 'grid' || effectiveBlockKind === 'tab' ? 'lyrics' : effectiveBlockKind,
+      isChorusRecall: false
     });
   };
 
@@ -936,6 +1171,12 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
                   <option value="finale" className="bg-[#141416] text-red-300">
                     {section.type === 'finale' ? selectedDisplayLabel : 'Finale'}
                   </option>
+                  <option value="grid" className="bg-[#141416] text-amber-300">
+                    {section.type === 'grid' ? selectedDisplayLabel : 'Grille'}
+                  </option>
+                  <option value="tab" className="bg-[#141416] text-sky-300">
+                    {section.type === 'tab' ? selectedDisplayLabel : 'Tablature'}
+                  </option>
                   <option value="general" className="bg-[#141416] text-gray-300">
                     {section.type === 'general' ? selectedDisplayLabel : 'Autre'}
                   </option>
@@ -956,6 +1197,20 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
                 </optgroup>
               </select>
             )}
+
+            {/* Block mode selector (Paroles / Grille / Tablature / Rappel {chorus}) */}
+            <select
+              value={effectiveBlockKind}
+              onChange={(e) => handleBlockKindChange(e.target.value as 'lyrics' | 'grid' | 'tab' | 'chorus_recall')}
+              className="px-2 py-1 rounded-md border border-white/10 bg-[#18181C] hover:bg-[#202026] text-[11px] font-semibold text-gray-300 focus:outline-none cursor-pointer"
+              title="Format du bloc ChordPro"
+              aria-label="Format du bloc ChordPro"
+            >
+              <option value="lyrics" className="bg-[#141416]">Paroles</option>
+              <option value="grid" className="bg-[#141416]">Grille</option>
+              <option value="tab" className="bg-[#141416]">Tablature</option>
+              <option value="chorus_recall" className="bg-[#141416]">Rappel {'{chorus}'}</option>
+            </select>
 
             {/* Section Repeat Selector (x1, x2, x3... avec boutons - et +) */}
             <div 
@@ -1006,6 +1261,32 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
                 <Plus className="w-3 h-3 stroke-[2.5]" />
               </button>
             </div>
+
+            {/* Modulation toggle button (not needed on recall shortcut) */}
+            {effectiveBlockKind !== 'chorus_recall' && (
+              <button
+                type="button"
+                onClick={() => setShowModulationBar(prev => !prev)}
+                className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md border text-[11px] font-semibold transition-all cursor-pointer ${
+                  showModulationBar || hasSectionModulation
+                    ? 'bg-indigo-950/50 border-indigo-500/40 text-indigo-300'
+                    : 'bg-[#18181C] hover:bg-[#202026] border-white/10 text-gray-400 hover:text-gray-200'
+                }`}
+                title="Modulation & paramètres musicaux propres à cette section"
+              >
+                <SlidersHorizontal className="w-3 h-3" />
+                <span>
+                  {hasSectionModulation
+                    ? [
+                        section.key ? section.key : null,
+                        section.transposeOffset ? `${section.transposeOffset > 0 ? '+' : ''}${section.transposeOffset}t` : null,
+                        section.tempo ? `${section.tempo}bpm` : null,
+                        section.timeSignature || null
+                      ].filter(Boolean).join(' · ')
+                    : 'Modulation'}
+                </span>
+              </button>
+            )}
           </div>
 
           {/* Section Header Right Controls: Vocal Arrangement */}
@@ -1022,71 +1303,375 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
             />
           </div>
         </div>
-      </div>
 
-      {/* Section Content: Direct editor field styled identically to SongReader */}
-      {!isSectionCollapsed && (
-        <div className="p-3 sm:p-4">
-        {section.lines.length === 0 && !rawText.trim() ? (
-          <div className="py-6 text-center text-gray-500 text-xs border border-dashed border-white/10 rounded-lg">
-            <span>Cette section est vide.</span>
-            <button
-              type="button"
-              onClick={handleAddLine}
-              className="block mx-auto mt-2 text-blue-400 font-semibold hover:underline cursor-pointer"
-            >
-              + Commencer à écrire dans le champ de texte
-            </button>
-          </div>
-        ) : (
-          <div className="relative w-full rounded-lg transition-all focus-within:ring-1 focus-within:ring-white/15">
-            {/* Backdrop avec mise en valeur des accords et paroles sans boîte imbriquée */}
-            <div
-              ref={backdropRef}
-              aria-hidden="true"
-              className="absolute inset-0 p-2 sm:p-3 font-chord text-sm sm:text-base leading-relaxed overflow-hidden pointer-events-none whitespace-pre-wrap break-words select-none"
-            >
-              {renderHighlightedContent(rawText)}
+        {/* Collapsible Scoped Modulation Controls */}
+        {(showModulationBar || hasSectionModulation) && effectiveBlockKind !== 'chorus_recall' && !isSectionCollapsed && (
+          <div className="pt-2 border-t border-white/5 flex flex-wrap items-center gap-2 text-[11px]">
+            <label className="inline-flex items-center gap-1.5 text-gray-400">
+              <span>Ton :</span>
+              <input
+                type="text"
+                value={section.key || ''}
+                onChange={(e) => onUpdateSection({ ...section, key: e.target.value.trim() || undefined })}
+                placeholder="ex: D"
+                className="w-14 px-2 py-0.5 rounded bg-[#141418] border border-white/10 text-blue-300 font-mono font-bold focus:outline-none focus:border-blue-500"
+              />
+            </label>
+
+            <div className="inline-flex items-center gap-1 text-gray-400 bg-[#141418] border border-white/10 rounded px-1.5 py-0.5">
+              <span>Transpose :</span>
+              <button
+                type="button"
+                onClick={() => {
+                  const next = Math.max(-11, (section.transposeOffset || 0) - 1);
+                  onUpdateSection({ ...section, transposeOffset: next === 0 ? undefined : next });
+                }}
+                className="px-1 text-gray-300 hover:text-white cursor-pointer"
+                title="Baisser d'un demi-ton"
+              >
+                -
+              </button>
+              <span className="font-mono font-bold text-indigo-300 min-w-[3ch] text-center">
+                {section.transposeOffset ? `${section.transposeOffset > 0 ? '+' : ''}${section.transposeOffset}` : '0'}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  const next = Math.min(11, (section.transposeOffset || 0) + 1);
+                  onUpdateSection({ ...section, transposeOffset: next === 0 ? undefined : next });
+                }}
+                className="px-1 text-gray-300 hover:text-white cursor-pointer"
+                title="Monter d'un demi-ton"
+              >
+                +
+              </button>
             </div>
 
-            {/* Zone de saisie synchrone directe */}
-            <textarea
-              ref={textareaRef}
-              value={rawText}
-              onChange={(e) => handleTextChange(e.target.value)}
-              onClick={handleTextareaClick}
-              onKeyUp={handleTextareaClick}
-              onScroll={handleScroll}
-              rows={Math.max(6, Math.min(24, rawText.split('\n').length + 2))}
-              placeholder={`Écrivez vos accords sur une ligne (ex: Sol   Do   Mim ou G   C   Em)\nEt vos paroles sur la ligne en dessous.\nPour faire une ligne vide, faites simplement un saut de ligne ou tapez un espace.`}
-              className="relative w-full h-full min-h-[160px] bg-transparent p-2 sm:p-3 text-sm sm:text-base font-chord text-transparent caret-blue-400 placeholder-gray-500/60 leading-relaxed outline-none resize-y selection:bg-blue-600/35 selection:text-white"
-              spellCheck={false}
-            />
-
-            {/* Mini Popover pour découper la section à partir d'ici : uniquement l'icône diviser */}
-            {splitPopover?.visible && (
-              <div
-                style={{
-                  top: `${Math.max(4, splitPopover.y - 32)}px`,
-                  left: `${Math.max(8, splitPopover.x)}px`,
+            <label className="inline-flex items-center gap-1.5 text-gray-400">
+              <span>BPM :</span>
+              <input
+                type="number"
+                min={30}
+                max={260}
+                value={section.tempo || ''}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value, 10);
+                  onUpdateSection({ ...section, tempo: !isNaN(val) && val > 0 ? val : undefined });
                 }}
-                className="split-section-popover absolute z-50 p-0.5 bg-[#141418]/95 backdrop-blur-md border border-white/20 rounded-lg shadow-2xl animate-in fade-in zoom-in-95 pointer-events-auto select-none"
+                placeholder="—"
+                className="w-16 px-2 py-0.5 rounded bg-[#141418] border border-white/10 text-emerald-300 font-mono font-bold focus:outline-none focus:border-emerald-500"
+              />
+            </label>
+
+            <label className="inline-flex items-center gap-1.5 text-gray-400">
+              <span>Mesure :</span>
+              <select
+                value={section.timeSignature || ''}
+                onChange={(e) => onUpdateSection({ ...section, timeSignature: e.target.value || undefined })}
+                className="px-2 py-0.5 rounded bg-[#141418] border border-white/10 text-emerald-300 font-bold focus:outline-none"
               >
-                <button
-                  type="button"
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    handlePerformSplitSection();
-                  }}
-                  className="p-1.5 rounded-md bg-blue-600 hover:bg-blue-500 text-white shadow-xs transition-all active:scale-90 cursor-pointer flex items-center justify-center"
-                  title={`Découper et créer une nouvelle section « ${selectedDisplayLabel} »`}
-                  aria-label={`Découper la section « ${selectedDisplayLabel} »`}
-                >
-                  <Scissors className="w-3.5 h-3.5" />
-                </button>
+                <option value="">Défaut</option>
+                {['4/4', '3/4', '6/8', '2/4', '12/8', '5/4'].map(ts => (
+                  <option key={ts} value={ts}>{ts}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+        )}
+      </div>
+
+      {/* Section Content */}
+      {!isSectionCollapsed && (
+        <div className="p-3 sm:p-4">
+        {effectiveBlockKind === 'chorus_recall' ? (
+          <div className="rounded-lg border border-amber-500/30 bg-amber-950/15 p-3 space-y-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-xs text-amber-200 font-semibold">
+                <span className="font-mono text-[11px] px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/40 text-amber-300">
+                  {'{chorus}'}
+                </span>
+                <span>Rappel automatique du refrain</span>
               </div>
+              {availableChoruses.length > 0 && (
+                <select
+                  value={section.recallLabel || matchedRecallChorus?.title || 'Refrain'}
+                  onChange={(e) => onUpdateSection({
+                    ...section,
+                    recallLabel: e.target.value,
+                    title: e.target.value
+                  })}
+                  className="px-2 py-1 rounded-md bg-[#141418] border border-amber-500/30 text-xs text-amber-200 focus:outline-none"
+                >
+                  {availableChoruses.map(ch => (
+                    <option key={ch.id} value={ch.title}>{ch.title}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+            {matchedRecallChorus ? (
+              <pre className="text-xs text-gray-300 whitespace-pre-wrap font-chord bg-[#121216]/80 rounded-md p-2.5 border border-white/5 max-h-40 overflow-y-auto">
+                {getLinesAsRawText(matchedRecallChorus) || 'Refrain vide'}
+              </pre>
+            ) : (
+              <p className="text-xs text-amber-300/75 italic">
+                Définissez un bloc Refrain plus haut pour prévisualiser ses paroles et accords ici.
+              </p>
             )}
           </div>
+        ) : (
+          <>
+            {/* Quick-insert helpers bar tailored to blockKind */}
+            <div className="mb-2.5 rounded-xl bg-[#141418]/90 border border-white/10 p-1.5 shadow-inner">
+              {effectiveBlockKind === 'lyrics' && (() => {
+                const noteOptions: {
+                  kind: QuickNoteKind;
+                  label: string;
+                  placeholder: string;
+                  hint: string;
+                  icon: React.ReactNode;
+                  idleClass: string;
+                  activeClass: string;
+                  badgeClass: string;
+                }[] = [
+                  {
+                    kind: 'comment',
+                    label: 'Note',
+                    placeholder: 'Écrire une note musicale (ex: Guitare seule, Monter)...',
+                    hint: 'Note affichée dans la section {c:}',
+                    icon: <MessageSquare className="w-3.5 h-3.5" />,
+                    idleClass: 'bg-sky-500/8 hover:bg-sky-500/18 border-sky-500/20 text-sky-300',
+                    activeClass: 'bg-sky-500/25 border-sky-400 text-white ring-1 ring-sky-400/40',
+                    badgeClass: 'text-sky-300 bg-sky-500/15 border-sky-500/30',
+                  },
+                  {
+                    kind: 'comment_italic',
+                    label: 'Italique',
+                    placeholder: 'Indication en italique (ex: En doux, Chœur seul)...',
+                    hint: 'Indication discrète en italique {ci:}',
+                    icon: <Italic className="w-3.5 h-3.5" />,
+                    idleClass: 'bg-cyan-500/8 hover:bg-cyan-500/18 border-cyan-500/20 text-cyan-300',
+                    activeClass: 'bg-cyan-500/25 border-cyan-400 text-white ring-1 ring-cyan-400/40',
+                    badgeClass: 'text-cyan-300 bg-cyan-500/15 border-cyan-500/30',
+                  },
+                  {
+                    kind: 'comment_box',
+                    label: 'Encadré',
+                    placeholder: 'Alerte encadrée (ex: Attention reprise, +1 ton)...',
+                    hint: 'Bloc encadré bien visible sur scène {cb:}',
+                    icon: <Square className="w-3.5 h-3.5" />,
+                    idleClass: 'bg-amber-500/8 hover:bg-amber-500/18 border-amber-500/25 text-amber-300',
+                    activeClass: 'bg-amber-500/25 border-amber-400 text-white ring-1 ring-amber-400/40',
+                    badgeClass: 'text-amber-300 bg-amber-500/15 border-amber-500/30',
+                  },
+                  {
+                    kind: 'annotation',
+                    label: 'Sur mot',
+                    placeholder: 'Annotation au fil des paroles (ex: Crescendo, Pause)...',
+                    hint: 'Annotation placée directement sur le passage [*texte]',
+                    icon: <Highlighter className="w-3.5 h-3.5" />,
+                    idleClass: 'bg-yellow-500/8 hover:bg-yellow-500/18 border-yellow-500/20 text-yellow-200',
+                    activeClass: 'bg-yellow-500/25 border-yellow-400 text-white ring-1 ring-yellow-400/40',
+                    badgeClass: 'text-yellow-200 bg-yellow-500/15 border-yellow-500/30',
+                  },
+                  {
+                    kind: 'hash_comment',
+                    label: 'Masquée',
+                    placeholder: 'Note technique privée (masquée en lecture et projection)...',
+                    hint: 'Commentaire interne masqué (#)',
+                    icon: <EyeOff className="w-3.5 h-3.5" />,
+                    idleClass: 'bg-white/5 hover:bg-white/10 border-white/10 text-gray-300',
+                    activeClass: 'bg-white/15 border-gray-400 text-white ring-1 ring-white/30',
+                    badgeClass: 'text-gray-300 bg-white/10 border-white/20',
+                  },
+                ];
+
+                const activeOption = noteOptions.find(o => o.kind === activeNoteType);
+
+                return (
+                  <div className="space-y-1.5">
+                    <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 px-1.5 hidden sm:inline">
+                        Ajouter :
+                      </span>
+                      {noteOptions.map(opt => {
+                        const isActive = activeNoteType === opt.kind;
+                        return (
+                          <button
+                            key={opt.kind}
+                            type="button"
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => handleOpenNoteComposer(opt.kind)}
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border font-medium transition-all cursor-pointer active:scale-95 ${
+                              isActive ? opt.activeClass : opt.idleClass
+                            }`}
+                            title={opt.hint}
+                          >
+                            {opt.icon}
+                            <span>{opt.label}</span>
+                          </button>
+                        );
+                      })}
+                      <div className="ml-auto pl-1.5 border-l border-white/10">
+                        <button
+                          type="button"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={handlePerformSplitSection}
+                          disabled={!rawText.trim()}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-blue-500/25 bg-blue-500/10 hover:bg-blue-500/20 disabled:opacity-35 text-blue-300 font-medium transition-all cursor-pointer disabled:cursor-not-allowed active:scale-95"
+                          title={`Couper la section « ${selectedDisplayLabel} » à la position du curseur`}
+                          aria-label={`Découper la section « ${selectedDisplayLabel} »`}
+                        >
+                          <Scissors className="w-3.5 h-3.5" />
+                          <span>Découper</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {activeOption && (
+                      <div className="flex items-center gap-1.5 pt-1.5 border-t border-white/10 animate-in fade-in duration-100">
+                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[11px] font-semibold shrink-0 ${activeOption.badgeClass}`}>
+                          {activeOption.icon}
+                          <span className="hidden xs:inline">{activeOption.label}</span>
+                        </span>
+                        <input
+                          ref={noteInputRef}
+                          type="text"
+                          value={noteDraft}
+                          onChange={(e) => setNoteDraft(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleSubmitNoteComposer();
+                            } else if (e.key === 'Escape') {
+                              e.preventDefault();
+                              setActiveNoteType(null);
+                            }
+                          }}
+                          placeholder={activeOption.placeholder}
+                          className="flex-1 min-w-0 bg-[#1B1B22] border border-white/15 focus:border-blue-500 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500/30"
+                          autoFocus
+                        />
+                        <button
+                          type="button"
+                          onClick={handleSubmitNoteComposer}
+                          disabled={!noteDraft.trim()}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white text-xs font-semibold transition-colors cursor-pointer disabled:cursor-not-allowed shrink-0"
+                          title="Insérer la note (Entrée)"
+                        >
+                          <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                          <span className="hidden sm:inline">Insérer</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setActiveNoteType(null)}
+                          className="p-1.5 rounded-lg bg-[#1E1E26] hover:bg-[#2A2A35] text-gray-400 hover:text-white transition-colors cursor-pointer shrink-0"
+                          title="Fermer (Échap)"
+                          aria-label="Fermer"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {effectiveBlockKind === 'grid' && (
+                <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                  {['|:', ':|', '|', '.', '%'].map(sym => (
+                    <button
+                      key={sym}
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => handleInsertSnippet(`${sym} `, false)}
+                      className="px-2 py-0.5 rounded-lg bg-[#1A1A20] hover:bg-[#24242C] border border-amber-500/30 text-amber-300 font-mono font-bold cursor-pointer"
+                    >
+                      {sym}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => handleInsertSnippet('|: C . G . | Am . F . :|', true)}
+                    className="px-2.5 py-0.5 rounded-lg bg-[#1A1A20] hover:bg-[#24242C] border border-white/10 text-gray-300 cursor-pointer"
+                  >
+                    + Ligne de grille
+                  </button>
+                </div>
+              )}
+
+              {effectiveBlockKind === 'tab' && (
+                <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => handleInsertSnippet(DEFAULT_TAB_LINES.join('\n'), true)}
+                    className="px-2.5 py-0.5 rounded-lg bg-[#1A1A20] hover:bg-[#24242C] border border-sky-500/30 text-sky-300 font-mono cursor-pointer"
+                  >
+                    + Portée 6 cordes
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {section.lines.length === 0 && !rawText.trim() ? (
+              <div className="py-6 text-center text-gray-500 text-xs border border-dashed border-white/10 rounded-lg">
+                <span>Cette section est vide.</span>
+                <button
+                  type="button"
+                  onClick={handleAddLine}
+                  className="block mx-auto mt-2 text-blue-400 font-semibold hover:underline cursor-pointer"
+                >
+                  + Commencer à écrire dans le champ de texte
+                </button>
+              </div>
+            ) : (
+              <div className="relative w-full rounded-lg transition-all focus-within:ring-1 focus-within:ring-white/15">
+                {/* Backdrop avec mise en valeur des accords et paroles sans boîte imbriquée */}
+                <div
+                  ref={backdropRef}
+                  aria-hidden="true"
+                  className={`absolute inset-0 p-2 sm:p-3 text-sm sm:text-base leading-relaxed overflow-hidden pointer-events-none select-none ${
+                    effectiveBlockKind === 'tab'
+                      ? 'font-mono whitespace-pre'
+                      : effectiveBlockKind === 'grid'
+                        ? 'font-mono tabular-nums whitespace-pre-wrap break-words'
+                        : 'font-chord whitespace-pre-wrap break-words'
+                  }`}
+                >
+                  {renderHighlightedContent(rawText)}
+                </div>
+
+                {/* Zone de saisie synchrone directe */}
+                <textarea
+                  ref={textareaRef}
+                  value={rawText}
+                  onChange={(e) => handleTextChange(e.target.value)}
+                  onClick={(e) => captureTextareaSelection(e.currentTarget)}
+                  onKeyUp={(e) => captureTextareaSelection(e.currentTarget)}
+                  onSelect={(e) => captureTextareaSelection(e.currentTarget)}
+                  onBlur={(e) => captureTextareaSelection(e.currentTarget)}
+                  onScroll={handleScroll}
+                  rows={Math.max(6, Math.min(24, rawText.split('\n').length + 2))}
+                  placeholder={
+                    effectiveBlockKind === 'grid'
+                      ? '|: C . G . | Am . F . :|'
+                      : effectiveBlockKind === 'tab'
+                        ? DEFAULT_TAB_LINES.join('\n')
+                        : `Écrivez vos accords sur une ligne (ex: Sol   Do   Mim ou G   C   Em)\nEt vos paroles sur la ligne en dessous.\nPour faire une ligne vide, faites simplement un saut de ligne ou tapez un espace.`
+                  }
+                  className={`relative w-full h-full min-h-[160px] bg-transparent p-2 sm:p-3 text-sm sm:text-base text-transparent caret-blue-400 placeholder-gray-500/60 leading-relaxed outline-none resize-y selection:bg-blue-600/35 selection:text-white ${
+                    effectiveBlockKind === 'tab'
+                      ? 'font-mono whitespace-pre overflow-x-auto'
+                      : effectiveBlockKind === 'grid'
+                        ? 'font-mono tabular-nums'
+                        : 'font-chord'
+                  }`}
+                  spellCheck={false}
+                />
+              </div>
+            )}
+          </>
         )}
 
         {/* Bouton de suppression de section en bas et centré (double-clic au même endroit, uniquement icônes sans texte) */}

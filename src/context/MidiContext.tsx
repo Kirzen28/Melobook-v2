@@ -7,10 +7,11 @@ import {
   DEFAULT_MIDI_MAPPINGS,
   MIDI_ACTION_LABELS
 } from '../types/midi';
-import { midiService } from '../services/midiService';
+import { midiService, MidiPermissionState } from '../services/midiService';
 
 interface MidiContextType {
   isSupported: boolean;
+  permissionState: MidiPermissionState;
   isEnabled: boolean;
   setIsEnabled: (enabled: boolean) => void;
   devices: MidiDevice[];
@@ -40,6 +41,9 @@ export const MidiProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isSupported = midiService.checkSupport();
   const initialSettings = midiService.getSettings();
 
+  const [permissionState, setPermissionState] = useState<MidiPermissionState>(() =>
+    midiService.getPermissionState()
+  );
   const [isEnabled, setIsEnabledState] = useState<boolean>(initialSettings.enabled);
   const [selectedInputId, setSelectedInputIdState] = useState<string>(initialSettings.selectedInputId);
   const [mappings, setMappings] = useState<MidiMapping[]>(initialSettings.mappings);
@@ -49,12 +53,25 @@ export const MidiProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [lastTriggeredAction, setLastTriggeredAction] = useState<{ action: MidiAction; label: string; timestamp: number } | null>(null);
   const [isMidiModalOpen, setIsMidiModalOpen] = useState(false);
 
-  // Initialize Web MIDI on mount
+  const refreshDevices = useCallback(async () => {
+    await midiService.init();
+    setDevices(midiService.getDevices());
+    setPermissionState(midiService.getPermissionState());
+  }, []);
+
+  // Abonnement passif au montage : initialise Web MIDI uniquement si déjà autorisé ou lors du branchement USB
   useEffect(() => {
     if (!isSupported) return;
 
-    midiService.init().then(() => {
-      setDevices(midiService.getDevices());
+    midiService.checkPermissionSilently().then((state) => {
+      setPermissionState(state);
+      if (state === 'granted') {
+        setDevices(midiService.getDevices());
+      }
+    });
+
+    const unsubscribePermission = midiService.onPermissionChange((state) => {
+      setPermissionState(state);
     });
 
     const unsubscribeDevices = midiService.onDeviceChange((updatedDevices) => {
@@ -69,22 +86,40 @@ export const MidiProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLastTriggeredAction({ action, label, timestamp: Date.now() });
     });
 
+    const navUsb = (navigator as unknown as { usb?: EventTarget }).usb;
+    const handleUsbConnect = () => {
+      if (!midiService.getIsInitialized()) {
+        void midiService.init().then((ok) => {
+          if (ok) setDevices(midiService.getDevices());
+          setPermissionState(midiService.getPermissionState());
+        });
+      }
+    };
+    navUsb?.addEventListener?.('connect', handleUsbConnect);
+
     return () => {
+      unsubscribePermission();
       unsubscribeDevices();
       unsubscribeMessages();
       unsubscribeActions();
+      navUsb?.removeEventListener?.('connect', handleUsbConnect);
     };
   }, [isSupported]);
 
-  const refreshDevices = useCallback(async () => {
-    await midiService.init();
-    setDevices(midiService.getDevices());
-  }, []);
+  // Demande l'accès MIDI uniquement quand l'utilisateur ouvre la fenêtre de connexion/réglages MIDI
+  useEffect(() => {
+    if (isSupported && isMidiModalOpen && !midiService.getIsInitialized()) {
+      void refreshDevices();
+    }
+  }, [isSupported, isMidiModalOpen, refreshDevices]);
 
   const setIsEnabled = useCallback((enabled: boolean) => {
     setIsEnabledState(enabled);
     midiService.updateSettings({ enabled });
-  }, []);
+    if (enabled && isSupported && !midiService.getIsInitialized()) {
+      void refreshDevices();
+    }
+  }, [isSupported, refreshDevices]);
 
   const setSelectedInputId = useCallback((id: string) => {
     setSelectedInputIdState(id);
@@ -290,6 +325,7 @@ export const MidiProvider: React.FC<{ children: React.ReactNode }> = ({ children
   return (
     <MidiContext.Provider value={{
       isSupported,
+      permissionState,
       isEnabled,
       setIsEnabled,
       devices,

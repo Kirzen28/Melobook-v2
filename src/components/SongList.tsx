@@ -1450,25 +1450,32 @@ export const SongList: React.FC = () => {
     if (selectedSongsList.length === 0) return;
 
     const content = selectedSongsList.map(song => {
-      const header = `{title: ${song.title}}\n` +
-        (song.artist ? `{artist: ${song.artist}}\n` : '') +
-        (song.key ? `{key: ${song.key}}\n` : '') +
-        (song.tempo ? `{tempo: ${song.tempo}}\n` : '') +
-        (song.tags && song.tags.length > 0 ? `{comment: Catégories: ${song.tags.join(', ')}}\n` : '');
-      return `${header}\n${song.contentChordPro || ''}\n`;
-    }).join('\n========================================\n\n');
+      const raw = (song.contentChordPro || '').trim();
+      if (/\{(?:title|t)\s*:/i.test(raw)) return raw;
+      const headerLines = [
+        `{title: ${song.title}}`,
+        song.artist ? `{artist: ${song.artist}}` : '',
+        song.album ? `{album: ${song.album}}` : '',
+        song.key ? `{key: ${song.key}}` : '',
+        song.tempo ? `{tempo: ${song.tempo}}` : '',
+        song.timeSignature ? `{time: ${song.timeSignature}}` : '',
+        song.capo ? `{capo: ${song.capo}}` : '',
+        song.tags && song.tags.length > 0 ? `{comment: Catégories: ${song.tags.join(', ')}}` : '',
+      ].filter(Boolean);
+      return `${headerLines.join('\n')}\n\n${raw}`;
+    }).join('\n\n{new_song}\n\n');
 
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `selection-${selectedSongsList.length}-chants-chordpro.txt`;
+    link.download = `selection-${selectedSongsList.length}-chants.cho`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
 
-    setExportNotification(`Fichier ChordPro téléchargé pour ${selectedSongsList.length} chants`);
+    setExportNotification(`Fichier ChordPro (.cho) téléchargé pour ${selectedSongsList.length} chants`);
     setTimeout(() => {
       setExportNotification(null);
       setIsMultiExportModalOpen(false);
@@ -1550,8 +1557,8 @@ export const SongList: React.FC = () => {
 
         {/* Div unique alignant le titre, l'artiste, les badges et les boutons */}
         <div className="flex items-center justify-between gap-2.5 sm:gap-3 min-w-0 flex-1">
-          {/* Title and Artist */}
-          <div className="min-w-0 flex-1 flex flex-col md:flex-row md:items-center gap-0.5 md:gap-3">
+          {/* Title, Artist & Album */}
+          <div className="min-w-0 flex-1 flex flex-col gap-0.5">
             <div className="min-w-0 flex-1 flex items-center gap-2">
               <h3 
                 className="text-xs sm:text-sm font-bold text-white group-hover:text-blue-400 transition-colors truncate leading-snug"
@@ -1559,7 +1566,24 @@ export const SongList: React.FC = () => {
               >
                 {stripParentheses(song.title)}
               </h3>
+              {songCardMetadata.showAlbum !== false && song.album && (
+                <span
+                  className="hidden sm:inline-flex items-center gap-1.5 text-[11px] text-gray-400 truncate shrink min-w-0"
+                  title={`Album : ${song.album}`}
+                >
+                  <span className="text-gray-600 select-none">·</span>
+                  <span className="truncate">{song.album}</span>
+                </span>
+              )}
             </div>
+            {songCardMetadata.showAlbum !== false && song.album && (
+              <span
+                className="sm:hidden text-[11px] text-gray-400 truncate block"
+                title={`Album : ${song.album}`}
+              >
+                {song.album}
+              </span>
+            )}
           </div>
 
           {/* Badges et boutons d'action directement alignés sur la même ligne */}

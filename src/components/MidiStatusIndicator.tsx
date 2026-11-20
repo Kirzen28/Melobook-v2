@@ -14,6 +14,7 @@ export const MidiStatusIndicator: React.FC<MidiStatusIndicatorProps> = ({
 }) => {
   const { 
     isSupported, 
+    permissionState,
     isEnabled, 
     hasConnectedDevices, 
     devices, 
@@ -59,9 +60,11 @@ export const MidiStatusIndicator: React.FC<MidiStatusIndicatorProps> = ({
         title={
           !isSupported 
             ? 'Web MIDI non supporté' 
-            : hasConnectedDevices 
-              ? `${connectedCount} périphérique(s) MIDI connecté(s) - Cliquer pour configurer` 
-              : 'Aucun périphérique MIDI - Cliquer pour configurer vos pédales'
+            : permissionState !== 'granted'
+              ? 'Cliquer pour autoriser et connecter un appareil MIDI'
+              : hasConnectedDevices 
+                ? `${connectedCount} périphérique(s) MIDI connecté(s) - Cliquer pour configurer` 
+                : 'Aucun périphérique MIDI - Cliquer pour configurer vos pédales'
         }
       >
         <Radio className={`w-3.5 h-3.5 ${isFlashing ? 'text-white' : hasConnectedDevices && isEnabled ? 'text-blue-400' : 'text-gray-500'}`} />

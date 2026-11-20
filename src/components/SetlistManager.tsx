@@ -379,7 +379,7 @@ export const SetlistManager: React.FC = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-3 sm:px-6 py-6 pb-12 text-[#E0E0E0]">
+    <div className="max-w-4xl mx-auto px-3 sm:px-6 py-6 pb-12 text-[#E0E0E0]">
       
       {/* Live Setlist Player Modal */}
       {isLiveSetlistOpen && selectedSetlist && (

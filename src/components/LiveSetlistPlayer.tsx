@@ -237,8 +237,8 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
       onTouchEnd={handleTouchEnd}
     >
       {/* Live Setlist Top Navigation Bar */}
-      <div className="no-print bg-[#111112]/98 border-b border-[#222224] px-3 sm:px-6 py-2 flex items-center justify-between gap-3 shadow-sm z-40 shrink-0">
-        
+      <div className="no-print bg-[#111112]/98 border-b border-[#222224] px-3 sm:px-8 md:px-12 py-2 shadow-sm z-40 shrink-0">
+        <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
         {/* Left: Close & Setlist info */}
         <div className="flex items-center gap-2.5 min-w-0">
           <button
@@ -315,7 +315,7 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
             {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
           </button>
         </div>
-
+        </div>
       </div>
 
       {/* Embedded Active Song Reader with animated transition */}

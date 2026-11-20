@@ -1641,7 +1641,7 @@ export const SongList: React.FC = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-3 sm:px-6 py-6 pb-12 text-[#E0E0E0]">
+    <div className="max-w-4xl mx-auto px-3 sm:px-6 py-6 pb-12 text-[#E0E0E0]">
       
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">

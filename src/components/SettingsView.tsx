@@ -570,7 +570,6 @@ export const SettingsView: React.FC = () => {
     chordColor = DEFAULT_CHORD_COLOR
   } = displaySettings;
   const [showNotification, setShowNotification] = useState<string | null>(null);
-  const [isMobilePreviewCollapsed, setIsMobilePreviewCollapsed] = useState(false);
   const [isMobilePreviewFullscreen, setIsMobilePreviewFullscreen] = useState(false);
   const [selectedPreviewElement, setSelectedPreviewElement] = useState<PointNClickSelection | null>(null);
 
@@ -1541,7 +1540,8 @@ export const SettingsView: React.FC = () => {
     <div className="h-[calc(100vh-64px)] flex flex-col bg-[#0A0A0B] text-white overflow-hidden">
       
       {/* Top Header Bar */}
-      <div className="settings-header-bar border-b border-[#222224] bg-[#111112]/90 backdrop-blur-md px-4 sm:px-8 py-3 flex items-center justify-between shrink-0 z-30">
+      <div className="settings-header-bar border-b border-[#222224] bg-[#111112]/90 backdrop-blur-md px-4 sm:px-6 lg:px-8 py-3 shrink-0 z-30">
+        <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <button
             onClick={() => setActiveTab('repertoire')}
@@ -1589,6 +1589,7 @@ export const SettingsView: React.FC = () => {
             <span className="hidden sm:inline">Réinitialiser</span>
           </button>
         </div>
+        </div>
       </div>
 
       {/* Notification Toast */}
@@ -1600,82 +1601,10 @@ export const SettingsView: React.FC = () => {
       )}
 
       {/* Main Workspace */}
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden">
         
-        {/* DESKTOP RIGHT STICKY PREVIEW (HIDDEN ON MOBILE) */}
-        <div className="hidden lg:flex lg:w-5/12 shrink-0 lg:shrink lg:order-last lg:border-l border-[#222224] bg-[#111112] z-20 flex-col">
-          <div className="p-3 sm:p-4 bg-[#141416] border-b border-[#222224] flex items-center justify-between shrink-0">
-            <div className="flex items-center gap-2">
-              <Eye className="w-4 h-4 text-green-400" />
-              <span className="text-xs font-bold text-white uppercase tracking-wider">
-                Aperçu en Direct
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              {/* Fullscreen Preview button */}
-              <button
-                id="btn-preview-fullscreen"
-                type="button"
-                onClick={() => {
-                  setIsMobilePreviewFullscreen(true);
-                  setIsMobilePreviewCollapsed(false);
-                }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border-blue-500/40 active:scale-95 shadow-sm cursor-pointer"
-                title="Afficher l'aperçu interactif en plein écran"
-              >
-                <Maximize2 className="w-3.5 h-3.5" />
-                <span>Plein écran</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => updateStageSettings({ showChords: !stageSettings.showChords })}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
-                  stageSettings.showChords
-                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30'
-                    : 'bg-[#222228] text-gray-400 border-[#383842] hover:text-white'
-                }`}
-                title="Afficher ou masquer les accords dans l'aperçu"
-              >
-                {stageSettings.showChords ? 'Accords : Oui' : 'Accords : Non'}
-              </button>
-
-              {/* Collapse / expand toggle */}
-              <button
-                type="button"
-                onClick={() => setIsMobilePreviewCollapsed(!isMobilePreviewCollapsed)}
-                className="p-1.5 rounded-lg bg-[#222226] hover:bg-[#2E2E34] text-gray-300 hover:text-white border border-[#383842] transition-colors cursor-pointer"
-                title={isMobilePreviewCollapsed ? "Déplier l'aperçu" : "Replier l'aperçu"}
-              >
-                {isMobilePreviewCollapsed ? (
-                  <ChevronDown className="w-4 h-4" />
-                ) : (
-                  <ChevronUp className="w-4 h-4" />
-                )}
-              </button>
-            </div>
-          </div>
-
-          {/* Song Preview Content Box */}
-          {!isMobilePreviewCollapsed && (
-            <div 
-              onClick={(e) => {
-                if (e.target === e.currentTarget) {
-                  setSelectedPreviewElement(null);
-                }
-              }}
-              className={`p-4 overflow-y-auto max-h-[34vh] sm:max-h-[38vh] lg:max-h-[calc(100vh-190px)] lg:flex-1 space-y-4 transition-colors relative ${
-                effectivePreviewTheme === 'light' ? 'bg-[#FFFFFF] text-[#18181B]' : 'bg-[#0E0E10] text-gray-100'
-              }`}
-              style={{ lineHeight: typography.lineSpacing }}
-            >
-              {renderSongPreviewBody(false)}
-            </div>
-          )}
-        </div>
-
-        {/* SCROLLABLE SETTINGS PANEL (FULL WIDTH ON MOBILE, LEFT ON DESKTOP) */}
-        <div className="flex-1 w-full lg:w-7/12 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-5 pb-24">
+        {/* SCROLLABLE SETTINGS PANEL */}
+        <div className="flex-1 w-full max-w-4xl mx-auto overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-5 pb-24">
           
           {/* 1. STAGE DISPLAY & NOTATION SETTINGS */}
           <div className="bg-[#111112] border border-[#222224] rounded-xl overflow-hidden shadow-sm transition-colors hover:border-[#303036]">
@@ -1822,28 +1751,26 @@ export const SettingsView: React.FC = () => {
             {/* Header / Trigger */}
             <div 
               onClick={() => {
-                setIsMobilePreviewFullscreen(true);
-                setIsMobilePreviewCollapsed(false);
-              }}
-              className="w-full text-left p-3.5 sm:p-4.5 flex items-center justify-between gap-3 cursor-pointer transition-colors hover:bg-[#151518]/50 select-none"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 shrink-0">
-                  <MousePointerClick className="w-4 h-4" />
-                </div>
-                <h2 className="text-sm font-bold text-white truncate">
-                  Personnalisation Visuelle Interactive
-                </h2>
+              setIsMobilePreviewFullscreen(true);
+            }}
+            className="w-full text-left p-3.5 sm:p-4.5 flex items-center justify-between gap-3 cursor-pointer transition-colors hover:bg-[#151518]/50 select-none"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 shrink-0">
+                <MousePointerClick className="w-4 h-4" />
               </div>
+              <h2 className="text-sm font-bold text-white truncate">
+                Personnalisation Visuelle Interactive
+              </h2>
+            </div>
 
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsMobilePreviewFullscreen(true);
-                    setIsMobilePreviewCollapsed(false);
-                  }}
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsMobilePreviewFullscreen(true);
+                }}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all active:scale-95 shadow-sm cursor-pointer"
                   title="Ouvrir l'aperçu interactif en plein écran"
                 >

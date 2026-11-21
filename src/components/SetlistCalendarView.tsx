@@ -68,6 +68,8 @@ export const SetlistCalendarView: React.FC<SetlistCalendarViewProps> = ({
     return `${y}-${m}-${d}`;
   }, [today]);
 
+  const existingSongIdsSet = useMemo(() => new Set(songs.map(s => s.id)), [songs]);
+
   const [currentYear, setCurrentYear] = useState<number>(today.getFullYear());
   const [currentMonth, setCurrentMonth] = useState<number>(today.getMonth());
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
@@ -464,6 +466,7 @@ export const SetlistCalendarView: React.FC<SetlistCalendarViewProps> = ({
                   <div className="mt-1 space-y-1 overflow-hidden">
                     {daySetlists.slice(0, 2).map((st) => {
                       const totalSecs = getSetlistTotalDurationSeconds(st);
+                      const validSongCount = st.songIds.filter(id => existingSongIdsSet.has(id)).length;
                       return (
                         <div
                           key={st.id}
@@ -472,7 +475,7 @@ export const SetlistCalendarView: React.FC<SetlistCalendarViewProps> = ({
                             setSelectedDate(cell.dateStr);
                           }}
                           className="px-1.5 py-0.5 sm:py-1 rounded-md bg-[#1D1D24] hover:bg-[#252530] border border-[#2E2E38] hover:border-blue-500/50 text-[10px] sm:text-[11px] font-medium text-gray-200 truncate flex items-center justify-between gap-1 shadow-xs transition-colors group/chip"
-                          title={`${st.name} (${st.songIds.length} chants, ${formatSetlistDuration(totalSecs)})`}
+                          title={`${st.name} (${validSongCount} chants, ${formatSetlistDuration(totalSecs)})`}
                         >
                           <div className="flex items-center gap-1 min-w-0 flex-1 truncate">
                             <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0" />
@@ -480,7 +483,7 @@ export const SetlistCalendarView: React.FC<SetlistCalendarViewProps> = ({
                           </div>
 
                           {/* Quick Live Launch icon */}
-                          {st.songIds.length > 0 && (
+                          {validSongCount > 0 && (
                             <button
                               type="button"
                               onClick={(e) => {

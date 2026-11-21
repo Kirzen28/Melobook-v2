@@ -4,7 +4,7 @@ import { Setlist, Song } from '../types';
 import { LiveSetlistPlayer } from './LiveSetlistPlayer';
 import { SetlistPdfModal } from './SetlistPdfModal';
 import { SetlistAddSongsModal } from './SetlistAddSongsModal';
-import { SetlistDatePickerModal } from './SetlistDatePickerModal';
+import { SetlistDatePickerModal, DarkDateInput } from './SetlistDatePickerModal';
 import { SetlistCalendarView } from './SetlistCalendarView';
 import { 
   parseDurationToSeconds, 
@@ -78,6 +78,18 @@ export const SetlistManager: React.FC = () => {
   const [datePickerSetlist, setDatePickerSetlist] = useState<Setlist | null>(null);
   const [activeMenuSetlistId, setActiveMenuSetlistId] = useState<string | null>(null);
   const songsListContainerRef = useRef<HTMLDivElement>(null);
+
+  const setlistsRef = useRef(setlists);
+  useEffect(() => {
+    setlistsRef.current = setlists;
+  }, [setlists]);
+
+  const existingSongIdsSet = useMemo(() => new Set(songs.map(s => s.id)), [songs]);
+  const songsById = useMemo(() => new Map(songs.map(s => [s.id, s])), [songs]);
+  const activeSelectedSetlist = useMemo(
+    () => (selectedSetlist ? setlists.find(s => s.id === selectedSetlist.id) || selectedSetlist : null),
+    [selectedSetlist, setlists]
+  );
 
   // View mode toggle: List vs Calendar
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>(() => {
@@ -159,11 +171,14 @@ export const SetlistManager: React.FC = () => {
 
   // Open Live Player
   const handleLaunchLive = (setlist: Setlist, startIndex = 0) => {
-    setSelectedSetlist(setlist);
+    const liveSetlist = setlistsRef.current.find(s => s.id === setlist.id) || setlist;
+    const validSongs = liveSetlist.songIds
+      .map(id => songsById.get(id))
+      .filter((s): s is Song => Boolean(s));
+    setSelectedSetlist(liveSetlist);
     setActiveSetlistIndex(startIndex);
-    if (setlist.songIds[startIndex]) {
-      const s = songs.find(item => item.id === setlist.songIds[startIndex]);
-      if (s) setSelectedSong(s);
+    if (validSongs[startIndex]) {
+      setSelectedSong(validSongs[startIndex]);
     }
     setIsLiveSetlistOpen(true);
   };
@@ -284,8 +299,13 @@ export const SetlistManager: React.FC = () => {
       return;
     }
 
-    const newSongIds = [...setlist.songIds];
+    const newSongIds = setlist.songIds.filter(id => existingSongIdsSet.has(id));
     const [movedSongId] = newSongIds.splice(draggedSongIndex, 1);
+    if (!movedSongId) {
+      setDraggedSongIndex(null);
+      setDragOverIndex(null);
+      return;
+    }
     newSongIds.splice(targetIndex, 0, movedSongId);
 
     setDraggedSongIndex(null);
@@ -328,10 +348,12 @@ export const SetlistManager: React.FC = () => {
       const fromIdx = touchStartIndexRef.current;
       const toIdx = dragOverIndex;
       if (fromIdx !== toIdx) {
-        const newSongIds = [...setlist.songIds];
+        const newSongIds = setlist.songIds.filter(id => existingSongIdsSet.has(id));
         const [movedSongId] = newSongIds.splice(fromIdx, 1);
-        newSongIds.splice(toIdx, 0, movedSongId);
-        await updateSetlist(setlist.id, { songIds: newSongIds });
+        if (movedSongId) {
+          newSongIds.splice(toIdx, 0, movedSongId);
+          await updateSetlist(setlist.id, { songIds: newSongIds });
+        }
       }
     }
     touchStartYRef.current = null;
@@ -342,47 +364,55 @@ export const SetlistManager: React.FC = () => {
 
   // Remove song from setlist
   const handleRemoveSong = async (setlist: Setlist, songId: string) => {
-    const newSongIds = setlist.songIds.filter(id => id !== songId);
+    const newSongIds = setlist.songIds.filter(id => id !== songId && existingSongIdsSet.has(id));
     await updateSetlist(setlist.id, { songIds: newSongIds });
   };
 
   // Toggle song in active setlist
   const handleToggleSongInActiveSetlist = async (songId: string) => {
-    if (!selectedSetlist) return;
-    const isPresent = selectedSetlist.songIds.includes(songId);
+    if (!activeSelectedSetlist) return;
+    const latest = setlistsRef.current.find(s => s.id === activeSelectedSetlist.id) || activeSelectedSetlist;
+    const validIds = latest.songIds.filter(id => existingSongIdsSet.has(id) || id === songId);
+    const isPresent = validIds.includes(songId);
     const newSongIds = isPresent
-      ? selectedSetlist.songIds.filter(id => id !== songId)
-      : [...selectedSetlist.songIds, songId];
-    await updateSetlist(selectedSetlist.id, { songIds: newSongIds });
+      ? validIds.filter(id => id !== songId)
+      : [...validIds, songId];
+    setlistsRef.current = setlistsRef.current.map(s => s.id === latest.id ? { ...s, songIds: newSongIds } : s);
+    await updateSetlist(latest.id, { songIds: newSongIds });
   };
 
   // Bulk add songs
   const handleAddMultipleSongs = async (songIdsToAdd: string[]) => {
-    if (!selectedSetlist) return;
-    const existing = new Set(selectedSetlist.songIds);
-    const newIds = [...selectedSetlist.songIds];
+    if (!activeSelectedSetlist) return;
+    const latest = setlistsRef.current.find(s => s.id === activeSelectedSetlist.id) || activeSelectedSetlist;
+    const addSet = new Set(songIdsToAdd);
+    const newIds = latest.songIds.filter(id => existingSongIdsSet.has(id) || addSet.has(id));
+    const existing = new Set(newIds);
     songIdsToAdd.forEach(id => {
       if (!existing.has(id)) {
         newIds.push(id);
         existing.add(id);
       }
     });
-    await updateSetlist(selectedSetlist.id, { songIds: newIds });
+    setlistsRef.current = setlistsRef.current.map(s => s.id === latest.id ? { ...s, songIds: newIds } : s);
+    await updateSetlist(latest.id, { songIds: newIds });
   };
 
   // Bulk remove songs
   const handleRemoveMultipleSongs = async (songIdsToRemove: string[]) => {
-    if (!selectedSetlist) return;
+    if (!activeSelectedSetlist) return;
+    const latest = setlistsRef.current.find(s => s.id === activeSelectedSetlist.id) || activeSelectedSetlist;
     const toRemove = new Set(songIdsToRemove);
-    const newSongIds = selectedSetlist.songIds.filter(id => !toRemove.has(id));
-    await updateSetlist(selectedSetlist.id, { songIds: newSongIds });
+    const newSongIds = latest.songIds.filter(id => !toRemove.has(id) && existingSongIdsSet.has(id));
+    setlistsRef.current = setlistsRef.current.map(s => s.id === latest.id ? { ...s, songIds: newSongIds } : s);
+    await updateSetlist(latest.id, { songIds: newSongIds });
   };
 
   return (
     <div className="max-w-4xl mx-auto px-3 sm:px-6 py-6 pb-12 text-[#E0E0E0]">
       
       {/* Live Setlist Player Modal */}
-      {isLiveSetlistOpen && selectedSetlist && (
+      {isLiveSetlistOpen && activeSelectedSetlist && (
         <LiveSetlistPlayer onClose={() => setIsLiveSetlistOpen(false)} />
       )}
 
@@ -495,6 +525,9 @@ export const SetlistManager: React.FC = () => {
               {setlists.map((st) => {
                 const isExpanded = expandedSetlistId === st.id;
                 const totalSecs = getSetlistTotalDurationSeconds(st);
+                const validSongs = st.songIds
+                  .map(id => songsById.get(id))
+                  .filter((s): s is Song => Boolean(s));
 
             return (
               <div
@@ -510,7 +543,7 @@ export const SetlistManager: React.FC = () => {
                 {/* Accordion Header / Setlist Bar : clic direct sur le bloc = lancement du Live dès le 1er chant */}
                 <div
                   onClick={() => {
-                    if (st.songIds.length > 0) {
+                    if (validSongs.length > 0) {
                       handleLaunchLive(st, 0);
                     } else {
                       setExpandedSetlistId(prev => (prev === st.id ? null : st.id));
@@ -523,7 +556,7 @@ export const SetlistManager: React.FC = () => {
                     }
                   }}
                   className="p-3.5 sm:p-5 flex items-center justify-between gap-3 cursor-pointer select-none group/card hover:bg-[#151519] transition-colors"
-                  title={st.songIds.length > 0 ? "Lancer le mode Live (dès la première chanson)" : "Dérouler la setlist"}
+                  title={validSongs.length > 0 ? "Lancer le mode Live (dès la première chanson)" : "Dérouler la setlist"}
                 >
                   {/* Left info: Bouton déroulant + Titre + Indicateur Live */}
                   <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 flex-1">
@@ -804,7 +837,7 @@ export const SetlistManager: React.FC = () => {
                   <div className="px-4 sm:px-6 pb-6 pt-2 border-t border-[#1F1F24] bg-[#0C0C0E]/70 space-y-4">
                     {/* Songs Sequence Management */}
                     <div>
-                      {st.songIds.length === 0 ? (
+                      {validSongs.length === 0 ? (
                         <div className="text-center py-10 bg-[#0E0E10] rounded-xl border border-dashed border-[#2A2A2E] p-4">
                           <Music className="w-8 h-8 text-gray-600 mx-auto mb-2" />
                           <p className="text-xs text-gray-400">Aucun chant dans cette setlist pour l'instant.</p>
@@ -826,10 +859,7 @@ export const SetlistManager: React.FC = () => {
                           ref={songsListContainerRef}
                           className="space-y-2 select-none"
                         >
-                          {st.songIds.map((songId, index) => {
-                            const song = songs.find(s => s.id === songId);
-                            if (!song) return null;
-
+                          {validSongs.map((song, index) => {
                             const isBeingDragged = draggedSongIndex === index;
                             const isDragOver = dragOverIndex === index && draggedSongIndex !== index;
 
@@ -968,16 +998,60 @@ export const SetlistManager: React.FC = () => {
                 />
               </div>
 
-              <div className="mb-3">
-                <label className="block text-xs font-medium text-gray-300 mb-1">
-                  Date
-                </label>
-                <input
-                  type="date"
+              <div className="rounded-xl bg-[#16171C] border border-[#282A33] focus-within:border-blue-500/70 focus-within:ring-2 focus-within:ring-blue-500/15 p-3 space-y-2.5 transition-all">
+                <div className="flex items-center justify-between gap-2">
+                  <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-200">
+                    <Calendar className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                    <span>Date de l'événement</span>
+                  </label>
+                  <span className="text-[11px] font-medium text-blue-300 bg-blue-500/10 border border-blue-500/25 px-2 py-0.5 rounded-md capitalize truncate">
+                    {formatFriendlyDate(newSetDate)}
+                  </span>
+                </div>
+
+                <DarkDateInput
                   value={newSetDate}
-                  onChange={(e) => setNewSetDate(e.target.value)}
-                  className="w-full bg-[#1C1C1E] border border-[#333] rounded-md px-3 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                  onChange={setNewSetDate}
                 />
+
+                {(() => {
+                  const toLocalIso = (d: Date) =>
+                    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                  const now = new Date();
+                  const todayStr = toLocalIso(now);
+                  const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+                  const tomorrowStr = toLocalIso(tomorrow);
+                  const daysToSunday = (7 - now.getDay()) % 7;
+                  const sunday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysToSunday);
+                  const sundayStr = toLocalIso(sunday);
+                  const quickDates = [
+                    { label: "Aujourd'hui", value: todayStr },
+                    { label: 'Demain', value: tomorrowStr },
+                    { label: daysToSunday === 0 ? 'Ce dimanche' : 'Dimanche', value: sundayStr }
+                  ];
+
+                  return (
+                    <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                      {quickDates.map((qd) => {
+                        const isActive = newSetDate === qd.value;
+                        return (
+                          <button
+                            key={qd.label}
+                            type="button"
+                            onClick={() => setNewSetDate(qd.value)}
+                            className={`px-2 py-1 rounded-md text-[11px] font-medium border transition-all cursor-pointer ${
+                              isActive
+                                ? 'bg-blue-600/25 border-blue-500/60 text-blue-300 shadow-xs'
+                                : 'bg-[#1D1F26] border-[#2C2F3A] text-gray-400 hover:text-gray-200 hover:border-[#3D4150]'
+                            }`}
+                          >
+                            {qd.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#222224]">
@@ -1002,11 +1076,11 @@ export const SetlistManager: React.FC = () => {
       )}
 
       {/* Modal: Add Songs to Active Setlist */}
-      {selectedSetlist && (
+      {activeSelectedSetlist && (
         <SetlistAddSongsModal
           isOpen={isAddSongModalOpen}
           onClose={() => setIsAddSongModalOpen(false)}
-          setlist={selectedSetlist}
+          setlist={activeSelectedSetlist}
           songs={songs}
           onToggleSong={handleToggleSongInActiveSetlist}
           onAddMultipleSongs={handleAddMultipleSongs}
@@ -1060,11 +1134,9 @@ export const SetlistManager: React.FC = () => {
                 <label className="block text-xs font-medium text-gray-300 mb-1">
                   Date de l'événement
                 </label>
-                <input
-                  type="date"
+                <DarkDateInput
                   value={editDate}
-                  onChange={(e) => setEditDate(e.target.value)}
-                  className="w-full bg-[#1C1C1E] border border-[#333] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 transition-colors"
+                  onChange={setEditDate}
                 />
               </div>
 

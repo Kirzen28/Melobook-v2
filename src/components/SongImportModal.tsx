@@ -22,8 +22,9 @@ import {
 } from 'lucide-react';
 import { EXTERNAL_SONGS_DATABASE, ExternalSongItem } from '../data/externalSongsDatabase';
 import { Song } from '../types';
-import { parseChordPro } from '../utils/chordUtils';
+import { parseChordPro, cleanImportedChordPro } from '../utils/chordUtils';
 import { normalizeSearchString } from '../utils/songSearchUtils';
+import { decodeHtmlEntities, decodeTextBuffer } from '../utils/htmlEntities';
 
 interface SongImportModalProps {
   isOpen: boolean;
@@ -92,13 +93,20 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
     isProcessing: boolean;
   } | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const onImportSongRef = React.useRef(onImportSong);
 
-  // Reset tab on open and reset search state
+  useEffect(() => {
+    onImportSongRef.current = onImportSong;
+  }, [onImportSong]);
+
+  // Reset tab on open and reset search/imported state
   useEffect(() => {
     if (isOpen) {
       setSearchQuery('');
       setOnlineResults([]);
       setSearchError(null);
+      setPreviewSong(null);
+      setImportedIds([]);
       setImportedFileCount(0);
       setImportProgress(null);
       setIsDragging(false);
@@ -115,7 +123,7 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
 
   // Convert plain text 2-line chords over lyrics into standard ChordPro
   const convertPlainTextToChordPro = (plainText: string): string => {
-    const lines = plainText.split('\n');
+    const lines = plainText.replace(/\r\n?/g, '\n').replace(/\u00A0/g, ' ').split('\n');
     const outputLines: string[] = [];
     const chordPattern = /^[A-G][b#]?(?:m|maj|min|aug|dim|sus[24]?|add[249]|7|9|11|13|6)?(?:\/[A-G][b#]?)?$/i;
 
@@ -199,7 +207,10 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
       }
       const combined = [...onlineResults];
       localFilteredResults.forEach(local => {
-        if (!combined.some(c => c.title.toLowerCase() === local.title.toLowerCase() && c.artist.toLowerCase() === local.artist.toLowerCase())) {
+        if (!combined.some(c =>
+          normalizeSearchString(c.title) === normalizeSearchString(local.title) &&
+          normalizeSearchString(c.artist) === normalizeSearchString(local.artist)
+        )) {
           combined.push(local);
         }
       });
@@ -232,12 +243,12 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
         if (data?.ok && data?.song) {
           const enriched: ExternalSongItem = {
             ...songItem,
-            title: data.song.title || songItem.title,
-            artist: data.song.artist || songItem.artist,
+            title: decodeHtmlEntities(data.song.title || songItem.title, 2),
+            artist: decodeHtmlEntities(data.song.artist || songItem.artist, 2),
             key: data.song.key || songItem.key,
             tempo: data.song.tempo || songItem.tempo,
-            tags: data.song.tags || songItem.tags,
-            contentChordPro: data.song.contentChordPro || songItem.contentChordPro
+            tags: (data.song.tags || songItem.tags || []).map((t: string) => decodeHtmlEntities(t, 2)),
+            contentChordPro: cleanImportedChordPro(decodeHtmlEntities(data.song.contentChordPro || songItem.contentChordPro, 2))
           };
 
           setOnlineResults(prev => prev.map(s => s.id === songItem.id ? enriched : s));
@@ -287,7 +298,14 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
       }
 
       if (data.results && Array.isArray(data.results)) {
-        setOnlineResults(data.results);
+        setOnlineResults(data.results.map((r: ExternalSongItem) => ({
+          ...r,
+          title: decodeHtmlEntities(r.title, 2),
+          artist: decodeHtmlEntities(r.artist, 2),
+          snippet: decodeHtmlEntities(r.snippet, 2),
+          tags: Array.isArray(r.tags) ? r.tags.map(t => decodeHtmlEntities(t, 2)) : r.tags,
+          contentChordPro: r.contentChordPro ? cleanImportedChordPro(decodeHtmlEntities(r.contentChordPro, 2)) : r.contentChordPro
+        })));
       }
     } catch (err: any) {
       console.warn('Recherche externe indisponible ou erreur:', err);
@@ -304,8 +322,9 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
     setImportingId(songItem.id);
     try {
       const fullSong = await ensureSongLoaded(songItem);
-      const parsed = parseChordPro(fullSong.contentChordPro || '');
-      await onImportSong({
+      const cleanedChordPro = cleanImportedChordPro(fullSong.contentChordPro || '');
+      const parsed = parseChordPro(cleanedChordPro);
+      const createdId = await onImportSongRef.current({
         title: fullSong.title,
         artist: fullSong.artist,
         album: (fullSong as any).album || parsed.album || undefined,
@@ -315,10 +334,12 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
         tags: fullSong.tags || [],
         ccli: fullSong.ccli || parsed.ccli,
         copyright: fullSong.copyright || parsed.copyright,
-        contentChordPro: fullSong.contentChordPro
+        contentChordPro: cleanedChordPro
       });
 
-      setImportedIds(prev => [...prev, songItem.id]);
+      if (createdId) {
+        setImportedIds(prev => [...prev, songItem.id]);
+      }
     } catch (err) {
       console.error('Erreur importation chant:', err);
     } finally {
@@ -331,7 +352,8 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
     setImportingId(songItem.id);
     try {
       const fullSong = await ensureSongLoaded(songItem);
-      const parsed = parseChordPro(fullSong.contentChordPro || '');
+      const cleanedChordPro = cleanImportedChordPro(fullSong.contentChordPro || '');
+      const parsed = parseChordPro(cleanedChordPro);
       if (onImportAndEdit) {
         await onImportAndEdit({
           title: fullSong.title,
@@ -343,7 +365,7 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
           tags: fullSong.tags || [],
           ccli: fullSong.ccli || parsed.ccli,
           copyright: fullSong.copyright || parsed.copyright,
-          contentChordPro: fullSong.contentChordPro
+          contentChordPro: cleanedChordPro
         });
         onClose();
       } else {
@@ -379,7 +401,7 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
       });
 
       try {
-        const text = await file.text();
+        const text = decodeTextBuffer(await file.arrayBuffer());
         
         let title = file.name.replace(/\.(cho|pro|chopro|txt|crd)$/i, '');
         let artist = '';
@@ -394,6 +416,7 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
         if (!text.includes('[') && !text.includes('{')) {
           finalChordPro = convertPlainTextToChordPro(text);
         }
+        finalChordPro = cleanImportedChordPro(finalChordPro);
 
         const lines = finalChordPro.split('\n');
         lines.forEach(l => {
@@ -412,7 +435,7 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
           }
         });
 
-        await onImportSong({
+        await onImportSongRef.current({
           title,
           artist,
           album,
@@ -448,9 +471,10 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
 
   // Manual File Upload handler
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-    await processFiles(Array.from(files));
+    const files: File[] = e.target.files ? Array.from(e.target.files) : [];
+    e.target.value = '';
+    if (files.length === 0) return;
+    await processFiles(files);
   };
 
   // Execute manual import from pasted text
@@ -470,6 +494,7 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
     if (manualSource === 'webchords' || manualSource === 'shir' || (!manualText.includes('[') && !manualText.includes('{'))) {
       finalContent = convertPlainTextToChordPro(manualText);
     }
+    finalContent = cleanImportedChordPro(finalContent);
 
     const lines = finalContent.split('\n');
     lines.forEach(l => {
@@ -488,7 +513,7 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
       }
     });
 
-    await onImportSong({
+    await onImportSongRef.current({
       title: detectedTitle,
       artist: detectedArtist,
       album: detectedAlbum,

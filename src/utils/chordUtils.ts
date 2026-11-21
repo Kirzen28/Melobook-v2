@@ -148,6 +148,8 @@ export function transposeChordProText(
     if (semitones === 0 || inTabBlock) return line;
 
     if (inGridBlock) {
+      // Do not transpose strumming pattern rows (e.g. | d . d u | where 'd' is downstroke, not D chord)
+      if (isStrumGridRow(line)) return line;
       // Transpose standalone chord tokens inside grid bars while preserving |:, :|, |, ., /, -, %
       return line.replace(/(^|[\s|:\[\]])([A-Ga-g][#b♯♭]?(?:maj|min|m|M|sus|add|dim|aug|[0-9]|\+|\-)*(?:\/[A-Ga-g][#b♯♭]?)?|(?:Do|Dó|Re|Ré|Mi|Fa|Fá|Sol|La|Lá|Si)[#b♯♭]?(?:maj|min|mineur|menor|m|M|sus|add|dim|aug|[0-9]|\+|\-)*(?:\/(?:Do|Dó|Re|Ré|Mi|Fa|Fá|Sol|La|Lá|Si|[A-Ga-g])[#b♯♭]?)?)(?=$|[\s|:\[\]])/g, (full, prefix, tok) => {
         return `${prefix}${transposeChord(tok, semitones, notation)}`;
@@ -183,9 +185,36 @@ export function transposeChordProText(
   return transposedLines.join('\n');
 }
 
+export type StrumStrokeType =
+  | 'down'
+  | 'down_accent'
+  | 'up'
+  | 'up_accent'
+  | 'mute'
+  | 'hold'
+  | 'dot'
+  | 'slash'
+  | 'repeat_measure'
+  | 'rest';
+
+export interface StrumStep {
+  type: StrumStrokeType;
+  raw: string;
+}
+
+export interface GridShape {
+  raw: string;
+  lead?: number;
+  barsPerLine?: number;
+  beatsPerBar?: number;
+  trail?: number;
+}
+
 export interface GridBar {
   repeatStart?: boolean;
   repeatEnd?: boolean;
+  doubleBarStart?: boolean;
+  doubleBarEnd?: boolean;
   beats: string[];
 }
 
@@ -202,6 +231,9 @@ export interface ParsedLine {
   comment?: string;
   gridBars?: GridBar[];
   gridRaw?: string;
+  gridPrefix?: string;
+  gridSuffix?: string;
+  isStrumRow?: boolean;
   tabText?: string;
 }
 
@@ -218,6 +250,7 @@ export interface ParsedSection {
   transposeOffset?: number;
   isChorusRecall?: boolean;
   recallLabel?: string;
+  gridShape?: GridShape;
   lines: ParsedLine[];
 }
 
@@ -581,24 +614,249 @@ export function isChordGridToken(token: string): boolean {
 }
 
 /**
+ * Parse a token inside a ChordPro {sog} grid bar into strumming steps, or null if not a strumming token.
+ * Set allowSingleD=true when the row context is already confirmed to be a strumming row (disambiguating 'D' chord vs 'D' downstroke).
+ */
+export function parseStrumToken(token: string, allowSingleD = false): StrumStep[] | null {
+  if (!token) return null;
+  const clean = token.trim();
+  if (!clean || clean === '|' || clean === '|:' || clean === ':|' || clean === '||' || clean === ':|:') {
+    return null;
+  }
+
+  // Strictly validate allowed strumming characters and optional accent '>' after strokes
+  if (!/^(?:[dDuUxX✕×↓↑vV^rR\-~_.\/]>?)+$/.test(clean)) {
+    return null;
+  }
+
+  // Disambiguate single-character 'D'/'d' or chord-like 'D-' unless context allows D as downstroke
+  if (!allowSingleD && (/^[dD]>?$/.test(clean) || /^D-$/.test(clean))) {
+    return null;
+  }
+
+  const steps: StrumStep[] = [];
+  for (let i = 0; i < clean.length; i++) {
+    const ch = clean[i];
+    const hasAccentModifier = clean[i + 1] === '>';
+    if (ch === '>') continue;
+
+    if (ch === 'D' || ch === 'V') {
+      steps.push({ type: hasAccentModifier ? 'down_accent' : 'down', raw: ch + (hasAccentModifier ? '>' : '') });
+    } else if (ch === 'd' || ch === '↓' || ch === 'v') {
+      steps.push({ type: hasAccentModifier ? 'down_accent' : 'down', raw: ch + (hasAccentModifier ? '>' : '') });
+    } else if (ch === 'U' || ch === '^') {
+      steps.push({ type: hasAccentModifier ? 'up_accent' : 'up', raw: ch + (hasAccentModifier ? '>' : '') });
+    } else if (ch === 'u' || ch === '↑') {
+      steps.push({ type: hasAccentModifier ? 'up_accent' : 'up', raw: ch + (hasAccentModifier ? '>' : '') });
+    } else if (ch === 'x' || ch === 'X' || ch === '✕' || ch === '×') {
+      steps.push({ type: 'mute', raw: ch });
+    } else if (ch === '-' || ch === '~' || ch === '_') {
+      steps.push({ type: 'hold', raw: ch });
+    } else if (ch === '.') {
+      steps.push({ type: 'dot', raw: ch });
+    } else if (ch === '/') {
+      steps.push({ type: 'slash', raw: ch });
+    } else if (ch === '%') {
+      steps.push({ type: 'repeat_measure', raw: ch });
+    } else if (ch === 'r' || ch === 'R') {
+      steps.push({ type: 'rest', raw: ch });
+    }
+  }
+
+  return steps.length > 0 ? steps : null;
+}
+
+const SHARED_BEAT_MARKERS = new Set(['.', '-', '~', '_', '/', '%']);
+
+/**
+ * Determine whether a raw {sog} grid row represents a strumming/rhythm pattern rather than chord bars.
+ */
+export function isStrumGridRow(rawLine: string, sectionTitle?: string): boolean {
+  const { barBody } = extractGridMargins(rawLine);
+  const tokens = barBody
+    .replace(/:\|:/g, ' ')
+    .replace(/\|:/g, ' ')
+    .replace(/:\|/g, ' ')
+    .replace(/\|\|/g, ' ')
+    .replace(/\|/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (tokens.length === 0) return false;
+
+  let hasUnambiguousStrum = false;
+  let hasLowerDOrRest = false;
+  let hasNonStrumChord = false;
+  let allStrumOrShared = true;
+
+  for (const tok of tokens) {
+    if (SHARED_BEAT_MARKERS.has(tok)) continue;
+
+    const strictStrum = parseStrumToken(tok, false);
+    if (strictStrum && strictStrum.some(s => s.type !== 'dot' && s.type !== 'hold' && s.type !== 'slash' && s.type !== 'repeat_measure')) {
+      hasUnambiguousStrum = true;
+      continue;
+    }
+
+    if (/^[drR]>?$/.test(tok)) {
+      hasLowerDOrRest = true;
+      continue;
+    }
+
+    if (!parseStrumToken(tok, true)) {
+      allStrumOrShared = false;
+      if (isChordGridToken(tok)) {
+        hasNonStrumChord = true;
+      }
+    }
+  }
+
+  if (hasUnambiguousStrum && !hasNonStrumChord) return true;
+  if (hasLowerDOrRest && !hasNonStrumChord && allStrumOrShared) return true;
+  if (
+    allStrumOrShared &&
+    !hasNonStrumChord &&
+    sectionTitle &&
+    /strum|rythm|rhythm|gratt|batt|groove/i.test(sectionTitle) &&
+    tokens.some(t => !SHARED_BEAT_MARKERS.has(t))
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Parse ChordPro v6 {sog: ...} / {start_of_grid: ...} grid shape specs such as "4x4", "1+4x4+1", or shape="4x4".
+ */
+export function parseGridDirectiveHeader(rawValue: string): {
+  sectionAttr: ReturnType<typeof parseChordProSectionValue>;
+  gridShape?: GridShape;
+} {
+  const trimmed = (rawValue || '').trim();
+  if (!trimmed) {
+    return { sectionAttr: parseChordProSectionValue('') };
+  }
+
+  let gridShape: GridShape | undefined;
+  let cleaned = trimmed;
+
+  const shapeAttrMatch = cleaned.match(/\bshape\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s]+))/i);
+  const shapeRegex = /^(?:(\d+)\+)?(\d+)(?:x(\d+))?(?:\+(\d+))?$/i;
+
+  const applyShape = (rawShape: string) => {
+    const m = rawShape.trim().match(shapeRegex);
+    if (!m) return false;
+    gridShape = {
+      raw: rawShape.trim(),
+      lead: m[1] ? parseInt(m[1], 10) : undefined,
+      barsPerLine: parseInt(m[2], 10),
+      beatsPerBar: m[3] ? parseInt(m[3], 10) : undefined,
+      trail: m[4] ? parseInt(m[4], 10) : undefined
+    };
+    return true;
+  };
+
+  if (shapeAttrMatch) {
+    const val = shapeAttrMatch[1] ?? shapeAttrMatch[2] ?? shapeAttrMatch[3] ?? '';
+    if (applyShape(val)) {
+      cleaned = cleaned.replace(shapeAttrMatch[0], '').trim();
+    }
+  }
+
+  if (!gridShape) {
+    // Strip standalone grid shape token (e.g. "4x4", "1+4x4+1", or trailing integer bar count outside quotes)
+    const tokens = cleaned.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) || [];
+    const remaining: string[] = [];
+    for (const tok of tokens) {
+      if (!gridShape && !tok.includes('=') && /^(\d+\+)?\d+(?:x\d+)(\+\d+)?$/i.test(tok)) {
+        applyShape(tok);
+      } else if (!gridShape && tokens.length === 1 && /^\d+$/.test(tok)) {
+        applyShape(tok);
+      } else {
+        remaining.push(tok);
+      }
+    }
+    cleaned = remaining.join(' ').trim();
+  }
+
+  return {
+    sectionAttr: parseChordProSectionValue(cleaned),
+    gridShape
+  };
+}
+
+function extractGridMargins(rawLine: string): {
+  gridPrefix?: string;
+  barBody: string;
+  gridSuffix?: string;
+} {
+  const firstPipe = rawLine.indexOf('|');
+  if (firstPipe === -1) {
+    return { barBody: rawLine.trim() };
+  }
+
+  let working = rawLine;
+  let gridPrefix: string | undefined;
+  let gridSuffix: string | undefined;
+
+  const pre = working.slice(0, firstPipe).trim();
+  if (pre) {
+    const preTokens = pre.split(/\s+/).filter(Boolean);
+    const allMusicalTokens = preTokens.every(
+      t => isChordGridToken(t) || Boolean(parseStrumToken(t, false)) || SHARED_BEAT_MARKERS.has(t)
+    );
+    if (!allMusicalTokens) {
+      gridPrefix = pre;
+      working = working.slice(firstPipe);
+    }
+  }
+
+  const lastPipe = working.lastIndexOf('|');
+  if (lastPipe !== -1) {
+    const post = working.slice(lastPipe + 1).trim();
+    if (post) {
+      const postTokens = post.split(/\s+/).filter(Boolean);
+      const isRepeatOrLabel = /^\(?x\d+\)?$/i.test(post) || postTokens.every(
+        t => !isChordGridToken(t) && !parseStrumToken(t, false) && !SHARED_BEAT_MARKERS.has(t)
+      );
+      if (isRepeatOrLabel) {
+        gridSuffix = post;
+        working = working.slice(0, lastPipe + 1);
+      }
+    }
+  }
+
+  return {
+    gridPrefix,
+    barBody: working.trim(),
+    gridSuffix
+  };
+}
+
+/**
  * Parse a ChordPro grid row like "|: C . G . | Am . F . :|" into structured GridBar[]
  */
 export function parseGridLine(rawLine: string): GridBar[] {
   const tokens = rawLine
+    .replace(/:\|:/g, ' :| |: ')
     .replace(/\|:/g, ' |: ')
     .replace(/:\|/g, ' :| ')
     .replace(/\|\|/g, ' || ')
-    .replace(/(?<![:])\|(?![:|])/g, ' | ')
+    .replace(/(?<![:|])\|(?![:|])/g, ' | ')
     .trim()
     .split(/\s+/)
     .filter(Boolean);
 
   const bars: GridBar[] = [];
   let currentBar: GridBar | null = null;
+  let pendingDoubleStart = false;
 
   const ensureBar = () => {
     if (!currentBar) {
-      currentBar = { beats: [] };
+      currentBar = { beats: [], ...(pendingDoubleStart ? { doubleBarStart: true } : {}) };
+      pendingDoubleStart = false;
     }
     return currentBar;
   };
@@ -609,17 +867,28 @@ export function parseGridLine(rawLine: string): GridBar[] {
         bars.push(currentBar);
       }
       currentBar = { repeatStart: true, beats: [] };
+      pendingDoubleStart = false;
     } else if (tok === ':|') {
       const bar = ensureBar();
       bar.repeatEnd = true;
       bars.push(bar);
       currentBar = null;
-    } else if (tok === '|' || tok === '||') {
+    } else if (tok === '||') {
+      if (currentBar && (currentBar.beats.length > 0 || currentBar.repeatStart || currentBar.repeatEnd)) {
+        currentBar.doubleBarEnd = true;
+        bars.push(currentBar);
+        currentBar = null;
+        pendingDoubleStart = true;
+      } else {
+        pendingDoubleStart = true;
+      }
+    } else if (tok === '|') {
       if (currentBar && (currentBar.beats.length > 0 || currentBar.repeatStart || currentBar.repeatEnd)) {
         bars.push(currentBar);
         currentBar = { beats: [] };
       } else if (!currentBar) {
-        currentBar = { beats: [] };
+        currentBar = { beats: [], ...(pendingDoubleStart ? { doubleBarStart: true } : {}) };
+        pendingDoubleStart = false;
       }
     } else {
       const bar = ensureBar();
@@ -632,6 +901,18 @@ export function parseGridLine(rawLine: string): GridBar[] {
   }
 
   return bars;
+}
+
+export function parseGridRowDetails(rawLine: string, sectionTitle?: string): {
+  gridBars: GridBar[];
+  gridPrefix?: string;
+  gridSuffix?: string;
+  isStrumRow: boolean;
+} {
+  const { gridPrefix, barBody, gridSuffix } = extractGridMargins(rawLine);
+  const gridBars = parseGridLine(barBody);
+  const isStrumRow = isStrumGridRow(barBody, sectionTitle);
+  return { gridBars, gridPrefix, gridSuffix, isStrumRow };
 }
 
 function cloneParsedLines(lines: ParsedLine[]): ParsedLine[] {
@@ -1018,7 +1299,9 @@ export function parseChordPro(chordProText: string): ParsedSongData {
         inExplicitBlock = true;
 
         const mapped = START_SECTION_TAG_MAP[tag];
-        const attr = parseChordProSectionValue(value);
+        const isGridTag = tag === 'start_of_grid' || tag === 'sog';
+        const gridMeta = isGridTag ? parseGridDirectiveHeader(value) : null;
+        const attr = gridMeta ? gridMeta.sectionAttr : parseChordProSectionValue(value);
         let secType: ParsedSection['type'] = mapped?.type || tag.replace(/^start_of_/, '');
         let secTitle = attr.label || mapped?.defaultTitle || secType;
         const blockKind = mapped?.blockKind;
@@ -1037,6 +1320,7 @@ export function parseChordPro(chordProText: string): ParsedSongData {
           vocal: attr.vocal,
           repeat: attr.repeat,
           transposeOffset: globalTransposeOffset !== 0 ? globalTransposeOffset : undefined,
+          gridShape: gridMeta?.gridShape,
           lines: []
         };
       } else if (isEndSectionTag(tag)) {
@@ -1117,12 +1401,15 @@ export function parseChordPro(chordProText: string): ParsedSongData {
 
     // Inside {start_of_grid} / {sog}
     if (currentSection.blockKind === 'grid') {
-      const gridBars = parseGridLine(rawLine);
+      const details = parseGridRowDetails(rawLine, currentSection.title);
       currentSection.lines.push({
         type: 'grid_row',
         items: [],
-        gridBars,
-        gridRaw: rawLine
+        gridBars: details.gridBars,
+        gridRaw: rawLine,
+        gridPrefix: details.gridPrefix,
+        gridSuffix: details.gridSuffix,
+        isStrumRow: details.isStrumRow
       });
       continue;
     }
@@ -1624,3 +1911,137 @@ export function stripParentheses(text: string): string {
   if (!text) return '';
   return text.replace(/\s*\([^)]*\)/g, '').trim();
 }
+
+/**
+ * Strips CRLF, non-breaking spaces, and ALL blank/whitespace-only lines from imported ChordPro text.
+ */
+export function cleanImportedChordPro(text: string): string {
+  if (!text) return '';
+  const rawLines = text
+    .replace(/\r\n?/g, '\n')
+    .replace(/\u00A0/g, ' ')
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .split('\n');
+
+  const cleaned: string[] = [];
+  let inTab = false;
+
+  for (const rawLine of rawLines) {
+    const trimmed = rawLine.trim();
+    if (!trimmed) continue;
+
+    if (/^\{(?:start_of_tab|sot)\b/i.test(trimmed)) {
+      inTab = true;
+      cleaned.push(trimmed);
+      continue;
+    }
+    if (/^\{(?:end_of_tab|eot)\b/i.test(trimmed)) {
+      inTab = false;
+      cleaned.push(trimmed);
+      continue;
+    }
+
+    cleaned.push(inTab ? rawLine.replace(/\s+$/g, '') : trimmed);
+  }
+
+  return cleaned.join('\n');
+}
+
+/**
+ * Merges tag-wrapped chord-only lines (e.g. [ch]G[/ch] or <A>G</A>) with the lyric line below
+ * using monospace visual column positions, then converts remaining chord tags to [Chord].
+ */
+export function mergeTaggedChordsAboveLyrics(rawText: string, tagStyle: 'ug' | 'lacuerda'): string {
+  if (!rawText) return '';
+  const tagRegex = tagStyle === 'ug'
+    ? /\[ch\](.*?)\[\/ch\]/gi
+    : /<A>([^<]+)<\/A>/gi;
+
+  const normalized = rawText
+    .replace(/\r\n?/g, '\n')
+    .replace(/\u00A0/g, ' ');
+
+  const lines = normalized.split('\n');
+  const out: string[] = [];
+
+  const isSectionHeader = (line: string) => {
+    const t = line.trim();
+    return /^\{.*\}$/.test(t) ||
+      /^\[(?:Intro|Couplet|Verse|Refrain|Chorus|Pont|Bridge|Outro|Pre-Chorus|Tag|Solo|Interlude|Estrofa|Coro|Puente|Final|Pre-coro)[^\]]*\]$/i.test(t);
+  };
+
+  const extractChordPositions = (line: string) => {
+    const remainder = line.replace(tagRegex, '').replace(/[\s\-/|.,()*]+/g, '');
+    if (remainder.length > 0) return null; // Not a chord-only line
+
+    const positions: { chord: string; col: number }[] = [];
+    const re = new RegExp(tagRegex.source, 'gi');
+    let lastIndex = 0;
+    let visualCol = 0;
+    let match: RegExpExecArray | null;
+
+    while ((match = re.exec(line)) !== null) {
+      visualCol += match.index - lastIndex;
+      const chord = match[1].trim();
+      if (chord) {
+        positions.push({ chord, col: visualCol });
+        visualCol += chord.length;
+      }
+      lastIndex = re.lastIndex;
+    }
+
+    return positions.length > 0 ? positions : null;
+  };
+
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    const chordPositions = extractChordPositions(line);
+
+    if (chordPositions) {
+      const nextLine = lines[i + 1];
+      const nextTrimmed = nextLine?.trim() || '';
+      const canMergeWithNext = Boolean(
+        nextTrimmed &&
+        !isSectionHeader(nextTrimmed) &&
+        !extractChordPositions(nextLine)
+      );
+
+      if (canMergeWithNext) {
+        const cleanLyric = nextLine.replace(/\s+$/g, '');
+        let merged = '';
+        let lyricIdx = 0;
+
+        for (const pos of chordPositions) {
+          const targetIdx = Math.min(pos.col, cleanLyric.length);
+          if (targetIdx > lyricIdx) {
+            merged += cleanLyric.slice(lyricIdx, targetIdx);
+            lyricIdx = targetIdx;
+          }
+          if (pos.col >= cleanLyric.length && merged.length > 0 && !merged.endsWith(' ')) {
+            merged += ' ';
+          }
+          merged += `[${pos.chord}]`;
+        }
+
+        if (lyricIdx < cleanLyric.length) {
+          merged += cleanLyric.slice(lyricIdx);
+        }
+
+        out.push(merged.trim());
+        i += 2;
+        continue;
+      }
+
+      out.push(chordPositions.map(p => `[${p.chord}]`).join(' '));
+      i++;
+      continue;
+    }
+
+    out.push(line.replace(tagRegex, '[$1]'));
+    i++;
+  }
+
+  return out.join('\n');
+}
+

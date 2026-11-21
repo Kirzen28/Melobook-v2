@@ -13,25 +13,8 @@ export interface ExternalSongItem {
   pageTitle?: string;
 }
 
-function decodeHtmlEntities(str: string): string {
-  if (!str) return '';
-  return str
-    .replace(/&quot;/g, '"')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&#039;/g, "'")
-    .replace(/&apos;/g, "'")
-    .replace(/&eacute;/g, 'é')
-    .replace(/&egrave;/g, 'è')
-    .replace(/&ecirc;/g, 'ê')
-    .replace(/&agrave;/g, 'à')
-    .replace(/&icirc;/g, 'î')
-    .replace(/&ocirc;/g, 'ô')
-    .replace(/&ucirc;/g, 'û')
-    .replace(/&ccedil;/g, 'ç')
-    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code, 10)));
-}
+import { decodeHtmlEntities, decodeTextBuffer } from '../src/utils/htmlEntities';
+import { cleanImportedChordPro, mergeTaggedChordsAboveLyrics } from '../src/utils/chordUtils';
 
 /**
  * Searches Ultimate Guitar directly via its web repository store
@@ -61,7 +44,7 @@ export async function searchUltimateGuitar(query: string, limit = 25): Promise<E
       return [];
     }
 
-    const html = await res.text();
+    const html = decodeTextBuffer(await res.arrayBuffer(), res.headers.get('content-type'));
     const storeMatch = html.match(/class=["']js-store["'][^>]*data-content=["']([^"']*)["']/);
     if (!storeMatch || !storeMatch[1]) {
       return [];
@@ -97,8 +80,8 @@ export async function searchUltimateGuitar(query: string, limit = 25): Promise<E
     const seenTitles = new Set<string>();
 
     for (const item of validItems.slice(0, limit)) {
-      const title = decodeHtmlEntities(item.song_name || '').trim();
-      const artist = decodeHtmlEntities(item.artist_name || 'Artiste').trim();
+      const title = decodeHtmlEntities(item.song_name || '', 2).trim();
+      const artist = decodeHtmlEntities(item.artist_name || 'Artiste', 2).trim();
       const dedupeKey = `${title.toLowerCase()}_${artist.toLowerCase()}_${item.version || 1}`;
 
       if (seenTitles.has(dedupeKey)) continue;
@@ -152,7 +135,7 @@ export async function getUltimateGuitarSongDetail(tabUrl: string): Promise<Parti
 
     if (!res.ok) return null;
 
-    const html = await res.text();
+    const html = decodeTextBuffer(await res.arrayBuffer(), res.headers.get('content-type'));
     const storeMatch = html.match(/class=["']js-store["'][^>]*data-content=["']([^"']*)["']/);
     if (!storeMatch || !storeMatch[1]) return null;
 
@@ -161,27 +144,28 @@ export async function getUltimateGuitarSongDetail(tabUrl: string): Promise<Parti
 
     const pageData = parsed?.store?.page?.data;
     const tabView = pageData?.tab_view;
-    const rawContent = tabView?.wiki_tab?.content || '';
+    const rawContent = decodeHtmlEntities(tabView?.wiki_tab?.content || '', 2);
 
     if (!rawContent) return null;
 
-    const title = decodeHtmlEntities(pageData?.tab?.song_name || '').trim();
-    const artist = decodeHtmlEntities(pageData?.tab?.artist_name || '').trim();
+    const title = decodeHtmlEntities(pageData?.tab?.song_name || '', 2).trim();
+    const artist = decodeHtmlEntities(pageData?.tab?.artist_name || '', 2).trim();
     const tonality = tabView?.meta?.tonality || pageData?.tab?.tonality_name || 'C';
     const tempo = tabView?.meta?.tempo || 0;
 
     // Convert Ultimate Guitar markup into ChordPro
     let chordPro = rawContent
-      // Replace [ch]Chord[/ch] with [Chord]
-      .replace(/\[ch\](.*?)\[\/ch\]/gi, '[$1]')
-      // Strip tab formatting tags
+      // Strip tab formatting tags before calculating visual chord columns
       .replace(/\[\/?tab\]/gi, '')
       .replace(/\[\/?t\]/gi, '');
+
+    // Merge chord-only [ch]...[/ch] lines with the lyrics line below
+    chordPro = mergeTaggedChordsAboveLyrics(chordPro, 'ug');
 
     // Format section headers like [Verse 1], [Chorus]
     chordPro = chordPro.replace(/^\[(Intro|Couplet|Verse|Refrain|Chorus|Pont|Bridge|Outro|Pre-Chorus|Tag)[^\]]*\]/gim, (match) => {
       const sectionName = match.replace(/[\[\]]/g, '');
-      return `\n{comment: ${sectionName}}`;
+      return `{comment: ${sectionName}}`;
     });
 
     const metadataHeader = [
@@ -192,7 +176,7 @@ export async function getUltimateGuitarSongDetail(tabUrl: string): Promise<Parti
       `{source: Ultimate Guitar}`
     ].filter(Boolean).join('\n');
 
-    const finalChordPro = `${metadataHeader}\n\n${chordPro.trim()}`;
+    const finalChordPro = cleanImportedChordPro(`${metadataHeader}\n${chordPro}`);
 
     return {
       title,

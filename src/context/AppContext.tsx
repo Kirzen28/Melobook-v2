@@ -459,6 +459,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [setlistHistory, setSetlistHistory] = useState<SetlistHistoryRecord[]>([]);
   const [customPads, setCustomPads] = useState<CustomPad[]>([]);
 
+  const songsRef = useRef<Song[]>(songs);
+  const setlistsRef = useRef<Setlist[]>(setlists);
+  const selectedSetlistRef = useRef<Setlist | null>(selectedSetlist);
+  const songsServerReadyGroupRef = useRef<string | null>(null);
+  const setlistsServerReadyGroupRef = useRef<string | null>(null);
+  const cleanedOrphansGroupRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    songsRef.current = songs;
+  }, [songs]);
+
+  useEffect(() => {
+    setlistsRef.current = setlists;
+  }, [setlists]);
+
+  useEffect(() => {
+    selectedSetlistRef.current = selectedSetlist;
+  }, [selectedSetlist]);
+
   useEffect(() => {
     if (typeof window !== 'undefined' && currentGroup?.id && !isGuest) {
       try {
@@ -1574,6 +1593,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Synchronisation en temps réel de la base de données dédiée de la bibliothèque active (/groups/{groupId}/...)
   useEffect(() => {
     const targetGroupId = currentGroup?.id;
+    songsServerReadyGroupRef.current = null;
+    setlistsServerReadyGroupRef.current = null;
+    cleanedOrphansGroupRef.current = null;
+
     if (!targetGroupId || (!currentUser?.uid && !isGuest)) {
       setSongs([]);
       setSetlists([]);
@@ -1610,6 +1633,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setSelectedSetlist(null);
     }
 
+    const reconcileOrphanedSetlistSongs = () => {
+      if (isGuest) return;
+      if (
+        songsServerReadyGroupRef.current !== targetGroupId ||
+        setlistsServerReadyGroupRef.current !== targetGroupId ||
+        cleanedOrphansGroupRef.current === targetGroupId
+      ) {
+        return;
+      }
+      cleanedOrphansGroupRef.current = targetGroupId;
+
+      const existingSongIds = new Set(songsRef.current.map(s => s.id));
+      const dirtySetlists = setlistsRef.current.filter(st =>
+        st.songIds.some(sId => !existingSongIds.has(sId))
+      );
+      if (dirtySetlists.length === 0) return;
+
+      const cleanedMap = new Map<string, string[]>();
+      dirtySetlists.forEach(st => {
+        cleanedMap.set(st.id, st.songIds.filter(sId => existingSongIds.has(sId)));
+      });
+
+      const nextSetlists = setlistsRef.current.map(st =>
+        cleanedMap.has(st.id) ? { ...st, songIds: cleanedMap.get(st.id)! } : st
+      );
+      setlistsRef.current = nextSetlists;
+      setSetlists(nextSetlists);
+      setSelectedSetlist(prev => {
+        if (!prev) return null;
+        return cleanedMap.has(prev.id)
+          ? { ...prev, songIds: cleanedMap.get(prev.id)! }
+          : prev;
+      });
+
+      dirtySetlists.forEach(st => {
+        const cleanedIds = cleanedMap.get(st.id)!;
+        updateDoc(doc(db, 'groups', targetGroupId, 'setlists', st.id), { songIds: cleanedIds }).catch(() => {});
+      });
+    };
+
     // 1. Sync Songs from /groups/{groupId}/songs
     const unsubSongs = onSnapshot(collection(db, 'groups', targetGroupId, 'songs'), (snapshot) => {
       const deletedIds = isGuest ? new Set<string>() : getDeletedSongIds();
@@ -1625,6 +1688,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         loadedSongs.push({ ...withDuration, language: resolvedLanguage });
       });
 
+      songsRef.current = loadedSongs;
       setSongs(loadedSongs);
       setSelectedSong(prev => {
         if (prev && loadedSongs.some(s => s.id === prev.id)) {
@@ -1632,6 +1696,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
         return loadedSongs[0] || null;
       });
+
+      if (!snapshot.metadata.fromCache) {
+        songsServerReadyGroupRef.current = targetGroupId;
+        reconcileOrphanedSetlistSongs();
+      }
     }, (error) => {
       if (error?.code !== 'unavailable') {
         console.warn('Firestore library songs snapshot notice:', error.message);
@@ -1647,7 +1716,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           loadedSetlists.push({ id: d.id, ...d.data(), groupId: targetGroupId } as Setlist);
         }
       });
+      setlistsRef.current = loadedSetlists;
       setSetlists(loadedSetlists);
+      setSelectedSetlist(prev => prev ? (loadedSetlists.find(st => st.id === prev.id) || null) : null);
+
+      if (!snapshot.metadata.fromCache) {
+        setlistsServerReadyGroupRef.current = targetGroupId;
+        reconcileOrphanedSetlistSongs();
+      }
     }, (error) => {
       if (error?.code !== 'unavailable') {
         console.warn('Firestore library setlists snapshot notice:', error.message);
@@ -1747,20 +1823,55 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return '';
     }
     const newId = 'song_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
-    const resolvedLanguage = (songData.language && songData.language.trim())
+    const safeTitle = (typeof songData.title === 'string' ? songData.title : '').trim().slice(0, 240) || 'Nouveau Chant';
+    const safeChordPro = (typeof songData.contentChordPro === 'string' ? songData.contentChordPro : '').slice(0, 100000);
+    const resolvedLanguage = ((typeof songData.language === 'string' && songData.language.trim())
       ? songData.language
-      : detectSongLanguage(songData.title, songData.contentChordPro || songData.content);
+      : detectSongLanguage(safeTitle, safeChordPro || (typeof songData.content === 'string' ? songData.content : undefined))).slice(0, 40);
 
-    const newSong: Song = {
-      ...songData,
-      contentChordPro: songData.contentChordPro || '',
-      language: resolvedLanguage,
+    const toFiniteInt = (val: unknown): number | undefined => {
+      if (typeof val === 'number' && Number.isFinite(val)) return Math.round(val);
+      if (typeof val === 'string' && val.trim() !== '') {
+        const parsed = Number(val);
+        if (Number.isFinite(parsed)) return Math.round(parsed);
+      }
+      return undefined;
+    };
+    const toSafeStr = (val: unknown, maxLen: number): string | undefined =>
+      typeof val === 'string' ? val.slice(0, maxLen) : undefined;
+    const toSafeStrList = (val: unknown, maxItems: number): string[] | undefined =>
+      Array.isArray(val) ? val.filter((x): x is string => typeof x === 'string').slice(0, maxItems) : undefined;
+
+    const newSong: Song = stripUndefined({
       id: newId,
       groupId,
+      title: safeTitle,
+      artist: toSafeStr(songData.artist, 200),
+      album: toSafeStr(songData.album, 200),
+      key: toSafeStr(songData.key, 24),
+      tempo: toFiniteInt(songData.tempo),
+      bpm: toFiniteInt((songData as any).bpm),
+      timeSignature: toSafeStr(songData.timeSignature, 20),
+      duration: toSafeStr(songData.duration, 32),
+      durationMode: songData.durationMode === 'auto' || songData.durationMode === 'custom' ? songData.durationMode : undefined,
+      ccli: toSafeStr(songData.ccli, 64),
+      copyright: toSafeStr(songData.copyright, 500),
+      youtubeUrl: toSafeStr(songData.youtubeUrl, 1000),
+      audioUrl: toSafeStr(songData.audioUrl, 1000),
+      spotifyUrl: toSafeStr(songData.spotifyUrl, 1000),
+      contentChordPro: safeChordPro,
+      content: toSafeStr(songData.content, 100000),
+      folderId: songData.folderId === null ? null : toSafeStr(songData.folderId, 128),
+      capo: toFiniteInt(songData.capo),
+      tags: toSafeStrList(songData.tags, 50),
+      language: resolvedLanguage,
+      linkedSongIds: toSafeStrList(songData.linkedSongIds, 50),
+      notes: toSafeStr(songData.notes, 5000),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
-    };
+    });
 
+    songsRef.current = [newSong, ...songsRef.current.filter(s => s.id !== newId)];
     setSongs(prev => {
       const filtered = prev.filter(s => s.id !== newId);
       return [newSong, ...filtered];
@@ -1796,6 +1907,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       resolvedData.language = detectSongLanguage(titleToUse, contentToUse) || '';
     }
 
+    songsRef.current = songsRef.current.map(s => s.id === id ? { ...s, ...resolvedData, updatedAt: new Date().toISOString() } : s);
     setSongs(prev => prev.map(s => s.id === id ? { ...s, ...resolvedData, updatedAt: new Date().toISOString() } : s));
     if (selectedSong?.id === id) {
       setSelectedSong(prev => prev ? { ...prev, ...resolvedData } : null);
@@ -1857,7 +1969,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const deleteSong = useCallback(async (id: string) => {
     if (blockIfGuest()) return;
-    const groupId = songs.find(s => s.id === id)?.groupId || currentGroup?.id;
+    const groupId = songsRef.current.find(s => s.id === id)?.groupId || songs.find(s => s.id === id)?.groupId || currentGroup?.id;
 
     try {
       const currentDeleted = new Set<string>(JSON.parse(localStorage.getItem('songbook_deleted_song_ids') || '[]'));
@@ -1865,14 +1977,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       localStorage.setItem('songbook_deleted_song_ids', JSON.stringify(Array.from(currentDeleted)));
     } catch (e) {}
 
+    songsRef.current = songsRef.current.filter(s => s.id !== id);
     setSongs(prev => prev.filter(s => s.id !== id));
     if (selectedSong?.id === id) {
-      setSelectedSong(songs.find(s => s.id !== id) || null);
+      setSelectedSong(songsRef.current[0] || null);
     }
-    setSetlists(prev => prev.map(st => ({
-      ...st,
-      songIds: st.songIds.filter(sId => sId !== id)
-    })));
+
+    const affectedSetlists = setlistsRef.current.filter(st => st.songIds.includes(id));
+    const nextSetlists = setlistsRef.current.map(st =>
+      st.songIds.includes(id)
+        ? { ...st, songIds: st.songIds.filter(sId => sId !== id) }
+        : st
+    );
+    setlistsRef.current = nextSetlists;
+    setSetlists(nextSetlists);
+    setSelectedSetlist(prev =>
+      prev && prev.songIds.includes(id)
+        ? { ...prev, songIds: prev.songIds.filter(sId => sId !== id) }
+        : prev
+    );
 
     showNotification({ title: 'Supprimé', type: 'info' });
 
@@ -1883,6 +2006,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         await deleteDoc(doc(db, 'groups', groupId, 'songs', id));
       } catch (e) {
         console.warn('Deleted song locally:', e);
+      }
+
+      for (const st of affectedSetlists) {
+        const cleanedSongIds = st.songIds.filter(sId => sId !== id);
+        try {
+          await updateDoc(doc(db, 'groups', st.groupId || groupId, 'setlists', st.id), { songIds: cleanedSongIds });
+        } catch (e) {
+          console.warn('Cleaned deleted song from setlist locally:', st.id, e);
+        }
       }
     }
   }, [selectedSong?.id, songs, currentGroup?.id, showNotification]);
@@ -2068,6 +2200,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: new Date().toISOString()
     };
 
+    setlistsRef.current = [newSetlist, ...setlistsRef.current.filter(st => st.id !== newId)];
     setSetlists(prev => [newSetlist, ...prev]);
     setSelectedSetlist(newSetlist);
 
@@ -2084,13 +2217,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateSetlist = useCallback(async (id: string, setlistData: Partial<Setlist>) => {
     if (blockIfGuest()) return;
-    const groupId = setlists.find(st => st.id === id)?.groupId || currentGroup?.id;
+    const groupId = setlistsRef.current.find(st => st.id === id)?.groupId || setlists.find(st => st.id === id)?.groupId || currentGroup?.id;
     if (!groupId) return;
 
+    const nextSetlists = setlistsRef.current.map(st => st.id === id ? { ...st, ...setlistData } : st);
+    setlistsRef.current = nextSetlists;
     setSetlists(prev => prev.map(st => st.id === id ? { ...st, ...setlistData } : st));
-    if (selectedSetlist?.id === id) {
-      setSelectedSetlist(prev => prev ? { ...prev, ...setlistData } : null);
-    }
+    setSelectedSetlist(prev => prev?.id === id ? { ...prev, ...setlistData } : prev);
 
     showNotification('Enregistré');
 
@@ -2100,7 +2233,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (e) {
       console.warn('Updated setlist locally:', e);
     }
-  }, [setlists, currentGroup?.id, selectedSetlist?.id, showNotification]);
+  }, [setlists, currentGroup?.id, showNotification]);
 
   const deleteSetlist = useCallback(async (id: string) => {
     if (blockIfGuest()) return;
@@ -2112,6 +2245,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       localStorage.setItem('songbook_deleted_setlist_ids', JSON.stringify(Array.from(currentDeleted)));
     } catch (e) {}
 
+    setlistsRef.current = setlistsRef.current.filter(st => st.id !== id);
     setSetlists(prev => prev.filter(st => st.id !== id));
     if (selectedSetlist?.id === id) {
       setSelectedSetlist(null);

@@ -9,9 +9,11 @@ import {
   saveHiddenCategories 
 } from '../utils/categoryUtils';
 import { parseArtistsString } from '../utils/artistUtils';
-import { getSongSearchScore } from '../utils/songSearchUtils';
+import { getSongSearchScore, includesIgnoreAccents } from '../utils/songSearchUtils';
 import { PRESET_LANGUAGES } from '../utils/languageUtils';
 import { VoiceSearchControl } from './VoiceSearchControl';
+import { SongImportModal } from './SongImportModal';
+import { useApp } from '../context/AppContext';
 import { 
   Search, 
   Tag, 
@@ -26,7 +28,10 @@ import {
   Gauge,
   ListMusic,
   CheckSquare,
-  Square
+  Square,
+  Pen,
+  Upload,
+  FileCode
 } from 'lucide-react';
 
 interface SetlistAddSongsModalProps {
@@ -72,10 +77,18 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
   const [isLanguageFilterOpen, setIsLanguageFilterOpen] = useState(false);
   const [languageFilterSearch, setLanguageFilterSearch] = useState('');
 
+  const { canManageSongs, importSong, setSelectedSong, setActiveTab, setEditorReturnTarget } = useApp();
+
+  // Nouveau Chant dropdown & import modal state
+  const [isNewSongDropdownOpen, setIsNewSongDropdownOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importSource, setImportSource] = useState<'search' | 'file' | 'chordpro' | 'shir' | 'webchords'>('search');
+
   const categoryFilterRef = useRef<HTMLDivElement>(null);
   const authorFilterRef = useRef<HTMLDivElement>(null);
   const keyFilterRef = useRef<HTMLDivElement>(null);
   const languageFilterRef = useRef<HTMLDivElement>(null);
+  const newSongDropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdowns on outside click or escape
   useEffect(() => {
@@ -93,6 +106,9 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
       if (languageFilterRef.current && !languageFilterRef.current.contains(target)) {
         setIsLanguageFilterOpen(false);
       }
+      if (newSongDropdownRef.current && !newSongDropdownRef.current.contains(target)) {
+        setIsNewSongDropdownOpen(false);
+      }
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -101,6 +117,7 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
         setIsAuthorFilterOpen(false);
         setIsKeyFilterOpen(false);
         setIsLanguageFilterOpen(false);
+        setIsNewSongDropdownOpen(false);
       }
     };
 
@@ -154,14 +171,13 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
         if (b.count !== a.count && (a.count === 0 || b.count === 0)) {
           return b.count - a.count;
         }
-        return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+        return a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' });
       });
   }, [songs, customCategories, hiddenCategories]);
 
   const filteredCategoriesInDropdown = useMemo(() => {
     if (!categoryFilterSearch.trim()) return allCategoriesWithCounts;
-    const q = categoryFilterSearch.toLowerCase().trim();
-    return allCategoriesWithCounts.filter(c => c.name.toLowerCase().includes(q));
+    return allCategoriesWithCounts.filter(c => includesIgnoreAccents(c.name, categoryFilterSearch));
   }, [allCategoriesWithCounts, categoryFilterSearch]);
 
   const toggleCategoryFilter = (catName: string) => {
@@ -217,8 +233,7 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
 
   const filteredAuthorsInDropdown = useMemo(() => {
     if (!authorFilterSearch.trim()) return allAuthorsWithCounts;
-    const q = authorFilterSearch.toLowerCase().trim();
-    return allAuthorsWithCounts.filter(a => a.name.toLowerCase().includes(q));
+    return allAuthorsWithCounts.filter(a => includesIgnoreAccents(a.name, authorFilterSearch));
   }, [allAuthorsWithCounts, authorFilterSearch]);
 
   const toggleAuthorFilter = (authorName: string) => {
@@ -247,8 +262,7 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
 
   const filteredKeysInDropdown = useMemo(() => {
     if (!keyFilterSearch.trim()) return allKeysWithCounts;
-    const q = keyFilterSearch.toLowerCase().trim();
-    return allKeysWithCounts.filter(k => k.name.toLowerCase().includes(q));
+    return allKeysWithCounts.filter(k => includesIgnoreAccents(k.name, keyFilterSearch));
   }, [allKeysWithCounts, keyFilterSearch]);
 
   const toggleKeyFilter = (keyName: string) => {
@@ -283,8 +297,7 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
 
   const filteredLanguagesInDropdown = useMemo(() => {
     if (!languageFilterSearch.trim()) return allLanguagesWithCounts;
-    const q = languageFilterSearch.toLowerCase().trim();
-    return allLanguagesWithCounts.filter(l => l.name.toLowerCase().includes(q));
+    return allLanguagesWithCounts.filter(l => includesIgnoreAccents(l.name, languageFilterSearch));
   }, [allLanguagesWithCounts, languageFilterSearch]);
 
   const toggleLanguageFilter = (langName: string) => {
@@ -346,11 +359,17 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
     });
   }, [songs, selectedKeys, selectedLanguages, selectedCategories, selectedAuthors, searchQuery]);
 
+  const existingSongIdsSet = useMemo(() => new Set(songs.map(s => s.id)), [songs]);
+  const validSetlistSongIds = useMemo(
+    () => setlist.songIds.filter(id => existingSongIdsSet.has(id)),
+    [setlist.songIds, existingSongIdsSet]
+  );
+
   // Bulk actions for filtered items
   const allFilteredInSetlist = useMemo(() => {
     if (filteredSongs.length === 0) return false;
-    return filteredSongs.every(s => setlist.songIds.includes(s.id));
-  }, [filteredSongs, setlist.songIds]);
+    return filteredSongs.every(s => validSetlistSongIds.includes(s.id));
+  }, [filteredSongs, validSetlistSongIds]);
 
   const handleToggleAllFiltered = () => {
     if (allFilteredInSetlist) {
@@ -359,12 +378,12 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
         onRemoveMultipleSongs(idsToRemove);
       } else {
         idsToRemove.forEach(id => {
-          if (setlist.songIds.includes(id)) onToggleSong(id);
+          if (validSetlistSongIds.includes(id)) onToggleSong(id);
         });
       }
     } else {
       const idsToAdd = filteredSongs
-        .filter(s => !setlist.songIds.includes(s.id))
+        .filter(s => !validSetlistSongIds.includes(s.id))
         .map(s => s.id);
       if (onAddMultipleSongs) {
         onAddMultipleSongs(idsToAdd);
@@ -376,7 +395,22 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
 
   if (!isOpen) return null;
 
+  const handleOpenImport = (source: 'search' | 'file' | 'chordpro' | 'shir' | 'webchords' = 'search') => {
+    setImportSource(source);
+    setIsNewSongDropdownOpen(false);
+    setIsImportModalOpen(true);
+  };
+
+  const handleCreateNewSongFromModal = () => {
+    setIsNewSongDropdownOpen(false);
+    onClose();
+    setSelectedSong(null);
+    setEditorReturnTarget(null);
+    setActiveTab('editor');
+  };
+
   return (
+    <>
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5">
       <div className="bg-[#111112] border border-[#222224] rounded-xl w-full max-w-4xl max-h-[90vh] shadow-2xl flex flex-col overflow-hidden text-[#E0E0E0]">
         
@@ -391,7 +425,7 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
                 Ajouter des chants à la setlist « {setlist.name} »
               </h2>
               <p className="text-[11px] text-gray-400">
-                {setlist.songIds.length} chant{setlist.songIds.length > 1 ? 's' : ''} dans la setlist
+                {validSetlistSongIds.length} chant{validSetlistSongIds.length > 1 ? 's' : ''} dans la setlist
               </p>
             </div>
           </div>
@@ -409,41 +443,148 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
         <div className="p-3 sm:p-4 pb-2 border-b border-[#1E1E22] bg-[#0E0E10] space-y-2.5">
           
           <div className="bg-[#111112] border border-[#222224] rounded-lg p-2.5 flex flex-col md:flex-row items-center gap-2.5">
-            {/* Search Input with Clear Button and Voice Search */}
-            <div className="relative flex-1 w-full">
-              <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Rechercher par titre, artiste, paroles ou catégorie..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-[#1C1C1E] border border-[#333] rounded-md pl-9 pr-16 py-1.5 text-xs text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-all"
-              />
-              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                {searchQuery && (
-                  <button 
-                    type="button"
-                    onClick={() => setSearchQuery('')}
-                    className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-white transition-colors cursor-pointer"
-                    title="Effacer la recherche"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
-                <VoiceSearchControl
-                  songs={songs}
-                  searchQuery={searchQuery}
-                  onSearchChange={setSearchQuery}
-                  onSelectSong={(song) => onToggleSong(song.id)}
-                  onClearFilters={() => {
-                    setSearchQuery('');
-                    setSelectedCategories([]);
-                    setSelectedAuthors([]);
-                    setSelectedKeys([]);
-                    setSelectedLanguages([]);
-                  }}
+            {/* Search Input + Nouveau Chant Dropdown Button */}
+            <div className="flex items-center gap-2 w-full md:flex-1">
+              <div className="relative flex-1 min-w-0">
+                <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Rechercher par titre, artiste, paroles ou catégorie..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-[#1C1C1E] border border-[#333] rounded-md pl-9 pr-16 py-1.5 text-xs text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-all"
                 />
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                  {searchQuery && (
+                    <button 
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-white transition-colors cursor-pointer"
+                      title="Effacer la recherche"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  <VoiceSearchControl
+                    songs={songs}
+                    searchQuery={searchQuery}
+                    onSearchChange={setSearchQuery}
+                    onSelectSong={(song) => onToggleSong(song.id)}
+                    onClearFilters={() => {
+                      setSearchQuery('');
+                      setSelectedCategories([]);
+                      setSelectedAuthors([]);
+                      setSelectedKeys([]);
+                      setSelectedLanguages([]);
+                    }}
+                  />
+                </div>
               </div>
+
+              {canManageSongs && (
+                <div className="relative shrink-0" ref={newSongDropdownRef}>
+                  <button
+                    type="button"
+                    onClick={() => setIsNewSongDropdownOpen(prev => !prev)}
+                    aria-expanded={isNewSongDropdownOpen}
+                    aria-haspopup="menu"
+                    className="h-[34px] flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-sm transition-all active:scale-95 cursor-pointer whitespace-nowrap"
+                    title="Créer ou importer un nouveau chant"
+                  >
+                    <Plus className="w-3.5 h-3.5 shrink-0" />
+                    <span>Nouveau Chant</span>
+                    <ChevronDown className={`w-3.5 h-3.5 shrink-0 transition-transform ${isNewSongDropdownOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {isNewSongDropdownOpen && (
+                    <div
+                      role="menu"
+                      className="absolute right-0 mt-1.5 w-80 max-w-[calc(100vw-2rem)] bg-[#111112] border border-[#333] rounded-lg shadow-2xl z-50 py-1.5 text-xs animate-in fade-in zoom-in-95 duration-100"
+                    >
+                      <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400 border-b border-[#222224]">
+                        Ajouter un chant
+                      </div>
+
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={handleCreateNewSongFromModal}
+                        className="w-full text-left px-3.5 py-2.5 hover:bg-[#1C1C1E] flex items-start gap-2.5 transition-colors group bg-blue-950/20 border-b border-[#222224] cursor-pointer"
+                      >
+                        <div className="p-1.5 rounded bg-blue-600/20 border border-blue-500/30 text-blue-400 mt-0.5 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                          <Pen className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="font-semibold text-white group-hover:text-blue-400">
+                            Créer à partir de zéro
+                          </div>
+                          <p className="text-[11px] text-gray-400 mt-0.5">
+                            Composer un nouveau chant directement dans l'éditeur de l'app
+                          </p>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => handleOpenImport('search')}
+                        className="w-full text-left px-3.5 py-2.5 hover:bg-[#1C1C1E] flex items-start gap-2.5 transition-colors group border-b border-[#222224] cursor-pointer"
+                      >
+                        <div className="p-1.5 rounded bg-[#1C1C1E] border border-[#333] text-blue-400 mt-0.5 group-hover:border-blue-500">
+                          <Search className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="font-semibold text-white group-hover:text-blue-400 flex items-center gap-1.5">
+                            <span>Recherche en ligne</span>
+                            <span className="px-1.5 py-0.2 text-[9px] font-bold uppercase rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">Nouveau</span>
+                          </div>
+                          <p className="text-[11px] text-gray-400 mt-0.5">
+                            Cherchez parmi des milliers de chants chrétiens et importez en 1 clic
+                          </p>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => handleOpenImport('file')}
+                        className="w-full text-left px-3.5 py-2.5 hover:bg-[#1C1C1E] flex items-start gap-2.5 transition-colors group border-b border-[#222224] cursor-pointer"
+                      >
+                        <div className="p-1.5 rounded bg-[#1C1C1E] border border-[#333] text-blue-400 mt-0.5 group-hover:border-blue-500">
+                          <Upload className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="font-semibold text-white group-hover:text-blue-400">
+                            Importer un fichier
+                          </div>
+                          <p className="text-[11px] text-gray-400 mt-0.5">
+                            Fichiers locaux (.cho, .pro, .txt, .crd) par glisser-déposer
+                          </p>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => handleOpenImport('chordpro')}
+                        className="w-full text-left px-3.5 py-2.5 hover:bg-[#1C1C1E] flex items-start gap-2.5 transition-colors group cursor-pointer"
+                      >
+                        <div className="p-1.5 rounded bg-[#1C1C1E] border border-[#333] text-blue-400 mt-0.5 group-hover:border-blue-500">
+                          <FileCode className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="font-semibold text-white group-hover:text-blue-400">
+                            Écrire / Coller ChordPro
+                          </div>
+                          <p className="text-[11px] text-gray-400 mt-0.5">
+                            Saisie directe de paroles et accords ou texte brut
+                          </p>
+                        </div>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Filter Dropdowns Grid */}
@@ -1264,7 +1405,7 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
         {/* Footer */}
         <div className="p-4 sm:p-5 border-t border-[#222224] bg-[#151518] flex items-center justify-between gap-3">
           <div className="text-xs text-gray-400">
-            <span className="font-semibold text-white">{setlist.songIds.length}</span> chant{setlist.songIds.length > 1 ? 's' : ''} dans la setlist
+            <span className="font-semibold text-white">{validSetlistSongIds.length}</span> chant{validSetlistSongIds.length > 1 ? 's' : ''} dans la setlist
           </div>
           <button
             type="button"
@@ -1277,5 +1418,42 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
 
       </div>
     </div>
+
+    <SongImportModal
+      isOpen={isImportModalOpen}
+      onClose={() => setIsImportModalOpen(false)}
+      initialSource={importSource}
+      onImportSong={async (songData) => {
+        const newId = await importSong(songData);
+        if (newId) {
+          if (onAddMultipleSongs) {
+            await onAddMultipleSongs([newId]);
+          } else if (!validSetlistSongIds.includes(newId)) {
+            await onToggleSong(newId);
+          }
+          setSearchQuery('');
+          setSelectedCategories([]);
+          setSelectedAuthors([]);
+          setSelectedKeys([]);
+          setSelectedLanguages([]);
+        }
+        return newId;
+      }}
+      onImportAndEdit={async (songData) => {
+        const newId = await importSong(songData);
+        if (newId) {
+          if (onAddMultipleSongs) {
+            await onAddMultipleSongs([newId]);
+          } else if (!validSetlistSongIds.includes(newId)) {
+            await onToggleSong(newId);
+          }
+        }
+        setIsImportModalOpen(false);
+        onClose();
+        setEditorReturnTarget(null);
+        setActiveTab('editor');
+      }}
+    />
+    </>
   );
 };

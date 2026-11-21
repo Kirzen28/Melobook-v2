@@ -1,5 +1,6 @@
 import { parseChordPro, ParsedSongData, stripParentheses } from './chordUtils';
 import { BiblePassageData } from '../types';
+import { decodeHtmlEntities } from './htmlEntities';
 
 export interface PresentationSlide {
   id: string;
@@ -736,11 +737,11 @@ function wrapScriptureLines(text: string, maxLineLength: number = 55): string[] 
  */
 export function cleanBibleVerseText(raw: string): string {
   if (!raw) return '';
-  return raw
+  return decodeHtmlEntities(raw, 2)
     .replace(/<[sS][^>]*>[\s\S]*?<\/[sS]>/gi, '')
     .replace(/<[fF][^>]*>[\s\S]*?<\/[fF]>/gi, '')
     .replace(/<[^>]+>/g, '')
-    .replace(/([a-zA-Z]+)\d{1,5}\b/g, '$1')
+    .replace(/(\p{L}+)\d{1,5}\b/gu, '$1')
     .replace(/\[\d{1,5}\]|\(\d{1,5}\)/g, '')
     .replace(/\s+/g, ' ')
     .replace(/\s+([,.;:?!])/g, '$1')

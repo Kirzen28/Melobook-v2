@@ -13,24 +13,10 @@ export interface ExternalSongItem {
   pageTitle?: string;
 }
 
-function decodeHtml(str: string): string {
-  if (!str) return '';
-  return str
-    .replace(/&quot;/g, '"')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&#039;/g, "'")
-    .replace(/&apos;/g, "'")
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&eacute;/g, 'é')
-    .replace(/&egrave;/g, 'è')
-    .replace(/&aacute;/g, 'á')
-    .replace(/&iacute;/g, 'í')
-    .replace(/&oacute;/g, 'ó')
-    .replace(/&uacute;/g, 'ú')
-    .replace(/&ntilde;/g, 'ñ');
-}
+import { decodeHtmlEntities, decodeTextBuffer } from '../src/utils/htmlEntities';
+import { cleanImportedChordPro, mergeTaggedChordsAboveLyrics } from '../src/utils/chordUtils';
+
+const decodeHtml = (str: string) => decodeHtmlEntities(str, 2);
 
 /**
  * Searches LaCuerda.net directly for Spanish worship and songs
@@ -60,7 +46,7 @@ export async function searchLaCuerda(query: string, limit = 25): Promise<Externa
       return [];
     }
 
-    const html = await res.text();
+    const html = decodeTextBuffer(await res.arrayBuffer(), res.headers.get('content-type'));
     const artistMatches = [...html.matchAll(/<a[^>]+href=["']\/([a-zA-Z0-9_-]+)\/["'][^>]*>([\s\S]*?)<\/a>/gi)];
 
     const candidateArtists: { slug: string; name: string }[] = [];
@@ -84,7 +70,7 @@ export async function searchLaCuerda(query: string, limit = 25): Promise<Externa
         }
       });
       if (fbRes.ok) {
-        const fbHtml = await fbRes.text();
+        const fbHtml = decodeTextBuffer(await fbRes.arrayBuffer(), fbRes.headers.get('content-type'));
         const fbMatches = [...fbHtml.matchAll(/<a[^>]+href=["']\/([a-zA-Z0-9_-]+)\/["'][^>]*>([\s\S]*?)<\/a>/gi)];
         for (const match of fbMatches) {
           const slug = match[1];
@@ -114,7 +100,7 @@ export async function searchLaCuerda(query: string, limit = 25): Promise<Externa
 
         if (!artistRes.ok) continue;
 
-        const artistHtml = await artistRes.text();
+        const artistHtml = decodeTextBuffer(await artistRes.arrayBuffer(), artistRes.headers.get('content-type'));
         const songLinks = [...artistHtml.matchAll(/<a[^>]+href=["']([a-zA-Z0-9_-]+)["'][^>]*>([\s\S]*?)<\/a>/gi)];
 
         for (const sMatch of songLinks) {
@@ -191,7 +177,7 @@ export async function getLaCuerdaSongDetail(songUrl: string): Promise<Partial<Ex
 
     if (!res.ok) return null;
 
-    const html = await res.text();
+    const html = decodeTextBuffer(await res.arrayBuffer(), res.headers.get('content-type'));
     const preMatch = html.match(/<pre[^>]*>([\s\S]*?)<\/pre>/i);
     if (!preMatch || !preMatch[1]) return null;
 
@@ -228,13 +214,11 @@ export async function getLaCuerdaSongDetail(songUrl: string): Promise<Partial<Ex
       if (key === 'Si') key = 'B';
     }
 
-    // Convert <A>Chord</A> into [Chord]
-    let formattedText = rawTab
-      .replace(/<A>([^<]+)<\/A>/gi, '[$1]')
-      .replace(/<[^>]+>/g, '');
+    // Merge <A>Chord</A> lines above lyrics into inline [Chord] tokens, then strip remaining HTML tags
+    let formattedText = mergeTaggedChordsAboveLyrics(rawTab.replace(/<(?!\/?A\b)[^>]+>/gi, ''), 'lacuerda');
 
     // Format section lines
-    formattedText = formattedText.replace(/^(Intro|Coro|Verso|Estrofa|Puente|Final|Pre-coro|Outro|Solo):?/gim, '\n{comment: $1}');
+    formattedText = formattedText.replace(/^(Intro|Coro|Verso|Estrofa|Puente|Final|Pre-coro|Outro|Solo):?/gim, '{comment: $1}');
 
     const lines = formattedText.split('\n');
     const cleanedLines = lines.map(line => decodeHtml(line)).join('\n');
@@ -246,7 +230,7 @@ export async function getLaCuerdaSongDetail(songUrl: string): Promise<Partial<Ex
       `{source: LaCuerda}`
     ].join('\n');
 
-    const contentChordPro = `${metadataHeader}\n\n${cleanedLines.trim()}`;
+    const contentChordPro = cleanImportedChordPro(`${metadataHeader}\n${cleanedLines}`);
 
     return {
       title,

@@ -43,6 +43,7 @@ import {
   getCustomArtists,
   saveCustomArtists
 } from '../utils/artistUtils';
+import { includesIgnoreAccents } from '../utils/songSearchUtils';
 import { 
   Save, 
   ChevronLeft, 
@@ -405,8 +406,7 @@ export const SongEditor: React.FC = () => {
 
   const filteredArtistsList = useMemo(() => {
     if (!artistSearchQuery.trim()) return allAvailableArtists;
-    const q = artistSearchQuery.toLowerCase().trim();
-    return allAvailableArtists.filter(a => a.toLowerCase().includes(q));
+    return allAvailableArtists.filter(a => includesIgnoreAccents(a, artistSearchQuery));
   }, [allAvailableArtists, artistSearchQuery]);
 
   const handleToggleArtist = (artistName: string) => {
@@ -483,8 +483,7 @@ export const SongEditor: React.FC = () => {
 
   const filteredAlbumsList = useMemo(() => {
     if (!albumSearchQuery.trim()) return allAvailableAlbums;
-    const q = albumSearchQuery.toLowerCase().trim();
-    return allAvailableAlbums.filter(a => a.toLowerCase().includes(q));
+    return allAvailableAlbums.filter(a => includesIgnoreAccents(a, albumSearchQuery));
   }, [allAvailableAlbums, albumSearchQuery]);
 
   const handleSelectAlbum = (albumName: string) => {
@@ -526,13 +525,12 @@ export const SongEditor: React.FC = () => {
     });
     customCategories.forEach(c => set.add(c));
     categories.forEach(c => set.add(c));
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
   }, [songs, customCategories, categories]);
 
   const filteredCategoryList = useMemo(() => {
     if (!categorySearchQuery.trim()) return allAvailableCategories;
-    const q = categorySearchQuery.toLowerCase().trim();
-    return allAvailableCategories.filter(c => c.toLowerCase().includes(q));
+    return allAvailableCategories.filter(c => includesIgnoreAccents(c, categorySearchQuery));
   }, [allAvailableCategories, categorySearchQuery]);
 
   const handleToggleCategory = (catName: string) => {

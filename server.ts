@@ -7,6 +7,7 @@ import { searchShirSongs, getShirSongDetail } from './server/shirService';
 import { searchUltimateGuitar, getUltimateGuitarSongDetail } from './server/ultimateGuitarService';
 import { searchWorshipTogether, getWorshipTogetherSongDetail } from './server/worshipTogetherService';
 import { searchLaCuerda, getLaCuerdaSongDetail } from './server/laCuerdaService';
+import { decodeHtmlEntities } from './src/utils/htmlEntities';
 
 dotenv.config();
 
@@ -61,11 +62,11 @@ async function startServer() {
 
   function cleanBibleVerseText(raw: string): string {
     if (!raw) return '';
-    return raw
+    return decodeHtmlEntities(raw, 2)
       .replace(/<[sS][^>]*>[\s\S]*?<\/[sS]>/gi, '')
       .replace(/<[fF][^>]*>[\s\S]*?<\/[fF]>/gi, '')
       .replace(/<[^>]+>/g, '')
-      .replace(/([a-zA-Z]+)\d{1,5}\b/g, '$1')
+      .replace(/(\p{L}+)\d{1,5}\b/gu, '$1')
       .replace(/\[\d{1,5}\]|\(\d{1,5}\)/g, '')
       .replace(/\s+/g, ' ')
       .replace(/\s+([,.;:?!])/g, '$1')

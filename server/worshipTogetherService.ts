@@ -13,17 +13,10 @@ export interface ExternalSongItem {
   pageTitle?: string;
 }
 
-function decodeHtml(str: string): string {
-  if (!str) return '';
-  return str
-    .replace(/&quot;/g, '"')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&#039;/g, "'")
-    .replace(/&apos;/g, "'")
-    .replace(/&nbsp;/g, ' ');
-}
+import { decodeHtmlEntities, decodeTextBuffer } from '../src/utils/htmlEntities';
+import { cleanImportedChordPro } from '../src/utils/chordUtils';
+
+const decodeHtml = (str: string) => decodeHtmlEntities(str, 2);
 
 /**
  * Searches Worship Together directly via their Cludo Search Engine
@@ -155,7 +148,7 @@ export async function getWorshipTogetherSongDetail(songUrl: string): Promise<Par
 
     if (!res.ok) return null;
 
-    const html = await res.text();
+    const html = decodeTextBuffer(await res.arrayBuffer(), res.headers.get('content-type'));
 
     // Extract title & artist from meta tags or headings
     const titleMatch = html.match(/<meta property=["']og:title["'] content=["']([^"']*)["']/i) ||
@@ -213,7 +206,7 @@ export async function getWorshipTogetherSongDetail(songUrl: string): Promise<Par
       }
     }
 
-    const contentChordPro = outputLines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+    const contentChordPro = cleanImportedChordPro(outputLines.join('\n'));
 
     return {
       title,

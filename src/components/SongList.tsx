@@ -16,7 +16,7 @@ import {
   saveHiddenCategories 
 } from '../utils/categoryUtils';
 import { parseArtistsString } from '../utils/artistUtils';
-import { getSongSearchScore } from '../utils/songSearchUtils';
+import { getSongSearchScore, includesIgnoreAccents } from '../utils/songSearchUtils';
 import { 
   Search, 
   Plus, 
@@ -35,7 +35,6 @@ import {
   Globe,
   Upload,
   FileCode,
-  FileUp,
   Calendar,
   ArrowUpDown,
   CheckSquare,
@@ -87,6 +86,7 @@ export const SongList: React.FC = () => {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'title' | 'artist' | 'tempo' | 'duration' | 'recent'>('title');
+  const existingSongIdsSet = useMemo(() => new Set(songs.map(s => s.id)), [songs]);
 
   // Key filter state (multi-select dropdown with checkboxes)
   const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
@@ -387,6 +387,7 @@ export const SongList: React.FC = () => {
         setIsAuthorFilterOpen(false);
         setIsKeyFilterOpen(false);
         setIsLanguageFilterOpen(false);
+        setIsImportDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -432,8 +433,7 @@ export const SongList: React.FC = () => {
 
   const filteredKeysInDropdown = useMemo(() => {
     if (!keyFilterSearch.trim()) return allKeysWithCounts;
-    const q = keyFilterSearch.toLowerCase().trim();
-    return allKeysWithCounts.filter(k => k.name.toLowerCase().includes(q));
+    return allKeysWithCounts.filter(k => includesIgnoreAccents(k.name, keyFilterSearch));
   }, [allKeysWithCounts, keyFilterSearch]);
 
   const toggleKeyFilter = (keyName: string) => {
@@ -468,8 +468,7 @@ export const SongList: React.FC = () => {
 
   const filteredLanguagesInDropdown = useMemo(() => {
     if (!languageFilterSearch.trim()) return allLanguagesWithCounts;
-    const q = languageFilterSearch.toLowerCase().trim();
-    return allLanguagesWithCounts.filter(l => l.name.toLowerCase().includes(q));
+    return allLanguagesWithCounts.filter(l => includesIgnoreAccents(l.name, languageFilterSearch));
   }, [allLanguagesWithCounts, languageFilterSearch]);
 
   const toggleLanguageFilter = (langName: string) => {
@@ -523,20 +522,18 @@ export const SongList: React.FC = () => {
         if (b.count !== a.count && (a.count === 0 || b.count === 0)) {
           return b.count - a.count;
         }
-        return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+        return a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' });
       });
   }, [songs, customCategories, hiddenCategories]);
 
   const filteredCategoriesInDropdown = useMemo(() => {
     if (!categoryFilterSearch.trim()) return allCategoriesWithCounts;
-    const q = categoryFilterSearch.toLowerCase().trim();
-    return allCategoriesWithCounts.filter(c => c.name.toLowerCase().includes(q));
+    return allCategoriesWithCounts.filter(c => includesIgnoreAccents(c.name, categoryFilterSearch));
   }, [allCategoriesWithCounts, categoryFilterSearch]);
 
   const filteredQuickCategories = useMemo(() => {
     if (!quickCatSearch.trim()) return allCategoriesWithCounts;
-    const q = quickCatSearch.toLowerCase().trim();
-    return allCategoriesWithCounts.filter(c => c.name.toLowerCase().includes(q));
+    return allCategoriesWithCounts.filter(c => includesIgnoreAccents(c.name, quickCatSearch));
   }, [allCategoriesWithCounts, quickCatSearch]);
 
   const toggleCategoryFilter = (catName: string) => {
@@ -571,8 +568,7 @@ export const SongList: React.FC = () => {
 
   const filteredAuthorsInDropdown = useMemo(() => {
     if (!authorFilterSearch.trim()) return allAuthorsWithCounts;
-    const q = authorFilterSearch.toLowerCase().trim();
-    return allAuthorsWithCounts.filter(a => a.name.toLowerCase().includes(q));
+    return allAuthorsWithCounts.filter(a => includesIgnoreAccents(a.name, authorFilterSearch));
   }, [allAuthorsWithCounts, authorFilterSearch]);
 
   const toggleAuthorFilter = (authorName: string) => {
@@ -760,8 +756,9 @@ export const SongList: React.FC = () => {
     const map = new Map<string, Song[]>();
     sorted.forEach(song => {
       const sourceStr = isArtistSort ? ((song.artist || '').trim() || 'Sans auteur') : (song.title || '');
-      const raw = sourceStr.trim().charAt(0).toUpperCase();
-      const normalized = raw.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const raw = sourceStr.trim().replace(/^[¡¿"'«(\s]+/, '').charAt(0).toUpperCase();
+      const ligatureBase = raw === 'Œ' ? 'O' : raw === 'Æ' ? 'A' : raw;
+      const normalized = ligatureBase.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
       const letter = /[A-Z]/.test(normalized) ? normalized : '#';
       if (!map.has(letter)) {
         map.set(letter, []);
@@ -858,11 +855,11 @@ export const SongList: React.FC = () => {
     return setlists
       .filter(st => {
         if (!setlistSearchQuery.trim()) return true;
-        const q = setlistSearchQuery.toLowerCase();
-        const matchName = st.name.toLowerCase().includes(q);
-        const matchDate = st.date?.toLowerCase().includes(q);
-        const matchNotes = st.notes?.toLowerCase().includes(q);
-        return matchName || matchDate || matchNotes;
+        return (
+          includesIgnoreAccents(st.name, setlistSearchQuery) ||
+          includesIgnoreAccents(st.date, setlistSearchQuery) ||
+          includesIgnoreAccents(st.notes, setlistSearchQuery)
+        );
       })
       .sort((a, b) => {
         if (setlistSortBy === 'recent') {
@@ -871,14 +868,16 @@ export const SongList: React.FC = () => {
           return dateB.localeCompare(dateA);
         }
         if (setlistSortBy === 'name') {
-          return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+          return a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' });
         }
         if (setlistSortBy === 'count') {
-          return (b.songIds?.length || 0) - (a.songIds?.length || 0);
+          const countA = (a.songIds || []).filter(id => existingSongIdsSet.has(id)).length;
+          const countB = (b.songIds || []).filter(id => existingSongIdsSet.has(id)).length;
+          return countB - countA;
         }
         return 0;
       });
-  }, [setlists, addToSetlistSong, setlistSearchQuery, setlistSortBy]);
+  }, [setlists, addToSetlistSong, setlistSearchQuery, setlistSortBy, existingSongIdsSet]);
 
   const handleToggleSetlistSelection = (setlistId: string) => {
     setSelectedSetlistIds(prev => 
@@ -1036,8 +1035,7 @@ export const SongList: React.FC = () => {
   // Filter categories for the multi-assign category modal
   const filteredMultiCategories = useMemo(() => {
     if (!multiCategorySearch.trim()) return allCategoriesWithCounts;
-    const q = multiCategorySearch.toLowerCase().trim();
-    return allCategoriesWithCounts.filter(c => c.name.toLowerCase().includes(q));
+    return allCategoriesWithCounts.filter(c => includesIgnoreAccents(c.name, multiCategorySearch));
   }, [allCategoriesWithCounts, multiCategorySearch]);
 
   // Filter and sort setlists for the multi-assign setlist modal
@@ -1045,11 +1043,11 @@ export const SongList: React.FC = () => {
     return setlists
       .filter(st => {
         if (!multiSetlistSearch.trim()) return true;
-        const q = multiSetlistSearch.toLowerCase().trim();
-        const matchName = st.name.toLowerCase().includes(q);
-        const matchDate = st.date?.toLowerCase().includes(q);
-        const matchNotes = st.notes?.toLowerCase().includes(q);
-        return matchName || matchDate || matchNotes;
+        return (
+          includesIgnoreAccents(st.name, multiSetlistSearch) ||
+          includesIgnoreAccents(st.date, multiSetlistSearch) ||
+          includesIgnoreAccents(st.notes, multiSetlistSearch)
+        );
       })
       .sort((a, b) => {
         if (batchSetlistSortBy === 'recent') {
@@ -1058,14 +1056,16 @@ export const SongList: React.FC = () => {
           return dateB.localeCompare(dateA);
         }
         if (batchSetlistSortBy === 'name') {
-          return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+          return a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' });
         }
         if (batchSetlistSortBy === 'count') {
-          return (b.songIds?.length || 0) - (a.songIds?.length || 0);
+          const countA = (a.songIds || []).filter(id => existingSongIdsSet.has(id)).length;
+          const countB = (b.songIds || []).filter(id => existingSongIdsSet.has(id)).length;
+          return countB - countA;
         }
         return 0;
       });
-  }, [setlists, multiSetlistSearch, batchSetlistSortBy]);
+  }, [setlists, multiSetlistSearch, batchSetlistSortBy, existingSongIdsSet]);
 
   // Open the batch category assignment modal
   const handleOpenBatchCategoryModal = () => {
@@ -1202,10 +1202,9 @@ export const SongList: React.FC = () => {
 
   // Filtered languages for batch modal search
   const filteredBatchLanguages = useMemo(() => {
-    const q = batchLanguageSearch.toLowerCase().trim();
-    if (!q) return allBatchAvailableLanguages;
-    return allBatchAvailableLanguages.filter(l => 
-      l.name.toLowerCase().includes(q) || l.code.toLowerCase().includes(q)
+    if (!batchLanguageSearch.trim()) return allBatchAvailableLanguages;
+    return allBatchAvailableLanguages.filter(l =>
+      includesIgnoreAccents(l.name, batchLanguageSearch) || includesIgnoreAccents(l.code, batchLanguageSearch)
     );
   }, [allBatchAvailableLanguages, batchLanguageSearch]);
 
@@ -1676,45 +1675,64 @@ export const SongList: React.FC = () => {
           </h1>
         </div>
 
-        {/* Action Buttons: Importer Dropdown & Nouveau Chant - visibles uniquement si l'utilisateur a les droits */}
+        {/* Action Button: Nouveau Chant Dropdown - visible uniquement si l'utilisateur a les droits */}
         {canManageSongs && (
-          <div className="flex items-center gap-2">
-            
-            {/* Importer Button with Dropdown Options */}
+          <div className="flex items-center">
             <div className="relative" ref={importDropdownRef}>
-              <div className="flex items-center rounded-md bg-[#1C1C1E] border border-[#333] shadow-sm">
-                <button
-                  onClick={() => handleOpenImport('search')}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-gray-200 hover:bg-[#2A2A2D] text-xs font-semibold rounded-l-md transition-colors cursor-pointer"
-                  title="Rechercher des chants sur les sites externes et importer"
-                >
-                  <FileUp className="w-3.5 h-3.5 text-blue-400" />
-                  <span>Importer</span>
-                </button>
-                <button
-                  onClick={() => setIsImportDropdownOpen(!isImportDropdownOpen)}
-                  className="px-1.5 py-1.5 text-gray-400 hover:text-white hover:bg-[#2A2A2D] rounded-r-md border-l border-[#333] transition-colors cursor-pointer"
-                  title="Options d'importation"
-                >
-                  <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isImportDropdownOpen ? 'rotate-180' : ''}`} />
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setIsImportDropdownOpen(prev => !prev)}
+                aria-expanded={isImportDropdownOpen}
+                aria-haspopup="menu"
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-md bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-sm transition-all active:scale-95 cursor-pointer"
+                title="Créer ou importer un chant"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Nouveau Chant</span>
+                <ChevronDown className={`w-3.5 h-3.5 ml-0.5 transition-transform ${isImportDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
 
-              {/* Importer Dropdown Menu */}
+              {/* Nouveau Chant Dropdown Menu */}
               {isImportDropdownOpen && (
-                <div 
+                <div
+                  role="menu"
                   className="absolute left-0 sm:left-auto sm:right-0 mt-1.5 w-80 max-w-[calc(100vw-2rem)] bg-[#111112] border border-[#333] rounded-lg shadow-2xl z-30 py-1.5 text-xs animate-in fade-in zoom-in-95 duration-100"
                 >
                   <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400 border-b border-[#222224]">
-                    Mode d'importation
+                    Ajouter un chant
                   </div>
 
-                  {/* Option 1: Online Search */}
+                  {/* Option 1: Create from scratch */}
                   <button
-                    onClick={() => handleOpenImport('search')}
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setIsImportDropdownOpen(false);
+                      handleCreateNewSong();
+                    }}
                     className="w-full text-left px-3.5 py-2.5 hover:bg-[#1C1C1E] flex items-start gap-2.5 transition-colors group bg-blue-950/20 border-b border-[#222224] cursor-pointer"
                   >
                     <div className="p-1.5 rounded bg-blue-600/20 border border-blue-500/30 text-blue-400 mt-0.5 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                      <Pen className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="font-semibold text-white group-hover:text-blue-400">
+                        Créer à partir de zéro
+                      </div>
+                      <p className="text-[11px] text-gray-400 mt-0.5">
+                        Composer un nouveau chant directement dans l'éditeur de l'app
+                      </p>
+                    </div>
+                  </button>
+
+                  {/* Option 2: Online Search */}
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => handleOpenImport('search')}
+                    className="w-full text-left px-3.5 py-2.5 hover:bg-[#1C1C1E] flex items-start gap-2.5 transition-colors group border-b border-[#222224] cursor-pointer"
+                  >
+                    <div className="p-1.5 rounded bg-[#1C1C1E] border border-[#333] text-blue-400 mt-0.5 group-hover:border-blue-500">
                       <Search className="w-4 h-4" />
                     </div>
                     <div>
@@ -1728,8 +1746,10 @@ export const SongList: React.FC = () => {
                     </div>
                   </button>
 
-                  {/* Option 2: File upload */}
+                  {/* Option 3: File upload */}
                   <button
+                    type="button"
+                    role="menuitem"
                     onClick={() => handleOpenImport('file')}
                     className="w-full text-left px-3.5 py-2.5 hover:bg-[#1C1C1E] flex items-start gap-2.5 transition-colors group border-b border-[#222224] cursor-pointer"
                   >
@@ -1746,8 +1766,10 @@ export const SongList: React.FC = () => {
                     </div>
                   </button>
 
-                  {/* Option 3: ChordPro Text */}
+                  {/* Option 4: ChordPro Text */}
                   <button
+                    type="button"
+                    role="menuitem"
                     onClick={() => handleOpenImport('chordpro')}
                     className="w-full text-left px-3.5 py-2.5 hover:bg-[#1C1C1E] flex items-start gap-2.5 transition-colors group cursor-pointer"
                   >
@@ -1766,15 +1788,6 @@ export const SongList: React.FC = () => {
                 </div>
               )}
             </div>
-
-            {/* Nouveau Chant */}
-            <button
-              onClick={handleCreateNewSong}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-md bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-sm transition-all active:scale-95 cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Nouveau Chant</span>
-            </button>
           </div>
         )}
       </div>
@@ -3106,7 +3119,10 @@ export const SongList: React.FC = () => {
                             <div className="flex items-center gap-2 text-[10px] text-gray-400 mt-0.5 flex-wrap">
                               <span className="flex items-center gap-1">
                                 <Music className="w-2.5 h-2.5 text-gray-500" />
-                                <span>{st.songIds.length} chant{st.songIds.length > 1 ? 's' : ''}</span>
+                                {(() => {
+                                  const validCount = st.songIds.filter(id => existingSongIdsSet.has(id)).length;
+                                  return <span>{validCount} chant{validCount > 1 ? 's' : ''}</span>;
+                                })()}
                               </span>
                               {(() => {
                                 const totalSecs = st.songIds.reduce((tot, sId) => {
@@ -4204,7 +4220,10 @@ export const SongList: React.FC = () => {
                             <div className="flex items-center gap-2 text-[10px] text-gray-400 mt-0.5">
                               <span className="flex items-center gap-1">
                                 <Music className="w-2.5 h-2.5 text-gray-500" />
-                                <span>{st.songIds?.length || 0} chant{((st.songIds?.length || 0) > 1) ? 's' : ''}</span>
+                                {(() => {
+                                  const validCount = (st.songIds || []).filter(id => existingSongIdsSet.has(id)).length;
+                                  return <span>{validCount} chant{validCount > 1 ? 's' : ''}</span>;
+                                })()}
                               </span>
                               {(() => {
                                 const totalSecs = (st.songIds || []).reduce((tot, sId) => {

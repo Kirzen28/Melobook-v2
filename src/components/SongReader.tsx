@@ -21,7 +21,9 @@ import {
   getYouTubeEmbedUrl,
   getSpotifyEmbedUrl,
   isDirectAudioUrl,
-  isChordGridToken
+  isChordGridToken,
+  parseStrumToken,
+  StrumStep
 } from '../utils/chordUtils';
 import { cacheSongInWorker } from '../utils/pwaCache';
 import { getSectionColor, getSectionBorderStyles } from '../utils/displayDefaults';
@@ -36,6 +38,7 @@ import { useMidi } from '../context/MidiContext';
 import { VocalArrangementSelector } from './editor/VocalArrangementSelector';
 import { KeySelectorKeypad } from './KeySelectorKeypad';
 import { metronomeAudio } from '../utils/metronomeAudio';
+import { includesIgnoreAccents } from '../utils/songSearchUtils';
 import { 
   Play, 
   Pause, 
@@ -421,11 +424,10 @@ export const SongReader: React.FC<SongReaderProps> = ({
     const linkedIds = new Set([song.id, ...linkedVersions.map(v => v.id)]);
     const filtered = songs.filter(s => !linkedIds.has(s.id));
     if (!bilingualSearchQuery.trim()) return filtered.slice(0, 10);
-    const q = bilingualSearchQuery.toLowerCase().trim();
-    return filtered.filter(s => 
-      s.title.toLowerCase().includes(q) || 
-      (s.artist && s.artist.toLowerCase().includes(q)) ||
-      (s.language && s.language.toLowerCase().includes(q))
+    return filtered.filter(s =>
+      includesIgnoreAccents(s.title, bilingualSearchQuery) ||
+      includesIgnoreAccents(s.artist, bilingualSearchQuery) ||
+      includesIgnoreAccents(s.language, bilingualSearchQuery)
     ).slice(0, 15);
   }, [song, linkedVersions, songs, bilingualSearchQuery]);
 
@@ -522,9 +524,10 @@ export const SongReader: React.FC<SongReaderProps> = ({
       const secOffset = visualChordTransposeSemitones + (sec.transposeOffset || 0);
       sec.lines.forEach(l => {
         if (l.type === 'grid_row' && l.gridBars) {
+          if (l.isStrumRow) return;
           l.gridBars.forEach(bar => {
             bar.beats.forEach(beat => {
-              if (isChordGridToken(beat)) {
+              if (isChordGridToken(beat) && !parseStrumToken(beat, false)) {
                 const chordStr = transposeChord(beat, secOffset, stageSettings.notation);
                 if (chordStr && chordStr.trim()) {
                   set.add(chordStr.trim());
@@ -1460,10 +1463,155 @@ export const SongReader: React.FC<SongReaderProps> = ({
     }
   };
 
+  const renderStrumGlyph = (step: StrumStep, stepIdx: number) => {
+    const isLightStroke = step.raw === 'd' || step.raw === 'u';
+    const isAccented = step.type === 'down_accent' || step.type === 'up_accent';
+
+    if (step.type === 'down' || step.type === 'down_accent') {
+      return (
+        <span
+          key={stepIdx}
+          className={`inline-flex flex-col items-center justify-center leading-none ${
+            isAccented
+              ? 'text-amber-300 print:text-black'
+              : isLightStroke
+                ? 'text-sky-300/70 print:text-neutral-600'
+                : 'text-sky-300 print:text-black'
+          }`}
+          title={isAccented ? 'Coup vers le bas accentué (↓)' : 'Coup vers le bas (↓)'}
+          aria-label="Bas"
+        >
+          {isAccented && (
+            <span className="text-[8px] font-black leading-none -mb-0.5 select-none">&gt;</span>
+          )}
+          <svg
+            viewBox="0 0 16 20"
+            className={`${isLightStroke ? 'w-3 h-4' : 'w-3.5 h-[18px]'} shrink-0`}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={isAccented ? 2.4 : isLightStroke ? 1.65 : 2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <line x1="8" y1="2.5" x2="8" y2="16.5" />
+            <polyline points="4,12.5 8,17 12,12.5" />
+          </svg>
+        </span>
+      );
+    }
+
+    if (step.type === 'up' || step.type === 'up_accent') {
+      return (
+        <span
+          key={stepIdx}
+          className={`inline-flex flex-col items-center justify-center leading-none ${
+            isAccented
+              ? 'text-amber-300 print:text-black'
+              : isLightStroke
+                ? 'text-emerald-300/70 print:text-neutral-600'
+                : 'text-emerald-300 print:text-black'
+          }`}
+          title={isAccented ? 'Coup vers le haut accentué (↑)' : 'Coup vers le haut (↑)'}
+          aria-label="Haut"
+        >
+          {isAccented && (
+            <span className="text-[8px] font-black leading-none -mb-0.5 select-none">&gt;</span>
+          )}
+          <svg
+            viewBox="0 0 16 20"
+            className={`${isLightStroke ? 'w-3 h-4' : 'w-3.5 h-[18px]'} shrink-0`}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={isAccented ? 2.4 : isLightStroke ? 1.65 : 2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <line x1="8" y1="17.5" x2="8" y2="3.5" />
+            <polyline points="4,7.5 8,3 12,7.5" />
+          </svg>
+        </span>
+      );
+    }
+
+    if (step.type === 'mute') {
+      return (
+        <span
+          key={stepIdx}
+          className="inline-flex items-center justify-center text-rose-400 font-bold text-xs px-0.5 print:text-black"
+          title="Étouffé / Mute (✕)"
+          aria-label="Étouffé"
+        >
+          ✕
+        </span>
+      );
+    }
+
+    if (step.type === 'hold') {
+      return (
+        <span
+          key={stepIdx}
+          className="inline-flex items-center justify-center text-gray-400 font-mono text-xs px-0.5 print:text-neutral-600"
+          title="Tenue / Prolongation (—)"
+          aria-label="Tenue"
+        >
+          —
+        </span>
+      );
+    }
+
+    if (step.type === 'dot') {
+      return (
+        <span
+          key={stepIdx}
+          className="inline-flex items-center justify-center text-gray-500 text-xs px-0.5 print:text-neutral-500"
+          title="Temps (•)"
+          aria-label="Temps"
+        >
+          •
+        </span>
+      );
+    }
+
+    if (step.type === 'slash') {
+      return (
+        <span
+          key={stepIdx}
+          className="inline-flex items-center justify-center text-gray-400 font-mono font-bold text-xs px-0.5 print:text-neutral-600"
+          title="Marque rythmique (/)"
+        >
+          /
+        </span>
+      );
+    }
+
+    if (step.type === 'repeat_measure') {
+      return (
+        <span
+          key={stepIdx}
+          className="inline-flex items-center justify-center text-amber-300/90 font-mono font-bold text-xs px-1 print:text-black"
+          title="Répéter la mesure précédente (%)"
+        >
+          ·/·
+        </span>
+      );
+    }
+
+    return (
+      <span
+        key={stepIdx}
+        className="inline-flex items-center justify-center text-gray-400 font-mono text-xs px-0.5 print:text-neutral-600"
+        title="Silence"
+      >
+        𝄽
+      </span>
+    );
+  };
+
   const renderSectionLinesList = (section: any, effectiveSectionOffset: number, linesSpacingClass: string, isTranslatedCol: boolean) => {
     const groupedLines: Array<
       | { kind: 'line'; line: any; key: number }
       | { kind: 'tab_block'; rows: string[]; key: number }
+      | { kind: 'grid_block'; rows: any[]; key: number }
     > = [];
 
     (section.lines || []).forEach((line: any, lIdx: number) => {
@@ -1473,6 +1621,13 @@ export const SongReader: React.FC<SongReaderProps> = ({
           prev.rows.push(line.tabText || '');
         } else {
           groupedLines.push({ kind: 'tab_block', rows: [line.tabText || ''], key: lIdx });
+        }
+      } else if (line.type === 'grid_row' && line.gridBars) {
+        const prev = groupedLines[groupedLines.length - 1];
+        if (prev && prev.kind === 'grid_block') {
+          prev.rows.push(line);
+        } else {
+          groupedLines.push({ kind: 'grid_block', rows: [line], key: lIdx });
         }
       } else {
         groupedLines.push({ kind: 'line', line, key: lIdx });
@@ -1490,6 +1645,186 @@ export const SongReader: React.FC<SongReaderProps> = ({
               >
                 {entry.rows.join('\n')}
               </pre>
+            );
+          }
+
+          if (entry.kind === 'grid_block') {
+            const maxBars = Math.max(1, ...entry.rows.map((r: any) => r.gridBars?.length || 0));
+            const hasPrefix = entry.rows.some((r: any) => Boolean(r.gridPrefix));
+            const hasSuffix = entry.rows.some((r: any) => Boolean(r.gridSuffix));
+            const hasStrumVisuals = entry.rows.some(
+              (r: any) =>
+                r.isStrumRow ||
+                r.gridBars?.some((b: any) =>
+                  b.beats?.some((beat: string) => {
+                    const steps = parseStrumToken(beat, r.isStrumRow);
+                    return Boolean(steps && steps.some(s => s.type !== 'dot' && s.type !== 'slash' && s.type !== 'repeat_measure'));
+                  })
+                )
+            );
+            const gridTemplateColumns = [
+              hasPrefix ? 'auto' : null,
+              `repeat(${maxBars}, minmax(76px, 1fr))`,
+              hasSuffix ? 'auto' : null
+            ].filter(Boolean).join(' ');
+
+            return (
+              <div
+                key={`grid-${entry.key}`}
+                className="rounded-lg bg-[#101014]/75 border border-[#24242C] px-2.5 py-2.5 overflow-x-auto print:bg-transparent print:border-neutral-300 print:px-1.5 print:py-1.5"
+              >
+                <div
+                  className="grid gap-y-1.5 items-stretch min-w-fit"
+                  style={{ gridTemplateColumns }}
+                >
+                  {entry.rows.map((row: any, rIdx: number) => {
+                    const bars: any[] = row.gridBars || [];
+                    const emptyTailCount = Math.max(0, maxBars - bars.length);
+
+                    return (
+                      <React.Fragment key={rIdx}>
+                        {hasPrefix && (
+                          <div className="flex items-center pr-2.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400 whitespace-nowrap print:text-neutral-700">
+                            {row.gridPrefix || ''}
+                          </div>
+                        )}
+
+                        {bars.map((bar: any, bIdx: number) => {
+                          const isLastRenderedBar = bIdx === bars.length - 1;
+                          return (
+                            <div
+                              key={bIdx}
+                              className={`relative flex items-center justify-between min-h-[28px] px-1.5 py-0.5 ${
+                                row.isStrumRow
+                                  ? 'bg-[#17171F]/65 rounded-xs print:bg-transparent'
+                                  : ''
+                              }`}
+                            >
+                              {/* Barre de mesure gauche */}
+                              {bar.repeatStart ? (
+                                <span
+                                  className="font-mono font-black text-amber-400 mr-1.5 select-none shrink-0 print:text-black"
+                                  title="Début de reprise"
+                                >
+                                  |:
+                                </span>
+                              ) : bar.doubleBarStart ? (
+                                <span className="font-mono font-bold text-gray-400 mr-1.5 select-none shrink-0 print:text-neutral-700">
+                                  ||
+                                </span>
+                              ) : (
+                                <span className="w-[1px] self-stretch bg-gray-600/70 mr-1.5 shrink-0 print:bg-neutral-400" />
+                              )}
+
+                              {/* Temps / Accords / Coups de strumming */}
+                              <div className="flex-1 flex items-center justify-evenly gap-1.5 min-w-0">
+                                {bar.beats.map((beat: string, beatIdx: number) => {
+                                  const strumSteps = parseStrumToken(beat, Boolean(row.isStrumRow));
+
+                                  if (!row.isStrumRow && isChordGridToken(beat)) {
+                                    const displayedBeat = transposeChord(beat, effectiveSectionOffset, stageSettings.notation);
+                                    if (!stageSettings.showChords) {
+                                      return (
+                                        <span key={beatIdx} className="text-gray-500 font-mono px-0.5 print:text-neutral-500">
+                                          /
+                                        </span>
+                                      );
+                                    }
+                                    return (
+                                      <button
+                                        key={beatIdx}
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          if (displayedBeat) {
+                                            setChordModalData({ isOpen: true, chord: displayedBeat });
+                                          }
+                                        }}
+                                        className="font-mono font-bold hover:underline cursor-pointer px-0.5 transition-all active:scale-95 whitespace-nowrap print:cursor-default print:hover:no-underline print:text-blue-800"
+                                        style={{
+                                          fontSize: `${displaySettings.typography.chordSize}px`,
+                                          color: displaySettings.chordColor || '#60a5fa'
+                                        }}
+                                        title={`Diagramme de l'accord ${displayedBeat}`}
+                                      >
+                                        {displayedBeat}
+                                      </button>
+                                    );
+                                  }
+
+                                  if (strumSteps) {
+                                    return (
+                                      <div
+                                        key={beatIdx}
+                                        className="inline-flex items-center gap-0.5 px-0.5 shrink-0"
+                                      >
+                                        {strumSteps.map((step, sIdx) => renderStrumGlyph(step, sIdx))}
+                                      </div>
+                                    );
+                                  }
+
+                                  return (
+                                    <span key={beatIdx} className="text-gray-400 font-mono text-xs px-0.5 whitespace-nowrap print:text-neutral-700">
+                                      {beat}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+
+                              {/* Barre de mesure droite (reprise, double barre ou clôture sur dernière mesure) */}
+                              {bar.repeatEnd ? (
+                                <span
+                                  className="font-mono font-black text-amber-400 ml-1.5 select-none shrink-0 print:text-black"
+                                  title="Fin de reprise"
+                                >
+                                  :|
+                                </span>
+                              ) : bar.doubleBarEnd ? (
+                                <span className="font-mono font-bold text-gray-400 ml-1.5 select-none shrink-0 print:text-neutral-700">
+                                  ||
+                                </span>
+                              ) : isLastRenderedBar ? (
+                                <span className="w-[1px] self-stretch bg-gray-600/70 ml-1.5 shrink-0 print:bg-neutral-400" />
+                              ) : null}
+                            </div>
+                          );
+                        })}
+
+                        {emptyTailCount > 0 &&
+                          Array.from({ length: emptyTailCount }).map((_, emptyIdx) => (
+                            <div key={`empty-${emptyIdx}`} />
+                          ))}
+
+                        {hasSuffix && (
+                          <div className="flex items-center pl-2 text-xs font-mono font-semibold text-emerald-300/90 whitespace-nowrap print:text-neutral-800">
+                            {row.gridSuffix || ''}
+                          </div>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </div>
+
+                {hasStrumVisuals && (
+                  <div className="mt-2 pt-1.5 border-t border-[#24242C]/80 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-gray-400 print:border-neutral-300 print:text-neutral-600">
+                    <span className="inline-flex items-center gap-1">
+                      <span className="text-sky-300 font-bold print:text-black">↓</span> Bas
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <span className="text-emerald-300 font-bold print:text-black">↑</span> Haut
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <span className="text-rose-400 font-bold print:text-black">✕</span> Étouffé
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <span className="text-gray-300 font-mono print:text-black">—</span> Tenue
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <span className="text-gray-400 print:text-black">•</span> Temps
+                    </span>
+                  </div>
+                )}
+              </div>
             );
           }
 
@@ -1522,70 +1857,6 @@ export const SongReader: React.FC<SongReaderProps> = ({
                 className="inline-block px-2.5 py-1 rounded border border-amber-500/40 bg-amber-950/20 text-xs sm:text-sm font-medium text-amber-200 print:border-neutral-400 print:bg-neutral-50 print:text-black"
               >
                 {line.comment}
-              </div>
-            );
-          }
-
-          if (line.type === 'grid_row' && line.gridBars) {
-            return (
-              <div
-                key={lIdx}
-                className="font-mono tabular-nums flex flex-wrap items-center gap-y-1.5 text-sm print:text-black"
-              >
-                {line.gridBars.map((bar: any, bIdx: number) => (
-                  <React.Fragment key={bIdx}>
-                    {bar.repeatStart && (
-                      <span className="font-bold text-amber-400 mr-1 print:text-black">|:</span>
-                    )}
-                    {!bar.repeatStart && bIdx === 0 && (
-                      <span className="text-gray-500 mr-1 print:text-neutral-500">|</span>
-                    )}
-                    <div className="inline-flex items-center gap-1.5">
-                      {bar.beats.map((beat: string, beatIdx: number) => {
-                        if (isChordGridToken(beat)) {
-                          const displayedBeat = transposeChord(beat, effectiveSectionOffset, stageSettings.notation);
-                          if (!stageSettings.showChords) {
-                            return (
-                              <span key={beatIdx} className="text-gray-500 px-0.5 print:text-neutral-500">
-                                /
-                              </span>
-                            );
-                          }
-                          return (
-                            <button
-                              key={beatIdx}
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (displayedBeat) {
-                                  setChordModalData({ isOpen: true, chord: displayedBeat });
-                                }
-                              }}
-                              className="font-mono font-bold hover:underline cursor-pointer px-0.5 transition-all active:scale-95 print:cursor-default print:hover:no-underline print:text-blue-800"
-                              style={{
-                                fontSize: `${displaySettings.typography.chordSize}px`,
-                                color: displaySettings.chordColor || '#60a5fa'
-                              }}
-                              title={`Diagramme de l'accord ${displayedBeat}`}
-                            >
-                              {displayedBeat}
-                            </button>
-                          );
-                        }
-                        return (
-                          <span key={beatIdx} className="text-gray-500 px-0.5 print:text-neutral-500">
-                            {beat}
-                          </span>
-                        );
-                      })}
-                    </div>
-                    {bar.repeatEnd ? (
-                      <span className="font-bold text-amber-400 mx-1.5 print:text-black">:|</span>
-                    ) : (
-                      <span className="text-gray-500 mx-1.5 print:text-neutral-500">|</span>
-                    )}
-                  </React.Fragment>
-                ))}
               </div>
             );
           }
@@ -1669,10 +1940,12 @@ export const SongReader: React.FC<SongReaderProps> = ({
         section.type === 'instrumental' ? 'Instrumental' :
         section.type === 'tag' ? 'Tag' :
         section.type === 'finale' ? 'Finale' :
+        section.type === 'grid' ? 'Grille' :
+        section.type === 'tab' ? 'Tablature' :
         section.type && section.type !== 'general' ? section.type : ''
       );
 
-      const hasSectionMeta = Boolean(section.isChorusRecall || section.key || section.tempo || section.timeSignature || section.transposeOffset);
+      const hasSectionMeta = Boolean(section.isChorusRecall || section.key || section.tempo || section.timeSignature || section.transposeOffset || section.gridShape?.raw);
       const isSectionHeaderVisible = metaVis.sectionHeaders !== false;
       const hasVisibleHeader = Boolean(
         (isSectionHeaderVisible && sectionTitle) ||
@@ -1744,9 +2017,10 @@ export const SongReader: React.FC<SongReaderProps> = ({
                   </span>
                 )}
 
-                {(section.key || section.transposeOffset || section.tempo || section.timeSignature) && (
+                {(section.key || section.transposeOffset || section.tempo || section.timeSignature || section.gridShape?.raw) && (
                   <span className="text-[11px] font-mono text-gray-300/90 print:text-neutral-700">
                     {[
+                      section.gridShape?.raw ? `Grille ${section.gridShape.raw}` : '',
                       section.key ? `Ton: ${transposeChord(section.key, semitonesOffset, stageSettings.notation)}` : '',
                       section.transposeOffset ? `${section.transposeOffset > 0 ? '+' : ''}${section.transposeOffset}t` : '',
                       section.tempo ? `${section.tempo} BPM` : '',
@@ -3310,10 +3584,12 @@ export const SongReader: React.FC<SongReaderProps> = ({
                 section.type === 'instrumental' ? 'Instrumental' :
                 section.type === 'tag' ? 'Tag' :
                 section.type === 'finale' ? 'Finale' :
+                section.type === 'grid' ? 'Grille' :
+                section.type === 'tab' ? 'Tablature' :
                 section.type && section.type !== 'general' ? section.type : ''
               );
 
-              const hasSectionMeta = Boolean(section.isChorusRecall || section.key || section.tempo || section.timeSignature || section.transposeOffset);
+              const hasSectionMeta = Boolean(section.isChorusRecall || section.key || section.tempo || section.timeSignature || section.transposeOffset || section.gridShape?.raw);
               // Le nom des sections doit être visible
               const isSectionHeaderVisible = metaVis.sectionHeaders !== false;
               const hasVisibleHeader = Boolean(
@@ -3388,9 +3664,10 @@ export const SongReader: React.FC<SongReaderProps> = ({
                           </span>
                         )}
 
-                        {(section.key || section.transposeOffset || section.tempo || section.timeSignature) && (
+                        {(section.key || section.transposeOffset || section.tempo || section.timeSignature || section.gridShape?.raw) && (
                           <span className="text-[11px] font-mono text-gray-300/90 print:text-neutral-700">
                             {[
+                              section.gridShape?.raw ? `Grille ${section.gridShape.raw}` : '',
                               section.key ? `Ton: ${transposeChord(section.key, visualChordTransposeSemitones, stageSettings.notation)}` : '',
                               section.transposeOffset ? `${section.transposeOffset > 0 ? '+' : ''}${section.transposeOffset}t` : '',
                               section.tempo ? `${section.tempo} BPM` : '',

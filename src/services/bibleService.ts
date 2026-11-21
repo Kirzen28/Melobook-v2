@@ -1,6 +1,7 @@
 import { BiblePassageData, BibleVerseItem } from '../types';
 import { BIBLE_BOOKS, BibleBookInfo, OFFLINE_KEY_VERSES } from '../data/bibleBooksData';
 import { cleanBibleVerseText } from '../utils/presentationUtils';
+import { includesIgnoreAccents } from '../utils/songSearchUtils';
 
 export interface BibleTranslationInfo {
   id: string;
@@ -313,9 +314,8 @@ export async function searchBibleKeywords(
   }[] = [];
 
   // 1. Recherche dans les versets offline d'abord
-  const qLower = q.toLowerCase();
   for (const item of OFFLINE_KEY_VERSES) {
-    if (item.text.toLowerCase().includes(qLower)) {
+    if (includesIgnoreAccents(item.text, q)) {
       const bk = BIBLE_BOOKS.find(b => b.id === item.bookId);
       if (bk) {
         results.push({
@@ -340,7 +340,7 @@ export async function searchBibleKeywords(
         for (const item of data.slice(0, 15)) {
           const bk = BIBLE_BOOKS.find(b => b.id === item.book);
           if (bk && !results.some(r => r.book.id === bk.id && r.chapter === item.chapter && r.verse === item.verse)) {
-            const cleanText = (item.text || '').replace(/<[^>]+>/g, '').trim();
+            const cleanText = cleanBibleVerseText(item.text || '');
             results.push({
               book: bk,
               chapter: item.chapter,

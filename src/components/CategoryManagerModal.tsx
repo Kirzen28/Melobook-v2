@@ -19,6 +19,7 @@ import {
   getHiddenCategories, 
   saveHiddenCategories 
 } from '../utils/categoryUtils';
+import { includesIgnoreAccents } from '../utils/songSearchUtils';
 
 interface CategoryManagerModalProps {
   isOpen: boolean;
@@ -107,15 +108,14 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
         if (b.count !== a.count && (a.count === 0 || b.count === 0)) {
           return b.count - a.count;
         }
-        return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+        return a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' });
       });
   }, [songs, customCategories, hiddenCategories]);
 
   // Filtered list
   const filteredCategories = useMemo(() => {
     if (!searchQuery.trim()) return allCategories;
-    const q = searchQuery.toLowerCase().trim();
-    return allCategories.filter(c => c.name.toLowerCase().includes(q));
+    return allCategories.filter(c => includesIgnoreAccents(c.name, searchQuery));
   }, [allCategories, searchQuery]);
 
   // Show feedback

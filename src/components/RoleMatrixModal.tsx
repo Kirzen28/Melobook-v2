@@ -16,6 +16,7 @@ import {
   HelpCircle
 } from 'lucide-react';
 import { UserRole } from '../types';
+import { includesIgnoreAccents } from '../utils/songSearchUtils';
 
 export interface RoleMatrixModalProps {
   isOpen: boolean;
@@ -353,11 +354,11 @@ export const RoleMatrixModal: React.FC<RoleMatrixModalProps> = ({
   const filteredPermissions = useMemo(() => {
     return PERMISSION_DATA.filter(item => {
       const matchCategory = selectedCategory === 'all' || item.category === selectedCategory;
-      const q = searchQuery.toLowerCase().trim();
-      const matchSearch = !q || 
-        item.title.toLowerCase().includes(q) || 
-        item.description.toLowerCase().includes(q) ||
-        item.category.toLowerCase().includes(q);
+      const q = searchQuery.trim();
+      const matchSearch = !q ||
+        includesIgnoreAccents(item.title, q) ||
+        includesIgnoreAccents(item.description, q) ||
+        includesIgnoreAccents(item.category, q);
       return matchCategory && matchSearch;
     });
   }, [selectedCategory, searchQuery]);

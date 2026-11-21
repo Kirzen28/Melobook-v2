@@ -9,6 +9,7 @@ import {
   Link2,
   Trash2
 } from 'lucide-react';
+import { includesIgnoreAccents } from '../utils/songSearchUtils';
 
 export interface BackgroundPreset {
   id: string;
@@ -161,10 +162,9 @@ export const PresentationBackgroundModal: React.FC<PresentationBackgroundModalPr
       list = list.filter(p => p.category === selectedCategory);
     }
     if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      list = list.filter(p => 
-        p.title.toLowerCase().includes(q) || 
-        p.category.toLowerCase().includes(q)
+      list = list.filter(p =>
+        includesIgnoreAccents(p.title, searchQuery) ||
+        includesIgnoreAccents(p.category, searchQuery)
       );
     }
     return list;

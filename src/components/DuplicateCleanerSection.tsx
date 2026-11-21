@@ -27,6 +27,8 @@ const normalizeText = (text: string): string => {
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
+    .replace(/œ/g, 'oe')
+    .replace(/æ/g, 'ae')
     .replace(/[^a-z0-9]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
@@ -38,6 +40,8 @@ const normalizeLyrics = (chordPro: string): string => {
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
+    .replace(/œ/g, 'oe')
+    .replace(/æ/g, 'ae')
     .replace(/\[.*?\]/g, ' ')
     .replace(/\{.*?\}/g, ' ')
     .replace(/[^a-z0-9]/g, '')

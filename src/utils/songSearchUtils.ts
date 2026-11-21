@@ -1,6 +1,25 @@
 import { Song } from '../types';
 
 /**
+ * Supprime accents et diacritiques tout en conservant chiffres, ponctuation et symboles (#, /, etc.).
+ */
+export function normalizeAccentFree(str: string | undefined | null): string {
+  if (!str) return '';
+  return str
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/œ/g, 'oe')
+    .replace(/æ/g, 'ae');
+}
+
+export function includesIgnoreAccents(haystack: string | undefined | null, needle: string): boolean {
+  const q = normalizeAccentFree(needle).trim();
+  if (!q) return true;
+  return normalizeAccentFree(haystack).includes(q);
+}
+
+/**
  * Normalise une chaîne de caractères pour la recherche :
  * - Minuscules
  * - Suppression des accents et diacritiques (NFD)
@@ -9,12 +28,7 @@ import { Song } from '../types';
  */
 export function normalizeSearchString(str: string): string {
   if (!str) return '';
-  return str
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/œ/g, 'oe')
-    .replace(/æ/g, 'ae')
+  return normalizeAccentFree(str)
     .replace(/['’]/g, ' ')
     .replace(/[^a-z0-9\s]/g, ' ')
     .replace(/\s+/g, ' ')

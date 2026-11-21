@@ -29,6 +29,7 @@ import {
 } from '../utils/presentationUtils';
 import { stripParentheses } from '../utils/chordUtils';
 import { getLinkedSongVersions, getLanguageMeta, PRESET_LANGUAGES } from '../utils/languageUtils';
+import { includesIgnoreAccents, getSongSearchScore } from '../utils/songSearchUtils';
 import { PresentationBackgroundModal } from './PresentationBackgroundModal';
 import { BibleProjectionModule } from './BibleProjectionModule';
 import { MediaProjectionModule } from './MediaProjectionModule';
@@ -116,9 +117,12 @@ export const PresentationManager: React.FC = () => {
     isGuest
   } = useApp();
 
+  const songsById = useMemo(() => new Map(songs.map(s => [s.id, s])), [songs]);
+
   // File de chants pour la projection avec support multi-setlists
   const [queueItems, setQueueItems] = useState<QueueItem[]>(() => {
     const todayStr = getTodayDateString();
+    const initialSongIds = new Set(songs.map(s => s.id));
     const todaySetlists = setlists.filter(st => 
       st.date && 
       (st.date === todayStr || st.date.startsWith(todayStr)) && 
@@ -129,7 +133,10 @@ export const PresentationManager: React.FC = () => {
     if (todaySetlists.length > 0) {
       const items: QueueItem[] = [];
       todaySetlists.forEach(st => {
-        st.songIds.forEach((songId, idx) => {
+        const validIds = initialSongIds.size > 0
+          ? st.songIds.filter(songId => initialSongIds.has(songId))
+          : st.songIds;
+        validIds.forEach((songId, idx) => {
           items.push({
             uid: `${st.id}_${songId}_${idx}`,
             songId,
@@ -150,17 +157,20 @@ export const PresentationManager: React.FC = () => {
   // Synchronisation automatique des setlists pour la date du jour vers la file de projection
   useEffect(() => {
     const todayStr = getTodayDateString();
-    const todaySetlists = setlists.filter(st => 
-      st.date && 
-      (st.date === todayStr || st.date.startsWith(todayStr)) && 
-      st.songIds && 
-      st.songIds.length > 0
-    );
+    const todaySetlists = setlists
+      .filter(st => st.date && (st.date === todayStr || st.date.startsWith(todayStr)))
+      .map(st => ({
+        ...st,
+        validSongIds: songsById.size > 0
+          ? (st.songIds || []).filter(id => songsById.has(id))
+          : (st.songIds || [])
+      }))
+      .filter(st => st.validSongIds.length > 0);
 
     if (todaySetlists.length === 0) return;
 
     const todaySig = todaySetlists
-      .map(st => `${st.id}:${st.name}:${st.songIds.join(',')}`)
+      .map(st => `${st.id}:${st.name}:${st.validSongIds.join(',')}`)
       .join('|');
 
     if (lastSyncedTodaySigRef.current !== todaySig) {
@@ -168,7 +178,7 @@ export const PresentationManager: React.FC = () => {
 
       const todayItems: QueueItem[] = [];
       todaySetlists.forEach(st => {
-        st.songIds.forEach((songId, idx) => {
+        st.validSongIds.forEach((songId, idx) => {
           todayItems.push({
             uid: `${st.id}_${songId}_${idx}`,
             songId,
@@ -200,9 +210,9 @@ export const PresentationManager: React.FC = () => {
         type: 'info'
       });
     }
-  }, [setlists, showNotification]);
+  }, [setlists, songsById, showNotification]);
 
-  // Synchronisation continue des autres setlists présentes dans la file (ordre et chants mis à jour)
+  // Synchronisation continue des autres setlists et purge des chants supprimés dans la file
   useEffect(() => {
     setQueueItems(prev => {
       if (prev.length === 0) return prev;
@@ -217,11 +227,14 @@ export const PresentationManager: React.FC = () => {
         new Set(prev.map(i => i.setlistId).filter((id): id is string => Boolean(id) && !todaySetlistIds.has(id)))
       );
 
-      if (otherSetlistIdsInQueue.length === 0) return prev;
-
       let hasChanges = false;
       let nextQueue: QueueItem[] = [];
+
       for (const item of prev) {
+        if (songsById.size > 0 && item.type !== 'bible' && (!item.songId || !songsById.has(item.songId))) {
+          hasChanges = true;
+          continue;
+        }
         if (!item.setlistId || todaySetlistIds.has(item.setlistId)) {
           nextQueue.push(item);
         }
@@ -230,18 +243,24 @@ export const PresentationManager: React.FC = () => {
       // Reconstruire les chants pour chaque setlist selon son état actuel
       for (const sId of otherSetlistIdsInQueue) {
         const foundSetlist = setlists.find(s => s.id === sId);
-        if (foundSetlist && foundSetlist.songIds && foundSetlist.songIds.length > 0) {
-          const currentItemsForSetlist = prev.filter(i => i.setlistId === sId);
+        const validSetlistSongIds = foundSetlist
+          ? (songsById.size > 0 ? (foundSetlist.songIds || []).filter(id => songsById.has(id)) : (foundSetlist.songIds || []))
+          : [];
+
+        if (foundSetlist && validSetlistSongIds.length > 0) {
+          const currentItemsForSetlist = prev.filter(
+            i => i.setlistId === sId && (songsById.size === 0 || (i.songId && songsById.has(i.songId)))
+          );
           const currentSongIds = currentItemsForSetlist.map(i => i.songId);
           const isIdentical = 
-            currentSongIds.length === foundSetlist.songIds.length &&
-            currentSongIds.every((id, idx) => id === foundSetlist.songIds[idx]);
+            currentSongIds.length === validSetlistSongIds.length &&
+            currentSongIds.every((id, idx) => id === validSetlistSongIds[idx]);
 
           if (isIdentical) {
             nextQueue.push(...currentItemsForSetlist);
           } else {
             hasChanges = true;
-            foundSetlist.songIds.forEach((songId, idx) => {
+            validSetlistSongIds.forEach((songId, idx) => {
               nextQueue.push({
                 uid: `${foundSetlist.id}_${songId}_${idx}`,
                 songId,
@@ -257,7 +276,7 @@ export const PresentationManager: React.FC = () => {
 
       return hasChanges ? nextQueue : prev;
     });
-  }, [setlists]);
+  }, [setlists, songsById]);
 
   const [activeSongIndex, setActiveSongIndex] = useState<number>(0);
   const [activeSlideIndex, setActiveSlideIndex] = useState<number>(0);
@@ -576,13 +595,20 @@ export const PresentationManager: React.FC = () => {
   // Référence vers la pop-up de projection
   const popupRef = useRef<Window | null>(null);
 
+  // Éléments visibles (résolus) dans la file de projection
+  const visibleQueueCount = useMemo(() => {
+    return queueItems.filter(item =>
+      item.type === 'bible' ? Boolean(item.bibleData) : Boolean(item.songId && songsById.has(item.songId))
+    ).length;
+  }, [queueItems, songsById]);
+
   // Chants résolus dans la file
   const queueSongs: Song[] = useMemo(() => {
     return queueItems
       .filter(item => item.type !== 'bible' && Boolean(item.songId))
-      .map(item => songs.find(s => s.id === item.songId))
+      .map(item => songsById.get(item.songId!))
       .filter((s): s is Song => Boolean(s));
-  }, [queueItems, songs]);
+  }, [queueItems, songsById]);
 
   // Élément actif dans la file de projection
   const currentQueueItem: QueueItem | null = useMemo(() => {
@@ -1485,7 +1511,17 @@ export const PresentationManager: React.FC = () => {
     const target = setlists.find(s => s.id === setlistId);
     if (!target || !target.songIds || target.songIds.length === 0) return;
 
-    const newItems: QueueItem[] = target.songIds.map((songId, idx) => ({
+    const validSongIds = target.songIds.filter(songId => songsById.has(songId));
+    if (validSongIds.length === 0) {
+      showNotification?.({
+        title: target.name,
+        message: 'Cette setlist ne contient aucun chant disponible.',
+        type: 'info'
+      });
+      return;
+    }
+
+    const newItems: QueueItem[] = validSongIds.map((songId, idx) => ({
       uid: `${target.id}_${songId}_${Date.now()}_${idx}`,
       songId,
       setlistName: target.name,
@@ -1519,12 +1555,13 @@ export const PresentationManager: React.FC = () => {
 
   // Liste filtrée pour le modal d'ajout de chant séparé
   const filteredModalSongs = useMemo(() => {
-    const q = songModalSearch.trim().toLowerCase();
+    const q = songModalSearch.trim();
     if (!q) return songs;
     return songs.filter(s =>
-      s.title.toLowerCase().includes(q) ||
-      (s.artist && s.artist.toLowerCase().includes(q)) ||
-      (s.content && s.content.toLowerCase().includes(q))
+      getSongSearchScore(s, q) > 0 ||
+      includesIgnoreAccents(s.title, q) ||
+      includesIgnoreAccents(s.artist, q) ||
+      includesIgnoreAccents(s.content, q)
     );
   }, [songs, songModalSearch]);
 
@@ -1823,9 +1860,9 @@ export const PresentationManager: React.FC = () => {
                   >
                     <Music className="w-3.5 h-3.5" />
                     <span>Pupitre</span>
-                    {queueItems.length > 0 && (
+                    {visibleQueueCount > 0 && (
                       <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-black/40 text-blue-200">
-                        {queueItems.length}
+                        {visibleQueueCount}
                       </span>
                     )}
                   </button>
@@ -1947,7 +1984,7 @@ export const PresentationManager: React.FC = () => {
                                           <ListMusic className={`w-3.5 h-3.5 shrink-0 ${isSelected ? 'text-blue-300' : 'text-blue-400'}`} />
                                           <span className="truncate font-medium">{st.name}</span>
                                           <span className="text-[10px] text-gray-500 font-mono shrink-0">
-                                            ({st.songIds?.length || 0})
+                                            ({(st.songIds || []).filter(id => songsById.has(id)).length})
                                           </span>
                                         </div>
                                         <button
@@ -2885,16 +2922,16 @@ export const PresentationManager: React.FC = () => {
                   <span className="text-xs font-bold text-gray-200 uppercase tracking-wide truncate">
                     File de projection
                   </span>
-                  {queueItems.length > 0 && (
+                  {visibleQueueCount > 0 && (
                     <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                      {queueItems.length}
+                      {visibleQueueCount}
                     </span>
                   )}
                 </div>
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
-                {queueSongs.length > 0 && (
+                {visibleQueueCount > 0 && (
                   <button
                     type="button"
                     onClick={(e) => {
@@ -2922,7 +2959,7 @@ export const PresentationManager: React.FC = () => {
             {/* Corps du bloc déroulable */}
             {!isQueueCollapsed && (
               <div className="px-3.5 sm:px-4 pb-3.5 sm:pb-4 pt-0 space-y-3 border-t border-[#1E1E26] mt-0.5 flex-1 min-h-0 flex flex-col">
-                {queueItems.length === 0 ? (
+                {visibleQueueCount === 0 ? (
                   <div className="text-center py-7 text-gray-500 text-xs flex-1 flex flex-col items-center justify-center">
                     <Music className="w-8 h-8 mx-auto mb-2 opacity-30 text-emerald-400" />
                     <span>Aucun chant ou passage dans la file.</span>
@@ -2930,14 +2967,21 @@ export const PresentationManager: React.FC = () => {
                   </div>
                 ) : (
                   <div className="space-y-1.5 overflow-y-auto pr-0.5 custom-scrollbar pt-1 flex-1 min-h-0 max-lg:max-h-[460px]">
-                    {queueItems.map((item, idx) => {
-                      const isBible = item.type === 'bible' && Boolean(item.bibleData);
-                      const song = !isBible && item.songId ? songs.find(s => s.id === item.songId) : null;
-                      if (!isBible && !song) return null;
+                    {(() => {
+                      const visibleEntries = queueItems
+                        .map((item, rawIdx) => {
+                          const isBible = item.type === 'bible' && Boolean(item.bibleData);
+                          const song = !isBible && item.songId ? songsById.get(item.songId) || null : null;
+                          if (!isBible && !song) return null;
+                          return { item, idx: rawIdx, isBible, song };
+                        })
+                        .filter((e): e is { item: QueueItem; idx: number; isBible: boolean; song: Song | null } => e !== null);
 
+                      return visibleEntries.map(({ item, idx, isBible, song }, visibleIdx) => {
                       const isSetlistSong = !isBible && Boolean(item.setlistId);
                       const isIndividualItem = isBible || !item.setlistId;
-                      const prevItem = idx > 0 ? queueItems[idx - 1] : null;
+                      const prevEntry = visibleIdx > 0 ? visibleEntries[visibleIdx - 1] : null;
+                      const prevItem = prevEntry ? prevEntry.item : null;
                       const isFirstOfSetlist = isSetlistSong && (
                         !prevItem || 
                         prevItem.type === 'bible' || 
@@ -3082,7 +3126,7 @@ export const PresentationManager: React.FC = () => {
                                   ? isBible ? 'bg-amber-500 text-black font-extrabold' : 'bg-blue-600 text-white' 
                                   : isBible ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : isIndividualItem ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-[#25252D] text-gray-400'
                               }`}>
-                                {idx + 1}
+                                {visibleIdx + 1}
                               </span>
                               <div className="min-w-0 flex-1">
                                 {isBible ? (
@@ -3172,7 +3216,8 @@ export const PresentationManager: React.FC = () => {
                           </div>
                         </React.Fragment>
                       );
-                    })}
+                    });
+                    })()}
                   </div>
                 )}
               </div>
@@ -3314,8 +3359,10 @@ export const PresentationManager: React.FC = () => {
                   .filter(s => s.id !== currentSong.id)
                   .filter(s => {
                     if (!bilingualSearchQuery.trim()) return true;
-                    const q = bilingualSearchQuery.toLowerCase();
-                    return s.title.toLowerCase().includes(q) || (s.language && s.language.toLowerCase().includes(q));
+                    return (
+                      includesIgnoreAccents(s.title, bilingualSearchQuery) ||
+                      includesIgnoreAccents(s.language, bilingualSearchQuery)
+                    );
                   })
                   .slice(0, 15)
                   .map(songItem => {

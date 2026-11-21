@@ -43,6 +43,7 @@ const songTransitionVariants = {
 
 export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose }) => {
   const { 
+    setlists,
     selectedSetlist, 
     songs, 
     activeSetlistIndex, 
@@ -63,33 +64,52 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
 
+  const setlistsRef = useRef(setlists);
+  useEffect(() => {
+    setlistsRef.current = setlists;
+  }, [setlists]);
+
+  const existingSongIdsSet = useMemo(() => new Set(songs.map(s => s.id)), [songs]);
+  const liveSetlist = useMemo(
+    () => (selectedSetlist ? setlists.find(s => s.id === selectedSetlist.id) || selectedSetlist : null),
+    [selectedSetlist, setlists]
+  );
+
   const handleToggleSongInSetlist = async (songId: string) => {
-    if (!selectedSetlist) return;
-    const isPresent = selectedSetlist.songIds.includes(songId);
+    if (!liveSetlist) return;
+    const latest = setlistsRef.current.find(s => s.id === liveSetlist.id) || liveSetlist;
+    const validIds = latest.songIds.filter(id => existingSongIdsSet.has(id) || id === songId);
+    const isPresent = validIds.includes(songId);
     const newSongIds = isPresent
-      ? selectedSetlist.songIds.filter(id => id !== songId)
-      : [...selectedSetlist.songIds, songId];
-    await updateSetlist(selectedSetlist.id, { songIds: newSongIds });
+      ? validIds.filter(id => id !== songId)
+      : [...validIds, songId];
+    setlistsRef.current = setlistsRef.current.map(s => s.id === latest.id ? { ...s, songIds: newSongIds } : s);
+    await updateSetlist(latest.id, { songIds: newSongIds });
   };
 
   const handleAddMultipleSongs = async (songIdsToAdd: string[]) => {
-    if (!selectedSetlist) return;
-    const existing = new Set(selectedSetlist.songIds);
-    const newIds = [...selectedSetlist.songIds];
+    if (!liveSetlist) return;
+    const latest = setlistsRef.current.find(s => s.id === liveSetlist.id) || liveSetlist;
+    const addSet = new Set(songIdsToAdd);
+    const newIds = latest.songIds.filter(id => existingSongIdsSet.has(id) || addSet.has(id));
+    const existing = new Set(newIds);
     songIdsToAdd.forEach(id => {
       if (!existing.has(id)) {
         newIds.push(id);
         existing.add(id);
       }
     });
-    await updateSetlist(selectedSetlist.id, { songIds: newIds });
+    setlistsRef.current = setlistsRef.current.map(s => s.id === latest.id ? { ...s, songIds: newIds } : s);
+    await updateSetlist(latest.id, { songIds: newIds });
   };
 
   const handleRemoveMultipleSongs = async (songIdsToRemove: string[]) => {
-    if (!selectedSetlist) return;
+    if (!liveSetlist) return;
+    const latest = setlistsRef.current.find(s => s.id === liveSetlist.id) || liveSetlist;
     const toRemove = new Set(songIdsToRemove);
-    const newSongIds = selectedSetlist.songIds.filter(id => !toRemove.has(id));
-    await updateSetlist(selectedSetlist.id, { songIds: newSongIds });
+    const newSongIds = latest.songIds.filter(id => !toRemove.has(id) && existingSongIdsSet.has(id));
+    setlistsRef.current = setlistsRef.current.map(s => s.id === latest.id ? { ...s, songIds: newSongIds } : s);
+    await updateSetlist(latest.id, { songIds: newSongIds });
   };
 
   useEffect(() => {
@@ -120,17 +140,17 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
 
   // Ordered list of songs in this setlist
   const setlistSongs = useMemo(() => {
-    if (!selectedSetlist) return [];
-    return selectedSetlist.songIds
+    if (!liveSetlist) return [];
+    return liveSetlist.songIds
       .map(id => songs.find(s => s.id === id))
       .filter((s): s is typeof songs[0] => s !== undefined);
-  }, [selectedSetlist, songs]);
+  }, [liveSetlist, songs]);
 
   useEffect(() => {
-    if (selectedSetlist) {
-      cacheSetlistInWorker(selectedSetlist, setlistSongs);
+    if (liveSetlist) {
+      cacheSetlistInWorker(liveSetlist, setlistSongs);
     }
-  }, [selectedSetlist, setlistSongs]);
+  }, [liveSetlist, setlistSongs]);
 
   const currentSong = setlistSongs[activeSetlistIndex] || null;
 
@@ -212,7 +232,7 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
     };
   }, [handleNext, handlePrev, stageSettings.isAutoScrolling, stageSettings.autoScrollSpeed, updateStageSettings, registerActionHandler]);
 
-  if (!selectedSetlist || setlistSongs.length === 0) {
+  if (!liveSetlist || setlistSongs.length === 0) {
     return (
       <div className="fixed inset-0 top-16 z-40 bg-[#0A0A0B] flex flex-col items-center justify-center p-6 text-center text-[#E0E0E0]">
         <ListMusic className="w-12 h-12 text-gray-600 mb-4" />
@@ -254,7 +274,7 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
             <div className="flex items-center gap-2 min-w-0">
               <span className="text-xs font-bold text-blue-400 uppercase tracking-wider flex items-center gap-1 truncate">
                 <ListMusic className="w-3.5 h-3.5 shrink-0" />
-                <span className="truncate">{selectedSetlist.name}</span>
+                <span className="truncate">{liveSetlist.name}</span>
               </span>
               <span 
                 className="px-1.5 py-0.5 rounded text-[11px] font-mono font-medium bg-[#1C1C1E] text-gray-300 border border-[#333] shrink-0 select-none"
@@ -337,13 +357,13 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
             >
               <SongReader
                 song={currentSong}
-                setlistId={selectedSetlist.id}
+                setlistId={liveSetlist.id}
                 onBack={onClose}
                 onNext={activeSetlistIndex < setlistSongs.length - 1 ? handleNext : undefined}
                 onPrev={activeSetlistIndex > 0 ? handlePrev : undefined}
                 hasNext={activeSetlistIndex < setlistSongs.length - 1}
                 hasPrev={activeSetlistIndex > 0}
-                setlistContextName={selectedSetlist.name}
+                setlistContextName={liveSetlist.name}
                 setlistPosition={{ current: activeSetlistIndex + 1, total: setlistSongs.length }}
               />
             </motion.div>
@@ -352,11 +372,11 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
       </div>
 
       {/* Modal d'ajout rapide de chants pendant le mode Live */}
-      {isAddSongModalOpen && selectedSetlist && (
+      {isAddSongModalOpen && liveSetlist && (
         <SetlistAddSongsModal
           isOpen={isAddSongModalOpen}
           onClose={() => setIsAddSongModalOpen(false)}
-          setlist={selectedSetlist}
+          setlist={liveSetlist}
           songs={songs}
           onToggleSong={handleToggleSongInSetlist}
           onAddMultipleSongs={handleAddMultipleSongs}

@@ -41,6 +41,7 @@ import {
   getYouTubeEmbedUrl, 
   extractYouTubeVideoId 
 } from '../utils/presentationUtils';
+import { includesIgnoreAccents } from '../utils/songSearchUtils';
 
 // Bibliothèques de médias libres de droits intégrées (Pixabay / Unsplash / Pexels CDN)
 export interface CuratedMediaItem {
@@ -549,10 +550,9 @@ export const MediaProjectionModule: React.FC<MediaProjectionModuleProps> = ({
     else list = CURATED_AUDIOS;
 
     if (!searchFilter.trim()) return list;
-    const q = searchFilter.toLowerCase();
-    return list.filter(item => 
-      item.title.toLowerCase().includes(q) || 
-      item.category.toLowerCase().includes(q)
+    return list.filter(item =>
+      includesIgnoreAccents(item.title, searchFilter) ||
+      includesIgnoreAccents(item.category, searchFilter)
     );
   }, [selectedMediaType, searchFilter]);
 

@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { Song } from '../types';
 import { PRESET_LANGUAGES, getLanguageMeta, getLinkedSongVersions } from '../utils/languageUtils';
+import { includesIgnoreAccents } from '../utils/songSearchUtils';
 import { 
   Globe, 
   X, 
@@ -61,11 +62,10 @@ export const LanguageVersionModal: React.FC<LanguageVersionModalProps> = ({
     const linkedIds = new Set([currentSong.id, ...linkedVersions.map(s => s.id)]);
     const filtered = songs.filter(s => !linkedIds.has(s.id));
     if (!searchSongQuery.trim()) return filtered;
-    const q = searchSongQuery.toLowerCase().trim();
-    return filtered.filter(s => 
-      s.title.toLowerCase().includes(q) || 
-      (s.artist && s.artist.toLowerCase().includes(q)) ||
-      (s.language && s.language.toLowerCase().includes(q))
+    return filtered.filter(s =>
+      includesIgnoreAccents(s.title, searchSongQuery) ||
+      includesIgnoreAccents(s.artist, searchSongQuery) ||
+      includesIgnoreAccents(s.language, searchSongQuery)
     );
   }, [songs, currentSong.id, linkedVersions, searchSongQuery]);
 

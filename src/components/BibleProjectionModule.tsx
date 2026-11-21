@@ -14,6 +14,7 @@ import {
   getPassageData,
   searchBibleKeywords
 } from '../services/bibleService';
+import { includesIgnoreAccents } from '../utils/songSearchUtils';
 import {
   BookOpen,
   Search,
@@ -182,12 +183,12 @@ export const BibleProjectionModule: React.FC<BibleProjectionModuleProps> = ({
 
   // Filtrage des versions de la Bible selon la requête de recherche
   const filteredTranslations = useMemo(() => {
-    const q = translationSearchQuery.trim().toLowerCase();
+    const q = translationSearchQuery.trim();
     if (!q) return BIBLE_TRANSLATIONS;
     return BIBLE_TRANSLATIONS.filter(t =>
-      t.name.toLowerCase().includes(q) ||
-      t.shortName.toLowerCase().includes(q) ||
-      t.language.toLowerCase().includes(q) ||
+      includesIgnoreAccents(t.name, q) ||
+      includesIgnoreAccents(t.shortName, q) ||
+      includesIgnoreAccents(t.language, q) ||
       (t.year && t.year.includes(q))
     );
   }, [translationSearchQuery]);
@@ -271,12 +272,12 @@ export const BibleProjectionModule: React.FC<BibleProjectionModuleProps> = ({
   }, [secondaryTranslation]);
 
   const filteredSecondaryTranslations = useMemo(() => {
-    const q = secondarySearchQuery.trim().toLowerCase();
+    const q = secondarySearchQuery.trim();
     if (!q) return BIBLE_TRANSLATIONS;
     return BIBLE_TRANSLATIONS.filter(t =>
-      t.name.toLowerCase().includes(q) ||
-      t.shortName.toLowerCase().includes(q) ||
-      t.language.toLowerCase().includes(q) ||
+      includesIgnoreAccents(t.name, q) ||
+      includesIgnoreAccents(t.shortName, q) ||
+      includesIgnoreAccents(t.language, q) ||
       (t.year && t.year.includes(q))
     );
   }, [secondarySearchQuery]);
@@ -1448,10 +1449,10 @@ export const BibleProjectionModule: React.FC<BibleProjectionModuleProps> = ({
 
       {/* 4. Navigateur Visuel : 3 Colonnes (Livres -> Chapitres -> Versets avec preview texte) */}
       <div className="flex flex-col gap-3 pt-1 border-t border-[#22222C]">
-        <div className="flex flex-col md:flex-row gap-3 h-[450px] sm:h-[480px]">
+        <div className="flex flex-col md:flex-row gap-3 md:h-[480px]">
           
           {/* Colonne 1 : Sélecteur de Livres */}
-          <div className="w-full md:w-52 shrink-0 flex flex-col gap-1.5 h-full">
+          <div className="w-full md:w-52 shrink-0 flex flex-col gap-1.5 h-44 md:h-full">
             <div className="flex items-center justify-between text-[11px] text-gray-400 px-0.5 shrink-0 py-0.5">
               <span className="font-semibold text-gray-300 flex items-center gap-1.5">
                 <Book className="w-3.5 h-3.5 text-amber-400" />
@@ -1490,7 +1491,7 @@ export const BibleProjectionModule: React.FC<BibleProjectionModuleProps> = ({
           </div>
 
           {/* Colonne 2 : Chapitres (liste verticale défilable de numéros) */}
-          <div className="w-full md:w-16 shrink-0 flex flex-col gap-1.5 h-full">
+          <div className="w-full md:w-16 shrink-0 flex flex-col gap-1.5 h-32 md:h-full">
             <div className="flex items-center justify-center text-[11px] text-gray-400 px-0.5 shrink-0 py-0.5">
               <span className="font-semibold text-gray-300">Chap.</span>
             </div>
@@ -1519,7 +1520,7 @@ export const BibleProjectionModule: React.FC<BibleProjectionModuleProps> = ({
           </div>
 
           {/* Colonne 3 : Versets avec preview du texte (prend le plus de place) */}
-          <div className="flex-1 min-w-0 flex flex-col gap-1.5 h-full">
+          <div className="w-full md:flex-1 min-w-0 flex flex-col gap-1.5 h-80 md:h-full">
             <div className="flex items-center justify-between text-[11px] text-gray-400 px-1 shrink-0 py-0.5">
               <span className="font-semibold text-gray-300 flex items-center gap-1.5 truncate">
                 <BookOpen className="w-3.5 h-3.5 text-pink-500 shrink-0" />

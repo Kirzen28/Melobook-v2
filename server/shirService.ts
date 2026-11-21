@@ -1,5 +1,7 @@
 import http from 'http';
 import https from 'https';
+import { decodeHtmlEntities, decodeTextBuffer } from '../src/utils/htmlEntities';
+import { cleanImportedChordPro } from '../src/utils/chordUtils';
 
 export interface ShirSearchResult {
   id: string;
@@ -38,9 +40,12 @@ function fetchHttp(url: string, timeoutMs = 6000): Promise<string> {
       if (res.statusCode && res.statusCode >= 400) {
         return reject(new Error(`HTTP ${res.statusCode}`));
       }
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => resolve(data));
+      const chunks: Buffer[] = [];
+      res.on('data', chunk => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+      res.on('end', () => {
+        const buf = Buffer.concat(chunks);
+        resolve(decodeTextBuffer(buf, res.headers['content-type'] as string | undefined));
+      });
     });
 
     req.on('timeout', () => {
@@ -55,22 +60,23 @@ function fetchHttp(url: string, timeoutMs = 6000): Promise<string> {
  * Parses Shir.fr HTML representation of a song into clean ChordPro format
  */
 export function parseShirSongHtml(html: string, pageTitle: string) {
-  let title = pageTitle;
+  // Extract author and title from pageTitle: "Titre — Artiste 1 – Artiste 2"
+  const decodedPageTitle = decodeHtmlEntities(pageTitle, 2);
+  let title = decodedPageTitle;
   let artist = 'Inconnu';
 
-  // Extract author and title from pageTitle: "Titre — Artiste 1 – Artiste 2"
-  const emDashIdx = pageTitle.indexOf('—');
+  const emDashIdx = decodedPageTitle.indexOf('—');
   if (emDashIdx !== -1) {
-    title = pageTitle.substring(0, emDashIdx).trim();
-    artist = pageTitle.substring(emDashIdx + 1).replace(/[–-]/g, ', ').replace(/\s+/g, ' ').trim();
-  } else if (pageTitle.includes(' - ')) {
-    const parts = pageTitle.split(' - ');
+    title = decodedPageTitle.substring(0, emDashIdx).trim();
+    artist = decodedPageTitle.substring(emDashIdx + 1).replace(/[–-]/g, ', ').replace(/\s+/g, ' ').trim();
+  } else if (decodedPageTitle.includes(' - ')) {
+    const parts = decodedPageTitle.split(' - ');
     title = parts[0].trim();
     artist = parts.slice(1).join(', ').trim();
   } else {
     const subMatch = html.match(/<p class="songsubtitle"><b>(.*?)<\/b><\/p>/i);
     if (subMatch) {
-      artist = subMatch[1].replace(/<[^>]+>/g, '').replace(/[–-]/g, ', ').replace(/\s+/g, ' ').trim();
+      artist = decodeHtmlEntities(subMatch[1].replace(/<[^>]+>/g, ''), 2).replace(/[–-]/g, ', ').replace(/\s+/g, ' ').trim();
     }
   }
 
@@ -91,7 +97,7 @@ export function parseShirSongHtml(html: string, pageTitle: string) {
   const tags: string[] = ['Louange'];
   const catMatches = [...html.matchAll(/title="Catégorie:([^"]+)"/gi)];
   catMatches.forEach(m => {
-    const catName = m[1].replace(/_/g, ' ').trim();
+    const catName = decodeHtmlEntities(m[1].replace(/_/g, ' '), 2).trim();
     if (catName && !catName.startsWith('DNL') && !catName.startsWith('Chant') && catName.length < 25) {
       if (!tags.includes(catName)) tags.push(catName);
     }
@@ -149,7 +155,7 @@ export function parseShirSongHtml(html: string, pageTitle: string) {
       inChorus = false;
       closeOpenBlock();
     } else if (b[1]) {
-      const comm = b[1].replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&#160;/g, ' ').trim();
+      const comm = decodeHtmlEntities(b[1].replace(/<[^>]+>/g, ''), 2).trim();
       if (comm && !comm.startsWith('©') && !comm.startsWith('shir.fr') && !/^[A-G][#b]?m?$/.test(comm) && comm.length < 50) {
         const secTag = !inChorus ? detectShirSectionTag(comm) : null;
         if (secTag) {
@@ -166,8 +172,8 @@ export function parseShirSongHtml(html: string, pageTitle: string) {
       const lyricsMatch = table.match(/<tr class="songlyricline">([\s\S]*?)<\/tr>/i);
 
       if (chordsMatch && lyricsMatch) {
-        const chordTds = [...chordsMatch[1].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)].map(td => td[1].replace(/<[^>]+>/g, '').trim());
-        const lyricTds = [...lyricsMatch[1].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)].map(td => td[1].replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&#160;/g, ' '));
+        const chordTds = [...chordsMatch[1].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)].map(td => decodeHtmlEntities(td[1].replace(/<[^>]+>/g, ''), 2).trim());
+        const lyricTds = [...lyricsMatch[1].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)].map(td => decodeHtmlEntities(td[1].replace(/<[^>]+>/g, ''), 2));
 
         let merged = '';
         const len = Math.max(chordTds.length, lyricTds.length);
@@ -203,7 +209,7 @@ export function parseShirSongHtml(html: string, pageTitle: string) {
     tempo,
     tags,
     snippet,
-    contentChordPro: chordProLines.join('\n')
+    contentChordPro: cleanImportedChordPro(chordProLines.join('\n'))
   };
 }
 
@@ -247,7 +253,7 @@ export async function searchShirSongs(query: string, limit = 40): Promise<ShirSe
 
     // Process all search results
     const results: ShirSearchResult[] = items.map((it: any, idx: number) => {
-      const pageTitle = it.title as string;
+      const pageTitle = decodeHtmlEntities(it.title as string, 2);
       let title = pageTitle;
       let artist = 'Shir.fr';
 
@@ -257,7 +263,7 @@ export async function searchShirSongs(query: string, limit = 40): Promise<ShirSe
         artist = pageTitle.substring(emDashIdx + 1).replace(/[–-]/g, ', ').replace(/\s+/g, ' ').trim();
       }
 
-      const cleanSnippet = (it.snippet || '').replace(/<[^>]+>/g, '').trim();
+      const cleanSnippet = decodeHtmlEntities((it.snippet || '').replace(/<[^>]+>/g, ''), 2).trim();
 
       return {
         id: `shir-${it.pageid || idx}-${encodeURIComponent(title).slice(0, 20)}`,

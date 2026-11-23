@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Setlist, Song } from '../types';
 import { generateSetlistPdf, PdfExportOptions, DEFAULT_PDF_OPTIONS } from '../utils/pdfExport';
+import { parseChordPro, transposeChord, stripParentheses } from '../utils/chordUtils';
 import { 
   FileDown, 
   X, 
@@ -11,7 +12,8 @@ import {
   Music,
   Loader2,
   FileCode,
-  Download
+  Download,
+  Share2
 } from 'lucide-react';
 
 interface SetlistPdfModalProps {
@@ -29,14 +31,13 @@ export const SetlistPdfModal: React.FC<SetlistPdfModalProps> = ({
   songs,
   onClose,
   mode,
-  allowCover,
   onExportChordPro,
   onExportJson,
 }) => {
-  const showCoverOption = allowCover ?? (mode !== 'song');
+  const autoIncludeCover = mode !== 'song';
   const [options, setOptions] = useState<PdfExportOptions>({
     ...DEFAULT_PDF_OPTIONS,
-    includeCover: showCoverOption,
+    includeCover: autoIncludeCover,
     showChords: true,
     notation: 'standard',
     theme: 'light',
@@ -44,6 +45,7 @@ export const SetlistPdfModal: React.FC<SetlistPdfModalProps> = ({
   });
 
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   const setlistSongs = setlist.songIds
@@ -65,7 +67,10 @@ export const SetlistPdfModal: React.FC<SetlistPdfModalProps> = ({
     setIsGenerating(true);
     setStatusMessage('Creation du document PDF...');
     try {
-      const { doc, fileName } = await generateSetlistPdf(setlist, songs, options);
+      const { doc, fileName } = await generateSetlistPdf(setlist, songs, {
+        ...options,
+        includeCover: autoIncludeCover,
+      });
       doc.save(fileName);
       setStatusMessage(`Fichier "${fileName}" telecharge !`);
     } catch (err: any) {
@@ -120,6 +125,124 @@ export const SetlistPdfModal: React.FC<SetlistPdfModalProps> = ({
     setTimeout(() => setStatusMessage(null), 4000);
   };
 
+  const buildShareText = () => {
+    const formatFrDate = (d?: string) => {
+      if (!d) return '';
+      const p = d.split('-');
+      return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : d;
+    };
+
+    if (isSongMode && setlistSongs.length === 1) {
+      const s = setlistSongs[0];
+      const titleText = stripParentheses(s.title);
+      const parsed = parseChordPro(s.contentChordPro || s.content || '');
+      const overrideKey = setlist.songOverrides?.[s.id]?.key;
+      const rawKey = overrideKey || s.key || parsed.key || '';
+      const offset = options.transposeOffsets?.[s.id] ?? (overrideKey ? 0 : (setlist.songOverrides?.[s.id]?.transposeOffset ?? 0));
+      const displayKey = rawKey ? transposeChord(rawKey, offset, options.notation) : '';
+      const header = [
+        `*${titleText}*${s.artist ? ` — ${s.artist}` : ''}`,
+        displayKey ? `Tonalité : ${displayKey}` : ''
+      ].filter(Boolean).join('\n');
+
+      const bodyLines: string[] = [];
+      parsed.sections.forEach((sec) => {
+        if (sec.title) bodyLines.push(`\n*${sec.title}*`);
+        const secOffset = offset + (sec.transposeOffset || 0);
+        sec.lines.forEach((line) => {
+          if (line.type === 'empty') {
+            bodyLines.push('');
+          } else if (line.type === 'comment' || line.type === 'comment_italic' || line.type === 'comment_box') {
+            if (line.comment) bodyLines.push(`_${line.comment}_`);
+          } else if (line.type === 'grid_row' && line.gridRaw) {
+            bodyLines.push(line.gridRaw);
+          } else if (line.type === 'lyrics') {
+            const textLine = line.items
+              .map((it) => {
+                const c = options.showChords && it.chord ? `[${transposeChord(it.chord, secOffset, options.notation)}]` : '';
+                return `${c}${it.lyrics || ''}`;
+              })
+              .join('')
+              .trimEnd();
+            if (textLine) bodyLines.push(textLine);
+          }
+        });
+      });
+
+      const fullText = `${header}\n${bodyLines.join('\n').trim()}`;
+      return fullText.length > 3500 ? `${fullText.slice(0, 3497)}...` : fullText;
+    }
+
+    const dateLabel = formatFrDate(setlist.date);
+    const header = `*${setlist.name}*${dateLabel ? ` (${dateLabel})` : ''}\n${songCount} chant${songCount > 1 ? 's' : ''} :`;
+    const listLines = setlistSongs.map((s, idx) => {
+      const overrideKey = setlist.songOverrides?.[s.id]?.key;
+      const rawKey = overrideKey || s.key || parseChordPro(s.contentChordPro || s.content || '').key || '';
+      const offset = options.transposeOffsets?.[s.id] ?? (overrideKey ? 0 : (setlist.songOverrides?.[s.id]?.transposeOffset ?? 0));
+      const displayKey = rawKey ? transposeChord(rawKey, offset, options.notation) : '';
+      return `${idx + 1}. *${stripParentheses(s.title)}*${s.artist ? ` — ${s.artist}` : ''}${displayKey ? ` (Tonalité : ${displayKey})` : ''}`;
+    });
+
+    return [header, '', ...listLines].join('\n');
+  };
+
+  const shareMessage = buildShareText();
+
+  const handleShareMessaging = async () => {
+    if (songCount === 0) return;
+    setIsSharing(true);
+    setStatusMessage('Preparation du partage...');
+    try {
+      const { blob, fileName } = await generateSetlistPdf(setlist, songs, {
+        ...options,
+        includeCover: autoIncludeCover,
+      });
+      const pdfFile = new File([blob], fileName, { type: 'application/pdf' });
+
+      if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+        if (typeof navigator.canShare === 'function' && navigator.canShare({ files: [pdfFile] })) {
+          await navigator.share({
+            title: setlist.name,
+            text: shareMessage,
+            files: [pdfFile]
+          });
+          setStatusMessage('Document partage !');
+          return;
+        }
+
+        await navigator.share({
+          title: setlist.name,
+          text: shareMessage
+        });
+        setStatusMessage('Message partage !');
+        return;
+      }
+
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(shareMessage);
+        setStatusMessage('Texte copie ! Collez-le dans WhatsApp ou votre messagerie.');
+      }
+    } catch (err: any) {
+      if (err?.name === 'AbortError') {
+        setStatusMessage(null);
+        return;
+      }
+      try {
+        if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(shareMessage);
+          setStatusMessage('Partage direct indisponible ici : texte copie pour messagerie.');
+        } else {
+          setStatusMessage('Utilisez le bouton Telecharger PDF.');
+        }
+      } catch {
+        setStatusMessage('Utilisez le bouton Telecharger PDF.');
+      }
+    } finally {
+      setIsSharing(false);
+      setTimeout(() => setStatusMessage(null), 4000);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
       <div className="bg-[#111112] border border-[#242428] rounded-xl w-full max-w-lg p-5 sm:p-6 shadow-2xl text-[#E0E0E0] my-auto">
@@ -155,13 +278,15 @@ export const SetlistPdfModal: React.FC<SetlistPdfModalProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center justify-between p-2.5 rounded-lg bg-[#141416] border border-[#242428]">
-            <span className="font-semibold text-white">Systeme de notation</span>
-            <div className="flex items-center bg-[#1C1C1E] p-0.5 rounded-md border border-[#333]">
-              <button type="button" onClick={() => setOptions(prev => ({ ...prev, notation: 'standard' }))} className={`px-2.5 py-1 rounded text-xs font-semibold transition-all ${options.notation === 'standard' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>ABC</button>
-              <button type="button" onClick={() => setOptions(prev => ({ ...prev, notation: 'latin' }))} className={`px-2.5 py-1 rounded text-xs font-semibold transition-all ${options.notation === 'latin' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>Do Re Mi</button>
+          {options.showChords && (
+            <div className="flex items-center justify-between p-2.5 rounded-lg bg-[#141416] border border-[#242428]">
+              <span className="font-semibold text-white">Systeme de notation</span>
+              <div className="flex items-center bg-[#1C1C1E] p-0.5 rounded-md border border-[#333]">
+                <button type="button" onClick={() => setOptions(prev => ({ ...prev, notation: 'standard' }))} className={`px-2.5 py-1 rounded text-xs font-semibold transition-all ${options.notation === 'standard' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>ABC</button>
+                <button type="button" onClick={() => setOptions(prev => ({ ...prev, notation: 'latin' }))} className={`px-2.5 py-1 rounded text-xs font-semibold transition-all ${options.notation === 'latin' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>Do Re Mi</button>
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="flex items-center justify-between p-2.5 rounded-lg bg-[#141416] border border-[#242428]">
             <span className="font-semibold text-white">Theme de rendu</span>
@@ -174,16 +299,6 @@ export const SetlistPdfModal: React.FC<SetlistPdfModalProps> = ({
               </button>
             </div>
           </div>
-
-          {showCoverOption && (
-            <div className="flex items-center justify-between p-2.5 rounded-lg bg-[#141416] border border-[#242428]">
-              <span className="font-semibold text-white">Page Sommaire / Programme</span>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" checked={options.includeCover} onChange={(e) => setOptions(prev => ({ ...prev, includeCover: e.target.checked }))} className="sr-only peer" />
-                <div className="w-9 h-5 bg-[#2A2A2D] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
-              </label>
-            </div>
-          )}
 
           {(onExportChordPro || onExportJson) && (
             <div className="pt-1">
@@ -214,15 +329,28 @@ export const SetlistPdfModal: React.FC<SetlistPdfModalProps> = ({
         )}
 
         {/* Action Buttons */}
-        <div className="pt-3 border-t border-[#222224]">
+        <div className="pt-3 border-t border-[#222224] space-y-2">
           <div className="grid grid-cols-2 gap-2">
-            <button type="button" onClick={handleDownload} disabled={isGenerating || songCount === 0} className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer">
+            <button type="button" onClick={handleDownload} disabled={isGenerating || isSharing || songCount === 0} className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer">
               {isGenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileDown className="w-3.5 h-3.5" />}
               <span>Telecharger PDF</span>
             </button>
-            <button type="button" onClick={handleExportChordPro} disabled={isGenerating || songCount === 0} className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-lg bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-200 hover:text-white border border-[#333] font-semibold text-xs transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer">
+            <button type="button" onClick={handleExportChordPro} disabled={isGenerating || isSharing || songCount === 0} className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-lg bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-200 hover:text-white border border-[#333] font-semibold text-xs transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer">
               <FileCode className="w-3.5 h-3.5 text-blue-400" />
               <span>Exporter ChordPro</span>
+            </button>
+          </div>
+
+          <div>
+            <button
+              type="button"
+              onClick={handleShareMessaging}
+              disabled={isGenerating || isSharing || songCount === 0}
+              className="w-full flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-lg bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-300 hover:text-emerald-200 border border-emerald-500/35 font-semibold text-xs transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer"
+              title="Partager le PDF ou le texte via vos applications de messagerie"
+            >
+              {isSharing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Share2 className="w-3.5 h-3.5" />}
+              <span>Messagerie / Apps</span>
             </button>
           </div>
         </div>

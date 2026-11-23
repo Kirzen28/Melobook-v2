@@ -60,9 +60,22 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
   const [direction, setDirection] = useState<number>(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isAddSongModalOpen, setIsAddSongModalOpen] = useState(false);
+  const [isAutoScrollPanelActive, setIsAutoScrollPanelActive] = useState<boolean>(() => Boolean(stageSettings.isAutoScrolling));
   const prevIndexRef = useRef<number>(activeSetlistIndex);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (stageSettings.isAutoScrolling) {
+      setIsAutoScrollPanelActive(true);
+    }
+  }, [stageSettings.isAutoScrolling]);
+
+  useEffect(() => {
+    return () => {
+      updateStageSettings({ isAutoScrolling: false });
+    };
+  }, [updateStageSettings]);
 
   const setlistsRef = useRef(setlists);
   useEffect(() => {
@@ -365,6 +378,8 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
                 hasPrev={activeSetlistIndex > 0}
                 setlistContextName={liveSetlist.name}
                 setlistPosition={{ current: activeSetlistIndex + 1, total: setlistSongs.length }}
+                autoScrollPanelOpen={isAutoScrollPanelActive}
+                onAutoScrollPanelChange={setIsAutoScrollPanelActive}
               />
             </motion.div>
           )}

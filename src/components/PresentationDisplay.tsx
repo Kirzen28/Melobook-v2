@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react';
 import { 
   PresentationState, 
   getSavedPresentationState, 
@@ -416,31 +416,78 @@ export const PresentationDisplay: React.FC = () => {
     : 0;
   const countdownInfo = formatRemainingTime(countdownRemainingMs);
 
-  // Calcul dynamique de l'échelle selon la longueur du texte biblique
-  const bibleLengthScale = useMemo(() => {
-    if (displayState?.itemType !== 'bible' && !displayState?.bibleReference) return 1;
-    const pLen = lines.reduce((acc, l) => acc + l.length, 0);
-    const sLen = (displayState?.secondaryLines || []).reduce((acc, l) => acc + l.length, 0);
-    const isBi = Boolean(displayState?.isBilingual && displayState?.secondaryLines?.length);
-    const isCols = displayState?.bilingualFormat === 'columns';
+  const isBibleSlide = Boolean(displayState?.itemType === 'bible' || displayState?.bibleReference);
+  const isBibleContentActive = Boolean(
+    isBibleSlide && !isBlackout && !isCountdownActive && !displayState?.media?.isActive && lines.length > 0
+  );
+  const bibleRefs = useMemo(() => {
+    const baseRef = displayState?.songTitle || displayState?.bibleReference || title;
+    const primaryLang = getBibleVersionLanguage(displayState?.primaryLanguage || displayState?.bibleVersion);
+    const secondaryLang = getBibleVersionLanguage(displayState?.secondaryLanguage);
+    return {
+      primaryRef: formatLocalizedBibleRef(baseRef, primaryLang || 'Français'),
+      secondaryRef: displayState?.secondarySongTitle
+        ? formatLocalizedBibleRef(displayState.secondarySongTitle, secondaryLang)
+        : formatLocalizedBibleRef(baseRef, secondaryLang || 'Español'),
+      primaryFullName: getFullBibleVersionName(displayState?.primaryLanguage || displayState?.bibleVersion),
+      secondaryFullName: getFullBibleVersionName(displayState?.secondaryLanguage),
+    };
+  }, [displayState, title, getBibleVersionLanguage, formatLocalizedBibleRef, getFullBibleVersionName]);
 
-    if (isBi && !isCols) {
-      // Deux blocs l'un au dessus de l'autre
-      const totalLen = pLen + sLen;
-      if (totalLen > 360) return 0.58;
-      if (totalLen > 280) return 0.68;
-      if (totalLen > 200) return 0.78;
-      if (totalLen > 140) return 0.88;
-      return 1;
+  const primaryVerseText = useMemo(
+    () => lines.map(l => cleanBibleVerseText(l)).filter(Boolean).join(' '),
+    [lines]
+  );
+  const secondaryVerseText = useMemo(
+    () => (displayState?.secondaryLines || []).map(l => cleanBibleVerseText(l)).filter(Boolean).join(' '),
+    [displayState?.secondaryLines]
+  );
+
+  const bibleBoxRef = useRef<HTMLDivElement | null>(null);
+  const bibleContentRef = useRef<HTMLDivElement | null>(null);
+  const [bibleFontSizePx, setBibleFontSizePx] = useState<number>(48);
+
+  const fitBibleText = useCallback(() => {
+    const box = bibleBoxRef.current;
+    const content = bibleContentRef.current;
+    if (!box || !content || !isBibleContentActive) return;
+
+    const availH = box.clientHeight;
+    const availW = box.clientWidth;
+    if (availH <= 0 || availW <= 0) return;
+
+    let low = 12;
+    let high = 220;
+    let best = low;
+
+    while (low <= high) {
+      const mid = Math.floor((low + high) / 2);
+      content.style.setProperty('--bible-font-size', `${mid}px`);
+      if (content.scrollHeight <= availH && content.scrollWidth <= availW + 1) {
+        best = mid;
+        low = mid + 1;
+      } else {
+        high = mid - 1;
+      }
     }
 
-    // Monolingue ou bilingue colonnes (prend la colonne la plus longue)
-    const maxColLen = Math.max(pLen, sLen);
-    if (maxColLen > 280) return 0.65;
-    if (maxColLen > 200) return 0.75;
-    if (maxColLen > 140) return 0.85;
-    return 1;
-  }, [displayState, lines]);
+    content.style.setProperty('--bible-font-size', `${best}px`);
+    setBibleFontSizePx(prev => (prev === best ? prev : best));
+  }, [isBibleContentActive]);
+
+  useLayoutEffect(() => {
+    fitBibleText();
+  }, [fitBibleText, primaryVerseText, secondaryVerseText, displayState?.bilingualFormat, effectiveFontScale]);
+
+  useEffect(() => {
+    const box = bibleBoxRef.current;
+    if (!box || !isBibleContentActive) return;
+    const observer = new ResizeObserver(() => {
+      fitBibleText();
+    });
+    observer.observe(box);
+    return () => observer.disconnect();
+  }, [fitBibleText, isBibleContentActive]);
 
   return (
     <div 
@@ -461,7 +508,11 @@ export const PresentationDisplay: React.FC = () => {
       {/* Barre supérieure discrète */}
       <header 
         onClick={(e) => e.stopPropagation()}
-        className={`w-full flex items-center justify-end px-4 py-3 relative z-30 transition-opacity duration-300 ${
+        className={`${
+          isBibleContentActive
+            ? 'absolute top-2.5 right-3'
+            : 'w-full flex items-center justify-end px-4 py-3 relative shrink-0'
+        } z-30 transition-opacity duration-300 ${
           isControlsActive ? 'opacity-100' : 'opacity-0 hover:opacity-100 focus-within:opacity-100'
         }`}
       >
@@ -479,7 +530,11 @@ export const PresentationDisplay: React.FC = () => {
       </header>
 
       {/* Zone centrale des paroles avec mise à l'échelle dynamique ou Décompte avant événement */}
-      <main className="flex-1 flex items-center justify-center px-6 sm:px-12 md:px-20 text-center relative z-20">
+      <main className={`flex-1 min-h-0 flex items-center relative z-20 ${
+        isBibleContentActive
+          ? 'justify-start px-3 sm:px-5 md:px-6 pt-3 pb-1 text-left overflow-hidden'
+          : 'justify-center px-6 sm:px-12 md:px-20 text-center'
+      }`}>
         {isBlackout ? (
           <div className="flex items-center gap-2 text-gray-400 animate-pulse text-sm">
             <EyeOff className="w-4 h-4" />
@@ -591,173 +646,103 @@ export const PresentationDisplay: React.FC = () => {
           </div>
         ) : lines.length > 0 ? (
           (displayState?.itemType === 'bible' || Boolean(displayState?.bibleReference)) ? (
-            displayState?.isBilingual && displayState?.secondaryLines && displayState.secondaryLines.length > 0 ? (
-              displayState.bilingualFormat === 'columns' ? (
-                <div 
-                  key={`bible-bi-cols-${displayState?.bibleReference || title}-${displayState?.slideIndex}`}
-                  className="max-w-7xl w-full flex flex-col items-center justify-center gap-5 sm:gap-7 animate-presentation-slide select-none"
-                >
-                  <div 
-                    className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-1 sm:py-1.5 rounded-full bg-amber-500/15 border border-amber-400/30 text-amber-200/90 font-bold tracking-wider uppercase backdrop-blur-xs transition-all shadow-md"
-                    style={{ fontSize: `calc(clamp(0.75rem, 1.2vw, 1rem) * ${effectiveFontScale})` }}
-                  >
-                    <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400/90 shrink-0" />
-                    <span>{displayState?.songTitle || displayState?.bibleReference || title}</span>
-                  </div>
-
-                  <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-14 items-center">
-                    {/* Left Column : Primary Version */}
-                    <div className="flex flex-col items-start justify-center text-left space-y-2 sm:space-y-3">
-                      <div 
-                        className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-amber-500/20 border border-amber-400/30 text-amber-200 font-bold uppercase tracking-wider mb-1 transition-all self-start"
-                        style={{ fontSize: `calc(clamp(0.75rem, 1.3vw, 1.15rem) * ${effectiveFontScale})` }}
-                      >
-                        <span>{displayState.primaryLanguage || displayState.bibleVersion || 'Principal'}</span>
-                      </div>
-                      {lines.map((line, idx) => (
+            <div
+              ref={bibleBoxRef}
+              className="w-full h-full flex items-center justify-start overflow-hidden"
+            >
+              <div
+                ref={bibleContentRef}
+                className="w-full text-left"
+                style={{ '--bible-font-size': `${bibleFontSizePx}px` } as React.CSSProperties}
+              >
+                {displayState?.isBilingual && displayState?.secondaryLines && displayState.secondaryLines.length > 0 ? (
+                  displayState.bilingualFormat === 'columns' ? (
+                    <div 
+                      key={`bible-bi-cols-${displayState?.bibleReference || title}-${displayState?.slideIndex}`}
+                      className="w-full grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8 items-start animate-presentation-slide select-none text-left"
+                    >
+                      {/* Left Column : Primary Version */}
+                      <div className="flex flex-col items-start justify-start text-left w-full">
                         <p
-                          key={`bp-${idx}`}
-                          className="font-extrabold tracking-wide text-white leading-relaxed select-none transition-all drop-shadow-md text-left w-full"
+                          className="font-extrabold tracking-normal text-white select-none drop-shadow-md text-left w-full break-words"
                           style={{
-                            fontSize: `calc(clamp(1.5rem, 3.2vw, 3.6rem) * ${effectiveFontScale} * ${bibleLengthScale})`,
-                            lineHeight: 1.4,
+                            fontSize: 'var(--bible-font-size)',
+                            lineHeight: 1.24,
                             textShadow: '0 2px 12px rgba(0, 0, 0, 0.9), 0 4px 25px rgba(0, 0, 0, 0.7)'
                           }}
                         >
-                          {cleanBibleVerseText(line)}
+                          {primaryVerseText}
                         </p>
-                      ))}
-                    </div>
-
-                    {/* Right Column : Secondary Version */}
-                    <div className="flex flex-col items-start justify-center text-left space-y-2 sm:space-y-3 md:border-l md:border-amber-400/20 md:pl-8">
-                      <div 
-                        className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-cyan-500/20 border border-cyan-400/30 text-cyan-200 font-bold uppercase tracking-wider mb-1 transition-all self-start"
-                        style={{ fontSize: `calc(clamp(0.75rem, 1.3vw, 1.15rem) * ${effectiveFontScale})` }}
-                      >
-                        <span>{displayState.secondaryLanguage || 'Traduction'}</span>
                       </div>
-                      {displayState.secondaryLines.map((line, idx) => (
+
+                      {/* Right Column : Secondary Version */}
+                      <div className="flex flex-col items-start justify-start text-left md:border-l md:border-amber-400/25 md:pl-6 w-full">
                         <p
-                          key={`bs-${idx}`}
-                          className="font-bold tracking-wide text-cyan-100/95 leading-relaxed select-none transition-all drop-shadow-md text-left w-full"
+                          className="font-bold tracking-normal text-cyan-100/95 select-none drop-shadow-md text-left w-full break-words"
                           style={{
-                            fontSize: `calc(clamp(1.5rem, 3.2vw, 3.6rem) * ${effectiveFontScale} * ${bibleLengthScale})`,
-                            lineHeight: 1.4,
+                            fontSize: 'var(--bible-font-size)',
+                            lineHeight: 1.24,
                             textShadow: '0 2px 12px rgba(6, 182, 212, 0.4), 0 4px 25px rgba(0, 0, 0, 0.9)'
                           }}
                         >
-                          {cleanBibleVerseText(line)}
+                          {secondaryVerseText}
                         </p>
-                      ))}
+                      </div>
                     </div>
-                  </div>
-                </div>
-              ) : (
-                /* Stacked / Subtitles for Bible */
-                (() => {
-                  const baseRef = displayState?.songTitle || displayState?.bibleReference || title;
-                  const primaryLang = getBibleVersionLanguage(displayState.primaryLanguage || displayState.bibleVersion);
-                  const secondaryLang = getBibleVersionLanguage(displayState.secondaryLanguage);
-                  const primaryRef = formatLocalizedBibleRef(baseRef, primaryLang || 'Français');
-                  const secondaryRef = displayState.secondarySongTitle 
-                    ? formatLocalizedBibleRef(displayState.secondarySongTitle, secondaryLang)
-                    : formatLocalizedBibleRef(baseRef, secondaryLang || 'Español');
-
-                  return (
+                  ) : (
+                    /* Stacked / Subtitles for Bible */
                     <div 
                       key={`bible-bi-stacked-${displayState?.bibleReference || title}-${displayState?.slideIndex}`}
-                      className="max-w-6xl w-full flex flex-col items-center justify-center gap-6 sm:gap-8 animate-presentation-slide select-none"
+                      className="w-full flex flex-col items-start justify-center gap-3 sm:gap-4 animate-presentation-slide select-none text-left"
                     >
                       {/* Section 1 : Version Principale */}
-                      <div className="w-full flex flex-col items-center justify-center gap-4 sm:gap-5 text-center">
-                        <div 
-                          className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-1 sm:py-1.5 rounded-full bg-amber-500/15 border border-amber-400/30 text-amber-200/90 font-bold tracking-wider uppercase backdrop-blur-xs transition-all shadow-md"
-                          style={{ fontSize: `calc(clamp(0.75rem, 1.2vw, 1rem) * ${effectiveFontScale})` }}
-                        >
-                          <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400/90 shrink-0" />
-                          <span>{primaryRef}</span>
-                        </div>
-
-                        <div className="space-y-1 w-full max-w-5xl">
-                          {lines.map((primaryLine, idx) => (
-                            <p
-                              key={`bp-${idx}`}
-                              className="font-black tracking-wide text-white leading-tight select-none drop-shadow-lg transition-all"
-                              style={{
-                                fontSize: `calc(clamp(1.65rem, 3.8vw, 4.2rem) * ${effectiveFontScale} * ${bibleLengthScale})`,
-                                lineHeight: 1.35,
-                                textShadow: '0 2px 12px rgba(0, 0, 0, 0.95), 0 4px 30px rgba(0, 0, 0, 0.8)'
-                              }}
-                            >
-                              {cleanBibleVerseText(primaryLine)}
-                            </p>
-                          ))}
-                        </div>
-                      </div>
+                      <p
+                        className="font-black tracking-normal text-white select-none drop-shadow-lg text-left w-full break-words"
+                        style={{
+                          fontSize: 'var(--bible-font-size)',
+                          lineHeight: 1.2,
+                          textShadow: '0 2px 12px rgba(0, 0, 0, 0.95), 0 4px 30px rgba(0, 0, 0, 0.8)'
+                        }}
+                      >
+                        {primaryVerseText}
+                      </p>
 
                       {/* Section 2 : Version Secondaire */}
-                      {displayState.secondaryLines && displayState.secondaryLines.length > 0 && (
-                        <div className="w-full flex flex-col items-center justify-center gap-4 sm:gap-5 text-center pt-5 sm:pt-6 border-t border-amber-500/20">
-                          <div 
-                            className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-1 sm:py-1.5 rounded-full bg-cyan-500/15 border border-cyan-400/30 text-cyan-200/90 font-bold tracking-wider uppercase backdrop-blur-xs transition-all shadow-md"
-                            style={{ fontSize: `calc(clamp(0.75rem, 1.2vw, 1rem) * ${effectiveFontScale})` }}
+                      {secondaryVerseText && (
+                        <div className="w-full text-left pt-3 sm:pt-4 border-t border-amber-500/25">
+                          <p
+                            className="font-semibold tracking-normal text-cyan-200/95 italic select-none text-left w-full break-words"
+                            style={{
+                              fontSize: 'var(--bible-font-size)',
+                              lineHeight: 1.2,
+                              textShadow: '0 2px 10px rgba(6, 182, 212, 0.5), 0 4px 20px rgba(0, 0, 0, 0.95)'
+                            }}
                           >
-                            <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-cyan-400/90 shrink-0" />
-                            <span>{secondaryRef}</span>
-                          </div>
-
-                          <div className="space-y-1 w-full max-w-5xl">
-                            {displayState.secondaryLines.map((secondaryLine, idx) => (
-                              <p
-                                key={`bs-${idx}`}
-                                className="font-semibold tracking-wide text-cyan-200/90 italic leading-snug select-none transition-all"
-                                style={{
-                                  fontSize: `calc(clamp(1.65rem, 3.8vw, 4.2rem) * ${effectiveFontScale} * ${bibleLengthScale})`,
-                                  lineHeight: 1.35,
-                                  textShadow: '0 2px 10px rgba(6, 182, 212, 0.5), 0 4px 20px rgba(0, 0, 0, 0.95)'
-                                }}
-                              >
-                                {cleanBibleVerseText(secondaryLine)}
-                              </p>
-                            ))}
-                          </div>
+                            {secondaryVerseText}
+                          </p>
                         </div>
                       )}
                     </div>
-                  );
-                })()
-              )
-            ) : (
-              <div 
-                key={`bible-${displayState?.bibleReference || title}-${displayState?.slideIndex}`}
-                className="max-w-6xl w-full flex flex-col items-center justify-center gap-5 sm:gap-7 animate-presentation-slide select-none"
-              >
-                <div 
-                  className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-1 sm:py-1.5 rounded-full bg-amber-500/15 border border-amber-400/30 text-amber-200/90 font-bold tracking-wider uppercase backdrop-blur-xs transition-all shadow-md"
-                  style={{ fontSize: `calc(clamp(0.75rem, 1.2vw, 1rem) * ${effectiveFontScale})` }}
-                >
-                  <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400/90 shrink-0" />
-                  <span>{displayState?.bibleReference || title}</span>
-                </div>
-
-                <div className="space-y-3 sm:space-y-4 max-w-5xl">
-                  {lines.map((line, idx) => (
+                  )
+                ) : (
+                  <div 
+                    key={`bible-${displayState?.bibleReference || title}-${displayState?.slideIndex}`}
+                    className="w-full flex flex-col items-start justify-center animate-presentation-slide select-none text-left"
+                  >
                     <p
-                      key={idx}
-                      className="font-bold tracking-wide text-white leading-relaxed select-none transition-all"
+                      className="font-bold tracking-normal text-white select-none text-left w-full break-words"
                       style={{
-                        fontSize: `calc(clamp(1.85rem, 4.4vw, 4.8rem) * ${effectiveFontScale} * ${bibleLengthScale})`,
-                        lineHeight: 1.45,
+                        fontSize: 'var(--bible-font-size)',
+                        lineHeight: 1.22,
                         textShadow: '0 2px 10px rgba(0, 0, 0, 0.9), 0 6px 30px rgba(0, 0, 0, 0.75)'
                       }}
                     >
-                      {line}
+                      {primaryVerseText}
                     </p>
-                  ))}
-                </div>
+                  </div>
+                )}
               </div>
-            )
+            </div>
           ) : displayState?.isBilingual && displayState?.secondaryLines && displayState.secondaryLines.length > 0 ? (
             displayState.bilingualFormat === 'columns' ? (
               <div 
@@ -873,47 +858,62 @@ export const PresentationDisplay: React.FC = () => {
       </main>
 
       {/* Footer minimaliste */}
-      <footer className="w-full px-8 py-5 relative z-20 flex items-center justify-center text-gray-300">
-        <div className="min-w-0 max-w-4xl text-center">
-          <h2 
-            className="font-medium text-gray-200 tracking-wide truncate drop-shadow flex items-center justify-center gap-2 transition-all"
-            style={{ fontSize: `calc(clamp(0.875rem, 1.4vw, 1.25rem) * ${effectiveFontScale})` }}
-          >
-            {isCountdownActive 
-              ? (displayState?.countdown?.title || "Bienvenue") 
-              : (displayState?.itemType === 'bible' || Boolean(displayState?.bibleReference))
-              ? (() => {
-                const primaryFullName = getFullBibleVersionName(displayState.primaryLanguage || displayState.bibleVersion);
-                const secondaryFullName = getFullBibleVersionName(displayState.secondaryLanguage);
+      <footer className={`w-full shrink-0 ${isBibleSlide && !isCountdownActive && !displayState?.media?.isActive ? 'px-3 sm:px-5 md:px-6 py-2.5 sm:py-3' : 'px-8 py-5'} relative z-20 flex items-center justify-center text-gray-300`}>
+        {!isCountdownActive && !displayState?.media?.isActive && isBibleSlide ? (
+          <div className="w-full flex flex-wrap items-center justify-center gap-2 sm:gap-3">
+            <div
+              className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-1 rounded-full bg-amber-500/15 border border-amber-400/30 text-amber-200 font-bold tracking-wider uppercase backdrop-blur-xs transition-all shadow-md"
+              style={{ fontSize: 'clamp(0.75rem, 1.1vw, 0.95rem)' }}
+            >
+              <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400 shrink-0" />
+              <span>{bibleRefs.primaryRef}</span>
+              {bibleRefs.primaryFullName && (
+                <span className="text-amber-300/80 font-medium normal-case tracking-normal">
+                  · {bibleRefs.primaryFullName}
+                </span>
+              )}
+            </div>
 
-                if (displayState?.isBilingual && secondaryFullName) {
-                  return (
-                    <>
-                      <span className="text-amber-300 font-semibold">{primaryFullName || 'Principal'}</span>
-                      <span className="text-gray-500">+</span>
-                      <span className="text-cyan-300 font-semibold">{secondaryFullName}</span>
-                    </>
-                  );
-                }
-
-                return primaryFullName ? <span className="text-amber-300 font-semibold">{primaryFullName}</span> : null;
-              })()
-              : displayState?.isBilingual && displayState?.secondarySongTitle
-              ? (
-                <>
-                  <span>{title}</span>
-                  <span className="text-gray-500">•</span>
-                  <span className="text-cyan-300 italic">{displayState.secondarySongTitle}</span>
-                  {displayState.secondaryLanguage && (
-                    <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-cyan-950/60 border border-cyan-500/40 text-cyan-300">
-                      {displayState.secondaryLanguage}
-                    </span>
-                  )}
-                </>
-              )
-              : title}
-          </h2>
-        </div>
+            {displayState?.isBilingual && displayState?.secondaryLines && displayState.secondaryLines.length > 0 && (
+              <div
+                className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-1 rounded-full bg-cyan-500/15 border border-cyan-400/30 text-cyan-200 font-bold tracking-wider uppercase backdrop-blur-xs transition-all shadow-md"
+                style={{ fontSize: 'clamp(0.75rem, 1.1vw, 0.95rem)' }}
+              >
+                <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-cyan-400 shrink-0" />
+                <span>{bibleRefs.secondaryRef}</span>
+                {bibleRefs.secondaryFullName && (
+                  <span className="text-cyan-300/80 font-medium normal-case tracking-normal">
+                    · {bibleRefs.secondaryFullName}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="min-w-0 max-w-4xl text-center">
+            <h2 
+              className="font-medium text-gray-200 tracking-wide truncate drop-shadow flex items-center justify-center gap-2 transition-all"
+              style={{ fontSize: `calc(clamp(0.875rem, 1.4vw, 1.25rem) * ${effectiveFontScale})` }}
+            >
+              {isCountdownActive 
+                ? (displayState?.countdown?.title || "Bienvenue") 
+                : displayState?.isBilingual && displayState?.secondarySongTitle
+                ? (
+                  <>
+                    <span>{title}</span>
+                    <span className="text-gray-500">•</span>
+                    <span className="text-cyan-300 italic">{displayState.secondarySongTitle}</span>
+                    {displayState.secondaryLanguage && (
+                      <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-cyan-950/60 border border-cyan-500/40 text-cyan-300">
+                        {displayState.secondaryLanguage}
+                      </span>
+                    )}
+                  </>
+                )
+                : title}
+            </h2>
+          </div>
+        )}
       </footer>
 
       {showControlsHint && (

@@ -400,20 +400,18 @@ export const PresentationManager: React.FC = () => {
   const [autoLayout, setAutoLayout] = useState<boolean>(() => getSavedAutoLayout());
 
   const handleToggleAutoLayout = useCallback(() => {
-    setAutoLayout(prev => {
-      const next = !prev;
-      saveAutoLayout(next);
-      setActiveSlideIndex(0);
-      showNotification?.({
-        title: next ? 'Mise en page auto activée' : 'Mise en page standard (4 lignes max)',
-        message: next
-          ? 'Les paroles sont divisées en slides équilibrées selon la longueur du chant.'
-          : 'Découpage fixe classique par blocs de 4 lignes.',
-        type: 'info'
-      });
-      return next;
+    const next = !autoLayout;
+    setAutoLayout(next);
+    saveAutoLayout(next);
+    setActiveSlideIndex(0);
+    showNotification?.({
+      title: next ? 'Mise en page auto activée' : 'Mise en page standard (4 lignes max)',
+      message: next
+        ? 'Les paroles sont divisées en slides équilibrées selon la longueur du chant.'
+        : 'Découpage fixe classique par blocs de 4 lignes.',
+      type: 'info'
     });
-  }, [showNotification]);
+  }, [autoLayout, showNotification]);
 
   const handleToggleBilingualMode = useCallback(() => {
     setIsBilingualMode(prev => {
@@ -552,25 +550,23 @@ export const PresentationManager: React.FC = () => {
   }, []);
 
   const handleToggleCountdown = useCallback(() => {
-    setCountdownActive(prev => {
-      const next = !prev;
-      try { localStorage.setItem('presentation_countdown_active', String(next)); } catch {}
-      if (next) {
-        showNotification?.({
-          title: 'Décompte diffusé sur l\'écran',
-          message: `Début prévu à ${countdownTime}`,
-          type: 'info'
-        });
-      } else {
-        showNotification?.({
-          title: 'Décompte arrêté',
-          message: 'Diffusion standard des paroles',
-          type: 'info'
-        });
-      }
-      return next;
-    });
-  }, [countdownTime, showNotification]);
+    const next = !countdownActive;
+    setCountdownActive(next);
+    try { localStorage.setItem('presentation_countdown_active', String(next)); } catch {}
+    if (next) {
+      showNotification?.({
+        title: 'Décompte diffusé sur l\'écran',
+        message: `Début prévu à ${countdownTime}`,
+        type: 'info'
+      });
+    } else {
+      showNotification?.({
+        title: 'Décompte arrêté',
+        message: 'Diffusion standard des paroles',
+        type: 'info'
+      });
+    }
+  }, [countdownActive, countdownTime, showNotification]);
 
   const handleSetCountdownTime = useCallback((time: string) => {
     setCountdownTime(time);
@@ -1428,14 +1424,11 @@ export const PresentationManager: React.FC = () => {
       });
     }
 
-    setQueueItems(prev => {
-      const next = [...prev, ...newItems];
-      if (prev.length === 0) {
-        setActiveSongIndex(0);
-        setActiveSlideIndex(0);
-      }
-      return next;
-    });
+    setQueueItems(prev => [...prev, ...newItems]);
+    if (queueItems.length === 0) {
+      setActiveSongIndex(0);
+      setActiveSlideIndex(0);
+    }
 
     showNotification?.({
       title: newItems.length > 1 ? `${newItems.length} versets ajoutés à la file` : 'Verset ajouté à la file',
@@ -1446,7 +1439,7 @@ export const PresentationManager: React.FC = () => {
           : `${passage.referenceText} (${passage.version}) ajouté comme élément individuel repositionnable.`),
       type: 'success'
     });
-  }, [showNotification]);
+  }, [queueItems.length, showNotification]);
 
   // Actions Média pour le Module Média
   const handleProjectMedia = useCallback((media: MediaPresentationState) => {
@@ -1528,29 +1521,24 @@ export const PresentationManager: React.FC = () => {
       setlistId: target.id
     }));
 
-    setQueueItems(prev => {
-      const next = [...prev, ...newItems];
-      if (prev.length === 0) {
-        setActiveSongIndex(0);
-        setActiveSlideIndex(0);
-      }
-      return next;
-    });
+    setQueueItems(prev => [...prev, ...newItems]);
+    if (queueItems.length === 0) {
+      setActiveSongIndex(0);
+      setActiveSlideIndex(0);
+    }
     setSelectedSetlistId('');
   };
 
   // Retirer une setlist entière de la file
   const handleRemoveSetlistFromQueue = (setlistName: string, setlistId?: string) => {
-    setQueueItems(prev => {
-      const next = prev.filter(item =>
-        setlistId ? item.setlistId !== setlistId : item.setlistName !== setlistName
-      );
-      if (activeSongIndex >= next.length) {
-        setActiveSongIndex(Math.max(0, next.length - 1));
-        setActiveSlideIndex(0);
-      }
-      return next;
-    });
+    const next = queueItems.filter(item =>
+      setlistId ? item.setlistId !== setlistId : item.setlistName !== setlistName
+    );
+    setQueueItems(next);
+    if (activeSongIndex >= next.length) {
+      setActiveSongIndex(Math.max(0, next.length - 1));
+      setActiveSlideIndex(0);
+    }
   };
 
   // Liste filtrée pour le modal d'ajout de chant séparé
@@ -1573,14 +1561,11 @@ export const PresentationManager: React.FC = () => {
       songId: song.id,
       setlistName: ''
     };
-    setQueueItems(prev => {
-      const next = [...prev, newItem];
-      if (prev.length === 0) {
-        setActiveSongIndex(0);
-        setActiveSlideIndex(0);
-      }
-      return next;
-    });
+    setQueueItems(prev => [...prev, newItem]);
+    if (queueItems.length === 0) {
+      setActiveSongIndex(0);
+      setActiveSlideIndex(0);
+    }
     setIsAddSongModalOpen(false);
     setSongModalSearch('');
     showNotification?.({
@@ -1588,18 +1573,16 @@ export const PresentationManager: React.FC = () => {
       message: `"${song.title}" ajouté à la file de projection (déplaçable et retirable).`,
       type: 'success'
     });
-  }, [showNotification]);
+  }, [queueItems.length, showNotification]);
 
   // Retirer un chant de la file
   const handleRemoveSong = (indexToRemove: number) => {
-    setQueueItems(prev => {
-      const next = prev.filter((_, idx) => idx !== indexToRemove);
-      if (activeSongIndex >= next.length) {
-        setActiveSongIndex(Math.max(0, next.length - 1));
-        setActiveSlideIndex(0);
-      }
-      return next;
-    });
+    const next = queueItems.filter((_, idx) => idx !== indexToRemove);
+    setQueueItems(next);
+    if (activeSongIndex >= next.length) {
+      setActiveSongIndex(Math.max(0, next.length - 1));
+      setActiveSlideIndex(0);
+    }
   };
 
   // Déplacer une setlist entière vers le haut ou vers le bas dans la file (préserve l'ordre interne des chants)
@@ -1636,13 +1619,11 @@ export const PresentationManager: React.FC = () => {
         targetInsertIndex = otherStart;
       }
 
-      setQueueItems(prev => {
-        const remaining = prev.filter((_, i) => i < startIndex || i > endIndex);
-        remaining.splice(targetInsertIndex, 0, ...setlistSongs);
-        const newActive = remaining.findIndex(i => i.uid === currentUid);
-        if (newActive !== -1) setActiveSongIndex(newActive);
-        return remaining;
-      });
+      const remaining = queueItems.filter((_, i) => i < startIndex || i > endIndex);
+      remaining.splice(targetInsertIndex, 0, ...setlistSongs);
+      const newActive = remaining.findIndex(i => i.uid === currentUid);
+      setQueueItems(remaining);
+      if (newActive !== -1) setActiveSongIndex(newActive);
     } else {
       if (endIndex >= queueItems.length - 1) return;
       const nextIndex = endIndex + 1;
@@ -1660,14 +1641,12 @@ export const PresentationManager: React.FC = () => {
         targetInsertAfterIndex = otherEnd;
       }
 
-      setQueueItems(prev => {
-        const remaining = prev.filter((_, i) => i < startIndex || i > endIndex);
-        const insertAt = targetInsertAfterIndex - count + 1;
-        remaining.splice(insertAt, 0, ...setlistSongs);
-        const newActive = remaining.findIndex(i => i.uid === currentUid);
-        if (newActive !== -1) setActiveSongIndex(newActive);
-        return remaining;
-      });
+      const remaining = queueItems.filter((_, i) => i < startIndex || i > endIndex);
+      const insertAt = targetInsertAfterIndex - count + 1;
+      remaining.splice(insertAt, 0, ...setlistSongs);
+      const newActive = remaining.findIndex(i => i.uid === currentUid);
+      setQueueItems(remaining);
+      if (newActive !== -1) setActiveSongIndex(newActive);
     }
   };
 
@@ -1694,14 +1673,12 @@ export const PresentationManager: React.FC = () => {
         targetIndex = otherStart;
       }
 
-      setQueueItems(prev => {
-        const next = [...prev];
-        const [moved] = next.splice(index, 1);
-        next.splice(targetIndex, 0, moved);
-        const newActive = next.findIndex(i => i.uid === currentUid);
-        if (newActive !== -1) setActiveSongIndex(newActive);
-        return next;
-      });
+      const next = [...queueItems];
+      const [moved] = next.splice(index, 1);
+      next.splice(targetIndex, 0, moved);
+      const newActive = next.findIndex(i => i.uid === currentUid);
+      setQueueItems(next);
+      if (newActive !== -1) setActiveSongIndex(newActive);
     } else {
       if (index >= queueItems.length - 1) return;
       const nextIndex = index + 1;
@@ -1719,14 +1696,12 @@ export const PresentationManager: React.FC = () => {
         targetIndex = otherEnd;
       }
 
-      setQueueItems(prev => {
-        const next = [...prev];
-        const [moved] = next.splice(index, 1);
-        next.splice(targetIndex, 0, moved);
-        const newActive = next.findIndex(i => i.uid === currentUid);
-        if (newActive !== -1) setActiveSongIndex(newActive);
-        return next;
-      });
+      const next = [...queueItems];
+      const [moved] = next.splice(index, 1);
+      next.splice(targetIndex, 0, moved);
+      const newActive = next.findIndex(i => i.uid === currentUid);
+      setQueueItems(next);
+      if (newActive !== -1) setActiveSongIndex(newActive);
     }
   };
 
@@ -1782,16 +1757,14 @@ export const PresentationManager: React.FC = () => {
 
       const setlistSongs = queueItems.slice(startIndex, endIndex + 1);
 
-      setQueueItems(prev => {
-        const remaining = prev.filter((_, i) => i < startIndex || i > endIndex);
-        const adjustedTarget = targetIndex > startIndex 
-          ? Math.max(0, targetIndex - setlistSongs.length)
-          : targetIndex;
-        remaining.splice(adjustedTarget, 0, ...setlistSongs);
-        const newActive = remaining.findIndex(i => i.uid === currentUid);
-        if (newActive !== -1) setActiveSongIndex(newActive);
-        return remaining;
-      });
+      const remaining = queueItems.filter((_, i) => i < startIndex || i > endIndex);
+      const adjustedTarget = targetIndex > startIndex 
+        ? Math.max(0, targetIndex - setlistSongs.length)
+        : targetIndex;
+      remaining.splice(adjustedTarget, 0, ...setlistSongs);
+      const newActive = remaining.findIndex(i => i.uid === currentUid);
+      setQueueItems(remaining);
+      if (newActive !== -1) setActiveSongIndex(newActive);
       return;
     }
 
@@ -1799,14 +1772,12 @@ export const PresentationManager: React.FC = () => {
     const sourceIndex = parseInt(rawData, 10);
     if (isNaN(sourceIndex) || sourceIndex === targetIndex) return;
 
-    setQueueItems(prev => {
-      const next = [...prev];
-      const [moved] = next.splice(sourceIndex, 1);
-      next.splice(targetIndex, 0, moved);
-      const newActive = next.findIndex(i => i.uid === currentUid);
-      if (newActive !== -1) setActiveSongIndex(newActive);
-      return next;
-    });
+    const next = [...queueItems];
+    const [moved] = next.splice(sourceIndex, 1);
+    next.splice(targetIndex, 0, moved);
+    const newActive = next.findIndex(i => i.uid === currentUid);
+    setQueueItems(next);
+    if (newActive !== -1) setActiveSongIndex(newActive);
   };
 
   const cdRemaining = Math.max(0, getTargetTimestampFromTime(countdownTime) - regieNow);
@@ -2726,7 +2697,11 @@ export const PresentationManager: React.FC = () => {
 
             {/* Moniteur Miniature de l'écran externe (Aperçu en direct 16:9) */}
             <div 
-              className="w-full aspect-[16/9] max-h-56 sm:max-h-64 bg-black border-2 rounded-xl relative overflow-hidden flex flex-col justify-between p-4 sm:p-6 shadow-inner text-center select-none group bg-cover bg-center transition-all duration-300"
+              className={`w-full aspect-[16/9] max-h-56 sm:max-h-64 bg-black border-2 rounded-xl relative overflow-hidden flex flex-col justify-between ${
+                !isBlackout && !countdownActive && !liveDirectMedia?.isActive && activeSlide && activeSlide.lines.length > 0 && (liveDirectBible || activeSlide.itemType === 'bible')
+                  ? 'p-2.5 sm:p-3.5 text-left'
+                  : 'p-4 sm:p-6 text-center'
+              } shadow-inner select-none group bg-cover bg-center transition-all duration-300`}
               style={{
                 borderColor: liveDirectMedia?.isActive ? 'rgba(168, 85, 247, 0.7)' : liveDirectBible ? 'rgba(245, 158, 11, 0.7)' : 'rgba(59, 130, 246, 0.5)',
                 backgroundImage: backgroundImage ? `url("${backgroundImage}")` : undefined
@@ -2748,7 +2723,11 @@ export const PresentationManager: React.FC = () => {
               </div>
 
               {/* Contenu projeté */}
-              <div className="flex-1 flex items-center justify-center px-4 relative z-10">
+              <div className={`flex-1 flex items-center relative z-10 ${
+                !isBlackout && !countdownActive && !liveDirectMedia?.isActive && activeSlide && activeSlide.lines.length > 0 && (liveDirectBible || activeSlide.itemType === 'bible')
+                  ? 'justify-start px-1 text-left'
+                  : 'justify-center px-4 text-center'
+              }`}>
                 {isBlackout ? (
                   <span className="text-gray-400 text-xs font-mono drop-shadow">[ Écran masqué ]</span>
                 ) : countdownActive ? (() => {
@@ -2799,59 +2778,99 @@ export const PresentationManager: React.FC = () => {
                     </span>
                   </div>
                 ) : activeSlide && activeSlide.lines.length > 0 ? (
-                  <div className="space-y-1 sm:space-y-1.5 max-w-lg">
-                    {(liveDirectBible || activeSlide.itemType === 'bible') && (
-                      <div 
-                        className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-200 font-bold uppercase mb-0.5 transition-all"
-                        style={{ fontSize: `calc(10px * ${Math.max(0.75, Math.min(1.3, fontScale))})` }}
-                      >
-                        <BookOpen className="w-3 h-3 text-amber-400 shrink-0" />
-                        <span>{liveDirectBible?.referenceText || activeSlide.bibleReference || activeSlide.songTitle}</span>
-                      </div>
-                    )}
+                  <div className={`space-y-1 sm:space-y-1.5 ${(liveDirectBible || activeSlide.itemType === 'bible') ? 'w-full text-left overflow-hidden' : 'max-w-lg'}`}>
                     {activeSlide.isBilingual && activeSlide.secondaryLines && activeSlide.secondaryLines.length > 0 ? (
                       activeSlide.bilingualFormat === 'columns' ? (
                         <div className="grid grid-cols-2 gap-2 text-left">
-                          <div className="space-y-0.5">
-                            <span 
-                              className="font-bold uppercase text-blue-400 block mb-0.5 transition-all"
-                              style={{ fontSize: `calc(8px * ${fontScale})` }}
-                            >
-                              {activeSlide.primaryLanguage || 'FR'}
-                            </span>
-                            {activeSlide.lines.map((l, i) => (
-                              <p 
-                                key={i} 
-                                className="font-bold text-white leading-tight truncate transition-all"
+                          <div className="space-y-0.5 min-w-0">
+                            {!(liveDirectBible || activeSlide.itemType === 'bible') && (
+                              <span 
+                                className="font-bold uppercase text-blue-400 block mb-0.5 transition-all"
+                                style={{ fontSize: `calc(8px * ${fontScale})` }}
+                              >
+                                {activeSlide.primaryLanguage || 'FR'}
+                              </span>
+                            )}
+                            {(liveDirectBible || activeSlide.itemType === 'bible') ? (
+                              <p
+                                className="font-bold text-white leading-tight line-clamp-5 transition-all"
                                 style={{ 
-                                  fontSize: `calc(0.72rem * ${fontScale})`,
+                                  fontSize: `calc(0.68rem * ${Math.min(1.15, fontScale)})`,
                                   textShadow: '0 1px 3px rgba(0,0,0,0.85)'
                                 }}
                               >
-                                {cleanBibleVerseText(l)}
+                                {activeSlide.lines.map(l => cleanBibleVerseText(l)).filter(Boolean).join(' ')}
                               </p>
-                            ))}
+                            ) : (
+                              activeSlide.lines.map((l, i) => (
+                                <p 
+                                  key={i} 
+                                  className="font-bold text-white leading-tight truncate transition-all"
+                                  style={{ 
+                                    fontSize: `calc(0.72rem * ${fontScale})`,
+                                    textShadow: '0 1px 3px rgba(0,0,0,0.85)'
+                                  }}
+                                >
+                                  {cleanBibleVerseText(l)}
+                                </p>
+                              ))
+                            )}
                           </div>
-                          <div className="border-l border-white/20 pl-2 space-y-0.5">
-                            <span 
-                              className="font-bold uppercase text-cyan-400 block mb-0.5 transition-all"
-                              style={{ fontSize: `calc(8px * ${fontScale})` }}
-                            >
-                              {activeSlide.secondaryLanguage || 'TR'}
-                            </span>
-                            {activeSlide.secondaryLines.map((l, i) => (
-                              <p 
-                                key={i} 
-                                className="font-medium text-cyan-200 leading-tight truncate transition-all"
+                          <div className="border-l border-white/20 pl-2 space-y-0.5 min-w-0">
+                            {!(liveDirectBible || activeSlide.itemType === 'bible') && (
+                              <span 
+                                className="font-bold uppercase text-cyan-400 block mb-0.5 transition-all"
+                                style={{ fontSize: `calc(8px * ${fontScale})` }}
+                              >
+                                {activeSlide.secondaryLanguage || 'TR'}
+                              </span>
+                            )}
+                            {(liveDirectBible || activeSlide.itemType === 'bible') ? (
+                              <p
+                                className="font-medium text-cyan-200 leading-tight line-clamp-5 transition-all"
                                 style={{ 
-                                  fontSize: `calc(0.72rem * ${fontScale})`,
+                                  fontSize: `calc(0.68rem * ${Math.min(1.15, fontScale)})`,
                                   textShadow: '0 1px 3px rgba(6,182,212,0.4)'
                                 }}
                               >
-                                {cleanBibleVerseText(l)}
+                                {activeSlide.secondaryLines.map(l => cleanBibleVerseText(l)).filter(Boolean).join(' ')}
                               </p>
-                            ))}
+                            ) : (
+                              activeSlide.secondaryLines.map((l, i) => (
+                                <p 
+                                  key={i} 
+                                  className="font-medium text-cyan-200 leading-tight truncate transition-all"
+                                  style={{ 
+                                    fontSize: `calc(0.72rem * ${fontScale})`,
+                                    textShadow: '0 1px 3px rgba(6,182,212,0.4)'
+                                  }}
+                                >
+                                  {cleanBibleVerseText(l)}
+                                </p>
+                              ))
+                            )}
                           </div>
+                        </div>
+                      ) : (liveDirectBible || activeSlide.itemType === 'bible') ? (
+                        <div className="space-y-1.5 text-left">
+                          <p 
+                            className="font-bold text-white leading-tight line-clamp-3 transition-all"
+                            style={{ 
+                              fontSize: `calc(0.76rem * ${Math.min(1.15, fontScale)})`,
+                              textShadow: '0 1px 3px rgba(0,0,0,0.85)'
+                            }}
+                          >
+                            {activeSlide.lines.map(l => cleanBibleVerseText(l)).filter(Boolean).join(' ')}
+                          </p>
+                          <p 
+                            className="font-medium text-cyan-200 italic leading-tight line-clamp-3 pt-1 border-t border-amber-500/20 transition-all"
+                            style={{ 
+                              fontSize: `calc(0.72rem * ${Math.min(1.15, fontScale)})`,
+                              textShadow: '0 1px 3px rgba(6,182,212,0.4)'
+                            }}
+                          >
+                            {activeSlide.secondaryLines.map(l => cleanBibleVerseText(l)).filter(Boolean).join(' ')}
+                          </p>
                         </div>
                       ) : (
                         <div className="space-y-1">
@@ -2881,6 +2900,16 @@ export const PresentationManager: React.FC = () => {
                           ))}
                         </div>
                       )
+                    ) : (liveDirectBible || activeSlide.itemType === 'bible') ? (
+                      <p 
+                        className="font-bold text-white drop-shadow transition-all leading-snug line-clamp-6 text-left"
+                        style={{ 
+                          fontSize: `calc(0.86rem * ${Math.min(1.15, fontScale)})`,
+                          textShadow: '0 1px 4px rgba(0,0,0,0.85)'
+                        }}
+                      >
+                        {activeSlide.lines.map(l => cleanBibleVerseText(l)).filter(Boolean).join(' ')}
+                      </p>
                     ) : (
                       activeSlide.lines.map((l, i) => (
                         <p 
@@ -2900,6 +2929,27 @@ export const PresentationManager: React.FC = () => {
                   <span className="text-gray-400 text-xs drop-shadow">Aucun contenu en diffusion</span>
                 )}
               </div>
+
+              {!isBlackout && !countdownActive && !liveDirectMedia?.isActive && activeSlide && activeSlide.lines.length > 0 && (liveDirectBible || activeSlide.itemType === 'bible') && (
+                <div className="relative z-10 flex flex-wrap items-center justify-center gap-1.5 pt-1 shrink-0">
+                  <div
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-200 font-bold uppercase transition-all"
+                    style={{ fontSize: `calc(9px * ${Math.max(0.75, Math.min(1.3, fontScale))})` }}
+                  >
+                    <BookOpen className="w-2.5 h-2.5 text-amber-400 shrink-0" />
+                    <span>{liveDirectBible?.referenceText || activeSlide.bibleReference || activeSlide.songTitle}</span>
+                  </div>
+                  {activeSlide.isBilingual && activeSlide.secondaryLines && activeSlide.secondaryLines.length > 0 && (
+                    <div
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-cyan-500/20 border border-cyan-400/40 text-cyan-200 font-bold uppercase transition-all"
+                      style={{ fontSize: `calc(9px * ${Math.max(0.75, Math.min(1.3, fontScale))})` }}
+                    >
+                      <BookOpen className="w-2.5 h-2.5 text-cyan-400 shrink-0" />
+                      <span>{liveDirectSecondaryBible?.referenceText || currentQueueItem?.secondaryBibleData?.referenceText || liveDirectBible?.referenceText || activeSlide.bibleReference || activeSlide.songTitle}</span>
+                    </div>
+                  )}
+                </div>
+              )}
 
             </div>
           </div>

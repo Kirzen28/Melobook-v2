@@ -135,6 +135,8 @@ interface SongReaderProps {
   hasPrev?: boolean;
   setlistContextName?: string;
   setlistPosition?: { current: number; total: number };
+  autoScrollPanelOpen?: boolean;
+  onAutoScrollPanelChange?: (open: boolean) => void;
 }
 
 export const SongReader: React.FC<SongReaderProps> = ({
@@ -146,7 +148,9 @@ export const SongReader: React.FC<SongReaderProps> = ({
   hasNext,
   hasPrev,
   setlistContextName,
-  setlistPosition
+  setlistPosition,
+  autoScrollPanelOpen,
+  onAutoScrollPanelChange
 }) => {
   const { 
     songs,
@@ -173,7 +177,9 @@ export const SongReader: React.FC<SongReaderProps> = ({
     canManageSetlists,
     linkSongs,
     unlinkSongs,
-    createLanguageVersion
+    createLanguageVersion,
+    personalCapos,
+    setPersonalCapo
   } = useApp();
 
   const metaVis = displaySettings.metadataVisibility || DEFAULT_SONG_METADATA_VISIBILITY;
@@ -228,7 +234,6 @@ export const SongReader: React.FC<SongReaderProps> = ({
     setlistOverride && (
       setlistOverride.key !== undefined ||
       setlistOverride.tempo !== undefined ||
-      setlistOverride.capo !== undefined ||
       setlistOverride.duration !== undefined ||
       setlistOverride.notes !== undefined ||
       (setlistOverride.sectionRepeats && Object.keys(setlistOverride.sectionRepeats).length > 0)
@@ -356,7 +361,15 @@ export const SongReader: React.FC<SongReaderProps> = ({
   const scrollPosRef = useRef<number>(0);
   const isAutoScrollingRef = useRef<boolean>(false);
   const [scrollSpeedMultiplier, setScrollSpeedMultiplier] = useState<number>(1);
-  const [showFloatingAutoScroll, setShowFloatingAutoScroll] = useState<boolean>(false);
+  const [localShowFloatingAutoScroll, setLocalShowFloatingAutoScroll] = useState<boolean>(false);
+  const showFloatingAutoScroll = autoScrollPanelOpen !== undefined ? autoScrollPanelOpen : localShowFloatingAutoScroll;
+  const setShowFloatingAutoScroll = useCallback((open: boolean) => {
+    if (onAutoScrollPanelChange) {
+      onAutoScrollPanelChange(open);
+    } else {
+      setLocalShowFloatingAutoScroll(open);
+    }
+  }, [onAutoScrollPanelChange]);
 
   // Parse ChordPro
   const parsedData = useMemo(() => {
@@ -441,15 +454,6 @@ export const SongReader: React.FC<SongReaderProps> = ({
     ? `setlist:${currentSetlist.id}:${song.id}`
     : (song ? `song:${song.id}` : '');
 
-  const [personalCapos, setPersonalCapos] = useState<Record<string, number>>(() => {
-    try {
-      const raw = localStorage.getItem('melobook_personal_capos');
-      return raw ? JSON.parse(raw) : {};
-    } catch {
-      return {};
-    }
-  });
-
   const [personalKeys, setPersonalKeys] = useState<Record<string, string>>(() => {
     try {
       const raw = localStorage.getItem('melobook_personal_keys');
@@ -501,12 +505,11 @@ export const SongReader: React.FC<SongReaderProps> = ({
       }
     }
     updateStageSettings({ isAutoScrolling: nextState });
-  }, [stageSettings.isAutoScrolling, updateStageSettings]);
+  }, [stageSettings.isAutoScrolling, updateStageSettings, setShowFloatingAutoScroll]);
   const effectiveNotes = setlistOverride?.notes !== undefined ? setlistOverride.notes : (song?.notes || '');
-  const catalogCapo = (song?.capo && song.capo > 0) ? song.capo : (parsedData?.capo || 0);
-  const defaultCapo = (isSetlistMode && setlistOverride?.capo !== undefined) ? setlistOverride.capo : catalogCapo;
-  const personalCapo = (capoStorageKey && personalCapos[capoStorageKey] !== undefined) ? personalCapos[capoStorageKey] : undefined;
-  const effectiveCapo = personalCapo !== undefined ? personalCapo : defaultCapo;
+  const effectiveCapo = (capoStorageKey && personalCapos[capoStorageKey] !== undefined)
+    ? personalCapos[capoStorageKey]
+    : 0;
 
   // Semitone difference for song base key
   const baseKeySemitones = useMemo(() => {
@@ -871,16 +874,6 @@ export const SongReader: React.FC<SongReaderProps> = ({
   };
 
 
-  const updatePersonalCapos = (updater: (prev: Record<string, number>) => Record<string, number>) => {
-    setPersonalCapos(prev => {
-      const next = updater(prev);
-      try {
-        localStorage.setItem('melobook_personal_capos', JSON.stringify(next));
-      } catch {}
-      return next;
-    });
-  };
-
   const updatePersonalKeys = (updater: (prev: Record<string, string>) => Record<string, string>) => {
     setPersonalKeys(prev => {
       const next = updater(prev);
@@ -940,32 +933,9 @@ export const SongReader: React.FC<SongReaderProps> = ({
   };
 
   const handleSetCapo = async (fret: number) => {
-    if (!song) return;
-    if (isSetlistMode && currentSetlist && canManageSetlists) {
-      await updateSetlistSongOverride(currentSetlist.id, song.id, { capo: fret });
-      if (capoStorageKey && personalCapos[capoStorageKey] !== undefined) {
-        updatePersonalCapos(prev => {
-          const copy = { ...prev };
-          delete copy[capoStorageKey];
-          return copy;
-        });
-      }
-      showFeedbackToast(fret > 0 ? `Capo ${fret} fixé pour la setlist` : 'Capo retiré de la setlist');
-    } else if (capoStorageKey) {
-      updatePersonalCapos(prev => ({ ...prev, [capoStorageKey]: fret }));
-      showFeedbackToast(fret > 0 ? `Capo ${fret} appliqué (personnel)` : 'Capo retiré (personnel)');
-    }
-    setShowCapoMenu(false);
-  };
-
-  const handleResetPersonalCapo = () => {
-    if (!capoStorageKey) return;
-    updatePersonalCapos(prev => {
-      const copy = { ...prev };
-      delete copy[capoStorageKey];
-      return copy;
-    });
-    showFeedbackToast(defaultCapo > 0 ? `Capo remis par défaut (Case ${defaultCapo})` : 'Capo remis par défaut (Aucun)');
+    if (!song || !capoStorageKey) return;
+    await setPersonalCapo(capoStorageKey, fret);
+    showFeedbackToast(fret > 0 ? `Capo ${fret} enregistré (votre compte)` : 'Capo retiré (0)');
     setShowCapoMenu(false);
   };
 
@@ -1009,7 +979,6 @@ export const SongReader: React.FC<SongReaderProps> = ({
     const updates: Partial<Song> = {};
     if (setlistOverride?.tempo) updates.tempo = setlistOverride.tempo;
     if (setlistOverride?.duration) updates.duration = setlistOverride.duration;
-    if (setlistOverride?.capo !== undefined) updates.capo = setlistOverride.capo;
     if (setlistOverride?.notes !== undefined) updates.notes = setlistOverride.notes;
 
     let contentToUpdate = song.contentChordPro;
@@ -1224,7 +1193,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
     if (stageSettings.isAutoScrolling) {
       setShowFloatingAutoScroll(true);
     }
-  }, [stageSettings.isAutoScrolling]);
+  }, [stageSettings.isAutoScrolling, setShowFloatingAutoScroll]);
 
   // Auto-Scroll Loop : vitesse calculée précisément selon la durée du chant
   useEffect(() => {
@@ -3238,11 +3207,6 @@ export const SongReader: React.FC<SongReaderProps> = ({
                       (Joué {capoPlayedKey})
                     </span>
                   )}
-                  {personalCapo !== undefined && (
-                    <span className="px-1 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 font-sans hidden sm:inline" style={{ fontSize: `${Math.max(9, displaySettings.typography.metadataSize - 2)}px` }}>
-                      Perso
-                    </span>
-                  )}
                   <ChevronDown className={`w-3 h-3 text-purple-400/80 transition-transform ${showCapoMenu ? 'rotate-180' : ''}`} style={{ width: `${Math.max(11, Math.round(displaySettings.typography.metadataSize * 0.8))}px`, height: `${Math.max(11, Math.round(displaySettings.typography.metadataSize * 0.8))}px` }} />
                 </button>
 
@@ -3259,23 +3223,11 @@ export const SongReader: React.FC<SongReaderProps> = ({
                       <div className="text-[11px] font-semibold text-gray-400 pb-2 mb-2 border-b border-[#282830] flex items-center justify-between">
                         <span className="flex items-center gap-1.5 text-purple-300">
                           <SlidersHorizontal className="w-3.5 h-3.5" />
-                          <span>Capodastre ({isSetlistMode && canManageSetlists ? 'Défaut Setlist' : 'Personnel'})</span>
+                          <span>Capodastre (Personnel)</span>
                         </span>
-                        <div className="flex items-center gap-2">
-                          {personalCapo !== undefined && (
-                            <button
-                              type="button"
-                              onClick={handleResetPersonalCapo}
-                              className="text-[10px] text-amber-400 hover:underline cursor-pointer"
-                            >
-                              Défaut ({defaultCapo > 0 ? defaultCapo : '0'})
-                            </button>
-                          )}
-                          <span className="text-[10px] text-purple-400 font-mono">Actuel : {effectiveCapo > 0 ? `Case ${effectiveCapo}` : 'Aucun'}</span>
-                        </div>
                       </div>
 
-                      <div className="grid grid-cols-4 gap-1.5 text-xs mb-2">
+                      <div className="grid grid-cols-4 gap-1.5 text-xs">
                         {[0, 1, 2, 3, 4, 5, 6, 7].map((fret) => {
                           const isSelected = effectiveCapo === fret;
                           return (
@@ -3283,30 +3235,25 @@ export const SongReader: React.FC<SongReaderProps> = ({
                               key={fret}
                               type="button"
                               onClick={() => handleSetCapo(fret)}
-                              className={`py-1.5 px-2 rounded-lg font-mono text-xs transition-colors cursor-pointer flex flex-col items-center justify-center ${
+                              className={`py-2 px-1.5 rounded-lg font-mono transition-colors cursor-pointer flex items-center justify-center whitespace-nowrap ${
                                 isSelected
                                   ? 'bg-purple-600 text-white font-bold shadow-xs'
                                   : 'bg-[#1C1C22] text-gray-300 hover:bg-[#25252D] hover:text-white border border-[#2E2E36]'
                               }`}
                             >
-                              <span className="text-xs font-bold">{fret === 0 ? 'Sans' : fret}</span>
-                              <span className="text-[9px] text-gray-400">{fret === 0 ? 'Capo' : `Case ${fret}`}</span>
+                              <span className={`font-bold ${fret === 0 ? 'text-[11px] font-sans' : 'text-xs'}`}>
+                                {fret === 0 ? 'Sans capo' : fret}
+                              </span>
                             </button>
                           );
                         })}
                       </div>
 
                       {effectiveCapo > 0 && capoPlayedKey && (
-                        <div className="mb-2 p-1.5 rounded bg-purple-500/10 border border-purple-500/25 text-[10px] text-purple-200 leading-tight">
+                        <div className="mt-2 p-1.5 rounded bg-purple-500/10 border border-purple-500/25 text-[10px] text-purple-200 leading-tight">
                           Capo {effectiveCapo} : accords affichés en <strong className="font-mono text-white">{capoPlayedKey}</strong> (sonne en <strong className="font-mono text-blue-300">{baseKeyDisplay}</strong>).
                         </div>
                       )}
-
-                      <p className="text-[10px] text-gray-400 bg-[#101014] p-1.5 rounded border border-[#222228] leading-tight">
-                        {isSetlistMode && canManageSetlists 
-                          ? "En tant que responsable, vous fixez le capodastre par défaut pour cette setlist." 
-                          : "Ce réglage est mémorisé sur votre appareil uniquement pour ce chant."}
-                      </p>
                     </div>
                   </>
                 )}
@@ -3376,9 +3323,6 @@ export const SongReader: React.FC<SongReaderProps> = ({
                           )}
                           <span className="text-[10px] text-emerald-400 font-mono font-bold">{effectiveTempo} BPM</span>
                         </div>
-                      </div>
-                      <div className="text-[10px] text-gray-400 mb-2.5 leading-tight">
-                        Tempo spécifique à ce chant. Le métronome général indépendant reste accessible via le menu haut.
                       </div>
 
                       {/* Stepper rapide avec Tempo Éditable au clic */}
@@ -3458,7 +3402,6 @@ export const SongReader: React.FC<SongReaderProps> = ({
                               <span className="font-mono font-bold text-lg text-emerald-400 group-hover:text-emerald-300 transition-colors">
                                 {effectiveTempo}
                               </span>
-                              <FileEdit className="w-3 h-3 text-gray-500 group-hover:text-emerald-400 transition-colors" />
                             </div>
                             <div className="text-[9px] text-gray-500 group-hover:text-gray-400 font-sans uppercase">
                               BPM

@@ -25,11 +25,12 @@ import {
   Cloud,
   Piano,
   Tv,
-  Camera
+  Pencil
 } from 'lucide-react';
 import { MelobookLogo } from './MelobookLogo';
 import { MetronomeIcon } from './MetronomeIcon';
 import { ProfilePictureModal } from './ProfilePictureModal';
+import { UserAvatar } from '../utils/avatarPresets';
 import { metronomeAudio } from '../utils/metronomeAudio';
 
 export const Navbar: React.FC = () => {
@@ -254,73 +255,6 @@ export const Navbar: React.FC = () => {
                 <span>Projection</span>
               </button>
 
-              <button
-                type="button"
-                onClick={() => setIsTunerOpen(prev => !prev)}
-                className={`relative z-10 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                  isTunerOpen
-                    ? 'bg-blue-600/20 text-blue-400 border border-blue-500/40 shadow-xs'
-                    : 'text-gray-400 hover:text-white hover:bg-[#1A1A1D]'
-                }`}
-                title="Accordeur acoustique et diapason en pop up"
-              >
-                <Gauge className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                <span>Accordeur</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setIsPianoOpen(prev => !prev)}
-                className={`relative z-10 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                  isPianoOpen
-                    ? 'bg-blue-600/20 text-blue-400 border border-blue-500/40 shadow-xs'
-                    : 'text-gray-400 hover:text-white hover:bg-[#1A1A1D]'
-                }`}
-                title="Mini piano popup pour repérer des notes et tonalités"
-              >
-                <Piano className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                <span>Piano</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setIsMetronomeOpen(prev => !prev)}
-                className={`relative z-10 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                  isMetronomeOpen
-                    ? 'bg-blue-600/20 text-blue-400 border border-blue-500/40 shadow-xs'
-                    : 'text-gray-400 hover:text-white hover:bg-[#1A1A1D]'
-                }`}
-                title="Métronome universel externe — Outil autonome indépendant des chants et du mode scène"
-              >
-                <MetronomeIcon className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                <span>Métronome</span>
-                {isMetronomeActive && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                )}
-              </button>
-
-              {!isGuest && (
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('settings')}
-                  className={`relative z-10 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                    activeTab === 'settings'
-                      ? 'text-white'
-                      : 'text-gray-400 hover:text-white hover:bg-[#1A1A1D]'
-                  }`}
-                  title="Réglages de l'application"
-                >
-                  {activeTab === 'settings' && (
-                    <motion.span
-                      layoutId="active-nav-indicator"
-                      className="absolute inset-0 bg-[#1C1C1E] rounded-md border border-[#333] -z-10 shadow-sm"
-                      transition={{ type: 'spring', stiffness: 450, damping: 35 }}
-                    />
-                  )}
-                  <Sliders className="w-3.5 h-3.5 text-purple-400 shrink-0" />
-                  <span>Réglages</span>
-                </button>
-              )}
             </nav>
           </div>
 
@@ -401,8 +335,8 @@ export const Navbar: React.FC = () => {
                       } : undefined}
                       role={canEditProfilePicture ? 'button' : undefined}
                       tabIndex={canEditProfilePicture ? 0 : undefined}
-                      title={canEditProfilePicture ? 'Modifier la photo de profil' : undefined}
-                      aria-label={canEditProfilePicture ? 'Modifier la photo de profil' : undefined}
+                      title={canEditProfilePicture ? 'Choisir un avatar SVG' : undefined}
+                      aria-label={canEditProfilePicture ? 'Choisir un avatar SVG' : undefined}
                       className={`flex items-center gap-2 min-w-0 flex-1 ${
                         canEditProfilePicture
                           ? 'group/avatar cursor-pointer rounded-lg p-1 -m-1 hover:bg-[#1C1C1F] transition-colors'
@@ -410,17 +344,17 @@ export const Navbar: React.FC = () => {
                       }`}
                     >
                       {/* Avatar avec pastille de synchronisation */}
-                      <div className="relative w-7 h-7 rounded-full bg-[#1C1C1E] border border-[#333] flex items-center justify-center text-white font-bold text-xs shrink-0 shadow-xs overflow-hidden">
-                        {currentUser?.photoURL ? (
-                          <img src={currentUser.photoURL} alt={currentUser.displayName || 'Avatar'} className="w-full h-full object-cover rounded-full" />
-                        ) : currentUser?.displayName ? (
-                          <span>{currentUser.displayName.charAt(0).toUpperCase()}</span>
-                        ) : (
-                          <UserIcon className="w-3.5 h-3.5 text-gray-400" />
-                        )}
+                      <div className="relative w-7 h-7 rounded-full shrink-0 shadow-xs">
+                        <UserAvatar
+                          photoURL={currentUser?.photoURL}
+                          displayName={currentUser?.displayName}
+                          sizeClass="w-7 h-7 text-xs"
+                          iconClass="w-3.5 h-3.5"
+                          fallbackClassName="bg-[#1C1C1E] border border-[#333] text-white"
+                        />
                         {canEditProfilePicture && (
                           <span className="absolute inset-0 bg-black/55 flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-opacity rounded-full z-20">
-                            <Camera className="w-3.5 h-3.5 text-white" />
+                            <Pencil className="w-3 h-3 text-white" />
                           </span>
                         )}
                         <span className="absolute -bottom-0.5 -right-0.5 flex h-2 w-2 pointer-events-none z-10">
@@ -436,9 +370,6 @@ export const Navbar: React.FC = () => {
                           <p className="font-semibold text-white truncate text-xs leading-tight">
                             {currentUser ? currentUser.displayName : isGuest ? 'Invité (Lecture seule)' : 'Non connecté'}
                           </p>
-                          {canEditProfilePicture && (
-                            <Camera className="w-2.5 h-2.5 text-gray-400 group-hover/avatar:text-blue-400 shrink-0 transition-colors" />
-                          )}
                         </div>
                         <p className="text-[10px] text-gray-400 truncate leading-tight">
                           {currentUser ? (currentUser.email || (currentUser.role === 'admin' ? 'Administrateur 👑' : currentUser.role === 'leader' ? 'Responsable ⚡' : currentUser.role === 'editor' ? 'Éditeur ✍️' : currentUser.role === 'viewer' ? 'Régie 🖥️' : 'Membre 🎵')) : isGuest ? (currentGroup?.name || 'Consultation seule') : 'Mode invité — lecture seule'}
@@ -502,9 +433,8 @@ export const Navbar: React.FC = () => {
 
                   {/* Outils Musiciens Externes & Autonomes */}
                   <div className="py-1">
-                    <div className="px-3.5 pt-1.5 pb-1 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                    <div className="px-3.5 pt-1.5 pb-1 flex items-center text-[10px] font-bold uppercase tracking-wider text-gray-400">
                       <span>Outils musiciens</span>
-                      <span className="text-[9px] text-gray-400 font-normal lowercase">autonomes</span>
                     </div>
 
                     <button
@@ -524,7 +454,6 @@ export const Navbar: React.FC = () => {
                         <MetronomeIcon className="w-4 h-4 text-blue-400 shrink-0" />
                         <div className="flex flex-col min-w-0">
                           <span className="truncate">Métronome</span>
-                          <span className="text-[10px] text-gray-400 truncate">Outil autonome (externe au chant)</span>
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
@@ -555,7 +484,6 @@ export const Navbar: React.FC = () => {
                         <Piano className="w-4 h-4 text-blue-400 shrink-0" />
                         <div className="flex flex-col min-w-0">
                           <span className="truncate">Mini clavier</span>
-                          <span className="text-[10px] text-gray-400 truncate">Notes & accords</span>
                         </div>
                       </div>
                       {isPianoOpen && (
@@ -579,7 +507,6 @@ export const Navbar: React.FC = () => {
                         <Gauge className="w-4 h-4 text-blue-400 shrink-0" />
                         <div className="flex flex-col min-w-0">
                           <span className="truncate">Accordeur</span>
-                          <span className="text-[10px] text-gray-400 truncate">Détection & diapason</span>
                         </div>
                       </div>
                       {isTunerOpen && (

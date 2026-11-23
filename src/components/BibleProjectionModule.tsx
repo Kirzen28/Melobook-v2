@@ -33,7 +33,8 @@ import {
   ChevronDown,
   Globe,
   Columns,
-  ArrowLeftRight
+  ArrowLeftRight,
+  X
 } from 'lucide-react';
 
 interface BibleProjectionModuleProps {
@@ -914,60 +915,11 @@ export const BibleProjectionModule: React.FC<BibleProjectionModuleProps> = ({
   return (
     <div className={className ? `flex flex-col gap-4 text-gray-200 ${className}` : "bg-[#121216] border border-[#23232C] rounded-2xl p-4 sm:p-5 shadow-xl flex flex-col gap-4 text-gray-200"}>
       
-      {/* 1. Bandeau de contrôle en direct si un verset est projeté */}
-      {activeLiveBibleRef && (
-        <div className="bg-gradient-to-r from-amber-950/60 via-amber-900/40 to-amber-950/60 border border-amber-500/50 rounded-xl p-3 sm:p-3.5 flex flex-wrap items-center justify-between gap-3 shadow-lg shadow-amber-950/30 animate-pulse">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <span className="w-3 h-3 rounded-full bg-amber-400 animate-ping shrink-0" />
-            <div className="min-w-0">
-              <span className="text-[10px] font-bold text-amber-300 uppercase tracking-wider block">
-                Diffusion Biblique en Direct
-              </span>
-              <span className="text-sm sm:text-base font-extrabold text-white truncate block">
-                📖 {activeLiveBibleRef}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="hidden sm:inline-flex items-center gap-1 text-[10px] text-amber-300/80 font-mono bg-black/40 px-2 py-1 rounded-lg border border-amber-500/30">
-              Clavier : ← → / ↑ ↓
-            </span>
-            <button
-              type="button"
-              onClick={handlePrevVerse}
-              className="p-2 rounded-lg bg-black/40 hover:bg-black/60 text-amber-200 border border-amber-500/30 flex items-center justify-center cursor-pointer transition-colors"
-              title="Verset précédent (Flèche Gauche / Flèche Haut)"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              onClick={handleNextVerse}
-              className="p-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white border border-amber-400/50 flex items-center justify-center cursor-pointer transition-colors shadow-md"
-              title="Verset suivant (Flèche Droite / Flèche Bas / Espace)"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-            {onStopLive && (
-              <button
-                type="button"
-                onClick={onStopLive}
-                className="p-2 rounded-lg bg-red-600/80 hover:bg-red-600 text-white transition-colors cursor-pointer flex items-center justify-center"
-                title="Arrêter la diffusion biblique et revenir aux chants"
-              >
-                <Square className="w-4 h-4 fill-current" />
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* 2. Barre de Commande Rapide & Recherche instantanée */}
+      {/* 1. Barre de Commande Rapide, Contrôle Direct & Versions regroupées */}
       <div className="space-y-2">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5">
-          {/* Input principal de recherche ultra-rapide */}
-          <div className="relative flex-1 min-w-0">
+        {/* Ligne 1 : Recherche + Contrôle Direct fusionné (Projeter OU En direct : Ref / < > / Arrêter) */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative flex-1 min-w-[200px]">
             <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               id="bible-quick-search-input"
@@ -975,97 +927,136 @@ export const BibleProjectionModule: React.FC<BibleProjectionModuleProps> = ({
               value={quickSearchInput}
               onChange={(e) => setQuickSearchInput(e.target.value)}
               onKeyDown={handleKeyDownInput}
-              placeholder="Recherche ultra-rapide (ex: Jean 3:16, Rom 8:28, Ps 23:1-4 ou mot-clé)..."
-              className="w-full bg-[#181822] border border-[#2C2C3C] focus:border-amber-500 rounded-xl pl-10 pr-9 py-2 text-xs sm:text-sm text-white placeholder:text-gray-500 focus:outline-none transition-all shadow-inner font-sans"
+              placeholder="Recherche rapide (ex: Jean 3:16, Rom 8:28, Ps 23:1-4 ou mot-clé)..."
+              className="w-full bg-[#161621] border border-[#2B2B3B] focus:border-amber-500 rounded-xl pl-10 pr-8 py-2 text-xs sm:text-sm text-white placeholder:text-gray-500 focus:outline-none transition-colors shadow-inner font-sans"
               autoComplete="off"
             />
             {quickSearchInput && (
               <button
                 type="button"
                 onClick={() => setQuickSearchInput('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 text-xs px-1.5 py-0.5 rounded cursor-pointer"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white p-1 rounded cursor-pointer"
                 title="Effacer la recherche"
               >
-                ✕
+                <X className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
 
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 flex-wrap">
-            {/* Sélecteur de Traduction avec Bouton Bilingue intégré */}
-            <div
-              className={`relative flex items-center bg-[#181822] border rounded-xl p-0.5 shadow-xs shrink-0 transition-all ${
-                isTranslationDropdownOpen
-                  ? 'border-amber-500/80 ring-2 ring-amber-500/20'
-                  : 'border-[#2B2B38] hover:border-gray-500'
-              }`}
-              ref={translationDropdownRef}
-            >
+          <div className="flex items-center gap-1.5 shrink-0 max-w-full">
+            {activeLiveBibleRef ? (
+              <div className="flex items-center gap-1 bg-[#1D1812] border border-amber-500/45 rounded-xl p-1 shadow-md max-w-full">
+                <div
+                  className="flex items-center gap-1.5 px-2 text-xs font-semibold text-amber-200 min-w-0"
+                  title={`Diffusion en direct : ${activeLiveBibleRef}`}
+                >
+                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse shrink-0" />
+                  <span className="truncate max-w-[120px] sm:max-w-[190px]">
+                    {activeLiveBibleRef}
+                  </span>
+                </div>
+
+                <div className="w-px h-4 bg-amber-500/25 shrink-0" />
+
+                <button
+                  type="button"
+                  onClick={handlePrevVerse}
+                  className="p-1.5 rounded-lg hover:bg-white/10 text-amber-200 flex items-center justify-center cursor-pointer transition-colors shrink-0"
+                  title="Verset précédent (Flèche Gauche / Flèche Haut)"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleNextVerse}
+                  className="p-1.5 rounded-lg bg-amber-600/85 hover:bg-amber-500 text-white flex items-center justify-center cursor-pointer transition-colors shrink-0"
+                  title="Verset suivant (Flèche Droite / Flèche Bas / Espace)"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+
+                {onStopLive && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (autoProject) {
+                        setAutoProject(false);
+                        try {
+                          localStorage.setItem('bible_auto_project_mode', 'false');
+                        } catch {}
+                      }
+                      onStopLive();
+                    }}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-red-600/85 hover:bg-red-600 text-white text-xs font-bold transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                    title="Arrêter la diffusion biblique"
+                  >
+                    <Square className="w-3 h-3 fill-current shrink-0" />
+                    <span>Arrêter</span>
+                  </button>
+                )}
+              </div>
+            ) : null}
+
+            {(!activeLiveBibleRef || (currentSelectedPassage && !isCurrentlyLive)) && (
+              <button
+                type="button"
+                onClick={handleToggleProject}
+                className="py-2 px-3.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-md whitespace-nowrap shrink-0 bg-amber-600 hover:bg-amber-500 active:scale-95 text-white shadow-amber-950/30"
+                title={
+                  autoProject
+                    ? 'Projection auto active : chaque clic sur un verset le projette immédiatement.'
+                    : 'Projeter ce passage en direct'
+                }
+              >
+                <Zap className="w-3.5 h-3.5 fill-current shrink-0 text-amber-200" />
+                <span>
+                  {autoProject
+                    ? currentSelectedPassage
+                      ? 'Projeter'
+                      : 'Projection auto'
+                    : 'Projeter'}
+                </span>
+                {autoProject && currentSelectedPassage && (
+                  <span className="text-[10px] font-medium opacity-75 hidden sm:inline">· Auto</span>
+                )}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Ligne 2 : Sélecteurs de version unifiés + Mode Bilingue */}
+        <div className="bg-[#161621] border border-[#2B2B3B] rounded-xl p-1.5 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-1.5 min-w-0 flex-1">
+            {/* Version Principale */}
+            <div className="relative shrink-0" ref={translationDropdownRef}>
               <button
                 type="button"
                 id="bible-translation-dropdown-btn"
                 onClick={() => setIsTranslationDropdownOpen(prev => !prev)}
                 aria-haspopup="listbox"
                 aria-expanded={isTranslationDropdownOpen}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer shrink-0 ${
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors cursor-pointer whitespace-nowrap ${
                   isTranslationDropdownOpen
-                    ? 'bg-[#1F1F2C] text-white'
-                    : 'text-gray-200 hover:bg-[#20202E]'
+                    ? 'bg-[#222232] border-amber-500/70 text-white'
+                    : 'bg-[#1D1D2B] border-[#2E2E40] hover:border-amber-500/50 text-gray-200'
                 }`}
-                title="Changer la version de la Bible (Hors-ligne / Domaine Public / API)"
+                title={`${currentTranslation.name} — Changer la version principale`}
               >
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <LanguageFlagIcon language={currentTranslation.language} className="w-3.5 h-2.5 shrink-0" />
-                  <span className="px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-[10px] font-mono font-bold text-amber-300 shrink-0">
-                    {currentTranslation.shortName}
-                  </span>
-                  <span className="hidden sm:inline text-xs font-medium text-gray-300 truncate max-w-[110px]">
-                    {currentTranslation.name}
-                  </span>
-                  {currentTranslation.isOfflineReady ? (
-                    <span
-                      title="Domaine Public — Version disponible 100% hors-ligne (zéro latence)"
-                      className="hidden sm:inline-flex items-center justify-center p-1 rounded-md text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 shrink-0 cursor-help"
-                    >
-                      <Zap className="w-2.5 h-2.5" />
-                    </span>
-                  ) : (
-                    <span
-                      title="Sous Licence — Extension via API en ligne (API.Bible / Bolls)"
-                      className="hidden sm:inline-flex items-center justify-center p-1 rounded-md text-blue-400 bg-blue-950/60 border border-blue-500/30 shrink-0 cursor-help"
-                    >
-                      <Globe className="w-2.5 h-2.5" />
-                    </span>
-                  )}
-                </div>
-                <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-200 shrink-0 ${isTranslationDropdownOpen ? 'rotate-180 text-amber-400' : ''}`} />
+                <LanguageFlagIcon language={currentTranslation.language} className="w-3.5 h-2.5 shrink-0" />
+                <span className="font-mono font-bold text-amber-300 shrink-0">
+                  {currentTranslation.shortName}
+                </span>
+                <span className="text-gray-500 hidden sm:inline" aria-hidden="true">·</span>
+                <span className="hidden sm:inline text-gray-200 truncate max-w-[130px]">
+                  {currentTranslation.name}
+                </span>
+                <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-150 shrink-0 ${isTranslationDropdownOpen ? 'rotate-180 text-amber-400' : ''}`} />
               </button>
 
-              <div className="w-px h-4 bg-[#2B2B38] mx-0.5 shrink-0" />
-
-              {/* Bouton Bilingue intégré */}
-              <button
-                type="button"
-                onClick={handleToggleBilingual}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer shrink-0 ${
-                  isBilingual
-                    ? 'bg-indigo-600 text-white shadow-indigo-900/40 ring-1 ring-indigo-400/50'
-                    : 'text-gray-300 hover:text-white hover:bg-[#20202E]'
-                }`}
-                title={isBilingual ? 'Bilingue actif - Cliquer pour désactiver' : 'Activer le mode bilingue (2 versions de la Bible en simultané)'}
-              >
-                <Columns className="w-3.5 h-3.5 text-cyan-300 shrink-0" />
-                <span>Bilingue</span>
-                {isBilingual && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-300 animate-pulse ml-0.5" />
-                )}
-              </button>
-
-              {/* Menu Déroulant */}
               {isTranslationDropdownOpen && (
-                <div 
+                <div
                   role="listbox"
-                  className="absolute right-0 top-full mt-1.5 w-72 sm:w-84 bg-[#14141B] border border-[#2D2D3D] rounded-2xl shadow-2xl p-2 z-50 max-h-96 overflow-y-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-100"
+                  className="absolute left-0 top-full mt-1.5 w-72 sm:w-84 bg-[#14141B] border border-[#2D2D3D] rounded-2xl shadow-2xl p-2 z-50 max-h-96 overflow-y-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-100"
                 >
                   <div className="px-2.5 py-1.5 border-b border-[#22222E] flex items-center justify-between mb-1">
                     <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
@@ -1076,7 +1067,6 @@ export const BibleProjectionModule: React.FC<BibleProjectionModuleProps> = ({
                     </span>
                   </div>
 
-                  {/* Barre de recherche textuelle au-dessus de la liste */}
                   <div className="p-1 pb-2">
                     <div className="relative">
                       <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -1101,7 +1091,6 @@ export const BibleProjectionModule: React.FC<BibleProjectionModuleProps> = ({
                     </div>
                   </div>
 
-                  {/* Message si aucun résultat */}
                   {filteredTranslations.length === 0 && (
                     <div className="py-6 px-3 text-center text-xs text-gray-400">
                       <p className="font-medium text-gray-300">Aucune version trouvée</p>
@@ -1109,7 +1098,6 @@ export const BibleProjectionModule: React.FC<BibleProjectionModuleProps> = ({
                     </div>
                   )}
 
-                  {/* Groupes par langue */}
                   {(['Français', 'English', 'Español'] as const).map(lang => {
                     const translationsInLang = filteredTranslations.filter(t => t.language === lang);
                     if (translationsInLang.length === 0) return null;
@@ -1179,7 +1167,6 @@ export const BibleProjectionModule: React.FC<BibleProjectionModuleProps> = ({
                     );
                   })}
 
-                  {/* Note informative de l'approche hybride recommandée */}
                   <div className="mt-2 pt-2 border-t border-[#22222E] px-2 py-1.5 bg-black/30 rounded-xl">
                     <p className="text-[10px] text-gray-400 leading-relaxed">
                       💡 <span className="text-gray-300 font-semibold">Approche Hybride :</span> Versions Domaine Public (LSG, Darby, Ostervald, KJV, RVR1960, BLA) en cache immédiat hors-ligne. Versions sous licence (NBS, PDV, NVI, NTV) via l'API.
@@ -1189,212 +1176,184 @@ export const BibleProjectionModule: React.FC<BibleProjectionModuleProps> = ({
               )}
             </div>
 
-            {/* Bouton Projection auto / Direct */}
-            <button
-              type="button"
-              onClick={handleToggleProject}
-              className={`py-1.5 px-3 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-md shrink-0 ${
-                isCurrentlyLive
-                  ? 'bg-amber-500 hover:bg-amber-400 text-black ring-2 ring-amber-400/50 shadow-amber-950/40'
-                  : autoProject
-                  ? 'bg-amber-600 hover:bg-amber-500 text-white ring-1 ring-amber-400/40'
-                  : 'bg-amber-600 hover:bg-amber-500 active:scale-95 text-white shadow-amber-950/30'
-              }`}
-              title={
-                isCurrentlyLive
-                  ? 'En direct. Cliquez pour arrêter la diffusion.'
-                  : autoProject
-                  ? 'Projection auto active : chaque clic sur un verset le projette immédiatement.'
-                  : 'Projeter ce passage en direct'
-              }
-            >
-              <Zap className={`w-3.5 h-3.5 fill-current shrink-0 ${isCurrentlyLive ? 'text-black animate-pulse' : 'text-amber-200'}`} />
-              <span>
-                {isCurrentlyLive
-                  ? 'Arrêter'
-                  : autoProject
-                  ? currentSelectedPassage
-                    ? 'Projeter'
-                    : 'Projection auto'
-                  : 'Projeter direct'}
-              </span>
-              {autoProject && (
-                <span className={`text-[9px] font-mono px-1.5 py-0.2 rounded font-extrabold uppercase shrink-0 ${
-                  isCurrentlyLive ? 'bg-black/20 text-black' : 'bg-black/30 text-amber-200'
-                }`}>
-                  {isCurrentlyLive ? 'LIVE' : 'AUTO'}
-                </span>
-              )}
-            </button>
-          </div>
-        </div>
-
-        {/* Barre de Configuration du Mode Bilingue */}
-        {isBilingual && (
-          <div className="bg-[#151522] border border-indigo-500/40 rounded-xl p-2.5 sm:p-3 flex flex-wrap items-center justify-between gap-2.5 shadow-md animate-in fade-in slide-in-from-top-1 duration-150">
-            <div className="flex flex-wrap items-center gap-2 min-w-0">
-              <span className="text-[10px] uppercase font-bold text-indigo-300 tracking-wider flex items-center gap-1.5">
-                <Columns className="w-3.5 h-3.5 text-cyan-400" />
-                <span>2 Versions :</span>
-              </span>
-
-              {/* Version Principale */}
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/50 border border-amber-500/40 text-xs">
-                <LanguageFlagIcon language={currentTranslation.language} className="w-3.5 h-2.5" />
-                <span className="font-mono font-bold text-amber-300 text-[11px]">{currentTranslation.shortName}</span>
-                <span className="text-gray-300 text-[10px] hidden sm:inline truncate max-w-[90px]">{currentTranslation.name}</span>
-              </div>
-
-              {/* Bouton Permuter */}
+            {!isBilingual ? (
               <button
                 type="button"
-                onClick={handleSwapTranslations}
-                className="p-1.5 rounded-lg bg-[#202030] hover:bg-indigo-600 text-indigo-300 hover:text-white border border-indigo-500/30 transition-colors cursor-pointer"
-                title="Permuter la 1ère et la 2ème version"
+                onClick={handleToggleBilingual}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-gray-300 hover:text-white bg-[#1D1D2B] hover:bg-indigo-600/25 border border-[#2E2E40] hover:border-indigo-500/50 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                title="Activer le mode bilingue (2 versions de la Bible en simultané)"
               >
-                <ArrowLeftRight className="w-3.5 h-3.5" />
+                <Columns className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                <span>+ Bilingue</span>
               </button>
-
-              {/* Sélecteur Version 2 (Traduction) */}
-              <div className="relative" ref={secondaryDropdownRef}>
+            ) : (
+              <>
                 <button
                   type="button"
-                  onClick={() => setIsSecondaryDropdownOpen(v => !v)}
-                  className={`flex items-center gap-1.5 bg-[#14141E] hover:bg-[#1C1C2A] border rounded-lg px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer shadow-xs ${
-                    isSecondaryDropdownOpen
-                      ? 'border-cyan-400 ring-2 ring-cyan-500/20 text-white bg-[#1C1C2A]'
-                      : 'border-cyan-500/40 text-cyan-200 hover:border-cyan-400'
-                  }`}
-                  title="Choisir la version secondaire pour le mode bilingue"
+                  onClick={handleSwapTranslations}
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#232334] transition-colors cursor-pointer shrink-0"
+                  title="Permuter les deux versions"
                 >
-                  <LanguageFlagIcon language={currentSecondaryTranslation.language} className="w-3.5 h-2.5" />
-                  <span className="font-mono font-bold text-cyan-300 text-[11px]">
-                    {currentSecondaryTranslation.shortName}
-                  </span>
-                  <span className="hidden sm:inline text-[11px] text-gray-300 truncate max-w-[90px]">
-                    {currentSecondaryTranslation.name}
-                  </span>
-                  <ChevronDown className={`w-3 h-3 text-cyan-400 transition-transform ${isSecondaryDropdownOpen ? 'rotate-180' : ''}`} />
+                  <ArrowLeftRight className="w-3.5 h-3.5" />
                 </button>
 
-                {isSecondaryDropdownOpen && (
-                  <div 
-                    role="listbox"
-                    className="absolute left-0 sm:right-0 sm:left-auto top-full mt-1.5 w-72 sm:w-84 bg-[#14141B] border border-cyan-500/40 rounded-2xl shadow-2xl p-2 z-50 max-h-80 overflow-y-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-100"
+                {/* Version Secondaire + bouton retirer */}
+                <div className="relative flex items-center shrink-0" ref={secondaryDropdownRef}>
+                  <div
+                    className={`flex items-center rounded-lg border transition-colors ${
+                      isSecondaryDropdownOpen
+                        ? 'bg-[#222232] border-cyan-400'
+                        : 'bg-[#1D1D2B] border-cyan-500/35 hover:border-cyan-400/70'
+                    }`}
                   >
-                    <div className="px-2.5 py-1.5 border-b border-[#22222E] flex items-center justify-between mb-1">
-                      <span className="text-[10px] font-bold text-cyan-300 uppercase tracking-wider">
-                        2ème Version (Traduction)
+                    <button
+                      type="button"
+                      onClick={() => setIsSecondaryDropdownOpen(v => !v)}
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-gray-200 cursor-pointer whitespace-nowrap"
+                      title={`${currentSecondaryTranslation.name} — Changer la 2ème version`}
+                    >
+                      <LanguageFlagIcon language={currentSecondaryTranslation.language} className="w-3.5 h-2.5 shrink-0" />
+                      <span className="font-mono font-bold text-cyan-300 shrink-0">
+                        {currentSecondaryTranslation.shortName}
                       </span>
-                      <span className="text-[9px] text-cyan-400/90 font-mono">
-                        {filteredSecondaryTranslations.length} / {BIBLE_TRANSLATIONS.length}
+                      <span className="text-gray-500 hidden sm:inline" aria-hidden="true">·</span>
+                      <span className="hidden sm:inline text-gray-200 truncate max-w-[130px]">
+                        {currentSecondaryTranslation.name}
                       </span>
-                    </div>
+                      <ChevronDown className={`w-3.5 h-3.5 text-cyan-400 transition-transform duration-150 shrink-0 ${isSecondaryDropdownOpen ? 'rotate-180' : ''}`} />
+                    </button>
 
-                    <div className="p-1 pb-2">
-                      <div className="relative">
-                        <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                        <input
-                          type="text"
-                          value={secondarySearchQuery}
-                          onChange={(e) => setSecondarySearchQuery(e.target.value)}
-                          placeholder="Filtrer (ex: KJV, RVR, Segond)..."
-                          className="w-full bg-[#181822] border border-[#2D2D3D] focus:border-cyan-500 rounded-xl pl-8 pr-7 py-1.5 text-xs text-white placeholder:text-gray-500 focus:outline-none transition-all font-sans"
-                          autoFocus
-                        />
-                        {secondarySearchQuery && (
-                          <button
-                            type="button"
-                            onClick={() => setSecondarySearchQuery('')}
-                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white text-xs px-1 cursor-pointer"
-                          >
-                            ✕
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    {(['English', 'Français', 'Español'] as const).map(lang => {
-                      const translationsInLang = filteredSecondaryTranslations.filter(t => t.language === lang);
-                      if (translationsInLang.length === 0) return null;
-                      const langTitle = lang === 'Français' ? 'Français' : lang === 'English' ? 'English (Anglais)' : 'Español (Espagnol)';
-
-                      return (
-                        <div key={lang} className="mb-2 last:mb-0">
-                          <div className="px-2.5 py-1 text-[10px] font-bold text-gray-400 flex items-center gap-2">
-                            <LanguageFlagIcon language={lang} className="w-4 h-3" />
-                            <span>{langTitle}</span>
-                          </div>
-                          <div className="space-y-0.5">
-                            {translationsInLang.map(tr => {
-                              const isSelected = secondaryTranslation === tr.id;
-                              return (
-                                <button
-                                  key={tr.id}
-                                  type="button"
-                                  onClick={() => {
-                                    handleSelectSecondaryTranslation(tr.id);
-                                    setIsSecondaryDropdownOpen(false);
-                                  }}
-                                  className={`w-full text-left px-2.5 py-1.5 rounded-xl text-xs transition-all flex items-center justify-between gap-2 cursor-pointer ${
-                                    isSelected
-                                      ? 'bg-cyan-600/20 border border-cyan-500/40 text-cyan-200 font-semibold'
-                                      : 'hover:bg-[#1E1E2A] text-gray-300 hover:text-white border border-transparent'
-                                  }`}
-                                >
-                                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold shrink-0 ${
-                                      isSelected
-                                        ? 'bg-cyan-500 text-black'
-                                        : 'bg-[#232330] text-gray-300'
-                                    }`}>
-                                      {tr.shortName}
-                                    </span>
-                                    <span className="truncate text-xs text-gray-100">{tr.name}</span>
-                                    {tr.year && <span className="text-[10px] text-gray-500 font-mono shrink-0">({tr.year})</span>}
-                                  </div>
-                                  {isSelected && <Check className="w-3.5 h-3.5 text-cyan-400 shrink-0" />}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      );
-                    })}
+                    <button
+                      type="button"
+                      onClick={handleToggleBilingual}
+                      className="px-1.5 py-1.5 text-gray-400 hover:text-white hover:bg-white/5 border-l border-[#2E2E40] rounded-r-lg transition-colors cursor-pointer shrink-0"
+                      title="Retirer la 2ème version (repasser en 1 langue)"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
                   </div>
-                )}
-              </div>
-            </div>
 
-            {/* Sélecteur de format : Empilé vs 2 Colonnes */}
-            <div className="flex items-center gap-1 bg-black/40 p-0.5 rounded-lg border border-indigo-500/30">
+                  {isSecondaryDropdownOpen && (
+                    <div
+                      role="listbox"
+                      className="absolute right-0 sm:left-0 sm:right-auto top-full mt-1.5 w-72 sm:w-84 bg-[#14141B] border border-cyan-500/40 rounded-2xl shadow-2xl p-2 z-50 max-h-80 overflow-y-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-100"
+                    >
+                      <div className="px-2.5 py-1.5 border-b border-[#22222E] flex items-center justify-between mb-1">
+                        <span className="text-[10px] font-bold text-cyan-300 uppercase tracking-wider">
+                          2ème Version (Traduction)
+                        </span>
+                        <span className="text-[9px] text-cyan-400/90 font-mono">
+                          {filteredSecondaryTranslations.length} / {BIBLE_TRANSLATIONS.length}
+                        </span>
+                      </div>
+
+                      <div className="p-1 pb-2">
+                        <div className="relative">
+                          <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                          <input
+                            type="text"
+                            value={secondarySearchQuery}
+                            onChange={(e) => setSecondarySearchQuery(e.target.value)}
+                            placeholder="Filtrer (ex: KJV, RVR, Segond)..."
+                            className="w-full bg-[#181822] border border-[#2D2D3D] focus:border-cyan-500 rounded-xl pl-8 pr-7 py-1.5 text-xs text-white placeholder:text-gray-500 focus:outline-none transition-all font-sans"
+                            autoFocus
+                          />
+                          {secondarySearchQuery && (
+                            <button
+                              type="button"
+                              onClick={() => setSecondarySearchQuery('')}
+                              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white text-xs px-1 cursor-pointer"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {(['English', 'Français', 'Español'] as const).map(lang => {
+                        const translationsInLang = filteredSecondaryTranslations.filter(t => t.language === lang);
+                        if (translationsInLang.length === 0) return null;
+                        const langTitle = lang === 'Français' ? 'Français' : lang === 'English' ? 'English (Anglais)' : 'Español (Espagnol)';
+
+                        return (
+                          <div key={lang} className="mb-2 last:mb-0">
+                            <div className="px-2.5 py-1 text-[10px] font-bold text-gray-400 flex items-center gap-2">
+                              <LanguageFlagIcon language={lang} className="w-4 h-3" />
+                              <span>{langTitle}</span>
+                            </div>
+                            <div className="space-y-0.5">
+                              {translationsInLang.map(tr => {
+                                const isSelected = secondaryTranslation === tr.id;
+                                return (
+                                  <button
+                                    key={tr.id}
+                                    type="button"
+                                    onClick={() => {
+                                      handleSelectSecondaryTranslation(tr.id);
+                                      setIsSecondaryDropdownOpen(false);
+                                    }}
+                                    className={`w-full text-left px-2.5 py-1.5 rounded-xl text-xs transition-all flex items-center justify-between gap-2 cursor-pointer ${
+                                      isSelected
+                                        ? 'bg-cyan-600/20 border border-cyan-500/40 text-cyan-200 font-semibold'
+                                        : 'hover:bg-[#1E1E2A] text-gray-300 hover:text-white border border-transparent'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold shrink-0 ${
+                                        isSelected
+                                          ? 'bg-cyan-500 text-black'
+                                          : 'bg-[#232330] text-gray-300'
+                                      }`}>
+                                        {tr.shortName}
+                                      </span>
+                                      <span className="truncate text-xs text-gray-100">{tr.name}</span>
+                                      {tr.year && <span className="text-[10px] text-gray-500 font-mono shrink-0">({tr.year})</span>}
+                                    </div>
+                                    {isSelected && <Check className="w-3.5 h-3.5 text-cyan-400 shrink-0" />}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Contrôle droit : choisir Empilé / 2 Colonnes en mode bilingue */}
+          {isBilingual && (
+            <div className="flex items-center gap-0.5 bg-[#101018] p-0.5 rounded-lg border border-[#2B2B3B] shrink-0">
               <button
                 type="button"
                 onClick={() => handleSelectBilingualFormat('stacked')}
-                className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer whitespace-nowrap ${
                   bilingualFormat === 'stacked'
-                    ? 'bg-indigo-600 text-white shadow-xs'
+                    ? 'bg-indigo-600 text-white'
                     : 'text-gray-400 hover:text-gray-200'
                 }`}
-                title="Sous-titres empilés (texte original au centre, traduction en-dessous)"
+                title="Affichage empilé (Version 1 au-dessus, Version 2 en dessous)"
               >
-                <span>Empilé</span>
+                Empilé
               </button>
               <button
                 type="button"
                 onClick={() => handleSelectBilingualFormat('columns')}
-                className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer whitespace-nowrap ${
                   bilingualFormat === 'columns'
-                    ? 'bg-indigo-600 text-white shadow-xs'
+                    ? 'bg-indigo-600 text-white'
                     : 'text-gray-400 hover:text-gray-200'
                 }`}
-                title="2 Colonnes côte-à-côte (Version 1 à gauche, Version 2 à droite)"
+                title="Affichage en 2 colonnes côte-à-côte"
               >
-                <span>2 Colonnes</span>
+                2 Colonnes
               </button>
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
 
         {/* Indicateur de détection en temps réel */}

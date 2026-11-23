@@ -77,13 +77,14 @@ service cloud.firestore {
     // Validation Blueprints
     function isValidUserProfile(data) {
       return data.keys().hasAll(['uid', 'email', 'displayName', 'currentGroupId', 'role'])
-        && data.keys().hasOnly(['uid', 'email', 'displayName', 'photoURL', 'currentGroupId', 'role', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'email', 'displayName', 'photoURL', 'currentGroupId', 'role', 'personalCapos', 'createdAt', 'updatedAt'])
         && data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128
         && data.email is string && data.email.size() <= 256
         && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 120
         && (!('photoURL' in data) || data.photoURL == null || (data.photoURL is string && data.photoURL.size() <= 2048))
         && (data.currentGroupId == null || (data.currentGroupId is string && data.currentGroupId.size() <= 128))
-        && data.role in ['admin', 'leader', 'member', 'editor', 'viewer'];
+        && data.role in ['admin', 'leader', 'member', 'editor', 'viewer']
+        && (!('personalCapos' in data) || (data.personalCapos is map && data.personalCapos.size() <= 1000));
     }
 
     function isValidGroup(data) {

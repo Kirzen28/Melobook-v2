@@ -43,6 +43,7 @@ import { RoleMatrixModal } from './RoleMatrixModal';
 import { RoleHierarchyChart } from './RoleHierarchyChart';
 import { GuestQrCodeModal } from './GuestQrCodeModal';
 import { GuestQrScannerModal } from './GuestQrScannerModal';
+import { UserAvatar } from '../utils/avatarPresets';
 import { DuplicateCleanerSection } from './DuplicateCleanerSection';
 
 // Configuration détaillée des rôles avec l'intégralité des informations du tooltip
@@ -1199,19 +1200,23 @@ export const GroupManager: React.FC = () => {
                             </button>
                           )}
 
-                          <div className={`w-8 h-8 sm:w-7 sm:h-7 rounded-full flex items-center justify-center font-bold text-xs sm:text-[11px] shrink-0 ${
-                            isAdmin 
-                              ? 'bg-blue-600/30 text-blue-300 border border-blue-500/40' 
-                              : isLeader
-                              ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/40'
-                              : u.role === 'editor'
-                              ? 'bg-amber-600/30 text-amber-300 border border-amber-500/40'
-                              : u.role === 'viewer'
-                              ? 'bg-cyan-600/30 text-cyan-300 border border-cyan-500/40'
-                              : 'bg-[#222228] text-gray-300 border border-[#333]'
-                          }`}>
-                            {u.displayName ? u.displayName.charAt(0).toUpperCase() : 'U'}
-                          </div>
+                          <UserAvatar
+                            photoURL={u.photoURL}
+                            displayName={u.displayName}
+                            sizeClass="w-8 h-8 sm:w-7 sm:h-7 text-xs sm:text-[11px]"
+                            iconClass="w-3.5 h-3.5"
+                            fallbackClassName={
+                              isAdmin 
+                                ? 'bg-blue-600/30 text-blue-300 border border-blue-500/40' 
+                                : isLeader
+                                ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/40'
+                                : u.role === 'editor'
+                                ? 'bg-amber-600/30 text-amber-300 border border-amber-500/40'
+                                : u.role === 'viewer'
+                                ? 'bg-cyan-600/30 text-cyan-300 border border-cyan-500/40'
+                                : 'bg-[#222228] text-gray-300 border border-[#333]'
+                            }
+                          />
                           <div className="min-w-0 flex-1">
                             <div className="font-semibold text-white flex items-center gap-1.5 min-w-0">
                               <span className="truncate">{u.displayName || 'Utilisateur'}</span>

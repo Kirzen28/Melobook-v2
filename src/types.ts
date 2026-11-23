@@ -13,6 +13,7 @@ export interface UserProfile {
   currentGroupId: string | null;
   role: UserRole;
   photoURL?: string;
+  personalCapos?: Record<string, number>;
   createdAt?: any;
 }
 

@@ -1556,33 +1556,49 @@ export const SongList: React.FC = () => {
 
         {/* Div unique alignant le titre, l'artiste, les badges et les boutons */}
         <div className="flex items-center justify-between gap-2.5 sm:gap-3 min-w-0 flex-1">
-          {/* Title, Artist & Album */}
+          {/* Title, Artist & Metadata */}
           <div className="min-w-0 flex-1 flex flex-col gap-0.5">
-            <div className="min-w-0 flex-1 flex items-center gap-2">
+            <div className="min-w-0 flex items-center gap-1.5">
               <h3 
                 className="text-xs sm:text-sm font-bold text-white group-hover:text-blue-400 transition-colors truncate leading-snug"
                 title={stripParentheses(song.title)}
               >
                 {stripParentheses(song.title)}
               </h3>
-              {songCardMetadata.showAlbum !== false && song.album && (
-                <span
-                  className="hidden sm:inline-flex items-center gap-1.5 text-[11px] text-gray-400 truncate shrink min-w-0"
-                  title={`Album : ${song.album}`}
-                >
-                  <span className="text-gray-600 select-none">·</span>
-                  <span className="truncate">{song.album}</span>
-                </span>
-              )}
-            </div>
-            {songCardMetadata.showAlbum !== false && song.album && (
               <span
-                className="sm:hidden text-[11px] text-gray-400 truncate block"
-                title={`Album : ${song.album}`}
+                className="text-[11px] sm:text-xs font-normal text-gray-400 truncate"
+                title={song.artist || 'Auteur inconnu'}
               >
-                {song.album}
+                — {song.artist || 'Auteur inconnu'}
               </span>
-            )}
+            </div>
+
+            <p className="text-[11px] text-gray-400 truncate flex items-center gap-1.5 flex-wrap">
+              <span>Tonalité : <strong className="text-blue-400">{song.key || '—'}</strong></span>
+              {(song.tempo || song.bpm) ? (
+                <>
+                  <span className="text-gray-600">•</span>
+                  <span>{song.tempo || song.bpm} BPM</span>
+                </>
+              ) : null}
+              {getSongDuration(song) ? (
+                <>
+                  <span className="text-gray-600">•</span>
+                  <span className="inline-flex items-center gap-1 text-cyan-400 font-mono font-medium">
+                    <Clock className="w-2.5 h-2.5 text-cyan-400" />
+                    {getSongDuration(song)}
+                  </span>
+                </>
+              ) : null}
+              {songCardMetadata.showAlbum !== false && song.album ? (
+                <>
+                  <span className="text-gray-600">•</span>
+                  <span className="truncate" title={`Album : ${song.album}`}>
+                    {song.album}
+                  </span>
+                </>
+              ) : null}
+            </p>
           </div>
 
           {/* Badges et boutons d'action directement alignés sur la même ligne */}

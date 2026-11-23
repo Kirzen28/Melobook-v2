@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Group, UserProfile, UserRole } from '../types';
+import { UserAvatar } from '../utils/avatarPresets';
 
 interface AssignMembersModalProps {
   isOpen: boolean;
@@ -373,19 +374,19 @@ export const AssignMembersModal: React.FC<AssignMembersModalProps> = ({
                       {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
                     </div>
 
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden ${
-                      isAdmin 
-                        ? 'bg-blue-600/30 text-blue-300 border border-blue-500/40' 
-                        : isLeader
-                        ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/40'
-                        : 'bg-[#22222A] text-gray-300 border border-[#333]'
-                    }`}>
-                      {u.photoURL ? (
-                        <img src={u.photoURL} alt={u.displayName || 'Avatar'} className="w-full h-full object-cover" />
-                      ) : (
-                        u.displayName ? u.displayName.charAt(0).toUpperCase() : 'U'
-                      )}
-                    </div>
+                    <UserAvatar
+                      photoURL={u.photoURL}
+                      displayName={u.displayName}
+                      sizeClass="w-8 h-8 text-xs"
+                      iconClass="w-4 h-4"
+                      fallbackClassName={
+                        isAdmin 
+                          ? 'bg-blue-600/30 text-blue-300 border border-blue-500/40' 
+                          : isLeader
+                          ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/40'
+                          : 'bg-[#22222A] text-gray-300 border border-[#333]'
+                      }
+                    />
 
                     <div className="min-w-0">
                       <div className="font-bold text-xs text-white truncate flex items-center gap-1.5">

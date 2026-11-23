@@ -28,7 +28,6 @@ import {
   storageRef,
   uploadBytes,
   getDownloadURL,
-  updateProfile,
   collection, 
   doc, 
   getDoc, 
@@ -68,6 +67,7 @@ import {
   deleteCustomPadFromIndexedDB
 } from '../utils/indexedDB';
 import { padAudio } from '../utils/padAudio';
+import { parseSvgAvatar } from '../utils/avatarPresets';
 
 const stripUndefined = <T extends Record<string, any>>(obj: T): T => {
   const result: Record<string, any> = {};
@@ -77,6 +77,25 @@ const stripUndefined = <T extends Record<string, any>>(obj: T): T => {
     }
   }
   return result as T;
+};
+
+const sanitizePersonalCapos = (raw: unknown): Record<string, number> => {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const result: Record<string, number> = {};
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    const fret = typeof v === 'number' ? Math.trunc(v) : Number(v);
+    if (typeof k === 'string' && k.length > 0 && k.length <= 260 && Number.isFinite(fret) && fret >= 1 && fret <= 7) {
+      result[k] = fret;
+    }
+  }
+  return result;
+};
+
+const getPersonalCaposCacheKey = (uid?: string | null, guest = false, groupId?: string | null): string => {
+  if (guest || !uid) {
+    return `melobook_personal_capos_guest_${groupId || 'default'}`;
+  }
+  return `melobook_personal_capos_${uid}`;
 };
 
 const generateInviteCode = (): string => {
@@ -265,15 +284,19 @@ interface AppContextType {
   setAdminByEmail: (targetEmail: string, role?: UserRole) => Promise<void>;
   handleSignOut: () => Promise<void>;
 
-  // Profile picture management
-  uploadProfilePicture: (fileOrBlob: Blob | File) => Promise<string>;
-  removeProfilePicture: () => Promise<void>;
+  // SVG Avatar management (zero image storage)
+  selectSvgAvatar: (avatarToken: string) => Promise<void>;
+  removeProfileAvatar: () => Promise<void>;
 
   // Custom Pads management
   customPads: CustomPad[];
   createCustomPad: (padData: Omit<CustomPad, 'id' | 'groupId' | 'createdAt'>) => Promise<string>;
   deleteCustomPad: (id: string) => Promise<void>;
   uploadPadAudio: (file: File) => Promise<string>;
+
+  // Per-account personal capo (defaults to 0)
+  personalCapos: Record<string, number>;
+  setPersonalCapo: (capoKey: string, fret: number) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -515,6 +538,123 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     return DEFAULT_STAGE_SETTINGS;
   });
+
+  // Per-account personal capos (defaults to 0 when no entry exists)
+  const [personalCapos, setPersonalCapos] = useState<Record<string, number>>({});
+  const personalCaposRef = useRef<Record<string, number>>({});
+  useEffect(() => {
+    personalCaposRef.current = personalCapos;
+  }, [personalCapos]);
+
+  useEffect(() => {
+    const uid = !isGuest ? currentUser?.uid : null;
+    if (!uid && !isGuest) {
+      personalCaposRef.current = {};
+      setPersonalCapos({});
+      return;
+    }
+
+    const cacheKey = getPersonalCaposCacheKey(uid, isGuest, currentGroup?.id);
+    if (typeof window !== 'undefined') {
+      try {
+        const cachedRaw = localStorage.getItem(cacheKey);
+        const initial = cachedRaw
+          ? sanitizePersonalCapos(JSON.parse(cachedRaw))
+          : sanitizePersonalCapos(currentUser?.personalCapos);
+        personalCaposRef.current = initial;
+        setPersonalCapos(initial);
+      } catch {
+        const fallback = sanitizePersonalCapos(currentUser?.personalCapos);
+        personalCaposRef.current = fallback;
+        setPersonalCapos(fallback);
+      }
+    }
+
+    if (!uid || isGuest) return;
+
+    const userRef = doc(db, 'users', uid);
+    const unsubCapos = onSnapshot(
+      userRef,
+      (snap) => {
+        if (!snap.exists()) return;
+        const remoteCapos = sanitizePersonalCapos(snap.data()?.personalCapos);
+        personalCaposRef.current = remoteCapos;
+        setPersonalCapos(remoteCapos);
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem(cacheKey, JSON.stringify(remoteCapos));
+          } catch {}
+        }
+      },
+      (err) => {
+        console.warn('Personal capo listener note:', err);
+      }
+    );
+
+    return () => unsubCapos();
+  }, [isGuest, currentUser?.uid, currentGroup?.id]);
+
+  const setPersonalCapo = useCallback(async (capoKey: string, fret: number): Promise<void> => {
+    if (!capoKey || capoKey.length > 260) return;
+    const normalizedFret = Math.max(0, Math.min(7, Math.trunc(Number(fret) || 0)));
+    const nextMap = { ...personalCaposRef.current };
+    if (normalizedFret <= 0) {
+      delete nextMap[capoKey];
+    } else {
+      nextMap[capoKey] = normalizedFret;
+    }
+
+    personalCaposRef.current = nextMap;
+    setPersonalCapos(nextMap);
+
+    const uid = !isGuest ? (currentUser?.uid || auth.currentUser?.uid) : null;
+    const cacheKey = getPersonalCaposCacheKey(uid, isGuest, currentGroup?.id);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify(nextMap));
+      } catch {}
+    }
+
+    if (!uid || isGuest) return;
+
+    setCurrentUser(prev => prev && prev.uid === uid ? { ...prev, personalCapos: nextMap } : prev);
+
+    const userRef = doc(db, 'users', uid);
+    try {
+      await updateDoc(userRef, {
+        personalCapos: nextMap,
+        updatedAt: serverTimestamp()
+      });
+    } catch (err: any) {
+      if (err?.code === 'not-found') {
+        try {
+          const baseUser = stripUndefined({
+            uid,
+            email: currentUser?.email || auth.currentUser?.email || '',
+            displayName: currentUser?.displayName || auth.currentUser?.displayName || 'Musicien',
+            photoURL: currentUser?.photoURL || auth.currentUser?.photoURL || undefined,
+            currentGroupId: currentGroup?.id || currentUser?.currentGroupId || null,
+            role: currentUser?.role || 'member',
+            personalCapos: nextMap
+          });
+          await setDoc(userRef, {
+            ...baseUser,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          }, { merge: true });
+        } catch (setErr: any) {
+          if (setErr?.code === 'permission-denied') {
+            handleFirestoreError(setErr, OperationType.WRITE, `users/${uid}`);
+          }
+          console.warn('Personal capo fallback save note:', setErr);
+        }
+      } else if (err?.code === 'permission-denied') {
+        handleFirestoreError(err, OperationType.UPDATE, `users/${uid}`);
+      } else {
+        console.warn('Personal capo sync note:', err);
+      }
+    }
+  }, [isGuest, currentUser?.uid, currentUser?.email, currentUser?.displayName, currentUser?.photoURL, currentUser?.currentGroupId, currentUser?.role, currentGroup?.id]);
 
   // Display Typography, Section Colors & Section Borders (synced with localStorage)
   const [displaySettings, setDisplaySettings] = useState<DisplaySettings>(() => {
@@ -1037,7 +1177,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               displayName: data.displayName || user.displayName || user.email?.split('@')[0] || 'Musicien',
               photoURL: data.photoURL || user.photoURL || undefined,
               currentGroupId: preferredGroup.id,
-              role: roleInGroup
+              role: roleInGroup,
+              personalCapos: sanitizePersonalCapos(data.personalCapos)
             });
             if (!snap || !snap.exists()) {
               setDoc(userRef, {
@@ -1098,6 +1239,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       } else {
         setCurrentUser(null);
+        setPersonalCapos({});
+        personalCaposRef.current = {};
         setNeedsLibraryOnboarding(false);
         setAllGroups([]);
         setCurrentGroup(null);
@@ -3088,79 +3231,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [currentGroup, isLibraryAdminForGroup, allUsers, updateUserRole, showNotification]);
 
-  const uploadProfilePicture = useCallback(async (fileOrBlob: Blob | File): Promise<string> => {
-    if (blockIfGuest()) return '';
+  const selectSvgAvatar = useCallback(async (avatarToken: string): Promise<void> => {
+    if (blockIfGuest()) return;
+    if (!parseSvgAvatar(avatarToken)) return;
     const userId = currentUser?.uid || auth.currentUser?.uid;
-    if (!userId) return '';
-    let downloadURL = '';
-
-    try {
-      const filename = `avatar_${Date.now()}.jpg`;
-      const fileRef = storageRef(storage, `profile_pictures/${userId}/${filename}`);
-      const snapshot = await uploadBytes(fileRef, fileOrBlob, {
-        contentType: 'image/jpeg',
-        customMetadata: {
-          userId,
-          uploadedAt: new Date().toISOString()
-        }
-      });
-      downloadURL = await getDownloadURL(snapshot.ref);
-    } catch (storageErr) {
-      console.warn('Firebase Storage upload error, falling back to base64 data URL:', storageErr);
-      downloadURL = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.readAsDataURL(fileOrBlob);
-      });
-    }
-
-    try {
-      if (auth.currentUser) {
-        await updateProfile(auth.currentUser, { photoURL: downloadURL });
-      }
-    } catch (e) {
-      console.warn('Firebase Auth updateProfile error:', e);
-    }
+    if (!userId) return;
 
     try {
       await setDoc(doc(db, 'users', userId), {
-        photoURL: downloadURL,
+        photoURL: avatarToken,
         updatedAt: serverTimestamp()
       }, { merge: true });
       if (currentGroup?.id) {
         await setDoc(doc(db, 'groups', currentGroup.id, 'members', userId), {
-          photoURL: downloadURL
+          photoURL: avatarToken
         }, { merge: true });
       }
     } catch (e) {
-      console.warn('Firestore user update error:', e);
+      console.warn('Firestore SVG avatar update error:', e);
     }
 
-    setCurrentUser(prev => prev ? { ...prev, photoURL: downloadURL } : null);
-    setAllUsers(prev => prev.map(u => u.uid === userId ? { ...u, photoURL: downloadURL } : u));
+    setCurrentUser(prev => prev ? { ...prev, photoURL: avatarToken } : null);
+    setAllUsers(prev => prev.map(u => u.uid === userId ? { ...u, photoURL: avatarToken } : u));
 
     showNotification({
-      title: 'Photo de profil enregistrée',
-      message: 'Votre photo a été mise à jour avec succès.',
+      title: 'Avatar enregistré',
+      message: 'Votre avatar SVG a été mis à jour.',
       type: 'success'
     });
+  }, [blockIfGuest, currentUser?.uid, currentGroup?.id, showNotification]);
 
-    return downloadURL;
-  }, [currentUser?.uid, currentGroup?.id, showNotification]);
-
-  const removeProfilePicture = useCallback(async (): Promise<void> => {
+  const removeProfileAvatar = useCallback(async (): Promise<void> => {
     if (blockIfGuest()) return;
     const userId = currentUser?.uid || auth.currentUser?.uid;
     if (!userId) return;
 
     try {
-      if (auth.currentUser) {
-        await updateProfile(auth.currentUser, { photoURL: '' });
-      }
-    } catch (e) {}
-
-    try {
-      await setDoc(doc(db, 'users', userId), { photoURL: '' }, { merge: true });
+      await setDoc(doc(db, 'users', userId), { photoURL: '', updatedAt: serverTimestamp() }, { merge: true });
       if (currentGroup?.id) {
         await setDoc(doc(db, 'groups', currentGroup.id, 'members', userId), { photoURL: '' }, { merge: true });
       }
@@ -3170,11 +3277,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setAllUsers(prev => prev.map(u => u.uid === userId ? { ...u, photoURL: undefined } : u));
 
     showNotification({
-      title: 'Photo supprimée',
-      message: 'Votre photo de profil a été réinitialisée.',
+      title: 'Avatar réinitialisé',
+      message: 'Affichage par défaut rétabli.',
       type: 'info'
     });
-  }, [currentUser?.uid, currentGroup?.id, showNotification]);
+  }, [blockIfGuest, currentUser?.uid, currentGroup?.id, showNotification]);
 
   const handleSignOut = useCallback(async () => {
     try {
@@ -3437,12 +3544,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       removeMemberFromLibrary: removeMemberFromGroup,
       setLibraryMembers: setGroupMembers,
       handleSignOut,
-      uploadProfilePicture,
-      removeProfilePicture,
+      selectSvgAvatar,
+      removeProfileAvatar,
       customPads,
       createCustomPad,
       deleteCustomPad,
-      uploadPadAudio
+      uploadPadAudio,
+      personalCapos,
+      setPersonalCapo
     }}>
       {children}
     </AppContext.Provider>

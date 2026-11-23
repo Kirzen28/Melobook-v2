@@ -11,6 +11,7 @@
         "photoURL": { "type": "string", "maxLength": 2048 },
         "currentGroupId": { "type": "string", "maxLength": 128 },
         "role": { "type": "string", "enum": ["admin", "leader", "member", "editor", "viewer"] },
+        "personalCapos": { "type": "object" },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },

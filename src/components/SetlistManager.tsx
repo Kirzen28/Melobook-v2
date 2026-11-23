@@ -904,18 +904,19 @@ export const SetlistManager: React.FC = () => {
                                     title="Lancer ce chant en mode Live"
                                   >
                                     {/* Compteur et titre dans la même balise/div sans colonne séparée */}
-                                    <h5 className="text-xs sm:text-sm font-bold text-white group-hover:text-blue-300 truncate transition-colors flex items-center gap-2 min-w-0">
+                                    <h5 className="text-xs sm:text-sm font-bold text-white group-hover:text-blue-300 truncate transition-colors flex items-center gap-1.5 min-w-0">
                                       <span className="text-blue-400 font-mono font-bold shrink-0">
                                         {index + 1}.
                                       </span>
                                       <span className="truncate">
                                         {stripParentheses(song.title)}
                                       </span>
+                                      <span className="text-[11px] sm:text-xs font-normal text-gray-400 truncate">
+                                        — {song.artist || 'Auteur inconnu'}
+                                      </span>
                                     </h5>
 
                                     <p className="text-[11px] text-gray-400 truncate flex items-center gap-1.5 flex-wrap mt-0.5">
-                                      <span>{song.artist || 'Auteur inconnu'}</span>
-                                      <span className="text-gray-600">•</span>
                                       <span>Tonalité : <strong className="text-blue-400">{song.key}</strong></span>
                                       <span className="text-gray-600">•</span>
                                       <span>{song.tempo} BPM</span>

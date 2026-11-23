@@ -178,20 +178,61 @@ export function buildChordProFromTranslation(
 }
 
 /**
+ * Synchronise les blocs de traduction avec les lignes actuelles du chant source
+ * (pour supprimer automatiquement les lignes supprimées dans l'éditeur de chant).
+ */
+export function syncTranslationWithSourceSong(
+  sourceSong: Song,
+  translation: AiSongTranslation
+): AiSongTranslation {
+  const currentBlocks = extractSongBlocksForTranslation(sourceSong);
+  
+  const syncedBlocks: AiTranslationBlock[] = currentBlocks.map((cBlock, bIdx) => {
+    const oldBlock = translation.blocks[bIdx] || translation.blocks.find(b => b.sectionTitle.toLowerCase() === cBlock.sectionTitle.toLowerCase());
+    
+    const translatedLines = cBlock.originalLines.map((_, lIdx) => {
+      if (oldBlock && oldBlock.translatedLines[lIdx] !== undefined) {
+        return oldBlock.translatedLines[lIdx];
+      }
+      return '';
+    });
+
+    return {
+      sectionTitle: cBlock.sectionTitle,
+      originalLines: cBlock.originalLines,
+      translatedLines,
+      sameSectionAsPrevious: cBlock.sameSectionAsPrevious
+    };
+  });
+
+  return {
+    ...translation,
+    blocks: syncedBlocks
+  };
+}
+
+/**
  * Construit un objet Song virtuel utilisable directement par la projection bilingue.
  */
 export function toVirtualTranslatedSong(
   sourceSong: Song,
   translation: AiSongTranslation
 ): Song {
+  const synced = syncTranslationWithSourceSong(sourceSong, translation);
+  try {
+    if (JSON.stringify(synced.blocks) !== JSON.stringify(translation.blocks)) {
+      saveAiTranslationToStorage(synced);
+    }
+  } catch {}
+
   return {
     ...sourceSong,
     id: `ai_${sourceSong.id}`,
-    title: translation.translatedTitle.trim() || `${sourceSong.title} (${translation.targetLanguage})`,
-    language: translation.targetLanguage,
+    title: synced.translatedTitle.trim() || `${sourceSong.title} (${synced.targetLanguage})`,
+    language: synced.targetLanguage,
     contentChordPro: buildChordProFromTranslation(
-      translation.translatedTitle,
-      translation.blocks
+      synced.translatedTitle,
+      synced.blocks
     )
   };
 }

@@ -4,7 +4,8 @@ import {
   AiSongTranslation,
   AiTranslationBlock,
   extractSongBlocksForTranslation,
-  extractBlocksFromPairedSongs
+  extractBlocksFromPairedSongs,
+  syncTranslationWithSourceSong
 } from '../utils/aiTranslationUtils';
 import { PRESET_LANGUAGES, getLanguageMeta } from '../utils/languageUtils';
 import {
@@ -75,7 +76,8 @@ export const AiTranslationModal: React.FC<AiTranslationModalProps> = ({
     if (existingAiTranslation && existingAiTranslation.sourceSongId === song.id) {
       setTargetLanguage(existingAiTranslation.targetLanguage);
       setTranslatedTitle(existingAiTranslation.translatedTitle);
-      setBlocks(existingAiTranslation.blocks);
+      const synced = syncTranslationWithSourceSong(song, existingAiTranslation);
+      setBlocks(synced.blocks);
       setIsEditMode(initialEditMode);
       return;
     }
@@ -495,26 +497,20 @@ export const AiTranslationModal: React.FC<AiTranslationModalProps> = ({
               Annuler
             </button>
 
-            {canSaveToLibrary && (
+            {canSaveToLibrary && existingLinkedSong && (
               <button
                 type="button"
                 onClick={handleSaveLibrary}
                 disabled={!hasAnyTranslation || isSavingLibrary}
                 className="px-3.5 py-2 rounded-xl bg-indigo-600/25 hover:bg-indigo-600/40 disabled:opacity-40 border border-indigo-500/50 text-indigo-200 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
-                title={
-                  existingLinkedSong
-                    ? 'Enregistrer les modifications dans le chant lié du répertoire'
-                    : 'Créer un chant traduit lié dans le répertoire'
-                }
+                title="Enregistrer les modifications dans le chant lié du répertoire"
               >
                 {isSavingLibrary ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 ) : (
                   <Save className="w-3.5 h-3.5" />
                 )}
-                <span>
-                  {existingLinkedSong ? 'Mettre à jour le chant lié' : 'Enregistrer dans le répertoire'}
-                </span>
+                <span>Mettre à jour le chant lié</span>
               </button>
             )}
 

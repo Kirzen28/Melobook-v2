@@ -48,6 +48,7 @@ import {
 } from 'lucide-react';
 import { useMidi } from '../context/MidiContext';
 import { MidiSettingsModal } from './MidiSettingsModal';
+import { UserAvatarSelector } from './UserAvatarSelector';
 import { 
   COLOR_PRESETS, 
   SECTION_TYPES_LIST, 
@@ -564,7 +565,8 @@ export const SettingsView: React.FC = () => {
     isInstallable,
     promptInstall,
     songCardMetadata,
-    updateSongCardMetadata
+    updateSongCardMetadata,
+    isGuest
   } = useApp();
 
   const { 
@@ -1633,6 +1635,9 @@ export const SettingsView: React.FC = () => {
         {/* SCROLLABLE SETTINGS PANEL */}
         <div className="flex-1 w-full max-w-4xl mx-auto overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-5 pb-24">
           
+          {/* USER AVATAR SELECTOR */}
+          {!isGuest && <UserAvatarSelector />}
+
           {/* 1. STAGE DISPLAY & NOTATION SETTINGS */}
           <div className="bg-[#111112] border border-[#222224] rounded-xl overflow-hidden shadow-sm transition-colors hover:border-[#303036]">
             {/* Header / Trigger */}

@@ -107,15 +107,6 @@ const generateInviteCode = (): string => {
   return code;
 };
 
-const generateGuestCode = (): string => {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let code = 'GST';
-  for (let i = 0; i < 6; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return code;
-};
-
 const DEFAULT_GROUP: Group = {
   id: 'default-group',
   name: 'Bibliothèque Principale',
@@ -144,10 +135,11 @@ interface AppContextType {
   firebaseUser: FirebaseUser | null;
   authLoading: boolean;
   isGuest: boolean;
-  enterGuestMode: (guestCode: string) => Promise<Group>;
+  enterGuestMode: (libraryCode: string, target?: { setlistId?: string; songId?: string }) => Promise<Group>;
   exitGuestMode: () => void;
   toggleLibraryGuestMode: (groupId: string, enabled: boolean) => Promise<boolean>;
-  regenerateGuestCode: (groupId: string) => Promise<string | null>;
+  deepLinkSetlistId: string | null;
+  clearDeepLinkSetlistId: () => void;
   needsLibraryOnboarding: boolean;
   setNeedsLibraryOnboarding: (needs: boolean) => void;
   setSignupInProgress: (inProgress: boolean) => void;
@@ -344,9 +336,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [isGuest, activeTab]);
 
-  const [editorSubTab, setEditorSubTab] = useState<'data' | 'chords'>('data');
+  const [editorSubTab, setEditorSubTab] = useState<'data' | 'chords'>('chords');
   const [selectedSong, setSelectedSong] = useState<Song | null>(null);
   const [selectedSetlist, setSelectedSetlist] = useState<Setlist | null>(null);
+  const [deepLinkSetlistId, setDeepLinkSetlistId] = useState<string | null>(null);
+  const clearDeepLinkSetlistId = useCallback(() => setDeepLinkSetlistId(null), []);
+  const pendingDeepLinkRef = useRef<{ inviteCode?: string; setlistId?: string; songId?: string } | null>((() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const hashParams = window.location.hash ? new URLSearchParams(window.location.hash.replace(/^#/, '')) : null;
+      const inviteCode = (
+        params.get('inviteCode') ||
+        params.get('joinCode') ||
+        params.get('invite') ||
+        params.get('code') ||
+        hashParams?.get('inviteCode') ||
+        hashParams?.get('joinCode') ||
+        hashParams?.get('invite') ||
+        hashParams?.get('code') ||
+        ''
+      ).trim().toUpperCase();
+      const setlistId = (params.get('setlistId') || hashParams?.get('setlistId') || '').trim();
+      const songId = (params.get('songId') || params.get('song') || hashParams?.get('songId') || hashParams?.get('song') || '').trim();
+      if (!inviteCode && !setlistId && !songId) return null;
+      return {
+        ...(inviteCode ? { inviteCode } : {}),
+        ...(setlistId ? { setlistId } : {}),
+        ...(songId ? { songId } : {}),
+      };
+    } catch {
+      return null;
+    }
+  })());
   const [activeSetlistIndex, setActiveSetlistIndex] = useState<number>(0);
   const [isLiveSetlistOpen, setIsLiveSetlistOpen] = useState<boolean>(false);
   const [editorReturnTarget, setEditorReturnTarget] = useState<'stage' | 'setlistLive' | 'repertoire' | null>(null);
@@ -980,45 +1002,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [isGuest, songs, setlists, refreshOfflineStats]);
 
-  // Deep linking for song shared via QR Code or direct link
-  useEffect(() => {
-    if (typeof window === 'undefined' || songs.length === 0) return;
-
-    try {
-      const params = new URLSearchParams(window.location.search);
-      let targetSongId = params.get('songId') || params.get('song');
-
-      if (!targetSongId && window.location.hash) {
-        const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-        targetSongId = hashParams.get('songId') || hashParams.get('song');
-      }
-
-      if (targetSongId) {
-        const found = songs.find(s => s.id === targetSongId);
-        if (found) {
-          setSelectedSong(found);
-          setActiveTab('stage');
-        }
-      }
-    } catch (e) {
-      console.error('Erreur lecture lien direct chant :', e);
-    }
-  }, [songs]);
-
-  // Deep linking for group shared via URL or QR Code (?group=... or ?code=...)
+  // Deep linking for group shared via URL or QR Code (?inviteCode=... / ?group=... / ?code=...)
   useEffect(() => {
     if (typeof window === 'undefined' || isGuest) return;
 
     try {
       const params = new URLSearchParams(window.location.search);
-      let targetGroupId = params.get('library') || params.get('libraryId') || params.get('group') || params.get('groupId');
-      let targetCode = params.get('code') || params.get('invite');
-
-      if ((!targetGroupId || !targetCode) && window.location.hash) {
-        const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-        if (!targetGroupId) targetGroupId = hashParams.get('library') || hashParams.get('libraryId') || hashParams.get('group') || hashParams.get('groupId');
-        if (!targetCode) targetCode = hashParams.get('code') || hashParams.get('invite');
-      }
+      const hashParams = window.location.hash ? new URLSearchParams(window.location.hash.replace(/^#/, '')) : null;
+      const targetGroupId =
+        params.get('library') ||
+        params.get('libraryId') ||
+        params.get('group') ||
+        params.get('groupId') ||
+        hashParams?.get('library') ||
+        hashParams?.get('libraryId') ||
+        hashParams?.get('group') ||
+        hashParams?.get('groupId');
+      const targetCode =
+        params.get('inviteCode') ||
+        params.get('joinCode') ||
+        params.get('invite') ||
+        params.get('code') ||
+        hashParams?.get('inviteCode') ||
+        hashParams?.get('joinCode') ||
+        hashParams?.get('invite') ||
+        hashParams?.get('code') ||
+        pendingDeepLinkRef.current?.inviteCode;
 
       if (targetGroupId) {
         const found = allGroups.find(g => g.id === targetGroupId);
@@ -1028,7 +1037,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           localStorage.setItem('songbook_current_group_id', found.id);
         }
       } else if (targetCode) {
-        const foundByCode = allGroups.find(g => g.inviteCode?.toUpperCase() === targetCode?.toUpperCase());
+        const foundByCode = allGroups.find(g => g.inviteCode?.toUpperCase() === targetCode.toUpperCase());
         if (foundByCode && currentGroup?.id !== foundByCode.id) {
           recordGuestJoinedGroup(foundByCode.id);
           setCurrentGroup(foundByCode);
@@ -1038,7 +1047,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (e) {
       console.warn('Erreur lecture lien groupe :', e);
     }
-  }, [allGroups, currentGroup?.id, recordGuestJoinedGroup]);
+  }, [allGroups, currentGroup?.id, isGuest, recordGuestJoinedGroup]);
 
   const promptInstall = useCallback(() => {
     if (deferredInstallPrompt) {
@@ -1492,38 +1501,60 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return true;
   }, [isGuest, showNotification]);
 
-  const enterGuestMode = useCallback(async (guestCode: string): Promise<Group> => {
-    const rawInput = guestCode.trim();
+  const enterGuestMode = useCallback(async (
+    libraryCode: string,
+    target?: { setlistId?: string; songId?: string }
+  ): Promise<Group> => {
+    const rawInput = libraryCode.trim();
     const upperCode = rawInput.toUpperCase();
     if (!rawInput || !/^[a-zA-Z0-9_\-]+$/.test(upperCode)) {
-      throw new Error("Code d'accès invité invalide.");
+      throw new Error("Code de bibliothèque invalide.");
     }
 
     let matchedGroup: Group | null = null;
     try {
-      const guestSnap = await getDoc(doc(db, 'guest_invites', upperCode));
-      if (guestSnap.exists()) {
-        const inviteData = guestSnap.data();
-        if (inviteData?.guestEnabled === true && inviteData?.groupId) {
-          const groupSnap = await getDoc(doc(db, 'groups', inviteData.groupId));
+      const inviteSnap = await getDoc(doc(db, 'library_invites', upperCode));
+      if (inviteSnap.exists()) {
+        const targetGroupId = inviteSnap.data()?.groupId;
+        if (targetGroupId) {
+          const groupSnap = await getDoc(doc(db, 'groups', targetGroupId));
           if (groupSnap.exists()) {
             const candidate = { id: groupSnap.id, ...groupSnap.data() } as Group;
-            if (candidate.guestEnabled === true && candidate.guestCode?.toUpperCase() === upperCode) {
+            if (candidate.guestEnabled === true) {
               matchedGroup = candidate;
             }
           }
         }
       }
+
+      if (!matchedGroup) {
+        const directSnap = await getDoc(doc(db, 'groups', rawInput));
+        if (directSnap.exists()) {
+          const candidate = { id: directSnap.id, ...directSnap.data() } as Group;
+          if (candidate.guestEnabled === true) {
+            matchedGroup = candidate;
+          }
+        }
+      }
     } catch (e: any) {
       if (e?.code === 'permission-denied') {
-        throw new Error("Accès invité refusé ou désactivé pour ce code.");
+        throw new Error("Accès visiteur désactivé pour ce code ou code invalide. Créez un compte pour rejoindre cette bibliothèque.");
       }
-      throw new Error(e?.message || "Impossible de vérifier le code invité.");
+      throw new Error(e?.message || "Impossible de vérifier le code de la bibliothèque.");
     }
 
     if (!matchedGroup) {
-      throw new Error("Code invité invalide ou mode invité désactivé par le propriétaire de la bibliothèque.");
+      throw new Error("Code de bibliothèque invalide ou accès visiteur désactivé par le propriétaire.");
     }
+
+    const resolvedTarget = target ?? (
+      pendingDeepLinkRef.current
+        ? { setlistId: pendingDeepLinkRef.current.setlistId, songId: pendingDeepLinkRef.current.songId }
+        : undefined
+    );
+    pendingDeepLinkRef.current = (resolvedTarget?.setlistId || resolvedTarget?.songId)
+      ? { inviteCode: upperCode, setlistId: resolvedTarget.setlistId, songId: resolvedTarget.songId }
+      : null;
 
     setSongs([]);
     setSetlists([]);
@@ -1532,16 +1563,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setAllUsers([]);
     setSelectedSong(null);
     setSelectedSetlist(null);
+    setDeepLinkSetlistId(null);
     setCurrentUser(null);
     setNeedsLibraryOnboarding(false);
     setIsGuest(true);
     setAllGroups([matchedGroup]);
     setCurrentGroup(matchedGroup);
-    setActiveTabState('repertoire');
+    setActiveTabState(
+      resolvedTarget?.setlistId ? 'setlists' : resolvedTarget?.songId ? 'stage' : 'repertoire'
+    );
 
     showNotification({
-      title: `Mode invité : ${matchedGroup.name}`,
-      message: 'Consultation en lecture seule activée.',
+      title: `Mode visiteur : ${matchedGroup.name}`,
+      message: 'Consultation du répertoire et des setlists en lecture seule.',
       type: 'info',
       duration: 3500
     });
@@ -1550,6 +1584,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [showNotification]);
 
   const exitGuestMode = useCallback(() => {
+    pendingDeepLinkRef.current = null;
+    setDeepLinkSetlistId(null);
     setIsGuest(false);
     setAllGroups([]);
     setCurrentGroup(null);
@@ -1570,18 +1606,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     try {
       const params = new URLSearchParams(window.location.search);
-      let guestCodeParam = params.get('guestCode') || params.get('guest');
-      if (!guestCodeParam && window.location.hash) {
-        const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-        guestCodeParam = hashParams.get('guestCode') || hashParams.get('guest');
-      }
-      if (guestCodeParam && guestCodeParam.trim()) {
-        enterGuestMode(guestCodeParam).catch((err) => {
-          showNotification(err?.message || 'Lien invité invalide ou désactivé', 'error', 4000);
+      const hashParams = window.location.hash ? new URLSearchParams(window.location.hash.replace(/^#/, '')) : null;
+      const libraryCodeParam =
+        params.get('inviteCode') ||
+        params.get('joinCode') ||
+        params.get('invite') ||
+        params.get('code') ||
+        hashParams?.get('inviteCode') ||
+        hashParams?.get('joinCode') ||
+        hashParams?.get('invite') ||
+        hashParams?.get('code');
+      if (libraryCodeParam && libraryCodeParam.trim()) {
+        const targetSetlistId = (params.get('setlistId') || hashParams?.get('setlistId') || '').trim();
+        const targetSongId = (params.get('songId') || params.get('song') || hashParams?.get('songId') || hashParams?.get('song') || '').trim();
+        enterGuestMode(libraryCodeParam, {
+          ...(targetSetlistId ? { setlistId: targetSetlistId } : {}),
+          ...(targetSongId ? { songId: targetSongId } : {}),
+        }).catch((err) => {
+          showNotification(
+            err?.message || "L'accès visiteur est désactivé pour cette bibliothèque. Créez un compte pour la rejoindre.",
+            'warning',
+            4500
+          );
         });
       }
     } catch (e) {
-      console.warn('Guest deep-link note:', e);
+      console.warn('Visitor deep-link note:', e);
     }
   }, [authLoading, isGuest, enterGuestMode, showNotification]);
 
@@ -1833,12 +1883,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       songsRef.current = loadedSongs;
       setSongs(loadedSongs);
-      setSelectedSong(prev => {
-        if (prev && loadedSongs.some(s => s.id === prev.id)) {
-          return loadedSongs.find(s => s.id === prev.id) || prev;
+
+      const pendingSongLink = pendingDeepLinkRef.current;
+      const inviteMatchesForSong = !pendingSongLink?.inviteCode || currentGroup?.inviteCode?.toUpperCase() === pendingSongLink.inviteCode.toUpperCase();
+      let handledDeepLinkSong = false;
+      if (pendingSongLink && !pendingSongLink.setlistId && pendingSongLink.songId && inviteMatchesForSong) {
+        const deepLinkedSong = loadedSongs.find(s => s.id === pendingSongLink.songId);
+        if (deepLinkedSong) {
+          pendingDeepLinkRef.current = null;
+          setSelectedSong(deepLinkedSong);
+          setActiveTabState('stage');
+          handledDeepLinkSong = true;
+        } else if (!snapshot.metadata.fromCache) {
+          pendingDeepLinkRef.current = null;
         }
-        return loadedSongs[0] || null;
-      });
+      }
+
+      if (!handledDeepLinkSong) {
+        setSelectedSong(prev => {
+          if (prev && loadedSongs.some(s => s.id === prev.id)) {
+            return loadedSongs.find(s => s.id === prev.id) || prev;
+          }
+          return loadedSongs[0] || null;
+        });
+      }
 
       if (!snapshot.metadata.fromCache) {
         songsServerReadyGroupRef.current = targetGroupId;
@@ -1861,7 +1929,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
       setlistsRef.current = loadedSetlists;
       setSetlists(loadedSetlists);
-      setSelectedSetlist(prev => prev ? (loadedSetlists.find(st => st.id === prev.id) || null) : null);
+
+      const pendingSetlistLink = pendingDeepLinkRef.current;
+      const inviteMatchesForSetlist = !pendingSetlistLink?.inviteCode || currentGroup?.inviteCode?.toUpperCase() === pendingSetlistLink.inviteCode.toUpperCase();
+      if (pendingSetlistLink && pendingSetlistLink.setlistId && inviteMatchesForSetlist) {
+        const deepLinkedSetlist = loadedSetlists.find(st => st.id === pendingSetlistLink.setlistId);
+        if (deepLinkedSetlist) {
+          pendingDeepLinkRef.current = null;
+          setSelectedSetlist(deepLinkedSetlist);
+          setDeepLinkSetlistId(deepLinkedSetlist.id);
+          setActiveTabState('setlists');
+        } else if (!snapshot.metadata.fromCache) {
+          pendingDeepLinkRef.current = null;
+        }
+      } else {
+        setSelectedSetlist(prev => prev ? (loadedSetlists.find(st => st.id === prev.id) || null) : null);
+      }
 
       if (!snapshot.metadata.fromCache) {
         setlistsServerReadyGroupRef.current = targetGroupId;
@@ -2651,12 +2734,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           deleteDoc(doc(db, 'library_invites', targetGroup.inviteCode)).catch(() => {});
         }
       }
-      if (cleanedData.name && targetGroup?.guestEnabled && targetGroup?.guestCode) {
-        await updateDoc(doc(db, 'guest_invites', targetGroup.guestCode), {
-          name: cleanedData.name,
-          updatedAt: serverTimestamp()
-        }).catch(() => {});
-      }
     } catch (e) {
       console.warn('Updated group locally:', e);
     }
@@ -2703,9 +2780,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       if (targetGroup.inviteCode) {
         await deleteDoc(doc(db, 'library_invites', targetGroup.inviteCode)).catch(() => {});
-      }
-      if (targetGroup.guestCode) {
-        await deleteDoc(doc(db, 'guest_invites', targetGroup.guestCode)).catch(() => {});
       }
 
       await deleteDoc(doc(db, 'groups', groupId));
@@ -2972,94 +3046,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (blockIfGuest() || !auth.currentUser || !currentUser?.uid) return false;
     const targetGroup = allGroups.find(g => g.id === groupId);
     if (!targetGroup || targetGroup.ownerId !== currentUser.uid) {
-      showNotification("Seul le propriétaire créateur peut activer ou désactiver l'accès invité", 'error');
+      showNotification("Seul le propriétaire créateur peut activer ou désactiver l'accès visiteur", 'error');
       return false;
     }
 
-    const existingCode = targetGroup.guestCode && targetGroup.guestCode.length >= 4 ? targetGroup.guestCode : '';
-    const guestCode = enabled ? (existingCode || generateGuestCode()) : existingCode;
-
     try {
-      if (enabled) {
-        await setDoc(doc(db, 'guest_invites', guestCode), {
-          guestCode,
-          groupId,
-          name: targetGroup.name,
-          ownerId: targetGroup.ownerId,
-          guestEnabled: true,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
-        }, { merge: true });
-        await updateDoc(doc(db, 'groups', groupId), {
-          guestEnabled: true,
-          guestCode,
-          updatedAt: serverTimestamp()
-        });
-      } else {
-        if (guestCode) {
-          await deleteDoc(doc(db, 'guest_invites', guestCode)).catch(() => {});
-        }
-        await updateDoc(doc(db, 'groups', groupId), {
-          guestEnabled: false,
-          updatedAt: serverTimestamp()
-        });
-      }
+      await updateDoc(doc(db, 'groups', groupId), {
+        guestEnabled: enabled,
+        updatedAt: serverTimestamp()
+      });
 
-      const patch = enabled ? { guestEnabled: true, guestCode } : { guestEnabled: false };
+      const patch = { guestEnabled: enabled };
       setAllGroups(prev => prev.map(g => g.id === groupId ? { ...g, ...patch } : g));
       if (currentGroup?.id === groupId) {
         setCurrentGroup(prev => prev ? { ...prev, ...patch } : prev);
       }
-      showNotification(enabled ? 'Accès invité activé (lecture seule)' : 'Accès invité désactivé', 'info');
+      showNotification(
+        enabled ? 'Accès visiteur sans compte activé (lecture seule)' : 'Accès visiteur sans compte désactivé',
+        'info'
+      );
       return true;
     } catch (e: any) {
-      console.error('Toggle guest mode error:', e);
-      showNotification("Impossible de mettre à jour le mode invité", 'error');
+      console.error('Toggle visitor mode error:', e);
+      showNotification("Impossible de mettre à jour l'accès visiteur", 'error');
       return false;
-    }
-  }, [blockIfGuest, currentUser?.uid, allGroups, currentGroup?.id, showNotification]);
-
-  const regenerateGuestCode = useCallback(async (groupId: string): Promise<string | null> => {
-    if (blockIfGuest() || !auth.currentUser || !currentUser?.uid) return null;
-    const targetGroup = allGroups.find(g => g.id === groupId);
-    if (!targetGroup || targetGroup.ownerId !== currentUser.uid) {
-      showNotification("Seul le propriétaire créateur peut régénérer le code invité", 'error');
-      return null;
-    }
-
-    const oldCode = targetGroup.guestCode;
-    const newCode = generateGuestCode();
-
-    try {
-      if (targetGroup.guestEnabled) {
-        await setDoc(doc(db, 'guest_invites', newCode), {
-          guestCode: newCode,
-          groupId,
-          name: targetGroup.name,
-          ownerId: targetGroup.ownerId,
-          guestEnabled: true,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
-        });
-      }
-      await updateDoc(doc(db, 'groups', groupId), {
-        guestCode: newCode,
-        updatedAt: serverTimestamp()
-      });
-      if (oldCode && oldCode !== newCode) {
-        await deleteDoc(doc(db, 'guest_invites', oldCode)).catch(() => {});
-      }
-
-      setAllGroups(prev => prev.map(g => g.id === groupId ? { ...g, guestCode: newCode } : g));
-      if (currentGroup?.id === groupId) {
-        setCurrentGroup(prev => prev ? { ...prev, guestCode: newCode } : prev);
-      }
-      showNotification(`Nouveau code invité généré : ${newCode}`);
-      return newCode;
-    } catch (e) {
-      console.error('Regenerate guest code error:', e);
-      showNotification('Erreur lors de la régénération du code invité', 'error');
-      return null;
     }
   }, [blockIfGuest, currentUser?.uid, allGroups, currentGroup?.id, showNotification]);
 
@@ -3439,7 +3449,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       enterGuestMode,
       exitGuestMode,
       toggleLibraryGuestMode,
-      regenerateGuestCode,
+      deepLinkSetlistId,
+      clearDeepLinkSetlistId,
       needsLibraryOnboarding,
       setNeedsLibraryOnboarding,
       setSignupInProgress,

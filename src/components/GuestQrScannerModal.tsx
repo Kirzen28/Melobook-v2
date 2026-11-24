@@ -9,12 +9,13 @@ import {
   SwitchCamera,
   QrCode
 } from 'lucide-react';
-import { extractGuestCodeFromQr, extractInviteCodeFromQr } from '../utils/guestCodeParser';
+import { extractShareTargetFromQr, ShareTargetFromQr } from '../utils/guestCodeParser';
 
 interface GuestQrScannerModalProps {
   isOpen: boolean;
   onClose: () => void;
   onScanCode: (code: string) => void;
+  onScanTarget?: (target: ShareTargetFromQr) => void;
   mode?: 'guest' | 'member';
 }
 
@@ -22,6 +23,7 @@ export const GuestQrScannerModal: React.FC<GuestQrScannerModalProps> = ({
   isOpen,
   onClose,
   onScanCode,
+  onScanTarget,
   mode = 'guest'
 }) => {
   const isMember = mode === 'member';
@@ -53,33 +55,29 @@ export const GuestQrScannerModal: React.FC<GuestQrScannerModalProps> = ({
 
   const handleDecodedText = useCallback(
     (rawText: string, source: 'camera' | 'image') => {
-      const code = isMember ? extractInviteCodeFromQr(rawText) : extractGuestCodeFromQr(rawText);
-      if (code) {
+      const target = extractShareTargetFromQr(rawText);
+      if (target) {
         stopCamera();
-        onScanCode(code);
+        if (onScanTarget) {
+          onScanTarget(target);
+        } else {
+          onScanCode(target.code);
+        }
         return true;
       }
 
       if (source === 'image') {
-        setScanFeedback(
-          isMember
-            ? "Ce QR code ne contient pas d'identifiant d'invitation Melobook valide."
-            : "Ce QR code ne contient pas de code d'accès invité Melobook valide."
-        );
+        setScanFeedback("Ce QR code ne contient pas de code de bibliothèque Melobook valide.");
       } else {
         const now = Date.now();
         if (now - lastInvalidWarningRef.current > 2000) {
           lastInvalidWarningRef.current = now;
-          setScanFeedback(
-            isMember
-              ? "QR code détecté, mais aucun identifiant de bibliothèque Melobook n'y figure."
-              : "QR code détecté, mais aucun code invité Melobook n'y figure."
-          );
+          setScanFeedback("QR code détecté, mais aucun code de bibliothèque Melobook n'y figure.");
         }
       }
       return false;
     },
-    [isMember, onScanCode, stopCamera]
+    [onScanCode, onScanTarget, stopCamera]
   );
 
   useEffect(() => {
@@ -242,7 +240,7 @@ export const GuestQrScannerModal: React.FC<GuestQrScannerModalProps> = ({
       className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150"
       role="dialog"
       aria-modal="true"
-      aria-label={isMember ? "Scanner un QR code d'invitation" : "Scanner un QR code invité"}
+      aria-label={isMember ? "Scanner un QR code d'invitation" : "Scanner le QR code d'une bibliothèque"}
     >
       <div className="w-full max-w-md bg-[#121215] border border-[#282832] rounded-2xl overflow-hidden shadow-2xl">
         {/* Header */}
@@ -250,7 +248,7 @@ export const GuestQrScannerModal: React.FC<GuestQrScannerModalProps> = ({
           <div className="flex items-center gap-2 min-w-0">
             <QrCode className={`w-4 h-4 shrink-0 ${isMember ? 'text-blue-400' : 'text-cyan-400'}`} />
             <h3 className="text-sm font-bold text-white truncate">
-              {isMember ? "Scanner un QR code d'invitation" : "Scanner un QR code invité"}
+              {isMember ? "Scanner le QR code d'une bibliothèque" : "Scanner le QR code d'une bibliothèque"}
             </h3>
           </div>
           <div className="flex items-center gap-1.5">
@@ -331,8 +329,8 @@ export const GuestQrScannerModal: React.FC<GuestQrScannerModalProps> = ({
 
           <p className="text-[11px] text-gray-400 text-center leading-relaxed">
             {isMember
-              ? "Pointez la caméra vers le QR code d'invitation partagé pour rejoindre cette bibliothèque."
-              : "Pointez la caméra vers le QR code d'accès invité partagé par le propriétaire de la bibliothèque."}
+              ? "Pointez la caméra vers le QR code partagé pour rejoindre cette bibliothèque."
+              : "Pointez la caméra vers le QR code de la bibliothèque pour consulter chants et setlists en lecture seule."}
           </p>
 
           {/* Upload QR image fallback */}

@@ -5,31 +5,25 @@ import { QrCode, X, Download, Copy, Check, KeyRound } from 'lucide-react';
 interface GuestQrCodeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  guestCode?: string;
-  code?: string;
-  mode?: 'guest' | 'member';
+  code: string;
   libraryName: string;
+  guestEnabled?: boolean;
 }
 
 export const GuestQrCodeModal: React.FC<GuestQrCodeModalProps> = ({
   isOpen,
   onClose,
-  guestCode,
   code,
-  mode = 'guest',
   libraryName,
+  guestEnabled = false,
 }) => {
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [isLinkCopied, setIsLinkCopied] = useState(false);
 
-  const effectiveCode = code || guestCode || '';
-  const isMember = mode === 'member';
-  const queryKey = isMember ? 'inviteCode' : 'guestCode';
-
   const shareUrl =
-    typeof window !== 'undefined' && effectiveCode
-      ? `${window.location.origin}/?${queryKey}=${encodeURIComponent(effectiveCode)}`
-      : effectiveCode;
+    typeof window !== 'undefined' && code
+      ? `${window.location.origin}/?inviteCode=${encodeURIComponent(code)}`
+      : code;
 
   useEffect(() => {
     if (!isOpen || !shareUrl) return;
@@ -59,7 +53,7 @@ export const GuestQrCodeModal: React.FC<GuestQrCodeModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  if (!isOpen || !effectiveCode) return null;
+  if (!isOpen || !code) return null;
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(shareUrl);
@@ -83,10 +77,10 @@ export const GuestQrCodeModal: React.FC<GuestQrCodeModalProps> = ({
       >
         <div className="px-4 py-3.5 border-b border-[#22222A] flex items-center justify-between gap-2 bg-[#16161B]">
           <div className="flex items-center gap-2 min-w-0">
-            <QrCode className={`w-4 h-4 shrink-0 ${isMember ? 'text-blue-400' : 'text-cyan-400'}`} />
+            <QrCode className="w-4 h-4 shrink-0 text-blue-400" />
             <div className="min-w-0">
               <h3 className="text-sm font-bold text-white truncate">
-                {isMember ? "QR Code d'invitation membre" : "QR Code d'accès invité"}
+                QR Code de la bibliothèque
               </h3>
               <p className="text-[11px] text-gray-400 truncate">{libraryName}</p>
             </div>
@@ -106,7 +100,7 @@ export const GuestQrCodeModal: React.FC<GuestQrCodeModalProps> = ({
             {qrDataUrl ? (
               <img
                 src={qrDataUrl}
-                alt={`QR Code ${isMember ? 'membre' : 'invité'} ${libraryName}`}
+                alt={`QR Code ${libraryName}`}
                 className="w-56 h-56 block"
               />
             ) : (
@@ -117,19 +111,19 @@ export const GuestQrCodeModal: React.FC<GuestQrCodeModalProps> = ({
           </div>
 
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#0B0B0E] border border-[#2A2A35]">
-            <KeyRound className={`w-3.5 h-3.5 shrink-0 ${isMember ? 'text-blue-400' : 'text-amber-400'}`} />
+            <KeyRound className="w-3.5 h-3.5 shrink-0 text-blue-400" />
             <span className="text-[11px] text-gray-400">
-              {isMember ? 'Identifiant :' : 'Code invité :'}
+              Code bibliothèque :
             </span>
-            <span className={`font-mono font-bold text-xs tracking-wider select-all ${isMember ? 'text-blue-300' : 'text-amber-300'}`}>
-              {effectiveCode}
+            <span className="font-mono font-bold text-xs tracking-wider select-all text-blue-300">
+              {code}
             </span>
           </div>
 
           <p className="text-[11px] text-gray-400 leading-relaxed">
-            {isMember
-              ? `Scannez ce QR code depuis « Créer un compte → Rejoindre » ou avec l'appareil photo d'un téléphone pour créer un compte et rejoindre « ${libraryName} ».`
-              : "Scannez ce QR code depuis « Scanner QR » sur la page de connexion ou avec l'appareil photo d'un téléphone pour accéder en lecture seule."}
+            {guestEnabled
+              ? `Scannez ce QR code pour consulter « ${libraryName} » directement en lecture seule (sans compte), ou créez un compte pour rejoindre l'équipe.`
+              : `Scannez ce QR code pour créer un compte et rejoindre « ${libraryName} ». Activez l'accès visiteur si vous souhaitez aussi autoriser la consultation sans compte.`}
           </p>
 
           <div className="w-full grid grid-cols-2 gap-2 pt-1">
@@ -145,12 +139,8 @@ export const GuestQrCodeModal: React.FC<GuestQrCodeModalProps> = ({
             {qrDataUrl && (
               <a
                 href={qrDataUrl}
-                download={`qr-${isMember ? 'membre' : 'invite'}-${safeFileSlug || 'melobook'}.png`}
-                className={`py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors border ${
-                  isMember
-                    ? 'bg-blue-500/15 hover:bg-blue-500/25 text-blue-300 border-blue-500/30'
-                    : 'bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border-cyan-500/30'
-                }`}
+                download={`qr-bibliotheque-${safeFileSlug || 'melobook'}.png`}
+                className="py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors border bg-blue-500/15 hover:bg-blue-500/25 text-blue-300 border-blue-500/30"
               >
                 <Download className="w-3.5 h-3.5" />
                 <span>Télécharger</span>

@@ -1635,7 +1635,7 @@ export const SongList: React.FC = () => {
                 }`} />
               </button>
 
-              {/* Export PDF button */}
+              {/* Share & PDF Export button */}
               <button
                 type="button"
                 onClick={(e) => {
@@ -1643,11 +1643,11 @@ export const SongList: React.FC = () => {
                   e.stopPropagation();
                   setSongToExportPdf(song);
                 }}
-                className="p-1 sm:p-1.5 rounded bg-[#1C1C1E] hover:bg-emerald-500/15 text-gray-300 hover:text-emerald-300 border border-[#333] hover:border-emerald-500/50 transition-colors flex items-center justify-center cursor-pointer group"
-                title={isMultiSelectMode ? undefined : "Exporter en PDF"}
-                aria-label="Exporter en PDF"
+                className="p-1 sm:p-1.5 rounded bg-[#1C1C1E] hover:bg-blue-500/15 text-gray-300 hover:text-blue-300 border border-[#333] hover:border-blue-500/50 transition-colors flex items-center justify-center cursor-pointer group"
+                title={isMultiSelectMode ? undefined : "Partager (QR code, lien ou PDF)"}
+                aria-label="Partager"
               >
-                <FileDown className="w-3.5 h-3.5 text-emerald-400 group-hover:scale-110 transition-transform" />
+                <Share2 className="w-3.5 h-3.5 text-blue-400 group-hover:scale-110 transition-transform" />
               </button>
 
               {canManageSongs && (

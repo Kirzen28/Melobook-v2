@@ -426,8 +426,7 @@ export const GroupManager: React.FC = () => {
     canManageGroups,
     canManageSongs,
     canAccessSettings,
-    toggleLibraryGuestMode,
-    regenerateGuestCode
+    toggleLibraryGuestMode
   } = useApp();
 
   const [newGroupName, setNewGroupName] = useState('');
@@ -436,12 +435,8 @@ export const GroupManager: React.FC = () => {
   const [joinStatus, setJoinStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [isCopied, setIsCopied] = useState(false);
   const [isMemberLinkCopied, setIsMemberLinkCopied] = useState(false);
-  const [isGuestCopied, setIsGuestCopied] = useState(false);
-  const [isGuestLinkCopied, setIsGuestLinkCopied] = useState(false);
   const [isUpdatingGuestMode, setIsUpdatingGuestMode] = useState(false);
-  const [isRegeneratingGuestCode, setIsRegeneratingGuestCode] = useState(false);
-  const [qrModalMode, setQrModalMode] = useState<'guest' | 'member' | null>(null);
-  const [shareAccessTab, setShareAccessTab] = useState<'member' | 'guest'>('member');
+  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [isJoinQrScannerOpen, setIsJoinQrScannerOpen] = useState(false);
 
   // Modal d'assignation multiselect
@@ -602,21 +597,6 @@ export const GroupManager: React.FC = () => {
     setTimeout(() => setIsMemberLinkCopied(false), 2000);
   };
 
-  const handleCopyGuestCode = () => {
-    if (!currentGroup?.guestCode) return;
-    navigator.clipboard.writeText(currentGroup.guestCode);
-    setIsGuestCopied(true);
-    setTimeout(() => setIsGuestCopied(false), 2000);
-  };
-
-  const handleCopyGuestLink = () => {
-    if (!currentGroup?.guestCode) return;
-    const url = `${window.location.origin}/?guestCode=${encodeURIComponent(currentGroup.guestCode)}`;
-    navigator.clipboard.writeText(url);
-    setIsGuestLinkCopied(true);
-    setTimeout(() => setIsGuestLinkCopied(false), 2000);
-  };
-
   const handleToggleGuestMode = async () => {
     if (!currentGroup || isUpdatingGuestMode) return;
     setIsUpdatingGuestMode(true);
@@ -624,16 +604,6 @@ export const GroupManager: React.FC = () => {
       await toggleLibraryGuestMode(currentGroup.id, !currentGroup.guestEnabled);
     } finally {
       setIsUpdatingGuestMode(false);
-    }
-  };
-
-  const handleRegenerateGuestCode = async () => {
-    if (!currentGroup || isRegeneratingGuestCode) return;
-    setIsRegeneratingGuestCode(true);
-    try {
-      await regenerateGuestCode(currentGroup.id);
-    } finally {
-      setIsRegeneratingGuestCode(false);
     }
   };
 
@@ -843,92 +813,57 @@ export const GroupManager: React.FC = () => {
                   <div className="flex flex-col items-start gap-2">
                     {(() => {
                       const isOwner = Boolean(currentUser?.uid && currentGroup.ownerId === currentUser.uid);
-                      const activeShareTab = isOwner ? shareAccessTab : 'member';
                       return (
-                        <>
-                          {isOwner && (
-                            <div className="inline-flex items-center gap-1 bg-[#0C0C0F] p-0.5 rounded-lg border border-[#24242D]">
-                              <button
-                                type="button"
-                                onClick={() => setShareAccessTab('member')}
-                                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
-                                  activeShareTab === 'member'
-                                    ? 'bg-[#1C1C24] text-blue-300 border border-[#323240] shadow-xs'
-                                    : 'text-gray-400 hover:text-white'
-                                }`}
-                              >
-                                <KeyRound className="w-3 h-3" />
-                                <span>Invitation membre</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setShareAccessTab('guest')}
-                                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
-                                  activeShareTab === 'guest'
-                                    ? 'bg-[#1C1C24] text-amber-300 border border-[#323240] shadow-xs'
-                                    : 'text-gray-400 hover:text-white'
-                                }`}
-                              >
-                                <Eye className="w-3 h-3" />
-                                <span>Accès invité</span>
-                                <span
-                                  className={`w-1.5 h-1.5 rounded-full ${
-                                    currentGroup.guestEnabled ? 'bg-emerald-400' : 'bg-gray-500'
-                                  }`}
-                                />
-                              </button>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <div className="inline-flex flex-wrap items-center gap-2 px-3 py-1.5 rounded-lg bg-[#16161C] border border-[#2A2A35]">
+                            <KeyRound className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                            <div className="text-[11px] text-gray-400">
+                              Code bibliothèque :{' '}
+                              <span className="font-mono font-bold text-blue-300 tracking-wider select-all">
+                                {currentGroup.inviteCode}
+                              </span>
                             </div>
-                          )}
+                            <button
+                              type="button"
+                              onClick={handleCopyInviteCode}
+                              className="px-2 py-0.5 rounded bg-[#1E1E26] hover:bg-[#282834] text-gray-200 border border-[#343440] text-[10px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                            >
+                              {isCopied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                              <span>{isCopied ? 'Copié' : 'Copier'}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleCopyInviteLink}
+                              className="px-2 py-0.5 rounded bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 text-[10px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                              title="Copier le lien unique de la bibliothèque"
+                            >
+                              {isMemberLinkCopied ? <Check className="w-3 h-3 text-emerald-400" /> : <Link2 className="w-3 h-3" />}
+                              <span>{isMemberLinkCopied ? 'Lien copié' : 'Copier le lien'}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setIsQrModalOpen(true)}
+                              className="px-2 py-0.5 rounded bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-[10px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                              title="Afficher et télécharger le QR Code de la bibliothèque"
+                            >
+                              <QrCode className="w-3 h-3" />
+                              <span>QR Code</span>
+                            </button>
+                          </div>
 
-                          {activeShareTab === 'member' ? (
-                            <div className="inline-flex flex-wrap items-center gap-2 px-3 py-1.5 rounded-lg bg-[#16161C] border border-[#2A2A35]">
-                              <KeyRound className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                              <div className="text-[11px] text-gray-400">
-                                Identifiant membre :{' '}
-                                <span className="font-mono font-bold text-blue-300 tracking-wider select-all">
-                                  {currentGroup.inviteCode}
-                                </span>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={handleCopyInviteCode}
-                                className="px-2 py-0.5 rounded bg-[#1E1E26] hover:bg-[#282834] text-gray-200 border border-[#343440] text-[10px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-                              >
-                                {isCopied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                                <span>{isCopied ? 'Copié' : 'Copier'}</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={handleCopyInviteLink}
-                                className="px-2 py-0.5 rounded bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 text-[10px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-                                title="Copier le lien d'inscription directe à cette bibliothèque"
-                              >
-                                {isMemberLinkCopied ? <Check className="w-3 h-3 text-emerald-400" /> : <Link2 className="w-3 h-3" />}
-                                <span>{isMemberLinkCopied ? 'Lien copié' : 'Copier le lien'}</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setQrModalMode('member')}
-                                className="px-2 py-0.5 rounded bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-[10px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-                                title="Afficher et télécharger le QR Code d'invitation membre"
-                              >
-                                <QrCode className="w-3 h-3" />
-                                <span>QR Code</span>
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="inline-flex flex-wrap items-center gap-2 px-3 py-1.5 rounded-lg bg-[#16161C] border border-[#2A2A35]">
-                              <Eye className={`w-3.5 h-3.5 shrink-0 ${currentGroup.guestEnabled ? 'text-amber-400' : 'text-gray-500'}`} />
-                              <span className="text-[11px] text-gray-400">Accès invité :</span>
+                          {isOwner && (
+                            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#16161C] border border-[#2A2A35]">
+                              <Eye className={`w-3.5 h-3.5 shrink-0 ${currentGroup.guestEnabled ? 'text-emerald-400' : 'text-gray-500'}`} />
+                              <span className="text-[11px] text-gray-400">Visiteurs sans compte :</span>
                               <button
                                 type="button"
                                 role="switch"
                                 aria-checked={Boolean(currentGroup.guestEnabled)}
-                                aria-label="Activer ou désactiver l'accès invité"
+                                aria-label="Activer ou désactiver la consultation sans compte en lecture seule"
                                 onClick={handleToggleGuestMode}
                                 disabled={isUpdatingGuestMode}
                                 className="inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50 focus:outline-none group"
-                                title={currentGroup.guestEnabled ? 'Cliquer pour désactiver le mode invité' : 'Cliquer pour activer le mode invité (lecture seule)'}
+                                title={currentGroup.guestEnabled ? 'Désactiver la lecture seule pour les visiteurs sans compte' : 'Autoriser les visiteurs sans compte à consulter chants et setlists en lecture seule'}
                               >
                                 <span
                                   className={`relative inline-flex h-4.5 w-8 shrink-0 items-center rounded-full border border-transparent transition-colors duration-200 ${
@@ -945,55 +880,12 @@ export const GroupManager: React.FC = () => {
                                   currentGroup.guestEnabled ? 'text-emerald-300' : 'text-gray-400 group-hover:text-gray-200'
                                 }`}>
                                   {isUpdatingGuestMode && <Loader2 className="w-3 h-3 animate-spin" />}
-                                  <span>{currentGroup.guestEnabled ? 'Activé' : 'Désactivé'}</span>
+                                  <span>{currentGroup.guestEnabled ? 'Lecture seule activée' : 'Désactivé'}</span>
                                 </span>
                               </button>
-
-                              {currentGroup.guestEnabled && currentGroup.guestCode && (
-                                <>
-                                  <span className="font-mono font-bold text-[11px] text-amber-300 tracking-wider select-all">
-                                    {currentGroup.guestCode}
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={handleCopyGuestCode}
-                                    className="px-2 py-0.5 rounded bg-[#1E1E26] hover:bg-[#282834] text-gray-200 border border-[#343440] text-[10px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-                                  >
-                                    {isGuestCopied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                                    <span>{isGuestCopied ? 'Copié' : 'Copier'}</span>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={handleCopyGuestLink}
-                                    className="px-2 py-0.5 rounded bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-[10px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-                                  >
-                                    {isGuestLinkCopied ? <Check className="w-3 h-3 text-emerald-400" /> : <Link2 className="w-3 h-3" />}
-                                    <span>{isGuestLinkCopied ? 'Lien copié' : 'Copier le lien'}</span>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => setQrModalMode('guest')}
-                                    className="px-2 py-0.5 rounded bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-[10px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-                                    title="Afficher et télécharger le QR Code invité"
-                                  >
-                                    <QrCode className="w-3 h-3" />
-                                    <span>QR Code</span>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={handleRegenerateGuestCode}
-                                    disabled={isRegeneratingGuestCode}
-                                    className="px-2 py-0.5 rounded bg-[#1E1E26] hover:bg-[#282834] text-gray-300 hover:text-white border border-[#343440] text-[10px] font-semibold flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
-                                    title="Révoquer l'ancien code et en générer un nouveau"
-                                  >
-                                    <RefreshCw className={`w-3 h-3 ${isRegeneratingGuestCode ? 'animate-spin' : ''}`} />
-                                    <span>Régénérer</span>
-                                  </button>
-                                </>
-                              )}
                             </div>
                           )}
-                        </>
+                        </div>
                       );
                     })()}
                   </div>
@@ -1602,23 +1494,13 @@ export const GroupManager: React.FC = () => {
         </div>
       )}
 
-      {currentGroup && qrModalMode === 'member' && currentGroup.inviteCode && (
+      {currentGroup && isQrModalOpen && currentGroup.inviteCode && (
         <GuestQrCodeModal
           isOpen
-          onClose={() => setQrModalMode(null)}
-          mode="member"
+          onClose={() => setIsQrModalOpen(false)}
           code={currentGroup.inviteCode}
           libraryName={currentGroup.name}
-        />
-      )}
-
-      {currentGroup?.guestEnabled && currentGroup.guestCode && qrModalMode === 'guest' && (
-        <GuestQrCodeModal
-          isOpen
-          onClose={() => setQrModalMode(null)}
-          mode="guest"
-          guestCode={currentGroup.guestCode}
-          libraryName={currentGroup.name}
+          guestEnabled={Boolean(currentGroup.guestEnabled)}
         />
       )}
 

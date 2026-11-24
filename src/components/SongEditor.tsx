@@ -1134,24 +1134,6 @@ export const SongEditor: React.FC = () => {
       <div className="mb-5 p-1.5 rounded-2xl bg-[#141418] border border-[#26262E] grid grid-cols-2 gap-2 shadow-lg">
         <button
           type="button"
-          id="tab-editor-data"
-          onClick={() => setEditorSubTab('data')}
-          className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer ${
-            editorSubTab === 'data'
-              ? 'bg-gradient-to-r from-amber-500/25 via-amber-600/15 to-[#1C1814] text-amber-300 border border-amber-500/50 shadow-md shadow-amber-950/40 ring-1 ring-amber-500/20'
-              : 'text-gray-400 hover:text-gray-200 hover:bg-[#1B1B20] border border-transparent'
-          }`}
-        >
-          <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${
-            editorSubTab === 'data' ? 'bg-amber-500/20 text-amber-400' : 'bg-[#222228] text-gray-400'
-          }`}>
-            <FileText className="w-3.5 h-3.5" />
-          </div>
-          <span className="leading-tight">Éditer les données</span>
-        </button>
-
-        <button
-          type="button"
           id="tab-editor-chords"
           onClick={() => setEditorSubTab('chords')}
           className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer ${
@@ -1166,6 +1148,24 @@ export const SongEditor: React.FC = () => {
             <Music2 className="w-3.5 h-3.5" />
           </div>
           <span className="leading-tight">Éditer les accords</span>
+        </button>
+
+        <button
+          type="button"
+          id="tab-editor-data"
+          onClick={() => setEditorSubTab('data')}
+          className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer ${
+            editorSubTab === 'data'
+              ? 'bg-gradient-to-r from-amber-500/25 via-amber-600/15 to-[#1C1814] text-amber-300 border border-amber-500/50 shadow-md shadow-amber-950/40 ring-1 ring-amber-500/20'
+              : 'text-gray-400 hover:text-gray-200 hover:bg-[#1B1B20] border border-transparent'
+          }`}
+        >
+          <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${
+            editorSubTab === 'data' ? 'bg-amber-500/20 text-amber-400' : 'bg-[#222228] text-gray-400'
+          }`}>
+            <FileText className="w-3.5 h-3.5" />
+          </div>
+          <span className="leading-tight">Éditer les données</span>
         </button>
       </div>
 

@@ -27,6 +27,7 @@ import {
   QrCode
 } from 'lucide-react';
 import { GuestQrScannerModal } from './GuestQrScannerModal';
+import { ShareTargetFromQr } from '../utils/guestCodeParser';
 
 type LibraryChoiceMode = 'create' | 'join';
 
@@ -46,16 +47,15 @@ export const LoginPage: React.FC = () => {
     if (typeof window === 'undefined') return '';
     const params = new URLSearchParams(window.location.search);
     const hashParams = window.location.hash ? new URLSearchParams(window.location.hash.replace(/^#/, '')) : null;
-    if (params.get('guestCode') || params.get('guest') || hashParams?.get('guestCode') || hashParams?.get('guest')) {
-      return '';
-    }
     return (
       params.get('inviteCode') ||
       params.get('joinCode') ||
       params.get('invite') ||
+      params.get('code') ||
       hashParams?.get('inviteCode') ||
       hashParams?.get('joinCode') ||
       hashParams?.get('invite') ||
+      hashParams?.get('code') ||
       ''
     ).trim().toUpperCase();
   })();
@@ -64,11 +64,7 @@ export const LoginPage: React.FC = () => {
   const [isResetPassword, setIsResetPassword] = useState(false);
   const [isGuestEntry, setIsGuestEntry] = useState(false);
   const [qrScannerMode, setQrScannerMode] = useState<'guest' | 'member' | null>(null);
-  const [guestCodeInput, setGuestCodeInput] = useState(() => {
-    if (typeof window === 'undefined') return '';
-    const params = new URLSearchParams(window.location.search);
-    return (params.get('guestCode') || params.get('guest') || '').toUpperCase();
-  });
+  const [guestCodeInput, setGuestCodeInput] = useState(initialInviteCode);
 
   // Account fields
   const [email, setEmail] = useState('');
@@ -283,7 +279,7 @@ export const LoginPage: React.FC = () => {
 
     const code = guestCodeInput.trim();
     if (!code) {
-      setErrorMsg("Veuillez saisir le code invité d'une bibliothèque.");
+      setErrorMsg("Veuillez saisir le code d'une bibliothèque.");
       return;
     }
 
@@ -291,24 +287,27 @@ export const LoginPage: React.FC = () => {
     try {
       await enterGuestMode(code);
     } catch (err: any) {
-      setErrorMsg(err?.message || "Code invité invalide ou accès invité désactivé.");
+      setErrorMsg(err?.message || "Code invalide ou accès visiteur désactivé pour cette bibliothèque.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleScannedGuestCode = async (scannedCode: string) => {
+  const handleScannedGuestTarget = async (target: ShareTargetFromQr) => {
     setQrScannerMode(null);
     setIsGuestEntry(true);
     setIsResetPassword(false);
-    setGuestCodeInput(scannedCode);
+    setGuestCodeInput(target.code);
     setErrorMsg('');
     setSuccessMsg('');
     setLoading(true);
     try {
-      await enterGuestMode(scannedCode);
+      await enterGuestMode(target.code, {
+        ...(target.setlistId ? { setlistId: target.setlistId } : {}),
+        ...(target.songId ? { songId: target.songId } : {}),
+      });
     } catch (err: any) {
-      setErrorMsg(err?.message || "Code invité invalide ou accès invité désactivé.");
+      setErrorMsg(err?.message || "Code invalide ou accès visiteur désactivé pour cette bibliothèque.");
     } finally {
       setLoading(false);
     }
@@ -542,8 +541,8 @@ export const LoginPage: React.FC = () => {
             <>
               <div className="mb-5 flex items-center justify-between pb-3 border-b border-[#1E1E22]">
                 <div>
-                  <h2 className="text-sm font-semibold text-white">Continuer en mode invité</h2>
-                  <p className="text-xs text-gray-400">Consultation lecture seule d'une bibliothèque</p>
+                  <h2 className="text-sm font-semibold text-white">Consulter sans compte</h2>
+                  <p className="text-xs text-gray-400">Accès visiteur en lecture seule (chants & setlists)</p>
                 </div>
                 <button
                   type="button"
@@ -568,14 +567,14 @@ export const LoginPage: React.FC = () => {
               <form onSubmit={handleGuestSubmit} className="space-y-3.5">
                 <div>
                   <label className="block text-xs font-medium text-gray-300 mb-1.5">
-                    Code invité de la bibliothèque
+                    Code de la bibliothèque
                   </label>
                   <div className="flex items-center gap-2">
                     <div className="relative flex-1">
                       <KeyRound className="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" />
                       <input
                         type="text"
-                        placeholder="Ex: GSTK7M4P9"
+                        placeholder="Ex: K7M4P9"
                         value={guestCodeInput}
                         onChange={(e) => setGuestCodeInput(e.target.value.toUpperCase())}
                         className="w-full bg-[#18181B] border border-[#2E2E33] focus:border-blue-500 rounded-xl pl-9 pr-3.5 py-2 text-xs font-mono font-bold tracking-wider text-blue-300 placeholder-gray-500 focus:outline-none transition-colors"
@@ -589,14 +588,14 @@ export const LoginPage: React.FC = () => {
                         setQrScannerMode('guest');
                       }}
                       className="px-3 py-2 rounded-xl bg-[#18181E] hover:bg-[#22222C] border border-[#2E2E3A] text-cyan-300 hover:text-cyan-200 text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
-                      title="Scanner un QR code invité avec la caméra"
+                      title="Scanner le QR code d'une bibliothèque avec la caméra"
                     >
                       <QrCode className="w-4 h-4" />
                       <span>Scanner</span>
                     </button>
                   </div>
                   <p className="text-[11px] text-gray-400 mt-2 leading-relaxed">
-                    Saisissez le code ou scannez le QR code partagé par le propriétaire pour accéder en lecture seule au répertoire, aux setlists et aux outils.
+                    Saisissez le code unique de la bibliothèque ou scannez son QR code pour consulter les chants et les setlists en lecture seule.
                   </p>
                 </div>
 
@@ -897,7 +896,7 @@ export const LoginPage: React.FC = () => {
                       className="w-full py-2 px-3 rounded-xl bg-[#16161B] hover:bg-[#1E1E26] border border-[#2A2A35] text-xs font-medium text-gray-200 hover:text-white transition-colors flex items-center justify-center gap-2 cursor-pointer"
                     >
                       <Eye className="w-3.5 h-3.5 text-cyan-400" />
-                      <span>Continuer en mode invité (lecture seule)</span>
+                      <span>Consulter sans compte (lecture seule)</span>
                     </button>
 
                     <button
@@ -908,7 +907,7 @@ export const LoginPage: React.FC = () => {
                         setQrScannerMode('guest');
                       }}
                       className="py-2 px-3 rounded-xl bg-[#16161B] hover:bg-[#1E1E26] border border-cyan-500/30 text-xs font-semibold text-cyan-300 hover:text-cyan-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-                      title="Scanner le QR code invité d'une bibliothèque"
+                      title="Scanner le QR code d'une bibliothèque"
                     >
                       <QrCode className="w-3.5 h-3.5" />
                       <span>Scanner QR</span>
@@ -924,7 +923,8 @@ export const LoginPage: React.FC = () => {
       <GuestQrScannerModal
         isOpen={qrScannerMode !== null}
         onClose={() => setQrScannerMode(null)}
-        onScanCode={qrScannerMode === 'member' ? handleScannedMemberInviteCode : handleScannedGuestCode}
+        onScanCode={qrScannerMode === 'member' ? handleScannedMemberInviteCode : (code) => handleScannedGuestTarget({ code })}
+        onScanTarget={qrScannerMode === 'member' ? (t) => handleScannedMemberInviteCode(t.code) : handleScannedGuestTarget}
         mode={qrScannerMode === 'member' ? 'member' : 'guest'}
       />
     </div>

@@ -1,19 +1,26 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import QRCode from 'qrcode';
 import { Setlist, Song } from '../types';
+import { useApp } from '../context/AppContext';
 import { generateSetlistPdf, PdfExportOptions, DEFAULT_PDF_OPTIONS } from '../utils/pdfExport';
 import { parseChordPro, transposeChord, stripParentheses } from '../utils/chordUtils';
-import { 
-  FileDown, 
-  X, 
-  Moon, 
-  Sun, 
-  FileText, 
+import {
+  FileDown,
+  X,
+  Moon,
+  Sun,
+  FileText,
   Sparkles,
   Music,
   Loader2,
   FileCode,
   Download,
-  Share2
+  Share2,
+  QrCode,
+  KeyRound,
+  Copy,
+  Check,
+  AlertCircle
 } from 'lucide-react';
 
 interface SetlistPdfModalProps {
@@ -34,6 +41,13 @@ export const SetlistPdfModal: React.FC<SetlistPdfModalProps> = ({
   onExportChordPro,
   onExportJson,
 }) => {
+  const { currentGroup, currentUser, toggleLibraryGuestMode } = useApp();
+
+  const [activeTab, setActiveTab] = useState<'qr' | 'pdf'>('qr');
+  const [qrDataUrl, setQrDataUrl] = useState<string>('');
+  const [isLinkCopied, setIsLinkCopied] = useState(false);
+  const [isEnablingGuest, setIsEnablingGuest] = useState(false);
+
   const autoIncludeCover = mode !== 'song';
   const [options, setOptions] = useState<PdfExportOptions>({
     ...DEFAULT_PDF_OPTIONS,
@@ -54,14 +68,80 @@ export const SetlistPdfModal: React.FC<SetlistPdfModalProps> = ({
 
   const songCount = setlistSongs.length;
   const isSongMode = mode === 'song';
+  const libraryCode = currentGroup?.inviteCode || '';
+  const isOwner = Boolean(currentUser?.uid && currentGroup?.ownerId === currentUser.uid);
+  const isGuestEnabled = Boolean(currentGroup?.guestEnabled);
+
+  const shareUrl = (() => {
+    if (typeof window === 'undefined' || !libraryCode) return '';
+    const params = new URLSearchParams();
+    params.set('inviteCode', libraryCode);
+    if (isSongMode && setlistSongs.length === 1) {
+      params.set('songId', setlistSongs[0].id);
+    } else if (!isSongMode && setlist.id && !setlist.id.startsWith('single-song')) {
+      params.set('setlistId', setlist.id);
+    }
+    return `${window.location.origin}/?${params.toString()}`;
+  })();
+
+  useEffect(() => {
+    if (!shareUrl || activeTab !== 'qr') return;
+    let cancelled = false;
+    QRCode.toDataURL(shareUrl, {
+      width: 280,
+      margin: 2,
+      color: { dark: '#09090B', light: '#FFFFFF' },
+    })
+      .then((url) => {
+        if (!cancelled) setQrDataUrl(url);
+      })
+      .catch(() => {
+        if (!cancelled) setQrDataUrl('');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [shareUrl, activeTab]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
   const title = isSongMode
     ? songCount > 1
-      ? 'Exporter les chants en PDF'
-      : 'Exporter le chant en PDF'
-    : 'Exporter la Setlist en PDF';
+      ? 'Partager les chants'
+      : 'Partager le chant'
+    : 'Partager la setlist';
 
   const subtitle = `${setlist.name} \u2022 ${songCount} chant${songCount > 1 ? 's' : ''}`;
+
+  const safeFileSlug = (setlist.name || 'melobook')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+
+  const handleCopyLink = () => {
+    if (!shareUrl) return;
+    navigator.clipboard.writeText(shareUrl);
+    setIsLinkCopied(true);
+    setTimeout(() => setIsLinkCopied(false), 2000);
+  };
+
+  const handleEnableVisitorAccess = async () => {
+    if (!currentGroup || isEnablingGuest) return;
+    setIsEnablingGuest(true);
+    try {
+      await toggleLibraryGuestMode(currentGroup.id, true);
+    } finally {
+      setIsEnablingGuest(false);
+    }
+  };
 
   const handleDownload = async () => {
     setIsGenerating(true);
@@ -244,116 +324,243 @@ export const SetlistPdfModal: React.FC<SetlistPdfModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-      <div className="bg-[#111112] border border-[#242428] rounded-xl w-full max-w-lg p-5 sm:p-6 shadow-2xl text-[#E0E0E0] my-auto">
-        
+    <div
+      className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+      onClick={onClose}
+    >
+      <div
+        className="bg-[#121215] border border-[#282832] rounded-2xl w-full max-w-md shadow-2xl text-[#E0E0E0] my-auto overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
-        <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#222224]">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-lg bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0">
-              <FileDown className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-white tracking-tight">{title}</h3>
-              <p className="text-xs text-gray-400">{subtitle}</p>
+        <div className="px-4 py-3.5 border-b border-[#22222A] bg-[#16161B] flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <Share2 className="w-4 h-4 text-blue-400 shrink-0" />
+            <div className="min-w-0">
+              <h3 className="text-sm font-bold text-white truncate">{title}</h3>
+              <p className="text-[11px] text-gray-400 truncate">{subtitle}</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1 rounded-md text-gray-400 hover:text-white hover:bg-[#1C1C1E] transition-colors cursor-pointer">
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#22222A] transition-colors cursor-pointer shrink-0"
+            aria-label="Fermer"
+          >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* PDF Options */}
-        <div className="py-4 space-y-2 text-xs">
-
-          <div className="flex items-center justify-between p-2.5 rounded-lg bg-[#141416] border border-[#242428]">
-            <span className="font-semibold text-white">Contenu des partitions</span>
-            <div className="flex items-center bg-[#1C1C1E] p-0.5 rounded-md border border-[#333]">
-              <button type="button" onClick={() => setOptions(prev => ({ ...prev, showChords: true }))} className={`px-2.5 py-1 rounded text-xs font-semibold flex items-center gap-1 transition-all ${options.showChords ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>
-                <Music className="w-3 h-3" /><span>Accords</span>
-              </button>
-              <button type="button" onClick={() => setOptions(prev => ({ ...prev, showChords: false }))} className={`px-2.5 py-1 rounded text-xs font-semibold flex items-center gap-1 transition-all ${!options.showChords ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>
-                <FileText className="w-3 h-3" /><span>Paroles</span>
-              </button>
-            </div>
-          </div>
-
-          {options.showChords && (
-            <div className="flex items-center justify-between p-2.5 rounded-lg bg-[#141416] border border-[#242428]">
-              <span className="font-semibold text-white">Systeme de notation</span>
-              <div className="flex items-center bg-[#1C1C1E] p-0.5 rounded-md border border-[#333]">
-                <button type="button" onClick={() => setOptions(prev => ({ ...prev, notation: 'standard' }))} className={`px-2.5 py-1 rounded text-xs font-semibold transition-all ${options.notation === 'standard' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>ABC</button>
-                <button type="button" onClick={() => setOptions(prev => ({ ...prev, notation: 'latin' }))} className={`px-2.5 py-1 rounded text-xs font-semibold transition-all ${options.notation === 'latin' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>Do Re Mi</button>
-              </div>
-            </div>
-          )}
-
-          <div className="flex items-center justify-between p-2.5 rounded-lg bg-[#141416] border border-[#242428]">
-            <span className="font-semibold text-white">Theme de rendu</span>
-            <div className="flex items-center bg-[#1C1C1E] p-0.5 rounded-md border border-[#333]">
-              <button type="button" onClick={() => setOptions(prev => ({ ...prev, theme: 'light' }))} className={`px-2.5 py-1 rounded text-xs font-semibold flex items-center gap-1 transition-all ${options.theme === 'light' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>
-                <Sun className="w-3 h-3" /><span>Clair / Print</span>
-              </button>
-              <button type="button" onClick={() => setOptions(prev => ({ ...prev, theme: 'dark' }))} className={`px-2.5 py-1 rounded text-xs font-semibold flex items-center gap-1 transition-all ${options.theme === 'dark' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>
-                <Moon className="w-3 h-3" /><span>Sombre</span>
-              </button>
-            </div>
-          </div>
-
-          {(onExportChordPro || onExportJson) && (
-            <div className="pt-1">
-              <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500 px-0.5 mb-1.5">Autres formats</p>
-              <div className="grid grid-cols-2 gap-2">
-                {onExportChordPro && (
-                  <button type="button" onClick={() => { onExportChordPro(); onClose(); }} className="p-2.5 rounded-lg bg-[#141416] hover:bg-[#1A1A20] border border-[#242428] hover:border-blue-500/40 transition-all text-left flex items-start gap-2 cursor-pointer group">
-                    <div className="p-1.5 rounded-md bg-blue-500/10 text-blue-400 group-hover:bg-blue-500 group-hover:text-white transition-all shrink-0"><FileCode className="w-3.5 h-3.5" /></div>
-                    <div><div className="text-[11px] font-semibold text-white">ChordPro</div><div className="text-[10px] text-gray-400 mt-0.5 leading-tight">Texte brut .txt</div></div>
-                  </button>
-                )}
-                {onExportJson && (
-                  <button type="button" onClick={() => { onExportJson(); onClose(); }} className="p-2.5 rounded-lg bg-[#141416] hover:bg-[#1A1A20] border border-[#242428] hover:border-amber-500/40 transition-all text-left flex items-start gap-2 cursor-pointer group">
-                    <div className="p-1.5 rounded-md bg-amber-500/10 text-amber-400 group-hover:bg-amber-500 group-hover:text-white transition-all shrink-0"><Download className="w-3.5 h-3.5" /></div>
-                    <div><div className="text-[11px] font-semibold text-white">JSON</div><div className="text-[10px] text-gray-400 mt-0.5 leading-tight">Sauvegarde complete</div></div>
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {statusMessage && (
-          <div className="mb-4 p-2.5 rounded-lg bg-blue-950/40 border border-blue-500/40 text-blue-300 text-xs flex items-center gap-2">
-            <Sparkles className="w-3.5 h-3.5 shrink-0 text-blue-400" />
-            <span>{statusMessage}</span>
-          </div>
-        )}
-
-        {/* Action Buttons */}
-        <div className="pt-3 border-t border-[#222224] space-y-2">
-          <div className="grid grid-cols-2 gap-2">
-            <button type="button" onClick={handleDownload} disabled={isGenerating || isSharing || songCount === 0} className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer">
-              {isGenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileDown className="w-3.5 h-3.5" />}
-              <span>Telecharger PDF</span>
-            </button>
-            <button type="button" onClick={handleExportChordPro} disabled={isGenerating || isSharing || songCount === 0} className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-lg bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-200 hover:text-white border border-[#333] font-semibold text-xs transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer">
-              <FileCode className="w-3.5 h-3.5 text-blue-400" />
-              <span>Exporter ChordPro</span>
-            </button>
-          </div>
-
-          <div>
+        {/* 2 Tabs */}
+        <div className="px-4 pt-3.5">
+          <div className="flex bg-[#0A0A0C] p-1 rounded-xl border border-[#1E1E24]">
             <button
               type="button"
-              onClick={handleShareMessaging}
-              disabled={isGenerating || isSharing || songCount === 0}
-              className="w-full flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-lg bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-300 hover:text-emerald-200 border border-emerald-500/35 font-semibold text-xs transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer"
-              title="Partager le PDF ou le texte via vos applications de messagerie"
+              onClick={() => setActiveTab('qr')}
+              className={`flex-1 py-2 px-2.5 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                activeTab === 'qr'
+                  ? 'bg-[#1E1E24] text-white shadow-sm border border-[#2F2F38]'
+                  : 'text-gray-400 hover:text-white'
+              }`}
             >
-              {isSharing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Share2 className="w-3.5 h-3.5" />}
-              <span>Messagerie / Apps</span>
+              <QrCode className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+              <span className="truncate">Partage via QR code ou lien</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('pdf')}
+              className={`flex-1 py-2 px-2.5 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                activeTab === 'pdf'
+                  ? 'bg-[#1E1E24] text-white shadow-sm border border-[#2F2F38]'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              <FileDown className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <span>Export PDF</span>
             </button>
           </div>
         </div>
+
+        {activeTab === 'qr' ? (
+          /* Tab 1: Partage via QR code ou lien (même structure que QR Code de la bibliothèque) */
+          <div className="p-5 flex flex-col items-center text-center space-y-4">
+            {libraryCode ? (
+              <>
+                <div className="p-3 rounded-2xl bg-white shadow-lg">
+                  {qrDataUrl ? (
+                    <img
+                      src={qrDataUrl}
+                      alt={`QR Code ${setlist.name}`}
+                      className="w-56 h-56 block"
+                    />
+                  ) : (
+                    <div className="w-56 h-56 flex items-center justify-center text-xs text-gray-500">
+                      Génération...
+                    </div>
+                  )}
+                </div>
+
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#0B0B0E] border border-[#2A2A35]">
+                  <KeyRound className="w-3.5 h-3.5 shrink-0 text-blue-400" />
+                  <span className="text-[11px] text-gray-400">Code bibliothèque :</span>
+                  <span className="font-mono font-bold text-xs tracking-wider select-all text-blue-300">
+                    {libraryCode}
+                  </span>
+                </div>
+
+                <p className="text-[11px] text-gray-400 leading-relaxed">
+                  {isGuestEnabled
+                    ? isSongMode && setlistSongs.length === 1
+                      ? `Scannez ce QR code ou ouvrez le lien pour consulter « ${setlist.name} » directement en lecture seule (sans compte), ou connectez-vous.`
+                      : `Scannez ce QR code ou ouvrez le lien pour consulter la setlist « ${setlist.name} » directement en lecture seule (sans compte), ou connectez-vous.`
+                    : `Scannez ce QR code pour ouvrir « ${setlist.name} » avec un compte membre de « ${currentGroup?.name || 'cette bibliothèque'} ».`}
+                </p>
+
+                {!isGuestEnabled && (
+                  <div className="w-full p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-left space-y-2">
+                    <div className="flex items-start gap-2 text-[11px] text-amber-200 leading-relaxed">
+                      <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                      <span>
+                        L'accès visiteur sans compte est désactivé sur « {currentGroup?.name} ». Les personnes sans compte ne pourront pas consulter le lien tant qu'il reste désactivé.
+                      </span>
+                    </div>
+                    {isOwner && (
+                      <button
+                        type="button"
+                        onClick={handleEnableVisitorAccess}
+                        disabled={isEnablingGuest}
+                        className="w-full py-1.5 px-3 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-200 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                      >
+                        {isEnablingGuest && <Loader2 className="w-3 h-3 animate-spin" />}
+                        <span>Activer l'accès visiteur (lecture seule)</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                <div className="w-full grid grid-cols-2 gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleCopyLink}
+                    className="py-2 px-3 rounded-xl bg-[#1C1C22] hover:bg-[#26262F] text-gray-200 border border-[#32323D] text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    {isLinkCopied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{isLinkCopied ? 'Lien copié' : 'Copier le lien'}</span>
+                  </button>
+
+                  {qrDataUrl && (
+                    <a
+                      href={qrDataUrl}
+                      download={`qr-${safeFileSlug || 'melobook'}.png`}
+                      className="py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors border bg-blue-500/15 hover:bg-blue-500/25 text-blue-300 border-blue-500/30"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Télécharger</span>
+                    </a>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="py-6 text-xs text-gray-400">
+                Aucun code bibliothèque disponible pour générer le lien de partage.
+              </div>
+            )}
+          </div>
+        ) : (
+          /* Tab 2: Export PDF (section actuelle conservée) */
+          <div className="px-5 pb-5">
+            {/* PDF Options */}
+            <div className="py-4 space-y-2 text-xs">
+              <div className="flex items-center justify-between p-2.5 rounded-lg bg-[#141416] border border-[#242428]">
+                <span className="font-semibold text-white">Contenu des partitions</span>
+                <div className="flex items-center bg-[#1C1C1E] p-0.5 rounded-md border border-[#333]">
+                  <button type="button" onClick={() => setOptions(prev => ({ ...prev, showChords: true }))} className={`px-2.5 py-1 rounded text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer ${options.showChords ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>
+                    <Music className="w-3 h-3" /><span>Accords</span>
+                  </button>
+                  <button type="button" onClick={() => setOptions(prev => ({ ...prev, showChords: false }))} className={`px-2.5 py-1 rounded text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer ${!options.showChords ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>
+                    <FileText className="w-3 h-3" /><span>Paroles</span>
+                  </button>
+                </div>
+              </div>
+
+              {options.showChords && (
+                <div className="flex items-center justify-between p-2.5 rounded-lg bg-[#141416] border border-[#242428]">
+                  <span className="font-semibold text-white">Systeme de notation</span>
+                  <div className="flex items-center bg-[#1C1C1E] p-0.5 rounded-md border border-[#333]">
+                    <button type="button" onClick={() => setOptions(prev => ({ ...prev, notation: 'standard' }))} className={`px-2.5 py-1 rounded text-xs font-semibold transition-all cursor-pointer ${options.notation === 'standard' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>ABC</button>
+                    <button type="button" onClick={() => setOptions(prev => ({ ...prev, notation: 'latin' }))} className={`px-2.5 py-1 rounded text-xs font-semibold transition-all cursor-pointer ${options.notation === 'latin' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>Do Re Mi</button>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between p-2.5 rounded-lg bg-[#141416] border border-[#242428]">
+                <span className="font-semibold text-white">Theme de rendu</span>
+                <div className="flex items-center bg-[#1C1C1E] p-0.5 rounded-md border border-[#333]">
+                  <button type="button" onClick={() => setOptions(prev => ({ ...prev, theme: 'light' }))} className={`px-2.5 py-1 rounded text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer ${options.theme === 'light' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>
+                    <Sun className="w-3 h-3" /><span>Clair / Print</span>
+                  </button>
+                  <button type="button" onClick={() => setOptions(prev => ({ ...prev, theme: 'dark' }))} className={`px-2.5 py-1 rounded text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer ${options.theme === 'dark' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>
+                    <Moon className="w-3 h-3" /><span>Sombre</span>
+                  </button>
+                </div>
+              </div>
+
+              {(onExportChordPro || onExportJson) && (
+                <div className="pt-1">
+                  <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500 px-0.5 mb-1.5">Autres formats</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {onExportChordPro && (
+                      <button type="button" onClick={() => { onExportChordPro(); onClose(); }} className="p-2.5 rounded-lg bg-[#141416] hover:bg-[#1A1A20] border border-[#242428] hover:border-blue-500/40 transition-all text-left flex items-start gap-2 cursor-pointer group">
+                        <div className="p-1.5 rounded-md bg-blue-500/10 text-blue-400 group-hover:bg-blue-500 group-hover:text-white transition-all shrink-0"><FileCode className="w-3.5 h-3.5" /></div>
+                        <div><div className="text-[11px] font-semibold text-white">ChordPro</div><div className="text-[10px] text-gray-400 mt-0.5 leading-tight">Texte brut .txt</div></div>
+                      </button>
+                    )}
+                    {onExportJson && (
+                      <button type="button" onClick={() => { onExportJson(); onClose(); }} className="p-2.5 rounded-lg bg-[#141416] hover:bg-[#1A1A20] border border-[#242428] hover:border-amber-500/40 transition-all text-left flex items-start gap-2 cursor-pointer group">
+                        <div className="p-1.5 rounded-md bg-amber-500/10 text-amber-400 group-hover:bg-amber-500 group-hover:text-white transition-all shrink-0"><Download className="w-3.5 h-3.5" /></div>
+                        <div><div className="text-[11px] font-semibold text-white">JSON</div><div className="text-[10px] text-gray-400 mt-0.5 leading-tight">Sauvegarde complete</div></div>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {statusMessage && (
+              <div className="mb-4 p-2.5 rounded-lg bg-blue-950/40 border border-blue-500/40 text-blue-300 text-xs flex items-center gap-2">
+                <Sparkles className="w-3.5 h-3.5 shrink-0 text-blue-400" />
+                <span>{statusMessage}</span>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="pt-3 border-t border-[#222224] space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={handleDownload} disabled={isGenerating || isSharing || songCount === 0} className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer">
+                  {isGenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileDown className="w-3.5 h-3.5" />}
+                  <span>Telecharger PDF</span>
+                </button>
+                <button type="button" onClick={handleExportChordPro} disabled={isGenerating || isSharing || songCount === 0} className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-lg bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-200 hover:text-white border border-[#333] font-semibold text-xs transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer">
+                  <FileCode className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Exporter ChordPro</span>
+                </button>
+              </div>
+
+              <div>
+                <button
+                  type="button"
+                  onClick={handleShareMessaging}
+                  disabled={isGenerating || isSharing || songCount === 0}
+                  className="w-full flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-lg bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-300 hover:text-emerald-200 border border-emerald-500/35 font-semibold text-xs transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer"
+                  title="Partager le PDF ou le texte via vos applications de messagerie"
+                >
+                  {isSharing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Share2 className="w-3.5 h-3.5" />}
+                  <span>Messagerie / Apps</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

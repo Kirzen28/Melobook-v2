@@ -263,7 +263,7 @@ export const Navbar: React.FC = () => {
             {isGuest && (
               <div className="flex items-center gap-1.5">
                 <span className="hidden lg:inline-flex items-center gap-1 px-2 py-1 rounded-md bg-cyan-950/50 border border-cyan-500/30 text-cyan-300 text-[10px] font-semibold">
-                  Mode Invité · Lecture seule
+                  Visiteur · Lecture seule
                 </span>
                 <button
                   type="button"
@@ -368,11 +368,11 @@ export const Navbar: React.FC = () => {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1 min-w-0">
                           <p className="font-semibold text-white truncate text-xs leading-tight">
-                            {currentUser ? currentUser.displayName : isGuest ? 'Invité (Lecture seule)' : 'Non connecté'}
+                            {currentUser ? currentUser.displayName : isGuest ? 'Visiteur (Lecture seule)' : 'Non connecté'}
                           </p>
                         </div>
                         <p className="text-[10px] text-gray-400 truncate leading-tight">
-                          {currentUser ? (currentUser.email || (currentUser.role === 'admin' ? 'Administrateur 👑' : currentUser.role === 'leader' ? 'Responsable ⚡' : currentUser.role === 'editor' ? 'Éditeur ✍️' : currentUser.role === 'viewer' ? 'Régie 🖥️' : 'Membre 🎵')) : isGuest ? (currentGroup?.name || 'Consultation seule') : 'Mode invité — lecture seule'}
+                          {currentUser ? (currentUser.email || (currentUser.role === 'admin' ? 'Administrateur 👑' : currentUser.role === 'leader' ? 'Responsable ⚡' : currentUser.role === 'editor' ? 'Éditeur ✍️' : currentUser.role === 'viewer' ? 'Régie 🖥️' : 'Membre 🎵')) : isGuest ? (currentGroup?.name || 'Consultation seule') : 'Mode visiteur — lecture seule'}
                         </p>
                       </div>
                     </div>

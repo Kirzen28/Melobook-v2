@@ -124,7 +124,7 @@ export interface CountdownState {
 }
 
 export type MediaType = 'video' | 'image' | 'audio';
-export type MediaSourceType = 'youtube' | 'pixabay' | 'unsplash' | 'url' | 'local';
+export type MediaSourceType = 'youtube' | 'url' | 'local';
 
 export interface MediaPresentationState {
   isActive: boolean;

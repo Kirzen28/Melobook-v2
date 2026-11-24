@@ -108,7 +108,6 @@ export const PresentationManager: React.FC = () => {
   const {
     songs,
     setlists,
-    selectedSetlist,
     showNotification,
     linkSongs,
     createSong,
@@ -464,20 +463,33 @@ export const PresentationManager: React.FC = () => {
   const [songModalSearch, setSongModalSearch] = useState<string>('');
 
   // Sélecteur de setlist
-  const [selectedSetlistId, setSelectedSetlistId] = useState<string>(selectedSetlist?.id || '');
   const [isSetlistDropdownOpen, setIsSetlistDropdownOpen] = useState<boolean>(false);
   const setlistDropdownRef = useRef<HTMLDivElement>(null);
 
+  const queuedSetlistIds = useMemo(() => {
+    const ids = new Set<string>();
+    queueItems.forEach(item => {
+      if (item.setlistId) ids.add(item.setlistId);
+    });
+    return ids;
+  }, [queueItems]);
+
   useEffect(() => {
+    if (!isSetlistDropdownOpen) return;
     const handleClickOutside = (e: MouseEvent) => {
       if (setlistDropdownRef.current && !setlistDropdownRef.current.contains(e.target as Node)) {
         setIsSetlistDropdownOpen(false);
       }
     };
-    if (isSetlistDropdownOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsSetlistDropdownOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
   }, [isSetlistDropdownOpen]);
 
   // État pliable de la file de projection
@@ -1518,7 +1530,6 @@ export const PresentationManager: React.FC = () => {
       setActiveSongIndex(0);
       setActiveSlideIndex(0);
     }
-    setSelectedSetlistId('');
   };
 
   // Retirer une setlist entière de la file
@@ -1893,106 +1904,120 @@ export const PresentationManager: React.FC = () => {
               {/* Actions Pupitre à droite */}
               {activePupitreTab === 'songs' && (
                 <div className="flex items-center gap-2 flex-wrap">
-                  {/* Sélecteur et chargement de setlist déplacé dans le Pupitre */}
+                  {/* Sélecteur d'ajout rapide de setlist en 1 clic */}
                   <div className="flex items-center gap-1.5" ref={setlistDropdownRef}>
-                    {(() => {
-                      const selectedSetlistObject = setlists.find(st => st.id === selectedSetlistId);
-                      return (
-                        <div className="relative">
-                          <button
-                            type="button"
-                            onClick={() => setIsSetlistDropdownOpen(prev => !prev)}
-                            className={`flex items-center justify-between gap-2 bg-[#16161D] hover:bg-[#1C1C24] border rounded-xl pl-3 pr-2.5 py-1.5 text-xs font-medium transition-all duration-150 cursor-pointer shadow-inner min-w-[170px] sm:min-w-[210px] ${
-                              isSetlistDropdownOpen
-                                ? 'border-blue-500 ring-2 ring-blue-500/25 text-white'
-                                : selectedSetlistObject
-                                ? 'border-[#333342] text-white'
-                                : 'border-[#2D2D3A] text-gray-400 hover:text-gray-300'
-                            }`}
-                          >
-                            <span className="truncate flex items-center gap-1.5">
-                              <ListMusic className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                              <span className="truncate">
-                                {selectedSetlistObject ? selectedSetlistObject.name : '-- Choisir une setlist --'}
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setIsSetlistDropdownOpen(prev => !prev)}
+                        aria-expanded={isSetlistDropdownOpen}
+                        aria-haspopup="menu"
+                        className={`px-3 py-1.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all flex items-center gap-2 shrink-0 active:scale-95 shadow-xs ${
+                          isSetlistDropdownOpen
+                            ? 'bg-blue-600/25 border-blue-400 ring-2 ring-blue-500/25 text-white'
+                            : 'bg-blue-600/15 hover:bg-blue-600/25 border-blue-500/40 hover:border-blue-500/60 text-blue-200 hover:text-white'
+                        }`}
+                        title="Ajouter les chants d'une setlist à la file de projection"
+                      >
+                        <ListMusic className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                        <span>Ajouter une setlist</span>
+                        <ChevronDown className={`w-3.5 h-3.5 text-blue-300/80 transition-transform shrink-0 ${isSetlistDropdownOpen ? 'rotate-180 text-blue-300' : ''}`} />
+                      </button>
+
+                      {isSetlistDropdownOpen && (
+                        <div
+                          role="menu"
+                          className="absolute left-0 top-full mt-1.5 bg-[#131319] border border-[#2B2B38] rounded-xl shadow-2xl p-1.5 z-50 w-72 sm:w-80 max-w-[calc(100vw-2.5rem)] animate-in fade-in zoom-in-95 duration-100 flex flex-col gap-1"
+                        >
+                          <div className="flex items-center justify-between px-2.5 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                            <span>Ajouter à la file</span>
+                            {setlists.length > 0 && (
+                              <span className="text-gray-500 font-normal normal-case">
+                                1 clic pour ajouter
                               </span>
-                            </span>
-                            <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform shrink-0 ml-1 ${isSetlistDropdownOpen ? 'rotate-180 text-blue-400' : ''}`} />
-                          </button>
+                            )}
+                          </div>
 
-                          {isSetlistDropdownOpen && (
-                            <div className="absolute left-0 top-full mt-1.5 bg-[#14141A] border border-[#2B2B38] rounded-xl shadow-2xl p-2 z-50 w-72 sm:w-80 max-w-[calc(100vw-2.5rem)] max-h-80 overflow-y-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-100 flex flex-col gap-1">
-                              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-2 py-0.5">
-                                Choisir une setlist
+                          <div className="space-y-1 max-h-60 overflow-y-auto custom-scrollbar pr-0.5">
+                            {setlists.length === 0 ? (
+                              <div className="px-3 py-5 text-center text-xs text-gray-500">
+                                Aucune setlist disponible
                               </div>
+                            ) : (
+                              setlists.map((st) => {
+                                const validCount = (st.songIds || []).filter(id => songsById.has(id)).length;
+                                const isEmpty = validCount === 0;
+                                const isQueued = queuedSetlistIds.has(st.id);
 
-                              <div className="space-y-1 max-h-48 overflow-y-auto custom-scrollbar pr-0.5">
-                                {setlists.length === 0 ? (
-                                  <div className="px-3 py-4 text-center text-xs text-gray-500">
-                                    Aucune setlist disponible
-                                  </div>
-                                ) : (
-                                  setlists.map((st) => {
-                                    const isSelected = selectedSetlistId === st.id;
-                                    return (
-                                      <div
-                                        key={st.id}
-                                        onClick={() => setSelectedSetlistId(st.id)}
-                                        className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors flex items-center justify-between gap-2 cursor-pointer group border ${
-                                          isSelected
-                                            ? 'bg-blue-600/20 text-blue-200 border-blue-500/40'
-                                            : 'text-gray-200 hover:bg-[#1E1E28] hover:text-white border-transparent'
-                                        }`}
-                                      >
-                                        <div className="flex items-center gap-2 min-w-0 pr-1 flex-1">
-                                          <ListMusic className={`w-3.5 h-3.5 shrink-0 ${isSelected ? 'text-blue-300' : 'text-blue-400'}`} />
-                                          <span className="truncate font-medium">{st.name}</span>
-                                          <span className="text-[10px] text-gray-500 font-mono shrink-0">
-                                            ({(st.songIds || []).filter(id => songsById.has(id)).length})
-                                          </span>
-                                        </div>
-                                        <button
-                                          type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setSelectedSetlistId(st.id);
-                                            handleAddSetlist(st.id);
-                                            setIsSetlistDropdownOpen(false);
-                                          }}
-                                          className="px-2 py-1 rounded-md bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-[11px] font-bold transition-all shrink-0 flex items-center gap-1 shadow-xs cursor-pointer"
-                                          title={`Ajouter les chants de « ${st.name} » à la file`}
-                                        >
-                                          <Plus className="w-3 h-3" />
-                                          <span>Ajouter</span>
-                                        </button>
-                                      </div>
-                                    );
-                                  })
-                                )}
-                              </div>
-
-                              {/* Bouton Ajouter intégré directement dans la dropdown */}
-                              <div className="pt-2 border-t border-[#22222E] mt-1">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (selectedSetlistId) {
-                                      handleAddSetlist(selectedSetlistId);
+                                return (
+                                  <button
+                                    key={st.id}
+                                    type="button"
+                                    role="menuitem"
+                                    disabled={isEmpty}
+                                    onClick={() => {
+                                      handleAddSetlist(st.id);
                                       setIsSetlistDropdownOpen(false);
-                                    }
-                                  }}
-                                  disabled={!selectedSetlistId}
-                                  className="w-full py-2 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-xs font-bold disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-all shadow-md shadow-blue-900/25 flex items-center justify-center gap-1.5"
-                                  title="Ajouter tous les chants de cette setlist à la file de projection"
-                                >
-                                  <Plus className="w-3.5 h-3.5" />
-                                  <span>Ajouter la setlist à la file</span>
-                                </button>
-                              </div>
-                            </div>
-                          )}
+                                    }}
+                                    className={`w-full text-left px-2.5 py-2 rounded-lg text-xs transition-colors flex items-center justify-between gap-2.5 group border ${
+                                      isEmpty
+                                        ? 'opacity-45 cursor-not-allowed border-transparent text-gray-500'
+                                        : isQueued
+                                        ? 'bg-emerald-500/5 hover:bg-blue-600/15 border-emerald-500/20 hover:border-blue-500/40 text-gray-100 cursor-pointer'
+                                        : 'border-transparent hover:bg-blue-600/15 hover:border-blue-500/35 text-gray-200 hover:text-white cursor-pointer'
+                                    }`}
+                                    title={isEmpty ? 'Setlist vide' : `Ajouter les ${validCount} chant${validCount > 1 ? 's' : ''} de « ${st.name} » à la file`}
+                                  >
+                                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border transition-colors ${
+                                        isEmpty
+                                          ? 'bg-[#1A1A22] border-[#262632] text-gray-500'
+                                          : isQueued
+                                          ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-400 group-hover:bg-blue-500/15 group-hover:border-blue-500/30 group-hover:text-blue-300'
+                                          : 'bg-[#1A1A24] border-[#282836] text-blue-400 group-hover:bg-blue-500/20 group-hover:border-blue-500/40 group-hover:text-blue-300'
+                                      }`}>
+                                        <ListMusic className="w-3.5 h-3.5" />
+                                      </div>
+                                      <div className="min-w-0 flex-1">
+                                        <div className="font-semibold truncate leading-tight">
+                                          {st.name}
+                                        </div>
+                                        <div className="text-[10px] text-gray-400 mt-0.5 flex items-center gap-1.5">
+                                          <span>
+                                            {validCount} chant{validCount > 1 ? 's' : ''}
+                                          </span>
+                                          {st.date && (
+                                            <>
+                                              <span className="text-gray-600">•</span>
+                                              <span>{st.date.split('-').reverse().join('/')}</span>
+                                            </>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    <div className="shrink-0 flex items-center">
+                                      {isEmpty ? (
+                                        <span className="text-[10px] text-gray-500 px-1.5">Vide</span>
+                                      ) : isQueued ? (
+                                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-400 group-hover:text-blue-300 px-1.5 py-0.5 rounded-md bg-emerald-500/10 group-hover:bg-blue-500/15 transition-colors">
+                                          <Check className="w-3 h-3 group-hover:hidden" />
+                                          <Plus className="w-3 h-3 hidden group-hover:block" />
+                                          <span className="group-hover:hidden">Ajoutée</span>
+                                          <span className="hidden group-hover:inline">Réajouter</span>
+                                        </span>
+                                      ) : (
+                                        <Plus className="w-4 h-4 text-gray-500 group-hover:text-blue-400 group-hover:scale-110 transition-all" />
+                                      )}
+                                    </div>
+                                  </button>
+                                );
+                              })
+                            )}
+                          </div>
                         </div>
-                      );
-                    })()}
+                      )}
+                    </div>
 
                     <button
                       type="button"

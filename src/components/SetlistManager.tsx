@@ -52,7 +52,9 @@ export const SetlistManager: React.FC = () => {
     isLiveSetlistOpen,
     setIsLiveSetlistOpen,
     showNotification,
-    canManageSetlists
+    canManageSetlists,
+    deepLinkSetlistId,
+    clearDeepLinkSetlistId
   } = useApp();
 
   const [expandedSetlistId, setExpandedSetlistId] = useState<string | null>(null);
@@ -112,6 +114,13 @@ export const SetlistManager: React.FC = () => {
     setNewSetName('');
     setIsCreateModalOpen(true);
   };
+
+  useEffect(() => {
+    if (!deepLinkSetlistId) return;
+    setViewMode('list');
+    setExpandedSetlistId(deepLinkSetlistId);
+    clearDeepLinkSetlistId();
+  }, [deepLinkSetlistId, clearDeepLinkSetlistId]);
 
   // Close mobile actions menu on click outside
   useEffect(() => {
@@ -682,11 +691,11 @@ export const SetlistManager: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setPdfModalSetlist(st)}
-                        className="p-2 rounded-lg bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-400 hover:text-emerald-400 border border-[#333] hover:border-emerald-500/40 text-xs font-medium shadow-sm transition-all active:scale-95 flex items-center justify-center"
-                        title="Exporter en PDF / Partager"
-                        aria-label="Exporter en PDF"
+                        className="p-2 rounded-lg bg-[#1C1C1E] hover:bg-blue-500/15 text-gray-300 hover:text-blue-300 border border-[#333] hover:border-blue-500/40 text-xs font-medium shadow-sm transition-all active:scale-95 flex items-center justify-center cursor-pointer"
+                        title="Partager (QR code, lien ou PDF)"
+                        aria-label="Partager"
                       >
-                        <FileDown className="w-3.5 h-3.5 text-emerald-400" />
+                        <Share2 className="w-3.5 h-3.5 text-blue-400" />
                       </button>
 
                       {canManageSetlists && (
@@ -784,8 +793,8 @@ export const SetlistManager: React.FC = () => {
                             }}
                             className="w-full px-3 py-2 text-left text-xs font-medium text-gray-300 hover:text-white hover:bg-[#222228] flex items-center gap-2.5 transition-colors"
                           >
-                            <FileDown className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                            <span>Exporter en PDF</span>
+                            <Share2 className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                            <span>Partager</span>
                           </button>
 
                           {canManageSetlists && (

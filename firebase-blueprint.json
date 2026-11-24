@@ -30,30 +30,14 @@
         "memberRoles": { "type": "object" },
         "inviteCode": { "type": "string", "maxLength": 32 },
         "guestEnabled": { "type": "boolean" },
-        "guestCode": { "type": "string", "maxLength": 32 },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "name", "ownerId", "members", "inviteCode"]
     },
-    "GuestInvite": {
-      "title": "GuestInvite",
-      "description": "Direct lookup index mapping a library guest access code to a read-only library",
-      "type": "object",
-      "properties": {
-        "guestCode": { "type": "string", "maxLength": 32 },
-        "groupId": { "type": "string", "maxLength": 128 },
-        "name": { "type": "string", "maxLength": 120 },
-        "ownerId": { "type": "string", "maxLength": 128 },
-        "guestEnabled": { "type": "boolean" },
-        "createdAt": { "type": "string", "format": "date-time" },
-        "updatedAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["guestCode", "groupId", "name", "ownerId", "guestEnabled"]
-    },
     "LibraryInvite": {
       "title": "LibraryInvite",
-      "description": "Direct lookup index mapping a library identifier/code to its library ID",
+      "description": "Direct lookup index mapping a single library code to its library ID for member joining and read-only visitor access",
       "type": "object",
       "properties": {
         "inviteCode": { "type": "string", "maxLength": 32 },
@@ -177,11 +161,7 @@
     },
     "/library_invites/{inviteCode}": {
       "schema": "LibraryInvite",
-      "description": "Invite identifier lookup for joining a library"
-    },
-    "/guest_invites/{guestCode}": {
-      "schema": "GuestInvite",
-      "description": "Read-only guest code lookup for libraries with guest mode enabled"
+      "description": "Single library code lookup for joining as member or read-only visitor access"
     },
     "/groups/{groupId}": {
       "schema": "Group",

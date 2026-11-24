@@ -88,7 +88,8 @@ import {
   Search,
   ExternalLink,
   Pencil,
-  Disc
+  Disc,
+  Share2
 } from 'lucide-react';
 import { 
   buildPresentationSlides, 
@@ -2147,15 +2148,15 @@ export const SongReader: React.FC<SongReaderProps> = ({
                     setShowSettingsDrawer(false);
                     setShowPdfModal(true);
                   }}
-                  className="flex items-center gap-2 p-2 sm:p-2.5 rounded-xl bg-gradient-to-br from-emerald-500/20 via-teal-600/10 to-[#18181F] hover:from-emerald-500/30 hover:via-teal-600/20 border border-emerald-500/40 hover:border-emerald-400 text-left transition-all cursor-pointer group shadow-md shadow-emerald-950/30 active:scale-98"
-                  title="Exporter le chant (PDF ou ChordPro)"
+                  className="flex items-center gap-2 p-2 sm:p-2.5 rounded-xl bg-gradient-to-br from-blue-500/20 via-indigo-600/10 to-[#18181F] hover:from-blue-500/30 hover:via-indigo-600/20 border border-blue-500/40 hover:border-blue-400 text-left transition-all cursor-pointer group shadow-md shadow-blue-950/30 active:scale-98"
+                  title="Partager (QR code, lien, PDF ou ChordPro)"
                 >
-                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0 group-hover:scale-110 transition-transform shadow-xs">
-                    <FileDown className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0 group-hover:scale-110 transition-transform shadow-xs">
+                    <Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="font-bold text-[11px] sm:text-xs text-white group-hover:text-emerald-200 transition-colors leading-tight">
-                      Exporter
+                    <div className="font-bold text-[11px] sm:text-xs text-white group-hover:text-blue-200 transition-colors leading-tight">
+                      Partager
                     </div>
                   </div>
                 </button>

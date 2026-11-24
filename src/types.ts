@@ -25,7 +25,6 @@ export interface Group {
   memberRoles?: Record<string, UserRole>;
   inviteCode: string;
   guestEnabled?: boolean;
-  guestCode?: string;
   description?: string;
   createdAt?: any;
 }

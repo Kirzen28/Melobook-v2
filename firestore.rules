@@ -99,7 +99,7 @@ service cloud.firestore {
         && (!('memberRoles' in data) || data.memberRoles is map)
         && data.inviteCode is string && data.inviteCode.size() >= 3 && data.inviteCode.size() <= 32
         && (!('guestEnabled' in data) || data.guestEnabled is bool)
-        && (!('guestCode' in data) || data.guestCode == null || (data.guestCode is string && data.guestCode.size() >= 4 && data.guestCode.size() <= 32));
+        && (!('guestCode' in data) || data.guestCode == null || (data.guestCode is string && data.guestCode.size() <= 32));
     }
 
     function isValidLibraryInvite(data) {
@@ -109,16 +109,6 @@ service cloud.firestore {
         && data.groupId is string && data.groupId.size() >= 1 && data.groupId.size() <= 128
         && data.name is string && data.name.size() >= 1 && data.name.size() <= 120
         && data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128;
-    }
-
-    function isValidGuestInvite(data) {
-      return data.keys().hasAll(['guestCode', 'groupId', 'name', 'ownerId', 'guestEnabled'])
-        && data.keys().hasOnly(['guestCode', 'groupId', 'name', 'ownerId', 'guestEnabled', 'createdAt', 'updatedAt'])
-        && data.guestCode is string && data.guestCode.size() >= 4 && data.guestCode.size() <= 32
-        && data.groupId is string && data.groupId.size() >= 1 && data.groupId.size() <= 128
-        && data.name is string && data.name.size() >= 1 && data.name.size() <= 120
-        && data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128
-        && data.guestEnabled is bool;
     }
 
     function isValidLibraryMember(data) {
@@ -223,9 +213,16 @@ service cloud.firestore {
       allow delete: if isValidId(userId) && (isOwner(userId) || isBootstrappedAdmin());
     }
 
-    // Direct lookup table for joining a library by inviteCode (get only, no list)
+    // Direct lookup table for joining a library or read-only visitor access by single inviteCode (get only, no list)
     match /library_invites/{inviteCode} {
-      allow get: if isSignedIn() && isValidId(inviteCode);
+      allow get: if isValidId(inviteCode) && (
+        isSignedIn() ||
+        (
+          resource != null &&
+          exists(groupPath(existing().groupId)) &&
+          groupData(existing().groupId).guestEnabled == true
+        )
+      );
       allow list: if false;
       allow create: if isSignedIn()
         && isValidId(inviteCode)
@@ -240,26 +237,9 @@ service cloud.firestore {
       allow delete: if isSignedIn() && isValidId(inviteCode) && existing().ownerId == request.auth.uid;
     }
 
-    // Direct lookup table for read-only guest access by guestCode (get only, no list)
-    match /guest_invites/{guestCode} {
-      allow get: if isValidId(guestCode);
-      allow list: if false;
-      allow create: if isSignedIn()
-        && isValidId(guestCode)
-        && isValidGuestInvite(incoming())
-        && incoming().ownerId == request.auth.uid;
-      allow update: if isSignedIn()
-        && isValidId(guestCode)
-        && existing().ownerId == request.auth.uid
-        && isValidGuestInvite(incoming())
-        && incoming().ownerId == existing().ownerId
-        && incoming().groupId == existing().groupId;
-      allow delete: if isSignedIn() && isValidId(guestCode) && existing().ownerId == request.auth.uid;
-    }
-
     // Libraries (groups) & per-library isolated subcollection databases
     match /groups/{groupId} {
-      allow get: if isValidId(groupId) && (isSignedIn() || existing().guestEnabled == true);
+      allow get: if isValidId(groupId) && (isSignedIn() || (resource != null && existing().guestEnabled == true));
       allow list: if isSignedIn() && (
         resource.data.ownerId == request.auth.uid ||
         request.auth.uid in resource.data.members
@@ -276,12 +256,12 @@ service cloud.firestore {
         && incoming().id == existing().id
         && incoming().ownerId == existing().ownerId
         && (
-          // Action 1: Library owner manages all library settings including guest mode & roles
+          // Action 1: Library owner manages all library settings including visitor mode & roles
           (
             existing().ownerId == request.auth.uid
-            && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'description', 'inviteCode', 'guestEnabled', 'guestCode', 'members', 'memberRoles', 'updatedAt'])
+            && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'description', 'inviteCode', 'guestEnabled', 'members', 'memberRoles', 'updatedAt'])
           ) ||
-          // Action 2: Library admin (non-owner) manages library metadata, members, or roles (cannot change guest mode)
+          // Action 2: Library admin (non-owner) manages library metadata, members, or roles (cannot change visitor mode)
           (
             (existing().memberRoles is map && existing().memberRoles.get(request.auth.uid, 'member') == 'admin')
             && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'description', 'inviteCode', 'members', 'memberRoles', 'updatedAt'])
@@ -322,7 +302,7 @@ service cloud.firestore {
           && (isLibraryAdmin(groupId) || memberId == request.auth.uid);
       }
 
-      // Per-library songs database (read-only guest access allowed only if owner enabled guestEnabled)
+      // Per-library songs database (read-only visitor access allowed only if owner enabled guestEnabled)
       match /songs/{songId} {
         allow read: if isLibraryMember(groupId) || isGuestReadableLibrary(groupId);
         allow create: if canEditLibrarySongs(groupId)
@@ -335,7 +315,7 @@ service cloud.firestore {
         allow delete: if canEditLibrarySongs(groupId) && isValidId(songId);
       }
 
-      // Per-library setlists database
+      // Per-library setlists database (read-only visitor access allowed only if owner enabled guestEnabled)
       match /setlists/{setlistId} {
         allow read: if isLibraryMember(groupId) || isGuestReadableLibrary(groupId);
         allow create: if canEditLibrarySetlists(groupId)

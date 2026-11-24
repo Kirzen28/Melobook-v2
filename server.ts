@@ -419,9 +419,16 @@ ${JSON.stringify(sanitizedBlocks)}`;
     }
   });
 
-  // Désactiver la mise en cache HTTP agressive des navigateurs (Chrome / Brave) sur les pages et modules
+  // Désactiver la mise en cache HTTP agressive des navigateurs (Chrome / Brave) sur les pages, le SW et le manifeste de version
   app.use((req, res, next) => {
-    if (req.path === '/' || req.path.endsWith('.html') || req.path.startsWith('/@') || req.path.startsWith('/src/')) {
+    if (
+      req.path === '/' ||
+      req.path === '/sw.js' ||
+      req.path === '/version.json' ||
+      req.path.endsWith('.html') ||
+      req.path.startsWith('/@') ||
+      req.path.startsWith('/src/')
+    ) {
       res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
@@ -438,8 +445,20 @@ ${JSON.stringify(sanitizedBlocks)}`;
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
+    const noStoreFiles = new Set(['index.html', 'sw.js', 'version.json', 'manifest.json']);
+    app.use(express.static(distPath, {
+      setHeaders: (res, filePath) => {
+        if (noStoreFiles.has(path.basename(filePath))) {
+          res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+          res.setHeader('Pragma', 'no-cache');
+          res.setHeader('Expires', '0');
+        }
+      }
+    }));
     app.get('*', (_req, res) => {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }

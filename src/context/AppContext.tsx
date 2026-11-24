@@ -51,6 +51,8 @@ import { getSongDuration } from '../utils/chordUtils';
 import { detectSongLanguage } from '../utils/languageUtils';
 import { 
   registerServiceWorker, 
+  checkForAppUpdate,
+  refreshAppCachePreservingOfflineData,
   cacheSongInWorker, 
   cacheSetlistInWorker, 
   cacheAllDataInWorker,
@@ -194,6 +196,11 @@ interface AppContextType {
   setIsTunerOpen: (open: boolean | ((prev: boolean) => boolean)) => void;
   isInstallable: boolean;
   promptInstall: () => void;
+  isUpdateAvailable: boolean;
+  isUpdateDismissed: boolean;
+  isApplyingUpdate: boolean;
+  applyAppUpdate: () => Promise<void>;
+  dismissUpdateBanner: () => void;
   
   // Offline & IndexedDB Storage
   offlineStats: {
@@ -337,6 +344,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [isGuest, activeTab]);
 
   const [editorSubTab, setEditorSubTab] = useState<'data' | 'chords'>('chords');
+  const [isUpdateAvailable, setIsUpdateAvailable] = useState(false);
+  const [isUpdateDismissed, setIsUpdateDismissed] = useState(false);
+  const [isApplyingUpdate, setIsApplyingUpdate] = useState(false);
+  const applyAppUpdate = useCallback(async () => {
+    setIsApplyingUpdate(true);
+    await refreshAppCachePreservingOfflineData();
+  }, []);
+  const dismissUpdateBanner = useCallback(() => {
+    setIsUpdateDismissed(true);
+  }, []);
   const [selectedSong, setSelectedSong] = useState<Song | null>(null);
   const [selectedSetlist, setSelectedSetlist] = useState<Setlist | null>(null);
   const [deepLinkSetlistId, setDeepLinkSetlistId] = useState<string | null>(null);
@@ -954,20 +971,44 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     window.addEventListener('beforeinstallprompt', handleBeforeInstall);
 
     // Register Service Worker pour acces complet hors-ligne avec détection de mise à jour
-    registerServiceWorker(
+    const cleanupSw = registerServiceWorker(
       () => {
         refreshOfflineStats();
       },
       () => {
+        setIsUpdateAvailable(true);
         refreshOfflineStats();
       }
     );
+
+    const verifyBuildUpdate = () => {
+      checkForAppUpdate().then((hasUpdate) => {
+        if (hasUpdate) {
+          setIsUpdateAvailable(true);
+        }
+      });
+    };
+
+    verifyBuildUpdate();
+    const handleVisibilityCheck = () => {
+      if (!document.hidden) {
+        verifyBuildUpdate();
+      }
+    };
+    window.addEventListener('focus', verifyBuildUpdate);
+    document.addEventListener('visibilitychange', handleVisibilityCheck);
+    const updatePollId = window.setInterval(verifyBuildUpdate, 180_000);
+
     refreshOfflineStats();
 
     return () => {
+      cleanupSw();
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+      window.removeEventListener('focus', verifyBuildUpdate);
+      document.removeEventListener('visibilitychange', handleVisibilityCheck);
+      window.clearInterval(updatePollId);
     };
   }, [refreshOfflineStats]);
 
@@ -3511,6 +3552,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setIsTunerOpen,
       isInstallable,
       promptInstall,
+      isUpdateAvailable,
+      isUpdateDismissed,
+      isApplyingUpdate,
+      applyAppUpdate,
+      dismissUpdateBanner,
       offlineStats,
       refreshOfflineStats,
       cacheAllSongsOffline,

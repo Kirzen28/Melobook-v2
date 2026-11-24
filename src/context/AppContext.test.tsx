@@ -161,6 +161,11 @@ interface AppContextType {
   refreshOfflineStats: () => Promise<void>;
   cacheAllSongsOffline: () => Promise<void>;
   clearOfflineStorage: () => Promise<void>;
+  isUpdateAvailable?: boolean;
+  isUpdateDismissed?: boolean;
+  isApplyingUpdate?: boolean;
+  applyAppUpdate?: () => Promise<void>;
+  dismissUpdateBanner?: () => void;
   
   // Snackbar Notifications
   notifications: AppNotification[];
@@ -2776,7 +2781,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       customPads,
       createCustomPad,
       deleteCustomPad,
-      uploadPadAudio
+      uploadPadAudio,
+      isUpdateAvailable: false,
+      isUpdateDismissed: false,
+      isApplyingUpdate: false,
+      applyAppUpdate: async () => {},
+      dismissUpdateBanner: () => {},
     }}>
       {children}
     </AppContext.Provider>

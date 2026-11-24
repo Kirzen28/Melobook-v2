@@ -13,12 +13,28 @@ import {
 } from './indexedDB';
 
 const DATA_CACHE_NAME = 'melobook-data-v5';
-export const APP_CACHE_VERSION = '20261008-02';
+export const APP_CACHE_VERSION = '20261124-01';
 const CACHE_VERSION_KEY = 'melobook_app_cache_version';
 
+function isOfflineDataCacheName(name: string): boolean {
+  return name === DATA_CACHE_NAME || name.startsWith('melobook-data-');
+}
+
+export function isDevEnvironmentHost(): boolean {
+  if (typeof window === 'undefined') return false;
+  const isDev = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV);
+  return (
+    isDev ||
+    window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1' ||
+    window.location.hostname.includes('ais-dev-') ||
+    window.location.port === '3000'
+  );
+}
+
 /**
- * Vérifie et force une purge sévère du cache en cas de nouvelle version de l'application.
- * Cela résout définitivement les contenus figés sur Chrome, Brave et Edge.
+ * Vérifie et force une purge sélective du cache applicatif en cas de nouvelle version,
+ * tout en préservant intégralement les chants et setlists hors-ligne.
  */
 export function runHardCacheCheck(): void {
   if (typeof window === 'undefined') return;
@@ -26,23 +42,19 @@ export function runHardCacheCheck(): void {
   try {
     const storedVersion = localStorage.getItem(CACHE_VERSION_KEY);
     if (storedVersion !== APP_CACHE_VERSION) {
-      // 1. Purger les anciens caches statiques et d'exécution dans CacheStorage
       if ('caches' in window) {
         caches.keys().then((names) => {
           names.forEach((name) => {
-            // Supprimer tous les caches précédents sauf les données v5
-            if (name !== DATA_CACHE_NAME && !name.includes('v5')) {
+            if (!isOfflineDataCacheName(name)) {
               caches.delete(name);
             }
           });
         });
       }
 
-      // 2. Envoyer un ordre de purge immédiate au Service Worker en place et forcer update
       if ('serviceWorker' in navigator) {
         if (navigator.serviceWorker.controller) {
-          navigator.serviceWorker.controller.postMessage({ type: 'PURGE_ALL_CACHES' });
-          navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });
+          navigator.serviceWorker.controller.postMessage({ type: 'PURGE_APP_CACHES' });
         }
         navigator.serviceWorker.getRegistrations().then((regs) => {
           regs.forEach((r) => r.update().catch(() => {}));
@@ -57,48 +69,109 @@ export function runHardCacheCheck(): void {
 }
 
 /**
- * Force une purge complète manuelle de tous les caches et désenregistre les Service Workers,
- * puis recharge la page.
+ * Vide uniquement les caches de l'application (HTML/JS/CSS et Service Worker),
+ * conserve tous les chants hors-ligne (IndexedDB + melobook-data-*), puis recharge la page.
  */
-export async function forceHardCacheRefresh(): Promise<void> {
+export async function refreshAppCachePreservingOfflineData(): Promise<void> {
   if (typeof window === 'undefined') return;
 
   try {
     if ('caches' in window) {
       const keys = await caches.keys();
-      await Promise.all(keys.map((k) => caches.delete(k)));
+      await Promise.all(
+        keys
+          .filter((key) => !isOfflineDataCacheName(key))
+          .map((key) => caches.delete(key))
+      );
     }
+
     if ('serviceWorker' in navigator) {
       const registrations = await navigator.serviceWorker.getRegistrations();
-      await Promise.all(registrations.map((r) => r.unregister()));
+      const waitingWorker = registrations.find((reg) => reg.waiting)?.waiting;
+
+      if (waitingWorker) {
+        await new Promise<void>((resolve) => {
+          const timeoutId = window.setTimeout(resolve, 450);
+          const onControllerChange = () => {
+            window.clearTimeout(timeoutId);
+            navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
+            resolve();
+          };
+          navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
+          waitingWorker.postMessage({ type: 'SKIP_WAITING' });
+        });
+      } else {
+        // Si la mise à jour vient du manifeste de build avant l'installation SW, désenregistrer pour repartir sur un SW neuf
+        await Promise.all(registrations.map((reg) => reg.unregister().catch(() => false)));
+      }
     }
-    localStorage.removeItem(CACHE_VERSION_KEY);
+
+    localStorage.setItem(CACHE_VERSION_KEY, APP_CACHE_VERSION);
   } catch (e) {
-    console.warn('Erreur lors du nettoyage forcé du cache:', e);
+    console.warn('Erreur lors du rafraîchissement du cache applicatif:', e);
   }
+
   window.location.reload();
 }
 
-export function registerServiceWorker(onSuccess?: () => void, onUpdate?: () => void): void {
-  if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
-    return;
+/**
+ * Compatibilité : alias conservé pour toute purge forcée complète.
+ */
+export async function forceHardCacheRefresh(): Promise<void> {
+  await refreshAppCachePreservingOfflineData();
+}
+
+/**
+ * Vérifie si une nouvelle version publiée est disponible (Service Worker en attente ou buildId serveur différent).
+ */
+export async function checkForAppUpdate(): Promise<boolean> {
+  if (typeof window === 'undefined') return false;
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return false;
+
+  try {
+    if ('serviceWorker' in navigator && !isDevEnvironmentHost()) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      for (const reg of registrations) {
+        if (reg.waiting) return true;
+        await reg.update().catch(() => {});
+        if (reg.waiting) return true;
+      }
+    }
+  } catch {
+    // Ignore SW errors and continue to build version check
   }
 
-  // Vérifier et forcer la purge du cache si la version a changé
+  try {
+    const currentBuildId = typeof __APP_BUILD_ID__ === 'string' ? __APP_BUILD_ID__ : '';
+    if (!currentBuildId) return false;
+
+    const res = await fetch(`/version.json?t=${Date.now()}`, {
+      cache: 'no-store',
+      headers: { 'Cache-Control': 'no-cache' },
+    });
+    if (!res.ok) return false;
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) return false;
+
+    const data = (await res.json()) as { buildId?: unknown };
+    if (typeof data?.buildId === 'string' && data.buildId.length > 0 && data.buildId !== currentBuildId) {
+      return true;
+    }
+  } catch {
+    // Offline or transient network error
+  }
+
+  return false;
+}
+
+export function registerServiceWorker(onSuccess?: () => void, onUpdate?: () => void): () => void {
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
+    return () => {};
+  }
+
   runHardCacheCheck();
 
-  // En environnement de développement (Vite dev server) ou preview dev, désactiver et purger le Service Worker
-  // pour éviter tout gel du cache des modules JS et toujours afficher la dernière version
-  const isDev = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV);
-  const isDevHost = typeof window !== 'undefined' && (
-    isDev ||
-    window.location.hostname === 'localhost' ||
-    window.location.hostname === '127.0.0.1' ||
-    window.location.hostname.includes('ais-dev-') ||
-    window.location.port === '3000'
-  );
-
-  if (isDevHost) {
+  if (isDevEnvironmentHost()) {
     navigator.serviceWorker.getRegistrations().then((registrations) => {
       for (const registration of registrations) {
         registration.unregister();
@@ -113,21 +186,30 @@ export function registerServiceWorker(onSuccess?: () => void, onUpdate?: () => v
         }
       });
     }
-    return;
+    return () => {};
   }
 
-  window.addEventListener('load', () => {
-    // updateViaCache: 'none' force Chrome à toujours vérifier le Service Worker sur le réseau
+  let activeRegistration: ServiceWorkerRegistration | null = null;
+  let updateTimerId: number | null = null;
+
+  const checkRegUpdate = () => {
+    if (activeRegistration) {
+      if (activeRegistration.waiting && onUpdate) {
+        onUpdate();
+      }
+      activeRegistration.update().catch(() => {});
+    }
+  };
+
+  const handleLoad = () => {
     navigator.serviceWorker
       .register(`/sw.js?v=${APP_CACHE_VERSION}`, { updateViaCache: 'none' })
       .then((registration) => {
-        // Déclencher une recherche de mise à jour immédiate
-        registration.update();
+        activeRegistration = registration;
+        registration.update().catch(() => {});
 
-        // Si un nouveau worker attend déjà, le forcer à s'activer sans attendre la fermeture des onglets
-        if (registration.waiting) {
-          registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-          if (onUpdate) onUpdate();
+        if (registration.waiting && onUpdate) {
+          onUpdate();
         }
 
         registration.addEventListener('updatefound', () => {
@@ -136,7 +218,6 @@ export function registerServiceWorker(onSuccess?: () => void, onUpdate?: () => v
             installingWorker.addEventListener('statechange', () => {
               if (installingWorker.state === 'installed') {
                 if (navigator.serviceWorker.controller) {
-                  installingWorker.postMessage({ type: 'SKIP_WAITING' });
                   if (onUpdate) onUpdate();
                 } else {
                   if (onSuccess) onSuccess();
@@ -149,16 +230,30 @@ export function registerServiceWorker(onSuccess?: () => void, onUpdate?: () => v
       .catch((err) => {
         console.warn('Enregistrement Service Worker note:', err);
       });
+  };
 
-    // Quand le nouveau Service Worker prend la main, rafraîchir en douceur une seule fois
-    let refreshing = false;
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (!refreshing) {
-        refreshing = true;
-        window.location.reload();
-      }
-    });
-  });
+  const handleVisibility = () => {
+    if (!document.hidden) {
+      checkRegUpdate();
+    }
+  };
+
+  if (document.readyState === 'complete') {
+    handleLoad();
+  } else {
+    window.addEventListener('load', handleLoad);
+  }
+
+  document.addEventListener('visibilitychange', handleVisibility);
+  updateTimerId = window.setInterval(checkRegUpdate, 180_000);
+
+  return () => {
+    window.removeEventListener('load', handleLoad);
+    document.removeEventListener('visibilitychange', handleVisibility);
+    if (updateTimerId !== null) {
+      window.clearInterval(updateTimerId);
+    }
+  };
 }
 
 async function writeJsonToCache(urlPath: string, data: any): Promise<boolean> {

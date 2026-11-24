@@ -21,6 +21,7 @@ import { PresentationManager } from './components/PresentationManager';
 import { LoginPage } from './components/LoginPage';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { MelobookLogo } from './components/MelobookLogo';
+import { UpdateBanner } from './components/UpdateBanner';
 
 const viewVariants = {
   initial: {
@@ -53,7 +54,10 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#0A0A0B] text-[#E0E0E0] flex flex-col font-sans selection:bg-blue-600/30 selection:text-blue-200">
-      <Navbar />
+      <div className="sticky top-0 z-40 no-print">
+        <UpdateBanner />
+        <Navbar />
+      </div>
 
       <main className="flex-1 relative overflow-x-hidden">
         <AnimatePresence mode="wait">
@@ -103,7 +107,14 @@ const AppRoot: React.FC = () => {
   }
 
   if (!isGuest && (!currentUser || needsLibraryOnboarding)) {
-    return <LoginPage />;
+    return (
+      <>
+        <div className="sticky top-0 z-40 no-print">
+          <UpdateBanner />
+        </div>
+        <LoginPage />
+      </>
+    );
   }
 
   return <AppContent />;

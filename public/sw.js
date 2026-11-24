@@ -1,6 +1,6 @@
-const CACHE_STATIC_NAME = 'melobook-static-v4';
-const CACHE_RUNTIME_NAME = 'melobook-runtime-v4';
-const CACHE_DATA_NAME = 'melobook-data-v4';
+const CACHE_STATIC_NAME = 'melobook-static-v5';
+const CACHE_RUNTIME_NAME = 'melobook-runtime-v5';
+const CACHE_DATA_NAME = 'melobook-data-v5';
 
 const STATIC_ASSETS = [
   '/',
@@ -9,12 +9,10 @@ const STATIC_ASSETS = [
   '/icon.svg'
 ];
 
-// Installation du Service Worker : activation immédiate sans attendre
+// Installation du Service Worker : pré-cache tolérant, puis attente de confirmation utilisateur si une version est déjà active
 self.addEventListener('install', (event) => {
-  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_STATIC_NAME).then(async (cache) => {
-      // Met en cache chaque ressource de manière tolérante aux pannes
       const promises = STATIC_ASSETS.map((asset) =>
         cache.add(asset).catch((err) => {
           console.warn('[SW] Pré-cache avertissement pour :', asset, err);
@@ -25,14 +23,14 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// Activation du Service Worker : nettoyage des anciens caches obsolètes et prise de contrôle immédiate
+// Activation du Service Worker : nettoyage des anciens caches applicatifs en préservant les données hors-ligne
 self.addEventListener('activate', (event) => {
-  const allowedCaches = [CACHE_STATIC_NAME, CACHE_RUNTIME_NAME, CACHE_DATA_NAME];
+  const allowedCaches = [CACHE_STATIC_NAME, CACHE_RUNTIME_NAME, CACHE_DATA_NAME, 'melobook-data-v4'];
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
         keys
-          .filter((key) => !allowedCaches.includes(key))
+          .filter((key) => !allowedCaches.includes(key) && !key.startsWith('melobook-data-'))
           .map((key) => {
             console.log('[SW] Suppression du cache obsolète :', key);
             return caches.delete(key);
@@ -142,6 +140,19 @@ self.addEventListener('message', (event) => {
     return;
   }
 
+  if (event.data.type === 'PURGE_APP_CACHES' || event.data.type === 'PURGE_ALL_CACHES') {
+    event.waitUntil(
+      caches.keys().then((keys) =>
+        Promise.all(
+          keys
+            .filter((key) => !key.startsWith('melobook-data-'))
+            .map((key) => caches.delete(key))
+        )
+      )
+    );
+    return;
+  }
+
   if (event.data.type === 'CACHE_SONG') {
     event.waitUntil(
       handleCacheSongMessage(event.data.song).then(() => {
@@ -191,8 +202,10 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(event.request.url);
 
-  // Ignorer complètement les modules en développement, Vite et HMR
+  // Ignorer complètement les modules en développement, Vite, HMR, sw.js et version.json
   if (
+    url.pathname === '/version.json' ||
+    url.pathname === '/sw.js' ||
     url.pathname.startsWith('/@') ||
     url.pathname.startsWith('/src/') ||
     url.pathname.includes('hot-update') ||

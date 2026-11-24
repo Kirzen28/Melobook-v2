@@ -148,7 +148,7 @@ export const Navbar: React.FC = () => {
 
   return (
     <>
-    <header className="no-print sticky top-0 z-40 bg-[#111112]/95 backdrop-blur-md border-b border-[#222224] text-[#E0E0E0] select-none">
+    <header className="no-print bg-[#111112]/95 backdrop-blur-md border-b border-[#222224] text-[#E0E0E0] select-none">
       <div className="max-w-7xl mx-auto px-3 sm:px-6">
         <div className="relative flex items-center justify-between h-14 sm:h-16 gap-2">
           

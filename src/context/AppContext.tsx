@@ -15,11 +15,21 @@ import {
   SongCardMetadataSettings,
   SongMetadataVisibility,
   UserRole,
+  AccessPermission,
   SyncStatus,
   NotificationType,
   AppNotification,
   CustomPad
 } from '../types';
+import {
+  ALL_ACCESSES,
+  accessesToLegacyRole,
+  formatAccessSummary,
+  isRegieOnlyAccesses,
+  legacyRoleToAccesses,
+  normalizeAccessList,
+  resolveMemberAccesses
+} from '../utils/accessUtils';
 import { DEFAULT_DISPLAY_SETTINGS, DEFAULT_SONG_METADATA_VISIBILITY } from '../utils/displayDefaults';
 import { 
   auth, 
@@ -264,23 +274,34 @@ interface AppContextType {
   removeMemberFromLibrary: (libraryId: string, memberUid: string) => Promise<boolean>;
   setLibraryMembers: (libraryId: string, memberUids: string[]) => Promise<boolean>;
   
-  // Permissions & Rôles
+  // Permissions & Accès cumulables
+  effectiveAccesses: AccessPermission[];
+  hasAccess: (access: AccessPermission) => boolean;
+  isRegieOnly: boolean;
   isAdmin: boolean;
   isLeader: boolean;
   isEditor: boolean;
   isMember: boolean;
   isViewer: boolean;
+  canAccessRepertoire: boolean;
+  canAccessSetlistsView: boolean;
+  canAccessStage: boolean;
+  canAccessProjection: boolean;
+  canAccessTools: boolean;
+  canAccessGroupsView: boolean;
   canManageSongs: boolean;
   canManageSetlists: boolean;
   canManageGroups: boolean;
   canAccessSettings: boolean;
   
   allUsers: UserProfile[];
+  updateUserAccesses: (userId: string, newAccesses: AccessPermission[]) => Promise<void>;
+  bulkUpdateUserAccesses: (userIds: string[], newAccesses: AccessPermission[]) => Promise<boolean>;
   updateUserRole: (userId: string, newRole: UserRole) => Promise<void>;
   bulkUpdateUserRole: (userIds: string[], newRole: UserRole) => Promise<boolean>;
   bulkRemoveMembersFromGroup: (groupId: string, memberUids: string[]) => Promise<boolean>;
   bulkDeleteUserAccounts: (userIds: string[]) => Promise<boolean>;
-  setAdminByEmail: (targetEmail: string, role?: UserRole) => Promise<void>;
+  setAdminByEmail: (targetEmail: string, roleOrAccesses?: UserRole | AccessPermission[]) => Promise<void>;
   handleSignOut: () => Promise<void>;
 
   // SVG Avatar management (zero image storage)
@@ -323,10 +344,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     signupInProgressRef.current = inProgress;
   }, []);
 
+  const permissionsRef = useRef({
+    isRegieOnly: false,
+    canAccessRepertoire: true,
+    canAccessSetlistsView: true,
+    canAccessStage: true,
+    canAccessProjection: true,
+    canAccessGroupsView: true,
+    canManageSongs: false,
+    canAccessSettings: true
+  });
+
   const setActiveTab = useCallback((tab: 'repertoire' | 'setlists' | 'stage' | 'groups' | 'editor' | 'settings' | 'tuner' | 'presentation') => {
-    const resolvedTab = isGuest && (tab === 'editor' || tab === 'groups' || tab === 'settings')
-      ? 'repertoire'
-      : tab;
+    const p = permissionsRef.current;
+    let resolvedTab = tab;
+    if (isGuest) {
+      if (tab === 'editor' || tab === 'groups' || tab === 'settings') {
+        resolvedTab = 'repertoire';
+      }
+    } else if (p.isRegieOnly) {
+      resolvedTab = 'presentation';
+    } else {
+      const fallback = p.canAccessRepertoire ? 'repertoire' : p.canAccessSetlistsView ? 'setlists' : 'presentation';
+      if (tab === 'repertoire' && !p.canAccessRepertoire) resolvedTab = fallback;
+      else if (tab === 'setlists' && !p.canAccessSetlistsView) resolvedTab = fallback;
+      else if (tab === 'stage' && !p.canAccessStage) resolvedTab = fallback;
+      else if (tab === 'editor' && !p.canManageSongs) resolvedTab = fallback;
+      else if (tab === 'groups' && !p.canAccessGroupsView) resolvedTab = fallback;
+      else if (tab === 'settings' && !p.canAccessSettings) resolvedTab = fallback;
+      else if (tab === 'presentation' && !p.canAccessProjection) resolvedTab = fallback;
+    }
+
     if (resolvedTab !== 'setlists' && resolvedTab !== 'editor') {
       setIsLiveSetlistOpen(false);
       setEditorReturnTarget(null);
@@ -1218,9 +1266,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
           if (userGroups.length > 0) {
             const preferredGroup = userGroups.find(g => g.id === data.currentGroupId) || userGroups[0];
-            const roleInGroup: UserRole = preferredGroup.ownerId === user.uid
-              ? 'admin'
-              : (preferredGroup.memberRoles?.[user.uid] || (data.role as UserRole) || 'member');
+            const accessesInGroup = resolveMemberAccesses(
+              preferredGroup,
+              user.uid,
+              data.role as UserRole,
+              data.accesses as AccessPermission[] | undefined
+            );
+            const roleInGroup: UserRole = accessesToLegacyRole(accessesInGroup);
             const mergedUser: UserProfile = stripUndefined({
               uid: user.uid,
               email: data.email || user.email || '',
@@ -1228,6 +1280,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               photoURL: data.photoURL || user.photoURL || undefined,
               currentGroupId: preferredGroup.id,
               role: roleInGroup,
+              accesses: accessesInGroup,
               personalCapos: sanitizePersonalCapos(data.personalCapos)
             });
             if (!snap || !snap.exists()) {
@@ -1264,12 +1317,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 const parsedUser = JSON.parse(cachedUserRaw) as UserProfile;
                 if (parsedUser?.uid === user.uid) {
                   const fallbackGroupId = parsedUser.currentGroupId || cachedGroupId || `lib_${user.uid.slice(0, 8)}`;
+                  const fallbackAccesses = normalizeAccessList(parsedUser.accesses, parsedUser.role || 'admin');
                   const fallbackGroup: Group = {
                     id: fallbackGroupId,
                     name: 'Ma bibliothèque',
                     ownerId: user.uid,
                     members: [user.uid],
                     memberRoles: { [user.uid]: parsedUser.role || 'admin' },
+                    memberAccesses: { [user.uid]: fallbackAccesses },
                     inviteCode: generateInviteCode()
                   };
                   setAllGroups([fallbackGroup]);
@@ -1341,6 +1396,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ownerId: uid,
       members: [uid],
       memberRoles: { [uid]: 'admin' },
+      memberAccesses: { [uid]: [...ALL_ACCESSES] },
       inviteCode
     };
 
@@ -1350,14 +1406,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       displayName: finalDisplayName,
       photoURL: user.photoURL || undefined,
       currentGroupId: newId,
-      role: 'admin'
+      role: 'admin',
+      accesses: [...ALL_ACCESSES]
     });
 
     const memberEntry = stripUndefined({
       uid,
       displayName: finalDisplayName,
       photoURL: user.photoURL || undefined,
-      role: 'admin' as UserRole
+      role: 'admin' as UserRole,
+      accesses: [...ALL_ACCESSES]
     });
 
     try {
@@ -1469,9 +1527,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const uid = user.uid;
     const cleanEmail = (user.email || '').toLowerCase().trim();
     const finalDisplayName = (displayNameOverride || user.displayName || cleanEmail.split('@')[0] || 'Musicien').trim();
-    const roleInLibrary: UserRole = matchedGroup.ownerId === uid
-      ? 'admin'
-      : (matchedGroup.memberRoles?.[uid] || 'member');
+    const accessesInLibrary = resolveMemberAccesses(matchedGroup, uid, 'member', ['pupitre']);
+    const roleInLibrary: UserRole = accessesToLegacyRole(accessesInLibrary);
 
     try {
       if (!matchedGroup.members?.includes(uid)) {
@@ -1488,7 +1545,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         uid,
         displayName: finalDisplayName,
         photoURL: user.photoURL || undefined,
-        role: roleInLibrary
+        role: roleInLibrary,
+        accesses: accessesInLibrary
       });
       await setDoc(doc(db, 'groups', matchedGroup.id, 'members', uid), {
         ...memberEntry,
@@ -1501,7 +1559,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         displayName: finalDisplayName,
         photoURL: user.photoURL || undefined,
         currentGroupId: matchedGroup.id,
-        role: roleInLibrary
+        role: roleInLibrary,
+        accesses: accessesInLibrary
       });
       await setDoc(doc(db, 'users', uid), {
         ...userProfile,
@@ -1522,7 +1581,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       setCurrentUser(userProfile);
       setNeedsLibraryOnboarding(false);
-      setActiveTab('repertoire');
+      setActiveTab(isRegieOnlyAccesses(accessesInLibrary) ? 'presentation' : 'repertoire');
 
       showNotification({
         title: `Bibliothèque « ${matchedGroup.name} » rejointe`,
@@ -1691,7 +1750,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const byUid = new Map<string, UserProfile>();
     for (const docItem of snapDocs) {
-      byUid.set(docItem.uid, docItem);
+      const resolvedAccesses = resolveMemberAccesses(group, docItem.uid, docItem.role, docItem.accesses);
+      byUid.set(docItem.uid, {
+        ...docItem,
+        accesses: resolvedAccesses,
+        role: accessesToLegacyRole(resolvedAccesses)
+      });
     }
 
     const expectedUids = Array.from(new Set([
@@ -1699,14 +1763,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ...(group.ownerId ? [group.ownerId] : [])
     ])).filter(Boolean);
 
-    const isCurUserAdmin = group.ownerId === user.uid || group.memberRoles?.[user.uid] === 'admin';
+    const isCurUserAdmin = group.ownerId === user.uid || resolveMemberAccesses(group, user.uid).includes('admin');
 
     for (const uid of expectedUids) {
       if (byUid.has(uid)) continue;
 
-      const roleInGroup: UserRole = group.ownerId === uid
-        ? 'admin'
-        : (group.memberRoles?.[uid] || (uid === user.uid ? user.role : undefined) || 'member');
+      const accessesInGroup = resolveMemberAccesses(
+        group,
+        uid,
+        uid === user.uid ? user.role : undefined,
+        uid === user.uid ? user.accesses : undefined
+      );
+      const roleInGroup: UserRole = accessesToLegacyRole(accessesInGroup);
 
       if (uid === user.uid) {
         const displayName = (user.displayName || user.email?.split('@')[0] || 'Musicien').trim().slice(0, 120) || 'Musicien';
@@ -1717,7 +1785,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           displayName,
           photoURL: user.photoURL,
           currentGroupId: targetGroupId,
-          role: roleInGroup
+          role: roleInGroup,
+          accesses: accessesInGroup
         });
 
         const backfillKey = `${targetGroupId}:${uid}`;
@@ -1728,6 +1797,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             displayName,
             photoURL: validPhoto,
             role: roleInGroup,
+            accesses: accessesInGroup,
             joinedAt: serverTimestamp()
           }), { merge: true }).catch(() => {});
         }
@@ -1740,7 +1810,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           displayName: fallbackName,
           photoURL: cachedProfile?.photoURL,
           currentGroupId: targetGroupId,
-          role: roleInGroup
+          role: roleInGroup,
+          accesses: accessesInGroup
         });
 
         const lookupKey = `${targetGroupId}:${uid}`;
@@ -1770,6 +1841,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 displayName: resolvedName,
                 photoURL: validPhoto,
                 role: roleInGroup,
+                accesses: accessesInGroup,
                 joinedAt: serverTimestamp()
               }), { merge: true }).catch(() => {});
             }
@@ -1803,7 +1875,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           displayName: data.displayName || cached?.displayName || 'Musicien',
           photoURL: data.photoURL || cached?.photoURL,
           currentGroupId: targetGroupId,
-          role: (data.role as UserRole) || 'member'
+          role: (data.role as UserRole) || 'member',
+          accesses: Array.isArray(data.accesses) ? normalizeAccessList(data.accesses) : undefined
         });
       });
       libraryMemberDocsRef.current = mList;
@@ -2666,7 +2739,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Helper permission check pour la bibliothèque ciblée
   const isLibraryAdminForGroup = useCallback((group?: Group | null): boolean => {
     if (!group || !currentUser?.uid) return false;
-    return group.ownerId === currentUser.uid || group.memberRoles?.[currentUser.uid] === 'admin';
+    return group.ownerId === currentUser.uid || resolveMemberAccesses(group, currentUser.uid).includes('admin');
   }, [currentUser?.uid]);
 
   // Group / Library Actions (chaque bibliothèque possède sa propre base isolée)
@@ -2692,6 +2765,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ownerId: uid,
       members: [uid],
       memberRoles: { [uid]: 'admin' },
+      memberAccesses: { [uid]: [...ALL_ACCESSES] },
       inviteCode,
       createdAt: new Date().toISOString()
     };
@@ -2713,6 +2787,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         displayName: currentUser.displayName || authUser.displayName || 'Musicien',
         photoURL: currentUser.photoURL || authUser.photoURL || undefined,
         role: 'admin' as UserRole,
+        accesses: [...ALL_ACCESSES],
         joinedAt: serverTimestamp()
       }));
       await setDoc(doc(db, 'users', uid), {
@@ -2889,13 +2964,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       for (const uid of uniqueUids) {
         if (!(targetGroup?.members || []).includes(uid)) {
           const profile = allUsers.find(u => u.uid === uid);
-          const roleInGroup: UserRole = targetGroup?.ownerId === uid ? 'admin' : (targetGroup?.memberRoles?.[uid] || profile?.role || 'member');
+          const accessesInGroup = resolveMemberAccesses(targetGroup, uid, profile?.role, profile?.accesses);
+          const roleInGroup: UserRole = accessesToLegacyRole(accessesInGroup);
           const validPhoto = profile?.photoURL && profile.photoURL.length <= 2048 ? profile.photoURL : undefined;
           await setDoc(doc(db, 'groups', groupId, 'members', uid), stripUndefined({
             uid,
             displayName: (profile?.displayName || `Membre (${uid.slice(0, 6)})`).slice(0, 120),
             photoURL: validPhoto,
             role: roleInGroup,
+            accesses: accessesInGroup,
             joinedAt: serverTimestamp()
           }), { merge: true }).catch(() => {});
         }
@@ -2932,13 +3009,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       for (const uid of memberUids) {
         if (!existingMembers.includes(uid)) {
           const profile = allUsers.find(u => u.uid === uid);
-          const roleInGroup: UserRole = targetGroup.ownerId === uid ? 'admin' : (targetGroup.memberRoles?.[uid] || profile?.role || 'member');
+          const accessesInGroup = resolveMemberAccesses(targetGroup, uid, profile?.role, profile?.accesses);
+          const roleInGroup: UserRole = accessesToLegacyRole(accessesInGroup);
           const validPhoto = profile?.photoURL && profile.photoURL.length <= 2048 ? profile.photoURL : undefined;
           await setDoc(doc(db, 'groups', groupId, 'members', uid), stripUndefined({
             uid,
             displayName: (profile?.displayName || `Membre (${uid.slice(0, 6)})`).slice(0, 120),
             photoURL: validPhoto,
             role: roleInGroup,
+            accesses: accessesInGroup,
             joinedAt: serverTimestamp()
           }), { merge: true }).catch(() => {});
         }
@@ -3022,9 +3101,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       if (matchedGroup) {
         const uid = authUser.uid;
-        const roleInLib: UserRole = matchedGroup.ownerId === uid
-          ? 'admin'
-          : (matchedGroup.memberRoles?.[uid] || 'member');
+        const accessesInLib = resolveMemberAccesses(matchedGroup, uid, 'member', ['pupitre']);
+        const roleInLib: UserRole = accessesToLegacyRole(accessesInLib);
 
         if (!matchedGroup.members?.includes(uid)) {
           await updateDoc(doc(db, 'groups', matchedGroup.id), {
@@ -3041,6 +3119,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           displayName: currentUser.displayName || authUser.displayName || 'Musicien',
           photoURL: currentUser.photoURL || authUser.photoURL || undefined,
           role: roleInLib,
+          accesses: accessesInLib,
           joinedAt: serverTimestamp()
         }), { merge: true });
 
@@ -3145,76 +3224,98 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   }, [allGroups, currentUser, isMemberOfLibrary, showNotification]);
 
-  const updateUserRole = useCallback(async (userId: string, newRole: UserRole) => {
+  const updateUserAccesses = useCallback(async (userId: string, newAccesses: AccessPermission[]) => {
     if (blockIfGuest()) return;
     const groupId = currentGroup?.id;
     if (!groupId || !isLibraryAdminForGroup(currentGroup)) {
-      showNotification("Seul l'Administrateur de cette bibliothèque peut modifier les rôles d'accès", 'error');
+      showNotification("Seul l'Administrateur de cette bibliothèque peut modifier les accès", 'error');
       return;
     }
-    if (userId === currentGroup.ownerId && newRole !== 'admin') {
-      showNotification('Le propriétaire créateur reste Administrateur de sa bibliothèque', 'warning');
-      return;
+
+    const isOwnerTarget = userId === currentGroup.ownerId;
+    let normalized = normalizeAccessList(newAccesses);
+    if (isOwnerTarget && !normalized.includes('admin')) {
+      showNotification('Le propriétaire créateur conserve l’accès Admin complet', 'warning');
+      normalized = [...ALL_ACCESSES];
     }
+    const legacyRole = accessesToLegacyRole(normalized);
 
     try {
       await updateDoc(doc(db, 'groups', groupId), {
-        [`memberRoles.${userId}`]: newRole,
+        [`memberAccesses.${userId}`]: normalized,
+        [`memberRoles.${userId}`]: legacyRole,
         updatedAt: serverTimestamp()
       });
       await setDoc(doc(db, 'groups', groupId, 'members', userId), {
-        role: newRole
+        accesses: normalized,
+        role: legacyRole
       }, { merge: true });
 
-      const updatedMemberRoles = { ...(currentGroup.memberRoles || {}), [userId]: newRole };
-      setAllGroups(prev => prev.map(g => g.id === groupId ? { ...g, memberRoles: updatedMemberRoles } : g));
-      setCurrentGroup(prev => prev && prev.id === groupId ? { ...prev, memberRoles: updatedMemberRoles } : prev);
-      setAllUsers(prev => prev.map(u => u.uid === userId ? { ...u, role: newRole } : u));
+      const updatedMemberAccesses = { ...(currentGroup.memberAccesses || {}), [userId]: normalized };
+      const updatedMemberRoles = { ...(currentGroup.memberRoles || {}), [userId]: legacyRole };
+      setAllGroups(prev => prev.map(g => g.id === groupId ? { ...g, memberAccesses: updatedMemberAccesses, memberRoles: updatedMemberRoles } : g));
+      setCurrentGroup(prev => prev && prev.id === groupId ? { ...prev, memberAccesses: updatedMemberAccesses, memberRoles: updatedMemberRoles } : prev);
+      setAllUsers(prev => prev.map(u => u.uid === userId ? { ...u, accesses: normalized, role: legacyRole } : u));
       if (currentUser && currentUser.uid === userId) {
-        setCurrentUser(prev => prev ? { ...prev, role: newRole } : null);
+        setCurrentUser(prev => prev ? { ...prev, accesses: normalized, role: legacyRole } : null);
       }
 
-      const roleLabel = newRole === 'admin' ? 'Administrateur 👑' : newRole === 'leader' ? 'Responsable ⚡' : newRole === 'editor' ? 'Éditeur ✍️' : newRole === 'viewer' ? 'Régie / Lecteur 🖥️' : 'Membre 🎵';
-      showNotification(`Rôle mis à jour : ${roleLabel}`);
+      showNotification(`Accès mis à jour : ${formatAccessSummary(normalized)}`);
     } catch (err) {
-      console.error('Error updating user role:', err);
-      showNotification('Erreur lors de la mise à jour du rôle', 'error');
+      console.error('Error updating user accesses:', err);
+      showNotification('Erreur lors de la mise à jour des accès', 'error');
     }
   }, [currentGroup, currentUser, isLibraryAdminForGroup, showNotification]);
 
-  const bulkUpdateUserRole = useCallback(async (userIds: string[], newRole: UserRole): Promise<boolean> => {
+  const bulkUpdateUserAccesses = useCallback(async (userIds: string[], newAccesses: AccessPermission[]): Promise<boolean> => {
     if (blockIfGuest()) return false;
     const groupId = currentGroup?.id;
     if (!groupId || !isLibraryAdminForGroup(currentGroup)) {
-      showNotification("Seul l'Administrateur de cette bibliothèque peut modifier les rôles d'accès", 'error');
+      showNotification("Seul l'Administrateur de cette bibliothèque peut modifier les accès", 'error');
       return false;
     }
-    const filteredIds = userIds.filter(uid => uid !== currentGroup.ownerId || newRole === 'admin');
-    if (filteredIds.length === 0) return true;
+    const normalized = normalizeAccessList(newAccesses);
+    const filteredIds = userIds.filter(uid => uid !== currentGroup.ownerId || normalized.includes('admin'));
+    if (filteredIds.length === 0) {
+      showNotification('Le propriétaire créateur conserve toujours l’accès Admin complet', 'warning');
+      return true;
+    }
+
+    const legacyRole = accessesToLegacyRole(normalized);
 
     try {
+      const updatedMemberAccesses = { ...(currentGroup.memberAccesses || {}) };
       const updatedMemberRoles = { ...(currentGroup.memberRoles || {}) };
-      const roleUpdates: Record<string, any> = { updatedAt: serverTimestamp() };
+      const groupUpdates: Record<string, any> = { updatedAt: serverTimestamp() };
       for (const uid of filteredIds) {
-        updatedMemberRoles[uid] = newRole;
-        roleUpdates[`memberRoles.${uid}`] = newRole;
-        await setDoc(doc(db, 'groups', groupId, 'members', uid), { role: newRole }, { merge: true }).catch(() => {});
+        updatedMemberAccesses[uid] = normalized;
+        updatedMemberRoles[uid] = legacyRole;
+        groupUpdates[`memberAccesses.${uid}`] = normalized;
+        groupUpdates[`memberRoles.${uid}`] = legacyRole;
+        await setDoc(doc(db, 'groups', groupId, 'members', uid), { accesses: normalized, role: legacyRole }, { merge: true }).catch(() => {});
       }
-      await updateDoc(doc(db, 'groups', groupId), roleUpdates);
+      await updateDoc(doc(db, 'groups', groupId), groupUpdates);
 
-      setAllGroups(prev => prev.map(g => g.id === groupId ? { ...g, memberRoles: updatedMemberRoles } : g));
-      setCurrentGroup(prev => prev && prev.id === groupId ? { ...prev, memberRoles: updatedMemberRoles } : prev);
-      setAllUsers(prev => prev.map(u => filteredIds.includes(u.uid) ? { ...u, role: newRole } : u));
+      setAllGroups(prev => prev.map(g => g.id === groupId ? { ...g, memberAccesses: updatedMemberAccesses, memberRoles: updatedMemberRoles } : g));
+      setCurrentGroup(prev => prev && prev.id === groupId ? { ...prev, memberAccesses: updatedMemberAccesses, memberRoles: updatedMemberRoles } : prev);
+      setAllUsers(prev => prev.map(u => filteredIds.includes(u.uid) ? { ...u, accesses: normalized, role: legacyRole } : u));
 
-      const roleLabel = newRole === 'admin' ? 'Administrateur 👑' : newRole === 'leader' ? 'Responsable ⚡' : newRole === 'editor' ? 'Éditeur ✍️' : newRole === 'viewer' ? 'Régie / Lecteur 🖥️' : 'Membre 🎵';
-      showNotification(`Rôle ${roleLabel} appliqué aux membres sélectionnés`);
+      showNotification(`Accès appliqués (${formatAccessSummary(normalized)}) aux membres sélectionnés`);
       return true;
     } catch (err) {
-      console.error('Error bulk updating roles:', err);
-      showNotification('Erreur lors de la modification des rôles', 'error');
+      console.error('Error bulk updating accesses:', err);
+      showNotification('Erreur lors de la modification des accès', 'error');
       return false;
     }
   }, [currentGroup, isLibraryAdminForGroup, showNotification]);
+
+  const updateUserRole = useCallback(async (userId: string, newRole: UserRole) => {
+    await updateUserAccesses(userId, legacyRoleToAccesses(newRole));
+  }, [updateUserAccesses]);
+
+  const bulkUpdateUserRole = useCallback(async (userIds: string[], newRole: UserRole): Promise<boolean> => {
+    return await bulkUpdateUserAccesses(userIds, legacyRoleToAccesses(newRole));
+  }, [bulkUpdateUserAccesses]);
 
   const bulkRemoveMembersFromGroup = useCallback(async (groupId: string, memberUids: string[]): Promise<boolean> => {
     if (blockIfGuest()) return false;
@@ -3259,19 +3360,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return await bulkRemoveMembersFromGroup(currentGroup.id, targetUids);
   }, [currentGroup, currentUser?.uid, isLibraryAdminForGroup, bulkRemoveMembersFromGroup, showNotification]);
 
-  const setAdminByEmail = useCallback(async (targetEmail: string, role: UserRole = 'admin') => {
+  const setAdminByEmail = useCallback(async (targetEmail: string, roleOrAccesses: UserRole | AccessPermission[] = 'admin') => {
     if (blockIfGuest()) return;
     if (!currentGroup || !isLibraryAdminForGroup(currentGroup)) {
-      showNotification("Seul l'Administrateur de cette bibliothèque peut attribuer des rôles", 'error');
+      showNotification("Seul l'Administrateur de cette bibliothèque peut attribuer des accès", 'error');
       return;
     }
 
     const cleanEmail = targetEmail.trim().toLowerCase();
     if (!cleanEmail) return;
 
+    const targetAccesses = Array.isArray(roleOrAccesses)
+      ? normalizeAccessList(roleOrAccesses)
+      : legacyRoleToAccesses(roleOrAccesses);
+
     const existingMember = allUsers.find(u => u.email?.toLowerCase() === cleanEmail);
     if (existingMember) {
-      await updateUserRole(existingMember.uid, role);
+      await updateUserAccesses(existingMember.uid, targetAccesses);
     } else {
       showNotification({
         title: 'Membre non présent',
@@ -3280,7 +3385,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         duration: 4500
       });
     }
-  }, [currentGroup, isLibraryAdminForGroup, allUsers, updateUserRole, showNotification]);
+  }, [currentGroup, isLibraryAdminForGroup, allUsers, updateUserAccesses, showNotification]);
 
   const selectSvgAvatar = useCallback(async (avatarToken: string): Promise<void> => {
     if (blockIfGuest()) return;
@@ -3451,35 +3556,104 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [customPads, currentGroup?.id]);
 
-  // Rôle effectif dans la bibliothèque active
+  // Accès cumulables effectifs dans la bibliothèque active
+  const effectiveAccesses: AccessPermission[] = useMemo(() => {
+    if (isGuest || !currentUser) return ['regie'];
+    return resolveMemberAccesses(
+      currentGroup,
+      currentUser.uid,
+      currentUser.role,
+      currentUser.accesses
+    );
+  }, [isGuest, currentUser, currentGroup]);
+
   const effectiveRole: UserRole = useMemo(() => {
     if (isGuest || !currentUser) return 'viewer';
-    if (currentGroup) {
-      if (currentGroup.ownerId === currentUser.uid) return 'admin';
-      const libRole = currentGroup.memberRoles?.[currentUser.uid];
-      if (libRole) return libRole;
-    }
-    return currentUser.role || 'member';
-  }, [isGuest, currentUser, currentGroup]);
+    return accessesToLegacyRole(effectiveAccesses);
+  }, [isGuest, currentUser, effectiveAccesses]);
 
   const effectiveUser = useMemo<UserProfile | null>(() => {
     if (isGuest || !currentUser) return null;
     return {
       ...currentUser,
       role: effectiveRole,
+      accesses: effectiveAccesses,
       currentGroupId: currentGroup?.id || currentUser.currentGroupId
     };
-  }, [isGuest, currentUser, effectiveRole, currentGroup?.id]);
+  }, [isGuest, currentUser, effectiveRole, effectiveAccesses, currentGroup?.id]);
 
-  const isAdmin = !isGuest && effectiveRole === 'admin';
-  const isLeader = !isGuest && effectiveRole === 'leader';
-  const isEditor = !isGuest && effectiveRole === 'editor';
-  const isMember = !isGuest && (effectiveRole === 'member' || (!isAdmin && !isLeader && !isEditor && effectiveRole !== 'viewer'));
-  const isViewer = isGuest || effectiveRole === 'viewer';
-  const canManageSongs = !isGuest && (isAdmin || isLeader || isEditor);
-  const canManageSetlists = !isGuest && (isAdmin || isLeader);
-  const canManageGroups = !isGuest && isAdmin;
-  const canAccessSettings = !isGuest;
+  const hasAccess = useCallback((access: AccessPermission): boolean => {
+    if (isGuest) return access === 'regie';
+    return effectiveAccesses.includes('admin') || effectiveAccesses.includes(access);
+  }, [isGuest, effectiveAccesses]);
+
+  const isAdmin = !isGuest && effectiveAccesses.includes('admin');
+  const isLeader = !isGuest && !isAdmin && effectiveAccesses.includes('setlists');
+  const isEditor = !isGuest && !isAdmin && !isLeader && effectiveAccesses.includes('chants');
+  const isMember = !isGuest && !isAdmin && !isLeader && !isEditor && effectiveAccesses.includes('pupitre');
+  const isRegieOnly = !isGuest && Boolean(currentUser) && isRegieOnlyAccesses(effectiveAccesses);
+  const isViewer = isGuest || isRegieOnly;
+
+  const canAccessRepertoire = isGuest || effectiveAccesses.some(a => a === 'admin' || a === 'setlists' || a === 'chants' || a === 'pupitre');
+  const canAccessSetlistsView = isGuest || effectiveAccesses.some(a => a === 'admin' || a === 'setlists' || a === 'pupitre');
+  const canAccessStage = isGuest || effectiveAccesses.some(a => a === 'admin' || a === 'setlists' || a === 'chants' || a === 'pupitre');
+  const canAccessProjection = isGuest || effectiveAccesses.some(a => a === 'admin' || a === 'setlists' || a === 'chants' || a === 'pupitre' || a === 'regie');
+  const canAccessTools = !isRegieOnly && (isGuest || canAccessRepertoire);
+  const canAccessGroupsView = !isGuest && !isRegieOnly;
+
+  const canManageSongs = !isGuest && (effectiveAccesses.includes('admin') || effectiveAccesses.includes('chants'));
+  const canManageSetlists = !isGuest && (effectiveAccesses.includes('admin') || effectiveAccesses.includes('setlists'));
+  const canManageGroups = !isGuest && effectiveAccesses.includes('admin');
+  const canAccessSettings = !isGuest && !isRegieOnly && canAccessRepertoire;
+
+  permissionsRef.current = {
+    isRegieOnly,
+    canAccessRepertoire,
+    canAccessSetlistsView,
+    canAccessStage,
+    canAccessProjection,
+    canAccessGroupsView,
+    canManageSongs,
+    canAccessSettings
+  };
+
+  useEffect(() => {
+    if (isGuest || !currentUser) return;
+    if (isRegieOnly) {
+      if (activeTab !== 'presentation') {
+        setActiveTabState('presentation');
+      }
+      setIsPianoOpen(false);
+      setIsMetronomeOpen(false);
+      setIsTunerOpen(false);
+      return;
+    }
+
+    const fallback = canAccessRepertoire ? 'repertoire' : canAccessSetlistsView ? 'setlists' : 'presentation';
+    if (
+      (activeTab === 'repertoire' && !canAccessRepertoire) ||
+      (activeTab === 'setlists' && !canAccessSetlistsView) ||
+      (activeTab === 'stage' && !canAccessStage) ||
+      (activeTab === 'editor' && !canManageSongs) ||
+      (activeTab === 'groups' && !canAccessGroupsView) ||
+      (activeTab === 'settings' && !canAccessSettings) ||
+      (activeTab === 'presentation' && !canAccessProjection)
+    ) {
+      setActiveTabState(fallback);
+    }
+  }, [
+    isGuest,
+    currentUser,
+    isRegieOnly,
+    activeTab,
+    canAccessRepertoire,
+    canAccessSetlistsView,
+    canAccessStage,
+    canManageSongs,
+    canAccessGroupsView,
+    canAccessSettings,
+    canAccessProjection
+  ]);
 
   return (
     <AppContext.Provider value={{
@@ -3497,16 +3671,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setSignupInProgress,
       completeSignupCreateLibrary,
       completeSignupJoinLibrary,
+      effectiveAccesses,
+      hasAccess,
+      isRegieOnly,
       isAdmin,
       isLeader,
       isEditor,
       isMember,
       isViewer,
+      canAccessRepertoire,
+      canAccessSetlistsView,
+      canAccessStage,
+      canAccessProjection,
+      canAccessTools,
+      canAccessGroupsView,
       canManageSongs,
       canManageSetlists,
       canManageGroups,
       canAccessSettings,
       allUsers,
+      updateUserAccesses,
+      bulkUpdateUserAccesses,
       updateUserRole,
       bulkUpdateUserRole,
       bulkRemoveMembersFromGroup,

@@ -11,6 +11,7 @@
         "photoURL": { "type": "string", "maxLength": 2048 },
         "currentGroupId": { "type": "string", "maxLength": 128 },
         "role": { "type": "string", "enum": ["admin", "leader", "member", "editor", "viewer"] },
+        "accesses": { "type": "array" },
         "personalCapos": { "type": "object" },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
@@ -28,6 +29,7 @@
         "ownerId": { "type": "string", "maxLength": 128 },
         "members": { "type": "array" },
         "memberRoles": { "type": "object" },
+        "memberAccesses": { "type": "object" },
         "inviteCode": { "type": "string", "maxLength": 32 },
         "guestEnabled": { "type": "boolean" },
         "createdAt": { "type": "string", "format": "date-time" },
@@ -57,6 +59,7 @@
         "displayName": { "type": "string", "maxLength": 120 },
         "photoURL": { "type": "string", "maxLength": 2048 },
         "role": { "type": "string", "enum": ["admin", "leader", "member", "editor", "viewer"] },
+        "accesses": { "type": "array" },
         "joinedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["uid", "displayName", "role"]

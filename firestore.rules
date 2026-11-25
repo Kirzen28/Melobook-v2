@@ -51,6 +51,12 @@ service cloud.firestore {
         );
     }
 
+    function isValidAccessList(listVal) {
+      return listVal is list
+        && listVal.size() <= 5
+        && listVal.hasOnly(['admin', 'setlists', 'chants', 'pupitre', 'regie']);
+    }
+
     function libraryRole(groupId) {
       let g = groupData(groupId);
       return g.ownerId == request.auth.uid
@@ -58,16 +64,37 @@ service cloud.firestore {
         : (g.memberRoles is map ? g.memberRoles.get(request.auth.uid, 'member') : 'member');
     }
 
+    function hasLibraryAccess(groupId, accessKey) {
+      let g = groupData(groupId);
+      return g.ownerId == request.auth.uid
+        || (
+          g.memberAccesses is map
+          && request.auth.uid in g.memberAccesses
+          && g.memberAccesses[request.auth.uid] is list
+          && ('admin' in g.memberAccesses[request.auth.uid] || accessKey in g.memberAccesses[request.auth.uid])
+        )
+        || (
+          (!(g.memberAccesses is map) || !(request.auth.uid in g.memberAccesses))
+          && (
+            (accessKey == 'admin' && libraryRole(groupId) == 'admin') ||
+            (accessKey == 'chants' && libraryRole(groupId) in ['admin', 'leader', 'editor']) ||
+            (accessKey == 'setlists' && libraryRole(groupId) in ['admin', 'leader']) ||
+            (accessKey == 'pupitre' && libraryRole(groupId) in ['admin', 'leader', 'editor', 'member']) ||
+            (accessKey == 'regie' && libraryRole(groupId) in ['admin', 'leader', 'editor', 'member', 'viewer'])
+          )
+        );
+    }
+
     function isLibraryAdmin(groupId) {
-      return isLibraryMember(groupId) && libraryRole(groupId) == 'admin';
+      return isLibraryMember(groupId) && hasLibraryAccess(groupId, 'admin');
     }
 
     function canEditLibrarySongs(groupId) {
-      return isLibraryMember(groupId) && libraryRole(groupId) in ['admin', 'leader', 'editor'];
+      return isLibraryMember(groupId) && hasLibraryAccess(groupId, 'chants');
     }
 
     function canEditLibrarySetlists(groupId) {
-      return isLibraryMember(groupId) && libraryRole(groupId) in ['admin', 'leader'];
+      return isLibraryMember(groupId) && hasLibraryAccess(groupId, 'setlists');
     }
 
     function isGuestReadableLibrary(groupId) {
@@ -77,19 +104,20 @@ service cloud.firestore {
     // Validation Blueprints
     function isValidUserProfile(data) {
       return data.keys().hasAll(['uid', 'email', 'displayName', 'currentGroupId', 'role'])
-        && data.keys().hasOnly(['uid', 'email', 'displayName', 'photoURL', 'currentGroupId', 'role', 'personalCapos', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'email', 'displayName', 'photoURL', 'currentGroupId', 'role', 'accesses', 'personalCapos', 'createdAt', 'updatedAt'])
         && data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128
         && data.email is string && data.email.size() <= 256
         && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 120
         && (!('photoURL' in data) || data.photoURL == null || (data.photoURL is string && data.photoURL.size() <= 2048))
         && (data.currentGroupId == null || (data.currentGroupId is string && data.currentGroupId.size() <= 128))
         && data.role in ['admin', 'leader', 'member', 'editor', 'viewer']
+        && (!('accesses' in data) || isValidAccessList(data.accesses))
         && (!('personalCapos' in data) || (data.personalCapos is map && data.personalCapos.size() <= 1000));
     }
 
     function isValidGroup(data) {
       return data.keys().hasAll(['id', 'name', 'ownerId', 'members', 'inviteCode'])
-        && data.keys().hasOnly(['id', 'name', 'description', 'ownerId', 'members', 'memberRoles', 'inviteCode', 'guestEnabled', 'guestCode', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['id', 'name', 'description', 'ownerId', 'members', 'memberRoles', 'memberAccesses', 'inviteCode', 'guestEnabled', 'guestCode', 'createdAt', 'updatedAt'])
         && data.id is string && data.id.size() >= 1 && data.id.size() <= 128
         && data.name is string && data.name.size() >= 1 && data.name.size() <= 120
         && (!('description' in data) || (data.description is string && data.description.size() <= 500))
@@ -97,6 +125,7 @@ service cloud.firestore {
         && data.members is list && data.members.size() >= 1 && data.members.size() <= 500
         && data.members[0] is string
         && (!('memberRoles' in data) || data.memberRoles is map)
+        && (!('memberAccesses' in data) || data.memberAccesses is map)
         && data.inviteCode is string && data.inviteCode.size() >= 3 && data.inviteCode.size() <= 32
         && (!('guestEnabled' in data) || data.guestEnabled is bool)
         && (!('guestCode' in data) || data.guestCode == null || (data.guestCode is string && data.guestCode.size() <= 32));
@@ -113,11 +142,12 @@ service cloud.firestore {
 
     function isValidLibraryMember(data) {
       return data.keys().hasAll(['uid', 'displayName', 'role'])
-        && data.keys().hasOnly(['uid', 'displayName', 'photoURL', 'role', 'joinedAt'])
+        && data.keys().hasOnly(['uid', 'displayName', 'photoURL', 'role', 'accesses', 'joinedAt'])
         && data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128
         && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 120
         && (!('photoURL' in data) || data.photoURL == null || (data.photoURL is string && data.photoURL.size() <= 2048))
-        && data.role in ['admin', 'leader', 'member', 'editor', 'viewer'];
+        && data.role in ['admin', 'leader', 'member', 'editor', 'viewer']
+        && (!('accesses' in data) || isValidAccessList(data.accesses));
     }
 
     function isValidSong(data, groupId) {
@@ -256,15 +286,18 @@ service cloud.firestore {
         && incoming().id == existing().id
         && incoming().ownerId == existing().ownerId
         && (
-          // Action 1: Library owner manages all library settings including visitor mode & roles
+          // Action 1: Library owner manages all library settings including visitor mode, roles & accesses
           (
             existing().ownerId == request.auth.uid
-            && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'description', 'inviteCode', 'guestEnabled', 'members', 'memberRoles', 'updatedAt'])
+            && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'description', 'inviteCode', 'guestEnabled', 'members', 'memberRoles', 'memberAccesses', 'updatedAt'])
           ) ||
-          // Action 2: Library admin (non-owner) manages library metadata, members, or roles (cannot change visitor mode)
+          // Action 2: Library admin (non-owner) manages library metadata, members, roles or accesses (cannot change visitor mode)
           (
-            (existing().memberRoles is map && existing().memberRoles.get(request.auth.uid, 'member') == 'admin')
-            && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'description', 'inviteCode', 'members', 'memberRoles', 'updatedAt'])
+            (
+              (existing().memberAccesses is map && request.auth.uid in existing().memberAccesses && existing().memberAccesses[request.auth.uid] is list && 'admin' in existing().memberAccesses[request.auth.uid]) ||
+              (existing().memberRoles is map && existing().memberRoles.get(request.auth.uid, 'member') == 'admin')
+            )
+            && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'description', 'inviteCode', 'members', 'memberRoles', 'memberAccesses', 'updatedAt'])
           ) ||
           // Action 3: Authenticated user joins this library by adding only themselves to members
           (
@@ -286,7 +319,7 @@ service cloud.firestore {
           && incoming().uid == memberId
           && (
             isLibraryAdmin(groupId) ||
-            (memberId == request.auth.uid && incoming().role == 'member') ||
+            (memberId == request.auth.uid && incoming().role == 'member' && (!('accesses' in incoming()) || incoming().accesses == ['pupitre'])) ||
             (groupData(groupId).ownerId == request.auth.uid && memberId == request.auth.uid && incoming().role == 'admin')
           );
         allow update: if isLibraryMember(groupId)
@@ -295,7 +328,7 @@ service cloud.firestore {
           && incoming().uid == existing().uid
           && (
             isLibraryAdmin(groupId) ||
-            (memberId == request.auth.uid && incoming().role == existing().role)
+            (memberId == request.auth.uid && incoming().role == existing().role && incoming().get('accesses', []) == existing().get('accesses', []))
           );
         allow delete: if isLibraryMember(groupId)
           && isValidId(memberId)

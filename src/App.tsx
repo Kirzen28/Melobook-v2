@@ -50,7 +50,35 @@ const viewVariants = {
 };
 
 const AppContent: React.FC = () => {
-  const { activeTab, isGuest } = useApp();
+  const {
+    activeTab,
+    isGuest,
+    isRegieOnly,
+    canAccessRepertoire,
+    canAccessSetlistsView,
+    canAccessStage,
+    canAccessProjection,
+    canAccessTools,
+    canAccessGroupsView,
+    canManageSongs,
+    canAccessSettings
+  } = useApp();
+
+  const renderMainView = () => {
+    if (!isGuest && isRegieOnly) {
+      return <PresentationManager />;
+    }
+    if (activeTab === 'repertoire' && canAccessRepertoire) return <SongList />;
+    if (activeTab === 'setlists' && canAccessSetlistsView) return <SetlistManager />;
+    if (activeTab === 'stage' && canAccessStage) return <SongReader />;
+    if (activeTab === 'presentation' && canAccessProjection) return <PresentationManager />;
+    if (!isGuest && activeTab === 'editor' && canManageSongs) return <SongEditor />;
+    if (!isGuest && activeTab === 'groups' && canAccessGroupsView) return <GroupManager />;
+    if (!isGuest && activeTab === 'settings' && canAccessSettings) return <SettingsView />;
+    if (canAccessRepertoire) return <SongList />;
+    if (canAccessSetlistsView) return <SetlistManager />;
+    return <PresentationManager />;
+  };
 
   return (
     <div className="min-h-screen bg-[#0A0A0B] text-[#E0E0E0] flex flex-col font-sans selection:bg-blue-600/30 selection:text-blue-200">
@@ -62,29 +90,27 @@ const AppContent: React.FC = () => {
       <main className="flex-1 relative overflow-x-hidden">
         <AnimatePresence mode="wait">
           <motion.div
-            key={activeTab}
+            key={!isGuest && isRegieOnly ? 'presentation' : activeTab}
             variants={viewVariants}
             initial="initial"
             animate="animate"
             exit="exit"
             className="w-full min-h-full"
           >
-            {(activeTab === 'repertoire' || (isGuest && (activeTab === 'editor' || activeTab === 'groups' || activeTab === 'settings'))) && <SongList />}
-            {activeTab === 'setlists' && <SetlistManager />}
-            {activeTab === 'stage' && <SongReader />}
-            {activeTab === 'presentation' && <PresentationManager />}
-            {!isGuest && activeTab === 'editor' && <SongEditor />}
-            {!isGuest && activeTab === 'groups' && <GroupManager />}
-            {!isGuest && activeTab === 'settings' && <SettingsView />}
+            {renderMainView()}
           </motion.div>
         </AnimatePresence>
       </main>
 
       <div className="no-print">
         <AuthModal />
-        <MiniPianoPopup />
-        <MetronomePopup />
-        <Tuner />
+        {canAccessTools && (
+          <>
+            <MiniPianoPopup />
+            <MetronomePopup />
+            <Tuner />
+          </>
+        )}
         <SnackbarNotification />
         <OfflineIndicator />
       </div>

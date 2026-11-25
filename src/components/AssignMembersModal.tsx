@@ -18,8 +18,9 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { Group, UserProfile, UserRole } from '../types';
+import { Group, UserProfile } from '../types';
 import { UserAvatar } from '../utils/avatarPresets';
+import { resolveMemberAccesses, formatAccessSummary } from '../utils/accessUtils';
 
 interface AssignMembersModalProps {
   isOpen: boolean;
@@ -348,8 +349,9 @@ export const AssignMembersModal: React.FC<AssignMembersModalProps> = ({
             filteredUsers.map((u) => {
               const isSelected = selectedUids.has(u.uid);
               const isOriginallyAssigned = assignedUidsSet.has(u.uid);
-              const isAdmin = u.role === 'admin';
-              const isLeader = u.role === 'leader';
+              const memberAccesses = resolveMemberAccesses(activeTargetGroup, u.uid, u.role, u.accesses);
+              const isAdmin = memberAccesses.includes('admin');
+              const isSetlists = memberAccesses.includes('setlists');
               const isCurrentUser = currentUser?.uid === u.uid;
 
               return (
@@ -382,7 +384,7 @@ export const AssignMembersModal: React.FC<AssignMembersModalProps> = ({
                       fallbackClassName={
                         isAdmin 
                           ? 'bg-blue-600/30 text-blue-300 border border-blue-500/40' 
-                          : isLeader
+                          : isSetlists
                           ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/40'
                           : 'bg-[#22222A] text-gray-300 border border-[#333]'
                       }
@@ -405,14 +407,14 @@ export const AssignMembersModal: React.FC<AssignMembersModalProps> = ({
 
                   {/* Right: Badges & Status */}
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className={`text-[10px] px-2 py-0.5 rounded font-semibold border ${
+                    <span className={`text-[10px] px-2 py-0.5 rounded font-semibold border whitespace-nowrap ${
                       isAdmin 
                         ? 'bg-blue-600/20 text-blue-300 border-blue-500/30' 
-                        : isLeader
+                        : isSetlists
                         ? 'bg-emerald-600/20 text-emerald-300 border-emerald-500/30'
-                        : 'bg-[#1C1C22] text-gray-400 border-[#2E2E38]'
+                        : 'bg-[#1C1C22] text-gray-300 border-[#2E2E38]'
                     }`}>
-                      {isAdmin ? 'Admin' : isLeader ? 'Responsable' : 'Membre'}
+                      {isAdmin ? 'Admin' : formatAccessSummary(memberAccesses)}
                     </span>
 
                     {isOriginallyAssigned ? (

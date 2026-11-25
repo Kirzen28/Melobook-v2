@@ -113,7 +113,8 @@ export const PresentationManager: React.FC = () => {
     createSong,
     updateSong,
     currentUser,
-    isGuest
+    isGuest,
+    canManageSongs
   } = useApp();
 
   const songsById = useMemo(() => new Map(songs.map(s => [s.id, s])), [songs]);
@@ -392,9 +393,7 @@ export const PresentationManager: React.FC = () => {
   const [isAiTranslateModalOpen, setIsAiTranslateModalOpen] = useState<boolean>(false);
   const [aiTranslateInitialEdit, setAiTranslateInitialEdit] = useState<boolean>(false);
 
-  const canSaveTranslationToLibrary = Boolean(
-    !isGuest && currentUser && ['admin', 'leader', 'editor'].includes(currentUser.role)
-  );
+  const canSaveTranslationToLibrary = Boolean(!isGuest && currentUser && canManageSongs);
 
   // Mise en page automatique équilibrée (divise selon la longueur du texte)
   const [autoLayout, setAutoLayout] = useState<boolean>(() => getSavedAutoLayout());

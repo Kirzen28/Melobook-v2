@@ -32,6 +32,7 @@ import { MetronomeIcon } from './MetronomeIcon';
 import { ProfilePictureModal } from './ProfilePictureModal';
 import { UserAvatar } from '../utils/avatarPresets';
 import { metronomeAudio } from '../utils/metronomeAudio';
+import { formatAccessSummary } from '../utils/accessUtils';
 
 export const Navbar: React.FC = () => {
   const { 
@@ -48,14 +49,21 @@ export const Navbar: React.FC = () => {
     promptInstall, 
     handleSignOut,
     syncStatus,
-    lastSyncedAt,
     syncNow,
     isPianoOpen,
     setIsPianoOpen,
     isMetronomeOpen,
     setIsMetronomeOpen,
     isTunerOpen,
-    setIsTunerOpen
+    setIsTunerOpen,
+    effectiveAccesses,
+    isRegieOnly,
+    canAccessRepertoire,
+    canAccessSetlistsView,
+    canAccessProjection,
+    canAccessTools,
+    canAccessGroupsView,
+    canAccessSettings
   } = useApp();
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -156,10 +164,10 @@ export const Navbar: React.FC = () => {
           <div className="flex items-center shrink-0 z-10">
             <button 
               type="button"
-              onClick={() => handleNavClick('repertoire')}
+              onClick={() => handleNavClick(isRegieOnly ? 'presentation' : 'repertoire')}
               className="flex items-center gap-2 cursor-pointer group p-1 rounded-lg hover:bg-[#1A1A1C] transition-colors focus:outline-none shrink-0"
-              title="Répertoire"
-              aria-label="Accueil Répertoire"
+              title={isRegieOnly ? 'Mode Projection' : 'Répertoire'}
+              aria-label={isRegieOnly ? 'Accueil Projection' : 'Accueil Répertoire'}
             >
               <MelobookLogo className="w-8 h-8 sm:w-11 sm:h-11 transition-transform group-hover:scale-105" />
             </button>
@@ -169,92 +177,112 @@ export const Navbar: React.FC = () => {
           <div className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center pointer-events-auto z-10">
             {/* Version mobile (< md) */}
             <div className="flex md:hidden items-center gap-0.5 bg-[#0A0A0B] p-0.5 rounded-lg border border-[#222224] shadow-xs">
-              <button
-                type="button"
-                onClick={() => handleNavClick('repertoire')}
-                className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                  activeTab === 'repertoire'
-                    ? 'bg-[#1C1C1E] text-white border border-[#333] shadow-xs'
-                    : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                <Music2 className={`w-3 h-3 ${activeTab === 'repertoire' ? 'text-blue-400' : 'text-gray-400'}`} />
-                <span>Chants</span>
-              </button>
+              {canAccessRepertoire && (
+                <button
+                  type="button"
+                  onClick={() => handleNavClick('repertoire')}
+                  className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                    activeTab === 'repertoire'
+                      ? 'bg-[#1C1C1E] text-white border border-[#333] shadow-xs'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  <Music2 className={`w-3 h-3 ${activeTab === 'repertoire' ? 'text-blue-400' : 'text-gray-400'}`} />
+                  <span>Chants</span>
+                </button>
+              )}
 
-              <button
-                type="button"
-                onClick={() => handleNavClick('setlists')}
-                className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                  activeTab === 'setlists'
-                    ? 'bg-[#1C1C1E] text-white border border-[#333] shadow-xs'
-                    : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                <ListMusic className={`w-3 h-3 ${activeTab === 'setlists' ? 'text-blue-400' : 'text-gray-400'}`} />
-                <span>Listes</span>
-              </button>
+              {canAccessSetlistsView && (
+                <button
+                  type="button"
+                  onClick={() => handleNavClick('setlists')}
+                  className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                    activeTab === 'setlists'
+                      ? 'bg-[#1C1C1E] text-white border border-[#333] shadow-xs'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  <ListMusic className={`w-3 h-3 ${activeTab === 'setlists' ? 'text-blue-400' : 'text-gray-400'}`} />
+                  <span>Listes</span>
+                </button>
+              )}
+
+              {canAccessProjection && isRegieOnly && (
+                <button
+                  type="button"
+                  onClick={() => handleNavClick('presentation')}
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold whitespace-nowrap bg-[#1C1C1E] text-white border border-[#333] shadow-xs cursor-pointer"
+                >
+                  <Tv className="w-3 h-3 text-cyan-400" />
+                  <span>Projections</span>
+                </button>
+              )}
             </div>
 
             {/* Version Tablette / Laptop / Desktop (>= md) */}
             <nav className="hidden md:flex items-center gap-1 bg-[#0A0A0B] p-1 rounded-lg border border-[#222224] relative shadow-xs">
-              <button
-                onClick={() => setActiveTab('repertoire')}
-                className={`relative z-10 flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
-                  activeTab === 'repertoire'
-                    ? 'text-white'
-                    : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                {activeTab === 'repertoire' && (
-                  <motion.span
-                    layoutId="active-nav-indicator"
-                    className="absolute inset-0 bg-[#1C1C1E] rounded-md border border-[#333] -z-10 shadow-sm"
-                    transition={{ type: 'spring', stiffness: 450, damping: 35 }}
-                  />
-                )}
-                <Music2 className="w-3.5 h-3.5 text-blue-400" />
-                <span>Chants</span>
-              </button>
+              {canAccessRepertoire && (
+                <button
+                  onClick={() => setActiveTab('repertoire')}
+                  className={`relative z-10 flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
+                    activeTab === 'repertoire'
+                      ? 'text-white'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  {activeTab === 'repertoire' && (
+                    <motion.span
+                      layoutId="active-nav-indicator"
+                      className="absolute inset-0 bg-[#1C1C1E] rounded-md border border-[#333] -z-10 shadow-sm"
+                      transition={{ type: 'spring', stiffness: 450, damping: 35 }}
+                    />
+                  )}
+                  <Music2 className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Chants</span>
+                </button>
+              )}
 
-              <button
-                onClick={() => setActiveTab('setlists')}
-                className={`relative z-10 flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
-                  activeTab === 'setlists'
-                    ? 'text-white'
-                    : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                {activeTab === 'setlists' && (
-                  <motion.span
-                    layoutId="active-nav-indicator"
-                    className="absolute inset-0 bg-[#1C1C1E] rounded-md border border-[#333] -z-10 shadow-sm"
-                    transition={{ type: 'spring', stiffness: 450, damping: 35 }}
-                  />
-                )}
-                <ListMusic className="w-3.5 h-3.5 text-blue-400" />
-                <span>Setlists</span>
-              </button>
+              {canAccessSetlistsView && (
+                <button
+                  onClick={() => setActiveTab('setlists')}
+                  className={`relative z-10 flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
+                    activeTab === 'setlists'
+                      ? 'text-white'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  {activeTab === 'setlists' && (
+                    <motion.span
+                      layoutId="active-nav-indicator"
+                      className="absolute inset-0 bg-[#1C1C1E] rounded-md border border-[#333] -z-10 shadow-sm"
+                      transition={{ type: 'spring', stiffness: 450, damping: 35 }}
+                    />
+                  )}
+                  <ListMusic className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Setlists</span>
+                </button>
+              )}
 
-              <button
-                onClick={() => setActiveTab('presentation')}
-                className={`relative z-10 flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
-                  activeTab === 'presentation'
-                    ? 'text-white'
-                    : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                {activeTab === 'presentation' && (
-                  <motion.span
-                    layoutId="active-nav-indicator"
-                    className="absolute inset-0 bg-[#1C1C1E] rounded-md border border-[#333] -z-10 shadow-sm"
-                    transition={{ type: 'spring', stiffness: 450, damping: 35 }}
-                  />
-                )}
-                <Tv className="w-3.5 h-3.5 text-blue-400" />
-                <span>Projection</span>
-              </button>
-
+              {canAccessProjection && (
+                <button
+                  onClick={() => setActiveTab('presentation')}
+                  className={`relative z-10 flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
+                    activeTab === 'presentation'
+                      ? 'text-white'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  {activeTab === 'presentation' && (
+                    <motion.span
+                      layoutId="active-nav-indicator"
+                      className="absolute inset-0 bg-[#1C1C1E] rounded-md border border-[#333] -z-10 shadow-sm"
+                      transition={{ type: 'spring', stiffness: 450, damping: 35 }}
+                    />
+                  )}
+                  <Tv className={`w-3.5 h-3.5 ${isRegieOnly ? 'text-cyan-400' : 'text-blue-400'}`} />
+                  <span>{isRegieOnly ? 'Projections' : 'Projection'}</span>
+                </button>
+              )}
             </nav>
           </div>
 
@@ -372,7 +400,11 @@ export const Navbar: React.FC = () => {
                           </p>
                         </div>
                         <p className="text-[10px] text-gray-400 truncate leading-tight">
-                          {currentUser ? (currentUser.email || (currentUser.role === 'admin' ? 'Administrateur 👑' : currentUser.role === 'leader' ? 'Responsable ⚡' : currentUser.role === 'editor' ? 'Éditeur ✍️' : currentUser.role === 'viewer' ? 'Régie 🖥️' : 'Membre 🎵')) : isGuest ? (currentGroup?.name || 'Consultation seule') : 'Mode visiteur — lecture seule'}
+                          {currentUser
+                            ? `${formatAccessSummary(effectiveAccesses)}${currentGroup?.name ? ` · ${currentGroup.name}` : ''}`
+                            : isGuest
+                            ? (currentGroup?.name || 'Consultation seule')
+                            : 'Mode visiteur — lecture seule'}
                         </p>
                       </div>
                     </div>
@@ -432,110 +464,138 @@ export const Navbar: React.FC = () => {
                   </div>
 
                   {/* Outils Musiciens Externes & Autonomes */}
-                  <div className="py-1">
-                    <div className="px-3.5 pt-1.5 pb-1 flex items-center text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                      <span>Outils musiciens</span>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsMetronomeOpen(true);
-                        setIsMobileMenuOpen(false);
-                      }}
-                      className={`w-full text-left px-3.5 py-2 flex items-center justify-between transition-colors ${
-                        isMetronomeOpen
-                          ? 'bg-[#1C1C1E] text-blue-400 font-semibold'
-                          : 'text-gray-300 hover:bg-[#1C1C1E] hover:text-white'
-                      }`}
-                      title="Métronome universel autonome — Indépendant des chants et du mode scène"
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <MetronomeIcon className="w-4 h-4 text-blue-400 shrink-0" />
-                        <div className="flex flex-col min-w-0">
-                          <span className="truncate">Métronome</span>
-                        </div>
+                  {canAccessTools && (
+                    <div className="py-1">
+                      <div className="px-3.5 pt-1.5 pb-1 flex items-center text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                        <span>Outils musiciens</span>
                       </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {isMetronomeActive && (
-                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 animate-pulse">
-                            En cours
-                          </span>
-                        )}
-                        {isMetronomeOpen && (
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsMetronomeOpen(true);
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className={`w-full text-left px-3.5 py-2 flex items-center justify-between transition-colors ${
+                          isMetronomeOpen
+                            ? 'bg-[#1C1C1E] text-blue-400 font-semibold'
+                            : 'text-gray-300 hover:bg-[#1C1C1E] hover:text-white'
+                        }`}
+                        title="Métronome universel autonome — Indépendant des chants et du mode scène"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <MetronomeIcon className="w-4 h-4 text-blue-400 shrink-0" />
+                          <div className="flex flex-col min-w-0">
+                            <span className="truncate">Métronome</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {isMetronomeActive && (
+                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/60">
+                              En cours
+                            </span>
+                          )}
+                          {isMetronomeOpen && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                          )}
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsPianoOpen(true);
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className={`w-full text-left px-3.5 py-2 flex items-center justify-between transition-colors ${
+                          isPianoOpen
+                            ? 'bg-[#1C1C1E] text-blue-400 font-semibold'
+                            : 'text-gray-300 hover:bg-[#1C1C1E] hover:text-white'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <Piano className="w-4 h-4 text-blue-400 shrink-0" />
+                          <div className="flex flex-col min-w-0">
+                            <span className="truncate">Mini clavier</span>
+                          </div>
+                        </div>
+                        {isPianoOpen && (
                           <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
                         )}
-                      </div>
-                    </button>
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsPianoOpen(true);
-                        setIsMobileMenuOpen(false);
-                      }}
-                      className={`w-full text-left px-3.5 py-2 flex items-center justify-between transition-colors ${
-                        isPianoOpen
-                          ? 'bg-[#1C1C1E] text-blue-400 font-semibold'
-                          : 'text-gray-300 hover:bg-[#1C1C1E] hover:text-white'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <Piano className="w-4 h-4 text-blue-400 shrink-0" />
-                        <div className="flex flex-col min-w-0">
-                          <span className="truncate">Mini clavier</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsTunerOpen(true);
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className={`w-full text-left px-3.5 py-2 flex items-center justify-between transition-colors cursor-pointer ${
+                          isTunerOpen
+                            ? 'bg-[#1C1C1E] text-blue-400 font-semibold'
+                            : 'text-gray-300 hover:bg-[#1C1C1E] hover:text-white'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <Gauge className="w-4 h-4 text-blue-400 shrink-0" />
+                          <div className="flex flex-col min-w-0">
+                            <span className="truncate">Accordeur</span>
+                          </div>
                         </div>
-                      </div>
-                      {isPianoOpen && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                      )}
-                    </button>
+                        {isTunerOpen && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                        )}
+                      </button>
+                    </div>
+                  )}
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsTunerOpen(true);
-                        setIsMobileMenuOpen(false);
-                      }}
-                      className={`w-full text-left px-3.5 py-2 flex items-center justify-between transition-colors cursor-pointer ${
-                        isTunerOpen
-                          ? 'bg-[#1C1C1E] text-blue-400 font-semibold'
-                          : 'text-gray-300 hover:bg-[#1C1C1E] hover:text-white'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <Gauge className="w-4 h-4 text-blue-400 shrink-0" />
-                        <div className="flex flex-col min-w-0">
-                          <span className="truncate">Accordeur</span>
-                        </div>
+                  {/* Sélecteur de bibliothèque compact pour les comptes Régie uniquement multi-bibliothèques */}
+                  {!isGuest && isRegieOnly && groups.length > 1 && (
+                    <div className="py-1.5 px-3.5 space-y-1">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                        Bibliothèque
                       </div>
-                      {isTunerOpen && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                      )}
-                    </button>
-                  </div>
+                      <select
+                        aria-label="Changer de bibliothèque"
+                        value={currentGroup?.id || ''}
+                        onChange={(e) => {
+                          if (e.target.value) switchGroup(e.target.value);
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className="w-full bg-[#18181E] border border-[#2C2C36] rounded-md px-2 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500 cursor-pointer"
+                      >
+                        {groups.map(g => (
+                          <option key={g.id} value={g.id} className="bg-[#141418] text-white">
+                            {g.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
                   {/* Navigation sections */}
-                  <div className="py-1">
-                    <button
-                      onClick={() => handleNavClick('presentation')}
-                      className={`w-full text-left px-3.5 py-2 flex items-center justify-between transition-colors ${
-                        activeTab === 'presentation'
-                          ? 'bg-[#1C1C1E] text-blue-400 font-semibold'
-                          : 'text-gray-300 hover:bg-[#1C1C1E] hover:text-white'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <Tv className="w-3.5 h-3.5 text-blue-400" />
-                        <span>Mode Projection</span>
-                      </div>
-                      {activeTab === 'presentation' && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                  {(canAccessProjection || canAccessGroupsView || canAccessSettings) && (
+                    <div className="py-1">
+                      {canAccessProjection && (
+                        <button
+                          onClick={() => handleNavClick('presentation')}
+                          className={`w-full text-left px-3.5 py-2 flex items-center justify-between transition-colors ${
+                            activeTab === 'presentation'
+                              ? 'bg-[#1C1C1E] text-blue-400 font-semibold'
+                              : 'text-gray-300 hover:bg-[#1C1C1E] hover:text-white'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <Tv className="w-3.5 h-3.5 text-blue-400" />
+                            <span>Mode Projection</span>
+                          </div>
+                          {activeTab === 'presentation' && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                          )}
+                        </button>
                       )}
-                    </button>
 
-                    {!isGuest && (
-                      <>
+                      {canAccessGroupsView && (
                         <button
                           onClick={() => handleNavClick('groups')}
                           className={`w-full text-left px-3.5 py-2 flex items-center justify-between transition-colors ${
@@ -552,7 +612,9 @@ export const Navbar: React.FC = () => {
                             <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
                           )}
                         </button>
+                      )}
 
+                      {canAccessSettings && (
                         <button
                           onClick={() => handleNavClick('settings')}
                           className={`w-full text-left px-3.5 py-2 flex items-center justify-between transition-colors cursor-pointer ${
@@ -569,9 +631,9 @@ export const Navbar: React.FC = () => {
                             <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
                           )}
                         </button>
-                      </>
-                    )}
-                  </div>
+                      )}
+                    </div>
+                  )}
 
                   {isInstallable && (
                     <div className="py-1">

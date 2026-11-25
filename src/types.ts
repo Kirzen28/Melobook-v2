@@ -1,3 +1,5 @@
+export type AccessPermission = 'admin' | 'setlists' | 'chants' | 'pupitre' | 'regie';
+
 export type UserRole = 'admin' | 'leader' | 'editor' | 'member' | 'viewer';
 
 export type SyncStatus = 'synced' | 'syncing' | 'offline' | 'error';
@@ -12,6 +14,7 @@ export interface UserProfile {
   displayName: string;
   currentGroupId: string | null;
   role: UserRole;
+  accesses?: AccessPermission[];
   photoURL?: string;
   personalCapos?: Record<string, number>;
   createdAt?: any;
@@ -23,6 +26,7 @@ export interface Group {
   ownerId: string;
   members: string[]; // array of UIDs
   memberRoles?: Record<string, UserRole>;
+  memberAccesses?: Record<string, AccessPermission[]>;
   inviteCode: string;
   guestEnabled?: boolean;
   description?: string;

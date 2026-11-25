@@ -37,125 +37,33 @@ import {
   Link2,
   QrCode
 } from 'lucide-react';
-import { UserRole, Group } from '../types';
+import { AccessPermission, Group } from '../types';
+import {
+  ACCESS_ORDER,
+  ACCESS_DEFINITIONS,
+  toggleAccessInList,
+  resolveMemberAccesses,
+  formatAccessSummary
+} from '../utils/accessUtils';
 import { AssignMembersModal } from './AssignMembersModal';
 import { RoleMatrixModal } from './RoleMatrixModal';
-import { RoleHierarchyChart } from './RoleHierarchyChart';
 import { GuestQrCodeModal } from './GuestQrCodeModal';
 import { GuestQrScannerModal } from './GuestQrScannerModal';
 import { UserAvatar } from '../utils/avatarPresets';
 import { DuplicateCleanerSection } from './DuplicateCleanerSection';
 
-// Configuration détaillée des rôles avec l'intégralité des informations du tooltip
-const ROLE_CONFIGS: Record<UserRole, {
-  role: UserRole;
-  label: string;
-  emoji: string;
-  shortBadge: string;
-  icon: React.FC<{ className?: string }>;
-  iconBoxStyle: string;
-  badgeStyle: string;
-  tagStyle: string;
-  dotColor: string;
-  description: string;
-  permissions: string[];
-}> = {
-  admin: {
-    role: 'admin',
-    label: 'Administrateur',
-    emoji: '👑',
-    shortBadge: 'Accès Total',
-    icon: Shield,
-    iconBoxStyle: 'bg-blue-500/20 text-blue-400 border border-blue-500/30',
-    badgeStyle: 'bg-blue-600/20 text-blue-300 border-blue-500/40',
-    tagStyle: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
-    dotColor: 'bg-blue-400',
-    description: "Contrôle total : accès à tous les réglages, création/suppression de bibliothèques et attribution des rôles.",
-    permissions: [
-      "Création, modification et suppression des bibliothèques",
-      "Attribution des rôles et gestion de tous les membres",
-      "Création, édition et suppression des chants & setlists",
-      "Accès aux réglages généraux et synchronisation Firestore"
-    ]
-  },
-  leader: {
-    role: 'leader',
-    label: 'Responsable',
-    emoji: '⚡',
-    shortBadge: 'Musique & Setlists',
-    icon: Award,
-    iconBoxStyle: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30',
-    badgeStyle: 'bg-emerald-600/20 text-emerald-300 border-emerald-500/40',
-    tagStyle: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
-    dotColor: 'bg-emerald-400',
-    description: "Conduite musicale : création des setlists, fixation des tonalités, choix des chants et conduite des cultes/concerts.",
-    permissions: [
-      "Création, organisation et gestion des setlists",
-      "Définition des tonalités et tempos par défaut du groupe",
-      "Création et modification des chants dans le répertoire",
-      "Mode Scène, métronome, accordeur et historique"
-    ]
-  },
-  editor: {
-    role: 'editor',
-    label: 'Éditeur',
-    emoji: '✍️',
-    shortBadge: 'Gestion Chants',
-    icon: FileEdit,
-    iconBoxStyle: 'bg-amber-500/20 text-amber-400 border border-amber-500/30',
-    badgeStyle: 'bg-amber-600/20 text-amber-300 border-amber-500/40',
-    tagStyle: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
-    dotColor: 'bg-amber-400',
-    description: "Saisie et enrichissement du répertoire : création de chants, import ChordPro, retouche des accords et des paroles. Ne modifie pas les setlists.",
-    permissions: [
-      "Création, édition et import de chants ChordPro",
-      "Organisation des dossiers, tags, clés et métadonnées",
-      "Consultation des setlists sans droit de modification",
-      "Mode Scène et transposition personnelle"
-    ]
-  },
-  member: {
-    role: 'member',
-    label: 'Membre',
-    emoji: '🎵',
-    shortBadge: 'Musicien / Chant',
-    icon: UserCheck,
-    iconBoxStyle: 'bg-purple-500/20 text-purple-300 border border-purple-500/30',
-    badgeStyle: 'bg-[#1C1C1E] text-gray-300 border-[#333]',
-    tagStyle: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
-    dotColor: 'bg-purple-400',
-    description: "Musicien ou choriste. Synchronisation directe des setlists, répétitions en direct, transposition et capodastre personnels.",
-    permissions: [
-      "Lecture seule synchronisée du répertoire et des setlists",
-      "Accès aux répétitions en direct et Mode Scène",
-      "Transposition et capodastre personnels (sans impacter le groupe)",
-      "Pas de modification des chants racine ni des setlists officielles"
-    ]
-  },
-  viewer: {
-    role: 'viewer',
-    label: 'Régie / Lecteur',
-    emoji: '🖥️',
-    shortBadge: 'Projection',
-    icon: Monitor,
-    iconBoxStyle: 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30',
-    badgeStyle: 'bg-cyan-600/20 text-cyan-300 border-cyan-500/40',
-    tagStyle: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30',
-    dotColor: 'bg-cyan-400',
-    description: "Régie vidéo, projection des paroles ou observateur. Consultation en direct sans risque de modification involontaire.",
-    permissions: [
-      "Consultation en lecture seule des chants et setlists",
-      "Vue plein écran adaptée pour projection de paroles ou écran retour",
-      "Aucune modification possible (sécurité totale anti-fausse manip)",
-      "Pas de modification de chants ni de setlists"
-    ]
-  }
+const ACCESS_ICONS: Record<AccessPermission, React.FC<{ className?: string }>> = {
+  admin: Shield,
+  setlists: Award,
+  chants: FileEdit,
+  pupitre: UserCheck,
+  regie: Monitor
 };
 
-// Sélecteur de rôle personnalisé intégré à l'application (non natif OS)
-const RoleFilterDropdown: React.FC<{
-  value: string;
-  onChange: (role: string) => void;
+// Sélecteur de filtre par accès cumulable
+const AccessFilterDropdown: React.FC<{
+  value: 'all' | AccessPermission;
+  onChange: (access: 'all' | AccessPermission) => void;
 }> = ({ value, onChange }) => {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -179,40 +87,26 @@ const RoleFilterDropdown: React.FC<{
     }
   }, [isOpen]);
 
-  const allOption = { key: 'all', label: 'Tous les rôles', emoji: '👥', icon: Users };
-  const roleOptions = [
-    allOption,
-    ...(['admin', 'leader', 'editor', 'member', 'viewer'] as UserRole[]).map(r => ({
-      key: r,
-      label: ROLE_CONFIGS[r].label,
-      emoji: ROLE_CONFIGS[r].emoji,
-      icon: ROLE_CONFIGS[r].icon,
-      badgeStyle: ROLE_CONFIGS[r].badgeStyle,
-      tagStyle: ROLE_CONFIGS[r].tagStyle,
-      iconBoxStyle: ROLE_CONFIGS[r].iconBoxStyle,
-    }))
-  ];
-  const current = roleOptions.find(o => o.key === value) || allOption;
-  const CurrentIcon = current.icon;
+  const currentMeta = value === 'all' ? null : ACCESS_DEFINITIONS[value];
+  const CurrentIcon = value === 'all' ? Users : ACCESS_ICONS[value];
 
   return (
     <div ref={containerRef} className="relative inline-block text-left">
       <button
         type="button"
         onClick={() => setIsOpen(prev => !prev)}
-        className={`px-2.5 py-1 rounded-lg border text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer shadow-xs min-w-[140px] justify-between ${
+        className={`px-2.5 py-1 rounded-lg border text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer shadow-xs min-w-[155px] justify-between whitespace-nowrap ${
           isOpen
             ? 'bg-[#1C1C24] border-blue-500 ring-2 ring-blue-500/30 text-white'
-            : value === 'all'
+            : !currentMeta
             ? 'bg-[#16161C] border-[#262632] text-gray-300 hover:border-[#383846] hover:text-white'
-            : (current as any).badgeStyle + ' hover:brightness-110 hover:border-gray-500'
+            : `${currentMeta.badgeStyle} hover:brightness-110`
         }`}
         aria-expanded={isOpen}
       >
         <span className="flex items-center gap-1.5 truncate">
           <CurrentIcon className="w-3.5 h-3.5 shrink-0" />
-          <span>{current.label}</span>
-          {value !== 'all' && <span className="text-[11px]">{current.emoji}</span>}
+          <span>{currentMeta ? `Accès ${currentMeta.label}` : 'Tous les accès'}</span>
         </span>
         <ChevronDown className={`w-3.5 h-3.5 opacity-70 transition-transform duration-200 shrink-0 ${
           isOpen ? 'rotate-180 opacity-100 text-blue-400' : ''
@@ -220,38 +114,47 @@ const RoleFilterDropdown: React.FC<{
       </button>
 
       {isOpen && (
-        <div className="absolute left-0 top-full mt-1.5 w-56 bg-[#121217] border border-[#2E2E38] rounded-xl shadow-2xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+        <div className="absolute left-0 sm:left-auto sm:right-0 top-full mt-1.5 w-56 bg-[#121217] border border-[#2E2E38] rounded-xl shadow-2xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
           <div className="px-2 py-1 mb-1 border-b border-[#24242C]">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Filtrer par rôle</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Filtrer par accès</span>
           </div>
           <div className="space-y-0.5">
-            {roleOptions.map((opt) => {
-              const Icon = opt.icon;
-              const isSelected = value === opt.key;
-              const roleConfig = opt.key !== 'all' ? ROLE_CONFIGS[opt.key as UserRole] : null;
+            <button
+              type="button"
+              onClick={() => { onChange('all'); setIsOpen(false); }}
+              className={`w-full px-2.5 py-1.5 rounded-lg text-xs font-medium flex items-center gap-2 transition-all cursor-pointer text-left ${
+                value === 'all'
+                  ? 'bg-blue-600/20 text-blue-300 border border-blue-500/40'
+                  : 'text-gray-300 hover:bg-[#1E1E26] hover:text-white border border-transparent'
+              }`}
+            >
+              <span className="w-5 h-5 rounded-md flex items-center justify-center shrink-0 bg-[#26262E] text-gray-400 border border-[#333]">
+                <Users className="w-3 h-3" />
+              </span>
+              <span className="flex-1 truncate">Tous les accès</span>
+              {value === 'all' && <Check className="w-3.5 h-3.5 text-blue-400 shrink-0" />}
+            </button>
+
+            {ACCESS_ORDER.map((accKey) => {
+              const meta = ACCESS_DEFINITIONS[accKey];
+              const Icon = ACCESS_ICONS[accKey];
+              const isSelected = value === accKey;
               return (
                 <button
-                  key={opt.key}
+                  key={accKey}
                   type="button"
-                  onClick={() => { onChange(opt.key); setIsOpen(false); }}
+                  onClick={() => { onChange(accKey); setIsOpen(false); }}
                   className={`w-full px-2.5 py-1.5 rounded-lg text-xs font-medium flex items-center gap-2 transition-all cursor-pointer text-left ${
                     isSelected
                       ? 'bg-blue-600/20 text-blue-300 border border-blue-500/40'
                       : 'text-gray-300 hover:bg-[#1E1E26] hover:text-white border border-transparent'
                   }`}
                 >
-                  <span className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 text-[10px] ${
-                    roleConfig ? roleConfig.iconBoxStyle : 'bg-[#26262E] text-gray-400 border border-[#333]'
-                  }`}>
+                  <span className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 ${meta.iconBoxStyle}`}>
                     <Icon className="w-3 h-3" />
                   </span>
-                  <span className="flex-1 truncate">{opt.label}</span>
-                  {opt.key !== 'all' && <span className="text-[12px]">{opt.emoji}</span>}
-                  {isSelected && (
-                    <span className="w-3.5 h-3.5 rounded-full bg-blue-500 text-white flex items-center justify-center shrink-0">
-                      <Check className="w-2 h-2 stroke-[3]" />
-                    </span>
-                  )}
+                  <span className="flex-1 truncate">{meta.label}</span>
+                  {isSelected && <Check className="w-3.5 h-3.5 text-blue-400 shrink-0" />}
                 </button>
               );
             })}
@@ -262,14 +165,16 @@ const RoleFilterDropdown: React.FC<{
   );
 };
 
-// Sélecteur de rôle personnalisé intégré à l'application (non natif OS)
-const RoleDropdown: React.FC<{
-  value: UserRole;
-  onChange: (newRole: UserRole) => void;
+// Sélecteur multi-accès cumulables pour un membre dans la bibliothèque active
+const AccessSelectorDropdown: React.FC<{
+  value: AccessPermission[];
+  onChange: (nextAccesses: AccessPermission[]) => void;
+  isOwner?: boolean;
   disabled?: boolean;
   align?: 'left' | 'right';
   className?: string;
-}> = ({ value, onChange, disabled = false, align = 'right', className = '' }) => {
+  triggerLabelOverride?: string;
+}> = ({ value, onChange, isOwner = false, disabled = false, align = 'right', className = '', triggerLabelOverride }) => {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -295,8 +200,14 @@ const RoleDropdown: React.FC<{
     }
   }, [isOpen]);
 
-  const currentConfig = ROLE_CONFIGS[value] || ROLE_CONFIGS.member;
-  const CurrentIcon = currentConfig.icon;
+  const hasAdmin = value.includes('admin');
+  const summaryLabel = triggerLabelOverride || (isOwner ? 'Propriétaire · Admin' : formatAccessSummary(value));
+
+  const triggerStyle = hasAdmin
+    ? ACCESS_DEFINITIONS.admin.badgeStyle
+    : value.length === 1
+    ? ACCESS_DEFINITIONS[value[0]].badgeStyle
+    : 'bg-[#181820] text-gray-200 border-[#2E2E3A]';
 
   return (
     <div ref={containerRef} className={`relative inline-block text-left ${className}`}>
@@ -304,96 +215,109 @@ const RoleDropdown: React.FC<{
         type="button"
         disabled={disabled}
         onClick={() => setIsOpen(prev => !prev)}
-        className={`px-2.5 py-1.5 rounded-lg border text-xs font-semibold flex items-center justify-between gap-2 transition-all cursor-pointer shadow-xs ${
+        className={`px-2.5 py-1.5 rounded-lg border text-xs font-semibold flex items-center justify-between gap-2 transition-all cursor-pointer shadow-xs max-w-[230px] whitespace-nowrap ${
           isOpen
             ? 'bg-[#1C1C24] border-blue-500 ring-2 ring-blue-500/30 text-white'
-            : currentConfig.badgeStyle + ' hover:brightness-110 hover:border-gray-500'
+            : `${triggerStyle} hover:brightness-110`
         } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         aria-expanded={isOpen}
-        title="Changer le niveau d'autorisation"
+        title="Choisir les accès cumulables de ce membre dans cette bibliothèque"
       >
-        <span className="flex items-center gap-1.5 truncate">
-          <CurrentIcon className="w-3.5 h-3.5 shrink-0" />
-          <span>{currentConfig.label}</span>
-          <span className="text-[11px]">{currentConfig.emoji}</span>
+        <span className="flex items-center gap-1.5 min-w-0">
+          {hasAdmin ? (
+            <Shield className="w-3.5 h-3.5 shrink-0 text-blue-400" />
+          ) : value.length === 1 && value[0] === 'regie' ? (
+            <Monitor className="w-3.5 h-3.5 shrink-0 text-cyan-400" />
+          ) : (
+            <ShieldCheck className="w-3.5 h-3.5 shrink-0 text-gray-400" />
+          )}
+          <span className="truncate">{summaryLabel}</span>
         </span>
-        <ChevronDown className={`w-3.5 h-3.5 opacity-70 transition-transform duration-200 ${isOpen ? 'rotate-180 opacity-100 text-blue-400' : ''}`} />
+        <ChevronDown className={`w-3.5 h-3.5 opacity-70 transition-transform duration-200 shrink-0 ${isOpen ? 'rotate-180 opacity-100 text-blue-400' : ''}`} />
       </button>
 
       {isOpen && (
-        <div 
-          className={`absolute ${align === 'right' ? 'left-0 sm:left-auto sm:right-0' : 'left-0'} top-full mt-1.5 w-[min(20rem,calc(100vw-2.5rem))] sm:w-96 bg-[#121217] border border-[#2E2E38] rounded-xl shadow-2xl p-2.5 z-50 animate-in fade-in zoom-in-95 duration-100 text-left`}
+        <div
+          className={`absolute ${align === 'right' ? 'left-0 sm:left-auto sm:right-0' : 'left-0'} top-full mt-1.5 w-[min(21rem,calc(100vw-2.5rem))] sm:w-96 bg-[#121217] border border-[#2E2E38] rounded-xl shadow-2xl p-2.5 z-50 animate-in fade-in zoom-in-95 duration-100 text-left`}
         >
           <div className="flex items-center justify-between px-2 py-1.5 border-b border-[#24242C] mb-2">
             <div className="flex items-center gap-1.5 text-xs font-bold text-white">
               <Shield className="w-3.5 h-3.5 text-blue-400" />
-              <span>Niveau d'autorisation du compte</span>
+              <span>Accès cumulables (cette bibliothèque)</span>
             </div>
-            <span className="text-[10px] text-gray-400 font-medium">Sélecteur intégré</span>
+            <button
+              type="button"
+              onClick={() => setIsOpen(false)}
+              className="text-[11px] text-gray-400 hover:text-white px-1.5 py-0.5 rounded hover:bg-[#1E1E26] cursor-pointer"
+            >
+              Fermer
+            </button>
           </div>
 
-          <div className="space-y-1.5 max-h-[75vh] overflow-y-auto pr-0.5 custom-scrollbar">
-            {(['admin', 'leader', 'editor', 'member', 'viewer'] as UserRole[]).map((roleKey) => {
-              const config = ROLE_CONFIGS[roleKey];
-              const isSelected = value === roleKey;
-              const Icon = config.icon;
+          {isOwner && (
+            <div className="mb-2 px-2.5 py-2 rounded-lg bg-blue-600/10 border border-blue-500/30 text-[11px] text-blue-200 flex items-center gap-2">
+              <Lock className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+              <span>Propriétaire de la bibliothèque : tous les accès restent activés en permanence.</span>
+            </div>
+          )}
+
+          <div className="space-y-1.5 max-h-[68vh] overflow-y-auto pr-0.5 custom-scrollbar">
+            {ACCESS_ORDER.map((accKey) => {
+              const meta = ACCESS_DEFINITIONS[accKey];
+              const Icon = ACCESS_ICONS[accKey];
+              const isChecked = value.includes(accKey);
 
               return (
-                <div
-                  key={roleKey}
+                <button
+                  key={accKey}
+                  type="button"
+                  disabled={isOwner}
                   onClick={() => {
-                    onChange(roleKey);
-                    setIsOpen(false);
+                    if (isOwner) return;
+                    const next = toggleAccessInList(value, accKey, isOwner);
+                    onChange(next);
                   }}
-                  className={`w-full p-2.5 rounded-lg border text-left transition-all cursor-pointer block group ${
-                    isSelected
-                      ? 'bg-blue-600/15 border-blue-500/60 shadow-xs ring-1 ring-blue-500/30'
+                  className={`w-full p-2.5 rounded-lg border text-left transition-all flex items-start gap-2.5 ${
+                    isOwner ? 'opacity-80 cursor-not-allowed' : 'cursor-pointer'
+                  } ${
+                    isChecked
+                      ? 'bg-blue-600/12 border-blue-500/50'
                       : 'bg-[#18181E] hover:bg-[#202028] border-[#262630] hover:border-[#383846]'
                   }`}
                 >
-                  <div className="flex items-center justify-between gap-2 mb-1.5">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 ${config.iconBoxStyle}`}>
-                        <Icon className="w-3.5 h-3.5" />
-                      </div>
-                      <span className={`font-bold text-xs truncate ${isSelected ? 'text-white' : 'text-gray-200 group-hover:text-white'}`}>
-                        {config.label} {config.emoji}
+                  <div className={`w-4 h-4 mt-0.5 rounded border flex items-center justify-center shrink-0 transition-colors ${
+                    isChecked
+                      ? 'bg-blue-600 border-blue-500 text-white'
+                      : 'bg-[#121216] border-[#444]'
+                  }`}>
+                    {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 ${meta.iconBoxStyle}`}>
+                        <Icon className="w-3 h-3" />
                       </span>
-                      <span className={`text-[9px] px-1.5 py-0.2 rounded font-semibold border shrink-0 ${config.tagStyle}`}>
-                        {config.shortBadge}
-                      </span>
+                      <span className="font-bold text-xs text-white">{meta.label}</span>
+                      {accKey === 'admin' && (
+                        <span className="text-[10px] text-blue-300 font-medium">· Accès complet</span>
+                      )}
+                      {accKey === 'regie' && (
+                        <span className="text-[10px] text-cyan-300 font-medium">· Projections uniquement</span>
+                      )}
                     </div>
-
-                    {isSelected && (
-                      <div className="w-4 h-4 rounded-full bg-blue-500 text-white flex items-center justify-center shrink-0">
-                        <Check className="w-2.5 h-2.5 stroke-[3]" />
-                      </div>
-                    )}
+                    <p className="text-[11px] text-gray-400 leading-snug mt-1">
+                      {meta.description}
+                    </p>
                   </div>
-
-                  {/* Description détaillée complète issue du tooltip */}
-                  <p className="text-[11px] text-gray-300 leading-normal pl-8 mb-2">
-                    {config.description}
-                  </p>
-
-                  {/* Liste des permissions clés */}
-                  <div className="pl-8 space-y-1 bg-[#101014] p-2 rounded-md border border-[#222228]">
-                    <div className="text-[9px] uppercase tracking-wider font-bold text-gray-500 mb-0.5">Permissions accordées :</div>
-                    {config.permissions.map((perm, pIdx) => (
-                      <div key={pIdx} className="text-[10px] text-gray-300 flex items-start gap-1.5">
-                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 mt-1 ${config.dotColor}`} />
-                        <span className="leading-tight">{perm}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                </button>
               );
             })}
           </div>
 
-          <div className="px-2 pt-2 mt-2 border-t border-[#24242C] text-[10px] text-gray-500 flex items-center justify-between">
-            <span>Détails complets des permissions</span>
-            <span className="text-emerald-400 font-medium">Prise d'effet immédiate</span>
+          <div className="px-2 pt-2 mt-2 border-t border-[#24242C] text-[10px] text-gray-400 flex items-center justify-between gap-2">
+            <span>Cochez un ou plusieurs accès</span>
+            <span className="text-emerald-400 font-medium">Effet immédiat</span>
           </div>
         </div>
       )}
@@ -414,18 +338,15 @@ export const GroupManager: React.FC = () => {
     deleteGroup,
     joinGroup, 
     allUsers,
-    updateUserRole,
-    bulkUpdateUserRole,
+    effectiveAccesses,
+    updateUserAccesses,
+    bulkUpdateUserAccesses,
     bulkRemoveMembersFromGroup,
     bulkDeleteUserAccounts,
-    setAdminByEmail,
     assignMembersToGroup,
     removeMemberFromGroup,
     setIsAuthModalOpen,
-    setActiveTab,
     canManageGroups,
-    canManageSongs,
-    canAccessSettings,
     toggleLibraryGuestMode
   } = useApp();
 
@@ -442,7 +363,7 @@ export const GroupManager: React.FC = () => {
   // Modal d'assignation multiselect
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [assignModalTargetGroupId, setAssignModalTargetGroupId] = useState<string | undefined>(undefined);
-  const [memberRoleFilter, setMemberRoleFilter] = useState<string>('all');
+  const [memberAccessFilter, setMemberAccessFilter] = useState<'all' | AccessPermission>('all');
   const [isRoleMatrixOpen, setIsRoleMatrixOpen] = useState(false);
 
   const openAssignModal = (groupId?: string) => {
@@ -483,16 +404,10 @@ export const GroupManager: React.FC = () => {
     }
   };
 
-  // Administration des rôles par e-mail
-  const [adminEmailInput, setAdminEmailInput] = useState('');
-  const [promoteRole, setPromoteRole] = useState<UserRole>('leader');
-  const [isPromoting, setIsPromoting] = useState(false);
-  const [promoteStatusMsg, setPromoteStatusMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
-
   // Multiselect pour le tableau des membres
   const [selectedUserUids, setSelectedUserUids] = useState<string[]>([]);
   const [isBulkActionLoading, setIsBulkActionLoading] = useState(false);
-  const [bulkRoleMenuOpen, setBulkRoleMenuOpen] = useState(false);
+  const [bulkAccessSelection, setBulkAccessSelection] = useState<AccessPermission[]>(['pupitre']);
   const [bulkLibraryMenuOpen, setBulkLibraryMenuOpen] = useState(false);
   const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
 
@@ -502,11 +417,6 @@ export const GroupManager: React.FC = () => {
     return (members || []).includes(userUid);
   }, []);
 
-  // Décompte précis des membres réels enregistrés dans la bibliothèque
-  const getGroupValidMemberCount = useCallback((g: Group): number => {
-    return allUsers.filter(u => isMemberOfGroup(g.id, g.members, u.uid)).length;
-  }, [allUsers, isMemberOfGroup]);
-
   const libraryMembersCount = useMemo(() => {
     return allUsers.filter(u => isMemberOfGroup(currentGroup?.id, currentGroup?.members, u.uid)).length;
   }, [allUsers, currentGroup?.id, currentGroup?.members, isMemberOfGroup]);
@@ -514,9 +424,11 @@ export const GroupManager: React.FC = () => {
   const filteredUsers = useMemo(() => {
     return allUsers.filter(u => {
       if (!isMemberOfGroup(currentGroup?.id, currentGroup?.members, u.uid)) return false;
-      return memberRoleFilter === 'all' || u.role === memberRoleFilter;
+      if (memberAccessFilter === 'all') return true;
+      const memberAccesses = resolveMemberAccesses(currentGroup, u.uid, u.role, u.accesses);
+      return memberAccesses.includes(memberAccessFilter);
     });
-  }, [allUsers, memberRoleFilter, currentGroup?.id, currentGroup?.members, isMemberOfGroup]);
+  }, [allUsers, memberAccessFilter, currentGroup, isMemberOfGroup]);
 
   const isAllSelected = filteredUsers.length > 0 && filteredUsers.every(u => selectedUserUids.includes(u.uid));
   const isSomeSelected = filteredUsers.some(u => selectedUserUids.includes(u.uid)) && !isAllSelected;
@@ -537,12 +449,12 @@ export const GroupManager: React.FC = () => {
     }
   };
 
-  const handleBulkChangeRole = async (newRole: UserRole) => {
+  const handleBulkApplyAccesses = async (nextAccesses: AccessPermission[]) => {
+    setBulkAccessSelection(nextAccesses);
     if (selectedUserUids.length === 0) return;
     setIsBulkActionLoading(true);
-    setBulkRoleMenuOpen(false);
     try {
-      await bulkUpdateUserRole(selectedUserUids, newRole);
+      await bulkUpdateUserAccesses(selectedUserUids, nextAccesses);
     } finally {
       setIsBulkActionLoading(false);
     }
@@ -664,30 +576,6 @@ export const GroupManager: React.FC = () => {
     } else {
       setJoinStatus('error');
       setTimeout(() => setJoinStatus('idle'), 3000);
-    }
-  };
-
-  const handlePromoteAdminEmail = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!adminEmailInput.trim()) return;
-    setIsPromoting(true);
-    setPromoteStatusMsg(null);
-    try {
-      await setAdminByEmail(adminEmailInput.trim(), promoteRole);
-      const roleLabel = promoteRole === 'admin' ? 'Administrateur' : promoteRole === 'leader' ? 'Responsable' : 'Membre';
-      setPromoteStatusMsg({
-        text: `L'adresse ${adminEmailInput.trim()} a été configurée avec le rôle ${roleLabel}.`,
-        type: 'success'
-      });
-      setAdminEmailInput('');
-      setTimeout(() => setPromoteStatusMsg(null), 4000);
-    } catch (err: any) {
-      setPromoteStatusMsg({
-        text: err?.message || "Erreur lors de l'attribution du rôle",
-        type: 'error'
-      });
-    } finally {
-      setIsPromoting(false);
     }
   };
 
@@ -934,7 +822,7 @@ export const GroupManager: React.FC = () => {
           )}
         </div>
 
-        {/* 2. Section Membres & Rôles */}
+        {/* 2. Section Accès & Membres */}
         <div>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-[#222224]/60">
               <div className="flex items-center gap-2.5">
@@ -942,32 +830,22 @@ export const GroupManager: React.FC = () => {
                   <Shield className="w-3.5 h-3.5" />
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="text-xs sm:text-sm font-bold text-white">Rôles & Membres</h3>
+                  <h3 className="text-xs sm:text-sm font-bold text-white">Accès & Membres</h3>
 
                   <button
                     type="button"
                     onClick={() => setIsRoleMatrixOpen(true)}
                     className="px-2.5 py-1 rounded-lg bg-blue-600/15 hover:bg-blue-600/25 text-blue-300 hover:text-white border border-blue-500/30 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95"
-                    title="Consulter le tableau comparatif complet des rôles et permissions"
+                    title="Consulter le tableau comparatif des accès cumulables"
                   >
                     <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />
-                    <span>Tableau comparatif</span>
+                    <span>Tableau des accès</span>
                   </button>
                 </div>
               </div>
 
               <div className="flex items-center gap-2 flex-wrap">
-                <button
-                  type="button"
-                  onClick={() => setIsRoleMatrixOpen(true)}
-                  className="px-3 py-1.5 rounded-lg bg-[#181822] hover:bg-[#20202E] text-blue-300 hover:text-white border border-blue-500/30 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95 sm:hidden"
-                  title="Consulter le tableau comparatif complet des rôles et permissions"
-                >
-                  <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />
-                  <span>Permissions</span>
-                </button>
-
-                {canManageGroups && (
+                {canManageGroups && currentGroup && (
                   <button
                     type="button"
                     onClick={() => openAssignModal(currentGroup.id)}
@@ -994,19 +872,6 @@ export const GroupManager: React.FC = () => {
               </div>
             </div>
 
-            {promoteStatusMsg && (
-              <div className={`mb-3 p-2.5 rounded-lg text-xs font-medium border flex items-center gap-2 ${
-                promoteStatusMsg.type === 'success' 
-                  ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30' 
-                  : 'bg-rose-500/10 text-rose-300 border-rose-500/30'
-              }`}>
-                <Info className="w-4 h-4 shrink-0" />
-                <span>{promoteStatusMsg.text}</span>
-              </div>
-            )}
-
-
-
             <>
             {/* Filtrage des membres de la bibliothèque active */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 mb-3">
@@ -1017,13 +882,87 @@ export const GroupManager: React.FC = () => {
                 </span>
               </div>
 
-              <RoleFilterDropdown
-                value={memberRoleFilter}
-                onChange={setMemberRoleFilter}
+              <AccessFilterDropdown
+                value={memberAccessFilter}
+                onChange={setMemberAccessFilter}
               />
             </div>
 
-            {/* Liste des utilisateurs inscrits avec gestion de rôle et assignation */}
+            {/* Barre d'actions en masse lorsque plusieurs membres sont cochés */}
+            {canManageGroups && selectedUserUids.length > 0 && (
+              <div className="mb-3 p-2.5 rounded-xl bg-blue-950/30 border border-blue-500/35 flex flex-wrap items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-2 text-blue-200 font-semibold">
+                  <span>{selectedUserUids.length} membre{selectedUserUids.length > 1 ? 's' : ''} sélectionné{selectedUserUids.length > 1 ? 's' : ''}</span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedUserUids([])}
+                    className="text-[11px] text-gray-400 hover:text-white underline cursor-pointer font-normal"
+                  >
+                    Effacer
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <AccessSelectorDropdown
+                    value={bulkAccessSelection}
+                    onChange={handleBulkApplyAccesses}
+                    disabled={isBulkActionLoading}
+                    align="right"
+                    triggerLabelOverride="Appliquer des accès..."
+                  />
+
+                  {groups.length > 1 && (
+                    <div className="relative">
+                      <button
+                        type="button"
+                        disabled={isBulkActionLoading}
+                        onClick={() => setBulkLibraryMenuOpen(prev => !prev)}
+                        className="px-2.5 py-1.5 rounded-lg bg-[#181822] hover:bg-[#22222E] border border-[#2E2E3A] text-gray-200 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Library className="w-3.5 h-3.5 text-blue-400" />
+                        <span>Ajouter à…</span>
+                      </button>
+                      {bulkLibraryMenuOpen && (
+                        <div className="absolute right-0 top-full mt-1 w-56 bg-[#121217] border border-[#2E2E38] rounded-xl shadow-2xl p-1.5 z-50">
+                          {groups.filter(g => g.id !== currentGroup?.id).map(g => (
+                            <button
+                              key={g.id}
+                              type="button"
+                              onClick={() => handleBulkAddToLibrary(g.id)}
+                              className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-gray-200 hover:bg-[#1E1E26] truncate cursor-pointer"
+                            >
+                              {g.name}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    disabled={isBulkActionLoading}
+                    onClick={handleBulkRemoveFromCurrentLibrary}
+                    className="px-2.5 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                  >
+                    <UserMinus className="w-3.5 h-3.5" />
+                    <span>Retirer</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={isBulkActionLoading}
+                    onClick={() => setIsBulkDeleteModalOpen(true)}
+                    className="px-2.5 py-1.5 rounded-lg bg-rose-600/20 hover:bg-rose-600/30 text-rose-200 border border-rose-500/40 text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Supprimer</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Liste des utilisateurs inscrits avec gestion d'accès cumulables et assignation */}
             {libraryMembersCount > 0 ? (
               <div className="border border-[#222228] rounded-lg bg-[#141416]">
                 {/* Barre d'en-tête de la liste */}
@@ -1062,8 +1001,12 @@ export const GroupManager: React.FC = () => {
 
                 <div className="divide-y divide-[#222228]">
                   {filteredUsers.map((u, index) => {
-                    const isAdmin = u.role === 'admin';
-                    const isLeader = u.role === 'leader';
+                    const memberAccesses = resolveMemberAccesses(currentGroup, u.uid, u.role, u.accesses);
+                    const isOwner = Boolean(currentGroup?.ownerId && currentGroup.ownerId === u.uid);
+                    const isMemberAdmin = memberAccesses.includes('admin');
+                    const isMemberSetlists = memberAccesses.includes('setlists');
+                    const isMemberChants = memberAccesses.includes('chants');
+                    const isRegieOnlyMember = memberAccesses.length === 1 && memberAccesses[0] === 'regie';
                     const isSelf = currentUser?.uid === u.uid;
                     const isAssigned = isMemberOfGroup(currentGroup?.id, currentGroup?.members, u.uid);
                     const isSelected = selectedUserUids.includes(u.uid);
@@ -1098,13 +1041,13 @@ export const GroupManager: React.FC = () => {
                             sizeClass="w-8 h-8 sm:w-7 sm:h-7 text-xs sm:text-[11px]"
                             iconClass="w-3.5 h-3.5"
                             fallbackClassName={
-                              isAdmin 
+                              isMemberAdmin 
                                 ? 'bg-blue-600/30 text-blue-300 border border-blue-500/40' 
-                                : isLeader
+                                : isMemberSetlists
                                 ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/40'
-                                : u.role === 'editor'
+                                : isMemberChants
                                 ? 'bg-amber-600/30 text-amber-300 border border-amber-500/40'
-                                : u.role === 'viewer'
+                                : isRegieOnlyMember
                                 ? 'bg-cyan-600/30 text-cyan-300 border border-cyan-500/40'
                                 : 'bg-[#222228] text-gray-300 border border-[#333]'
                             }
@@ -1117,6 +1060,11 @@ export const GroupManager: React.FC = () => {
                                   Vous
                                 </span>
                               )}
+                              {isOwner && (
+                                <span className="text-[10px] text-blue-400 font-medium shrink-0">
+                                  · Propriétaire
+                                </span>
+                              )}
                             </div>
                             <div className="text-[11px] text-gray-400 truncate font-mono">
                               {u.email || 'Sans e-mail'}
@@ -1124,21 +1072,8 @@ export const GroupManager: React.FC = () => {
                           </div>
                         </div>
 
-                        <div className={`flex items-center justify-between sm:justify-end gap-2 shrink-0 ${canManageGroups ? 'pl-6 sm:pl-0' : 'pl-10 sm:pl-0'}`}>
-                          {/* Statut d'assignation à la bibliothèque active */}
-                          {isAssigned ? (
-                            <span className="hidden sm:inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-medium">
-                              <Check className="w-2.5 h-2.5" />
-                              <span>Assigné</span>
-                            </span>
-                          ) : (
-                            <span className="hidden sm:inline-block text-[10px] px-2 py-0.5 rounded-full bg-[#1C1C24] text-gray-400 border border-[#2A2A34] font-medium">
-                              Non assigné
-                            </span>
-                          )}
-
-                          {/* Bouton rapide d'assignation ou de retrait pour l'admin */}
-                          {canManageGroups && currentGroup && (
+                        <div className={`flex items-center justify-between sm:justify-end gap-2 shrink-0 flex-wrap ${canManageGroups ? 'pl-6 sm:pl-0' : 'pl-10 sm:pl-0'}`}>
+                          {canManageGroups && currentGroup && !isOwner && (
                             isAssigned ? (
                               <button
                                 type="button"
@@ -1164,25 +1099,22 @@ export const GroupManager: React.FC = () => {
 
                           {canManageGroups ? (
                             <div className="order-1 sm:order-2">
-                              <RoleDropdown
-                                value={u.role || 'member'}
-                                onChange={(newRole) => updateUserRole(u.uid, newRole)}
+                              <AccessSelectorDropdown
+                                value={memberAccesses}
+                                isOwner={isOwner}
+                                onChange={(nextAccesses) => updateUserAccesses(u.uid, nextAccesses)}
                                 align="right"
                               />
                             </div>
                           ) : (
-                            <span className={`order-1 sm:order-2 px-2 py-0.5 rounded-md text-[11px] font-bold border ${
-                              isAdmin 
+                            <span className={`order-1 sm:order-2 px-2.5 py-1 rounded-md text-[11px] font-semibold border whitespace-nowrap ${
+                              isMemberAdmin 
                                 ? 'bg-blue-600/20 text-blue-300 border-blue-500/40' 
-                                : isLeader
-                                ? 'bg-emerald-600/20 text-emerald-300 border-emerald-500/40'
-                                : u.role === 'editor'
-                                ? 'bg-amber-600/20 text-amber-300 border-amber-500/40'
-                                : u.role === 'viewer'
+                                : isRegieOnlyMember
                                 ? 'bg-cyan-600/20 text-cyan-300 border-cyan-500/40'
-                                : 'bg-[#1C1C1E] text-gray-400 border-[#333]'
+                                : 'bg-[#1C1C1E] text-gray-300 border-[#333]'
                             }`}>
-                              {isAdmin ? 'Admin 👑' : isLeader ? 'Responsable ⚡' : u.role === 'editor' ? 'Éditeur ✍️' : u.role === 'viewer' ? 'Régie 🖥️' : 'Membre 🎵'}
+                              {formatAccessSummary(memberAccesses)}
                             </span>
                           )}
                         </div>
@@ -1425,10 +1357,11 @@ export const GroupManager: React.FC = () => {
         </div>
       )}
 
-      {/* Modal du tableau comparatif des rôles et permissions */}
+      {/* Modal du tableau comparatif des accès cumulables */}
       <RoleMatrixModal
         isOpen={isRoleMatrixOpen}
         onClose={() => setIsRoleMatrixOpen(false)}
+        currentAccesses={effectiveAccesses}
         currentRole={currentUser?.role}
       />
 

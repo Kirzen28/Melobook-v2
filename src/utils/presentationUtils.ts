@@ -1,6 +1,7 @@
 import { parseChordPro, ParsedSongData, stripParentheses } from './chordUtils';
 import { BiblePassageData } from '../types';
 import { decodeHtmlEntities } from './htmlEntities';
+import { alignChordProStructures } from '../services/songAlignmentService';
 
 export interface PresentationSlide {
   id: string;
@@ -147,6 +148,7 @@ export interface PresentationState {
   totalSlides: number;
   isBlackout: boolean;
   fontScale?: number;
+  baseFontSize?: number;
   backgroundImage?: string;
   backgroundOverlay?: number;
   countdown?: CountdownState;
@@ -226,6 +228,11 @@ export function formatRemainingTime(ms: number): { formatted: string; hasHours: 
 const CHANNEL_NAME = 'melobook_presentation_channel';
 const STORAGE_KEY = 'melobook_presentation_state';
 export const FONT_SCALE_KEY = 'melobook_presentation_font_scale';
+export const BASE_FONT_SIZE_KEY = 'melobook_presentation_base_font_size';
+export const DEFAULT_BASE_FONT_SIZE_PX = 44;
+export const MIN_BASE_FONT_SIZE_PX = 28;
+export const MAX_BASE_FONT_SIZE_PX = 84;
+export const MIN_RESPONSIVE_FONT_PX = 20;
 export const BACKGROUND_IMAGE_KEY = 'melobook_presentation_bg_image';
 export const BACKGROUND_OVERLAY_KEY = 'melobook_presentation_bg_overlay';
 export const AUTO_LAYOUT_KEY = 'melobook_presentation_auto_layout';
@@ -260,6 +267,26 @@ export function getSavedFontScale(): number {
 export function saveFontScale(scale: number): void {
   try {
     localStorage.setItem(FONT_SCALE_KEY, scale.toString());
+  } catch {}
+}
+
+export function getSavedBaseFontSize(): number {
+  try {
+    const raw = localStorage.getItem(BASE_FONT_SIZE_KEY);
+    if (raw) {
+      const val = parseFloat(raw);
+      if (!isNaN(val) && val >= MIN_BASE_FONT_SIZE_PX && val <= MAX_BASE_FONT_SIZE_PX) {
+        return Math.round(val);
+      }
+    }
+  } catch {}
+  return DEFAULT_BASE_FONT_SIZE_PX;
+}
+
+export function saveBaseFontSize(sizePx: number): void {
+  try {
+    const clamped = Math.max(MIN_BASE_FONT_SIZE_PX, Math.min(MAX_BASE_FONT_SIZE_PX, Math.round(sizePx)));
+    localStorage.setItem(BASE_FONT_SIZE_KEY, clamped.toString());
   } catch {}
 }
 
@@ -587,11 +614,18 @@ export function buildBilingualPresentationSlides(
   options?: { autoLayout?: boolean }
 ): PresentationSlide[] {
   const useAutoLayout = Boolean(options?.autoLayout);
+  const { alignedSecondaryChordPro } = alignChordProStructures(
+    primaryChordPro,
+    secondaryChordPro,
+    primaryTitle,
+    secondaryTitle
+  );
+  const effectiveSecondaryChordPro = alignedSecondaryChordPro || secondaryChordPro;
 
   // Si mise en page auto et structures identiques, synchroniser les coupes sur la langue la plus longue
   if (useAutoLayout) {
     const pParsed = parseChordPro(primaryChordPro || '');
-    const sParsed = parseChordPro(secondaryChordPro || '');
+    const sParsed = parseChordPro(effectiveSecondaryChordPro || '');
     const pSections = extractSongSectionsForProjection(pParsed);
     const sSections = extractSongSectionsForProjection(sParsed);
 
@@ -667,7 +701,7 @@ export function buildBilingualPresentationSlides(
   }
 
   const pSlides = buildPresentationSlides(primaryChordPro, primaryTitle, maxLines, { autoLayout: useAutoLayout });
-  const sSlides = buildPresentationSlides(secondaryChordPro, secondaryTitle, maxLines, { autoLayout: useAutoLayout });
+  const sSlides = buildPresentationSlides(effectiveSecondaryChordPro, secondaryTitle, maxLines, { autoLayout: useAutoLayout });
 
   if (pSlides.length === 0 && sSlides.length === 0) return [];
   if (pSlides.length === 0) return sSlides;
@@ -742,6 +776,30 @@ function splitScriptureBalanced(text: string, chunkCount: number): string[] {
   }
   if (current) chunks.push(current);
   return chunks;
+}
+
+/**
+ * Génère une taille de police CSS fixe et configurable (avec plancher responsive minimal),
+ * indépendante de l'espace du conteneur et de la longueur du texte.
+ */
+export function getPresentationFontSizeCss(
+  baseFontSizePx: number = DEFAULT_BASE_FONT_SIZE_PX,
+  fontScale: number = 1,
+  variantRatio: number = 1,
+  minResponsivePx: number = MIN_RESPONSIVE_FONT_PX
+): string {
+  const safeBase = Math.max(
+    MIN_BASE_FONT_SIZE_PX,
+    Math.min(MAX_BASE_FONT_SIZE_PX, Number.isFinite(baseFontSizePx) ? baseFontSizePx : DEFAULT_BASE_FONT_SIZE_PX)
+  );
+  const safeScale = Math.max(0.5, Math.min(2.5, Number.isFinite(fontScale) ? fontScale : 1));
+  const safeRatio = Math.max(0.5, Math.min(1.5, Number.isFinite(variantRatio) ? variantRatio : 1));
+
+  const targetMaxPx = Math.round(safeBase * safeRatio);
+  const floorPx = Math.max(14, Math.min(targetMaxPx, Math.round(minResponsivePx * safeRatio)));
+  const vwFactor = +(3.0 * safeRatio * (safeBase / DEFAULT_BASE_FONT_SIZE_PX)).toFixed(2);
+
+  return `calc(clamp(${floorPx}px, ${vwFactor}vw, ${targetMaxPx}px) * ${safeScale})`;
 }
 
 /**
@@ -827,7 +885,7 @@ export function buildBilingualBiblePresentationSlides(
   primaryPassage: BiblePassageData,
   secondaryPassage: BiblePassageData,
   format: 'stacked' | 'columns' = 'stacked',
-  maxCharsPerSlide: number = 280
+  maxCharsPerSlide: number = 240
 ): PresentationSlide[] {
   const slides: PresentationSlide[] = [];
   const pVerses = primaryPassage.verses || [];
@@ -835,7 +893,7 @@ export function buildBilingualBiblePresentationSlides(
   const pVersionTag = primaryPassage.version || 'LSG';
   const sVersionTag = secondaryPassage.version || 'KJV';
   const compoundRef = `${primaryPassage.referenceText} (${pVersionTag} • ${sVersionTag})`;
-  const safeMaxChars = maxCharsPerSlide > 20 ? maxCharsPerSlide : 280;
+  const safeMaxChars = maxCharsPerSlide > 20 ? maxCharsPerSlide : 240;
 
   if (pVerses.length > 0) {
     pVerses.forEach((pv, idx) => {
@@ -915,6 +973,9 @@ export function broadcastPresentationState(state: PresentationState): void {
   try {
     if (typeof state.fontScale === 'number') {
       saveFontScale(state.fontScale);
+    }
+    if (typeof state.baseFontSize === 'number') {
+      saveBaseFontSize(state.baseFontSize);
     }
     if (typeof state.backgroundImage === 'string') {
       saveBackgroundImage(state.backgroundImage);

@@ -19,6 +19,8 @@ import {
   stripParentheses,
   parseTimeSignatureToBeats,
   getYouTubeEmbedUrl,
+  normalizeYouTubeUrl,
+  syncYoutubeDirectiveInChordPro,
   getSpotifyEmbedUrl,
   isDirectAudioUrl,
   isChordGridToken,
@@ -103,6 +105,7 @@ import { LanguageVersionModal } from './LanguageVersionModal';
 import { PadControl } from './PadControl';
 import { padAudio, CHROMATIC_NOTES } from '../utils/padAudio';
 import { PRESET_LANGUAGES, getLanguageMeta, getLinkedSongVersions } from '../utils/languageUtils';
+import { alignSongAndTranslation } from '../services/songAlignmentService';
 import { DEFAULT_SONG_METADATA_VISIBILITY } from '../utils/displayDefaults';
 
 const PRESET_VOCAL_ROLES = [
@@ -198,6 +201,11 @@ export const SongReader: React.FC<SongReaderProps> = ({
       cacheSongInWorker(song);
     }
   }, [song]);
+
+  useEffect(() => {
+    setShowYoutubeConfig(false);
+    setYoutubeConfigError(null);
+  }, [song?.id]);
 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showSettingsDrawer, setShowSettingsDrawer] = useState(false);
@@ -397,11 +405,18 @@ export const SongReader: React.FC<SongReaderProps> = ({
     return null;
   }, [isBilingualMode, selectedTranslatedSongId, songs, linkedVersions]);
 
-  // Données ChordPro de la version traduite
+  // Alignement automatique par pattern-matching si la structure diffère du chant source
+  const alignedTranslationResult = useMemo(() => {
+    if (!song || !translatedSong) return null;
+    return alignSongAndTranslation(song, translatedSong);
+  }, [song, translatedSong]);
+
+  // Données ChordPro de la version traduite (réalignée si structure différente)
   const parsedTranslatedData = useMemo(() => {
-    if (!translatedSong?.contentChordPro) return null;
-    return parseChordPro(translatedSong.contentChordPro);
-  }, [translatedSong?.contentChordPro]);
+    const chordPro = alignedTranslationResult?.alignedChordPro || translatedSong?.contentChordPro;
+    if (!chordPro) return null;
+    return parseChordPro(chordPro);
+  }, [alignedTranslationResult?.alignedChordPro, translatedSong?.contentChordPro]);
 
   const handleLinkExistingAsTranslation = useCallback(async (targetSongId: string) => {
     if (!song) return;
@@ -512,6 +527,26 @@ export const SongReader: React.FC<SongReaderProps> = ({
     ? personalCapos[capoStorageKey]
     : 0;
 
+  const hasModulations = Boolean(
+    (capoStorageKey && personalCapos[capoStorageKey] && personalCapos[capoStorageKey] > 0) ||
+    (capoStorageKey && personalKeys[capoStorageKey] !== undefined)
+  );
+
+  const handleResetModulations = useCallback(async () => {
+    if (!capoStorageKey) return;
+    if (personalCapos[capoStorageKey] > 0) {
+      await setPersonalCapo(capoStorageKey, 0);
+    }
+    if (personalKeys[capoStorageKey] !== undefined) {
+      updatePersonalKeys(prev => {
+        const copy = { ...prev };
+        delete copy[capoStorageKey];
+        return copy;
+      });
+    }
+    showFeedbackToast('Modulations réinitialisées');
+  }, [capoStorageKey, personalCapos, personalKeys, setPersonalCapo, showFeedbackToast]);
+
   // Semitone difference for song base key
   const baseKeySemitones = useMemo(() => {
     return getSemitoneDifference(catalogBaseKey, effectiveBaseKey);
@@ -570,6 +605,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
   const [showYoutubeConfig, setShowYoutubeConfig] = useState(false);
   const [youtubeInputUrl, setYoutubeInputUrl] = useState('');
   const [isSavingYoutube, setIsSavingYoutube] = useState(false);
+  const [youtubeConfigError, setYoutubeConfigError] = useState<string | null>(null);
 
   // État du métronome et du flash écran
   const [isMetronomePlaying, setIsMetronomePlaying] = useState<boolean>(() => metronome.getIsPlaying());
@@ -654,22 +690,29 @@ export const SongReader: React.FC<SongReaderProps> = ({
   };
 
   const handleSaveYoutubeUrl = async (urlToSave?: string) => {
-    const clean = (urlToSave !== undefined ? urlToSave : youtubeInputUrl).trim();
+    const raw = (urlToSave !== undefined ? urlToSave : youtubeInputUrl).trim();
+    const clean = raw ? normalizeYouTubeUrl(raw) : '';
     if (!song) return;
     if (clean && !getYouTubeEmbedUrl(clean)) {
-      showFeedbackToast('Lien YouTube invalide');
+      setYoutubeConfigError('Lien YouTube invalide (ex: youtube.com/watch?v=..., youtu.be/..., /shorts/ ou /live/).');
       return;
     }
     if (!canManageSongs) {
-      showFeedbackToast("Droits d'édition requis pour enregistrer le lien");
+      setYoutubeConfigError("Droits d'édition requis pour enregistrer le lien.");
       return;
     }
+    setYoutubeConfigError(null);
     setIsSavingYoutube(true);
     try {
-      await updateSong(song.id, { youtubeUrl: clean });
-      if (selectedSong && selectedSong.id === song.id) {
-        setSelectedSong({ ...selectedSong, youtubeUrl: clean });
+      const updates: Partial<Song> = { youtubeUrl: clean };
+      if (song.contentChordPro) {
+        const syncedChordPro = syncYoutubeDirectiveInChordPro(song.contentChordPro, clean);
+        if (syncedChordPro !== song.contentChordPro) {
+          updates.contentChordPro = syncedChordPro;
+        }
       }
+      await updateSong(song.id, updates);
+      setYoutubeInputUrl(clean);
       setShowYoutubeConfig(false);
       if (clean) {
         setActiveAudioSource('youtube');
@@ -680,7 +723,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
       showFeedbackToast(clean ? 'Lien YouTube enregistré !' : 'Lien YouTube retiré');
     } catch (err) {
       console.error('Failed to save YouTube url:', err);
-      showFeedbackToast('Erreur lors de la sauvegarde');
+      setYoutubeConfigError("Impossible d'enregistrer le lien YouTube. Vérifiez votre connexion ou vos droits.");
     } finally {
       setIsSavingYoutube(false);
     }
@@ -2368,6 +2411,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                         setIsAudioPlayerMinimized(false);
                       } else {
                         setShowSpotifyConfig(false);
+                        setYoutubeConfigError(null);
                         setShowYoutubeConfig(prev => !prev);
                         setYoutubeInputUrl(effectiveYoutubeUrl || '');
                       }
@@ -2396,6 +2440,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                       type="button"
                       onClick={() => {
                         setShowSpotifyConfig(false);
+                        setYoutubeConfigError(null);
                         setShowYoutubeConfig(prev => !prev);
                         setYoutubeInputUrl(effectiveYoutubeUrl || '');
                       }}
@@ -2500,7 +2545,10 @@ export const SongReader: React.FC<SongReaderProps> = ({
                     <span>Lier une vidéo YouTube</span>
                     <button 
                       type="button" 
-                      onClick={() => setShowYoutubeConfig(false)}
+                      onClick={() => {
+                        setShowYoutubeConfig(false);
+                        setYoutubeConfigError(null);
+                      }}
                       className="text-gray-400 hover:text-white p-0.5 cursor-pointer"
                     >
                       ✕
@@ -2513,7 +2561,10 @@ export const SongReader: React.FC<SongReaderProps> = ({
                     <input
                       type="url"
                       value={youtubeInputUrl}
-                      onChange={(e) => setYoutubeInputUrl(e.target.value)}
+                      onChange={(e) => {
+                        setYoutubeInputUrl(e.target.value);
+                        if (youtubeConfigError) setYoutubeConfigError(null);
+                      }}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && youtubeInputUrl.trim()) {
                           e.preventDefault();
@@ -2528,10 +2579,16 @@ export const SongReader: React.FC<SongReaderProps> = ({
                       disabled={!youtubeInputUrl.trim() || isSavingYoutube}
                       onClick={() => handleSaveYoutubeUrl()}
                       className="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white font-bold text-xs cursor-pointer transition-colors shrink-0 shadow-xs"
+                      title="Enregistrer le lien YouTube et lancer l'écoute"
                     >
-                      {isSavingYoutube ? '...' : 'Écouter'}
+                      {isSavingYoutube ? '...' : 'Enregistrer'}
                     </button>
                   </div>
+                  {youtubeConfigError && (
+                    <p className="text-[10px] text-rose-400 font-medium mb-2 leading-snug">
+                      {youtubeConfigError}
+                    </p>
+                  )}
                   <div className="flex items-center justify-between text-[10px]">
                     <a
                       href={`https://www.youtube.com/results?search_query=${encodeURIComponent([parsedData.title || song.title, parsedData.artist || song.artist].filter(Boolean).join(' '))}`}
@@ -2545,8 +2602,9 @@ export const SongReader: React.FC<SongReaderProps> = ({
                     {effectiveYoutubeUrl && (
                       <button
                         type="button"
+                        disabled={isSavingYoutube}
                         onClick={() => handleSaveYoutubeUrl('')}
-                        className="text-rose-400 hover:text-rose-300 hover:underline cursor-pointer"
+                        className="text-rose-400 hover:text-rose-300 hover:underline cursor-pointer disabled:opacity-50"
                       >
                         Retirer le lien
                       </button>
@@ -3119,6 +3177,18 @@ export const SongReader: React.FC<SongReaderProps> = ({
             {/* Single Line Toolbar: Stylized Inline Controls with Dropdowns for Tonalité, Capo & BPM */}
             {metaVis.controlsBar && (
               <div className="flex items-center gap-2 flex-wrap text-xs">
+                {hasModulations && (
+                  <button
+                    type="button"
+                    onClick={handleResetModulations}
+                    className="min-h-[32px] py-1 inline-flex items-center gap-1 px-2.5 rounded-lg border border-amber-500/50 bg-amber-950/30 hover:bg-amber-900/40 text-amber-300 font-medium transition-all cursor-pointer shadow-xs"
+                    style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
+                    title="Réinitialiser toutes les modulations (Capo / Tonalité)"
+                  >
+                    <X className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <span className="hidden sm:inline">Réinitialiser</span>
+                  </button>
+                )}
                 {/* Tonalité : Liste déroulante */}
               <div className="relative inline-block">
                 <button
@@ -3692,6 +3762,9 @@ export const SongReader: React.FC<SongReaderProps> = ({
                         </span>
                         <span className="text-[10px] text-indigo-300 font-medium">
                           Version traduite ({getLanguageMeta(translatedSong.language).name})
+                          {alignedTranslationResult?.wasRealigned && (
+                            <span className="ml-1.5 text-emerald-300">• Structure alignée</span>
+                          )}
                         </span>
                       </div>
                     </div>

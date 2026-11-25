@@ -131,6 +131,18 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
   );
   const [showModulationBar, setShowModulationBar] = useState(false);
 
+  const handleClearModulation = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onUpdateSection({
+      ...section,
+      key: undefined,
+      transposeOffset: undefined,
+      tempo: undefined,
+      timeSignature: undefined
+    });
+    setShowModulationBar(false);
+  };
+
   const handleToggleCollapse = () => {
     if (onToggleCollapse) {
       onToggleCollapse(section.id);
@@ -1264,28 +1276,41 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
 
             {/* Modulation toggle button (not needed on recall shortcut) */}
             {effectiveBlockKind !== 'chorus_recall' && (
-              <button
-                type="button"
-                onClick={() => setShowModulationBar(prev => !prev)}
-                className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md border text-[11px] font-semibold transition-all cursor-pointer ${
-                  showModulationBar || hasSectionModulation
-                    ? 'bg-indigo-950/50 border-indigo-500/40 text-indigo-300'
-                    : 'bg-[#18181C] hover:bg-[#202026] border-white/10 text-gray-400 hover:text-gray-200'
-                }`}
-                title="Modulation & paramètres musicaux propres à cette section"
-              >
-                <SlidersHorizontal className="w-3 h-3" />
-                <span>
-                  {hasSectionModulation
-                    ? [
-                        section.key ? section.key : null,
-                        section.transposeOffset ? `${section.transposeOffset > 0 ? '+' : ''}${section.transposeOffset}t` : null,
-                        section.tempo ? `${section.tempo}bpm` : null,
-                        section.timeSignature || null
-                      ].filter(Boolean).join(' · ')
-                    : 'Modulation'}
-                </span>
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={() => setShowModulationBar(prev => !prev)}
+                  className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md border text-[11px] font-semibold transition-all cursor-pointer ${
+                    showModulationBar || hasSectionModulation
+                      ? 'bg-indigo-950/50 border-indigo-500/40 text-indigo-300'
+                      : 'bg-[#18181C] hover:bg-[#202026] border-white/10 text-gray-400 hover:text-gray-200'
+                  }`}
+                  title="Modulation & paramètres musicaux propres à cette section"
+                >
+                  <SlidersHorizontal className="w-3 h-3" />
+                  <span>
+                    {hasSectionModulation
+                      ? [
+                          section.key ? section.key : null,
+                          section.transposeOffset ? `${section.transposeOffset > 0 ? '+' : ''}${section.transposeOffset}t` : null,
+                          section.tempo ? `${section.tempo}bpm` : null,
+                          section.timeSignature || null
+                        ].filter(Boolean).join(' · ')
+                      : 'Modulation'}
+                  </span>
+                </button>
+                {hasSectionModulation && (
+                  <button
+                    type="button"
+                    onClick={handleClearModulation}
+                    className="inline-flex items-center justify-center p-1 rounded-md border border-rose-500/30 bg-rose-950/30 hover:bg-rose-900/50 text-rose-300 hover:text-rose-200 transition-colors cursor-pointer"
+                    title="Annuler toutes les modulations de cette section"
+                    aria-label="Annuler toutes les modulations de cette section"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </>
             )}
           </div>
 
@@ -1376,6 +1401,19 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
                 ))}
               </select>
             </label>
+
+            {hasSectionModulation && (
+              <button
+                type="button"
+                onClick={handleClearModulation}
+                className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-950/30 hover:bg-rose-900/50 border border-rose-500/30 text-rose-300 hover:text-rose-200 font-semibold transition-colors cursor-pointer"
+                title="Annuler toutes les modulations de cette section"
+                aria-label="Annuler toutes les modulations de cette section"
+              >
+                <X className="w-3 h-3" />
+                <span>Annuler</span>
+              </button>
+            )}
           </div>
         )}
       </div>

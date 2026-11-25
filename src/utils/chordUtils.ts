@@ -1448,9 +1448,41 @@ export function parseChordPro(chordProText: string): ParsedSongData {
 // Helpers for YouTube and external audio URLs
 export function getYouTubeVideoId(url?: string): string | null {
   if (!url) return null;
-  const regExp = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i;
-  const match = url.match(regExp);
+  const trimmed = url.trim();
+  if (!trimmed) return null;
+  const regExp = /(?:youtube(?:-nocookie)?\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|shorts|live)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i;
+  const match = trimmed.match(regExp);
   return match ? match[1] : null;
+}
+
+export function normalizeYouTubeUrl(url?: string): string {
+  if (!url) return '';
+  const trimmed = url.trim();
+  if (!trimmed) return '';
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (/^(?:www\.|m\.|music\.)?(?:youtube(?:-nocookie)?\.com|youtu\.be)\//i.test(trimmed)) {
+    return `https://${trimmed}`;
+  }
+  return trimmed;
+}
+
+export function syncYoutubeDirectiveInChordPro(chordPro: string, nextUrl: string): string {
+  if (!chordPro) return chordPro;
+  const directiveRegex = /^[ \t]*\{(?:youtube|yt|video|youtube_url)\s*:\s*[^}]*\}[ \t]*\r?\n?/gim;
+  if (!directiveRegex.test(chordPro)) {
+    return chordPro;
+  }
+  directiveRegex.lastIndex = 0;
+  let replacedFirst = false;
+  return chordPro
+    .replace(directiveRegex, () => {
+      if (nextUrl && !replacedFirst) {
+        replacedFirst = true;
+        return `{youtube: ${nextUrl}}\n`;
+      }
+      return '';
+    })
+    .replace(/^\r?\n+/, '');
 }
 
 export function getYouTubeEmbedUrl(url?: string): string | null {

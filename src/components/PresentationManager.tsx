@@ -13,6 +13,11 @@ import {
   PresentationState,
   getSavedFontScale,
   saveFontScale,
+  getSavedBaseFontSize,
+  saveBaseFontSize,
+  DEFAULT_BASE_FONT_SIZE_PX,
+  MIN_BASE_FONT_SIZE_PX,
+  MAX_BASE_FONT_SIZE_PX,
   getSavedAutoLayout,
   saveAutoLayout,
   getSavedBackgroundImage,
@@ -36,12 +41,22 @@ import { MediaProjectionModule } from './MediaProjectionModule';
 import { AiTranslationModal } from './AiTranslationModal';
 import {
   AiSongTranslation,
+  LinkedSongAlignment,
   buildChordProFromTranslation,
   toVirtualTranslatedSong,
   getSavedAiTranslations,
   saveAiTranslationToStorage,
-  deleteAiTranslationFromStorage
+  deleteAiTranslationFromStorage,
+  extractSongBlocksForTranslation,
+  buildLinkedPairKey,
+  hashSongLyrics,
+  hasIdenticalLyricsStructure,
+  toVirtualAlignedLinkedSong,
+  getSavedLinkedAlignments,
+  saveLinkedAlignmentToStorage,
+  deleteLinkedAlignmentFromStorage
 } from '../utils/aiTranslationUtils';
+import { alignSongAndTranslation } from '../services/songAlignmentService';
 import { BiblePassageData } from '../types';
 import { 
   Tv, 
@@ -81,7 +96,8 @@ import {
   Lock,
   Languages,
   Edit3,
-  LayoutGrid
+  LayoutGrid,
+  Loader2
 } from 'lucide-react';
 
 export interface QueueItem {
@@ -299,8 +315,9 @@ export const PresentationManager: React.FC = () => {
   });
 
 
-  // Échelle de police globale pour l'écran externe (pilotée depuis la régie)
+  // Échelle et taille de base de police globales pour l'écran externe (pilotées depuis la régie)
   const [fontScale, setFontScale] = useState<number>(() => getSavedFontScale());
+  const [baseFontSize, setBaseFontSize] = useState<number>(() => getSavedBaseFontSize());
   const [isFontScaleMenuOpen, setIsFontScaleMenuOpen] = useState<boolean>(false);
   const fontMenuRef = useRef<HTMLDivElement>(null);
 
@@ -390,6 +407,12 @@ export const PresentationManager: React.FC = () => {
   const [aiTranslations, setAiTranslations] = useState<Record<string, AiSongTranslation>>(() =>
     getSavedAiTranslations()
   );
+  const [linkedAlignments, setLinkedAlignments] = useState<Record<string, LinkedSongAlignment>>(() =>
+    getSavedLinkedAlignments()
+  );
+  const [isAligningLinked, setIsAligningLinked] = useState<boolean>(false);
+  const [alignLinkedError, setAlignLinkedError] = useState<string | null>(null);
+  const autoAlignAttemptedRef = useRef<Set<string>>(new Set());
   const [isAiTranslateModalOpen, setIsAiTranslateModalOpen] = useState<boolean>(false);
   const [aiTranslateInitialEdit, setAiTranslateInitialEdit] = useState<boolean>(false);
 
@@ -440,11 +463,27 @@ export const PresentationManager: React.FC = () => {
   const handleResetFontScale = useCallback(() => {
     setFontScale(1.0);
     saveFontScale(1.0);
+    setBaseFontSize(DEFAULT_BASE_FONT_SIZE_PX);
+    saveBaseFontSize(DEFAULT_BASE_FONT_SIZE_PX);
   }, []);
 
   const handleSetFontScalePreset = useCallback((preset: number) => {
     setFontScale(preset);
     saveFontScale(preset);
+  }, []);
+
+  const handleAdjustBaseFontSize = useCallback((deltaPx: number) => {
+    setBaseFontSize(prev => {
+      const next = Math.max(MIN_BASE_FONT_SIZE_PX, Math.min(MAX_BASE_FONT_SIZE_PX, Math.round(prev + deltaPx)));
+      saveBaseFontSize(next);
+      return next;
+    });
+  }, []);
+
+  const handleSetBaseFontSize = useCallback((sizePx: number) => {
+    const next = Math.max(MIN_BASE_FONT_SIZE_PX, Math.min(MAX_BASE_FONT_SIZE_PX, Math.round(sizePx)));
+    setBaseFontSize(next);
+    saveBaseFontSize(next);
   }, []);
 
   const handleSelectBackground = useCallback((url: string) => {
@@ -659,8 +698,8 @@ export const PresentationManager: React.FC = () => {
     return aiTranslations[currentSong.id] || null;
   }, [currentSong, aiTranslations]);
 
-  // Version traduite sélectionnée pour la projection bilingue (liée ou traduction IA)
-  const secondarySong: Song | null = useMemo(() => {
+  // Version traduite brute sélectionnée pour la projection bilingue (liée ou traduction IA)
+  const rawSecondarySong: Song | null = useMemo(() => {
     if (!isBilingualMode || !currentSong) return null;
     if (selectedSecondarySongId === `ai_${currentSong.id}` && activeAiTranslation) {
       return toVirtualTranslatedSong(currentSong, activeAiTranslation);
@@ -677,6 +716,163 @@ export const PresentationManager: React.FC = () => {
     }
     return null;
   }, [isBilingualMode, currentSong, selectedSecondarySongId, songs, availableLinkedVersions, activeAiTranslation]);
+
+  const isRealLinkedSecondary = Boolean(rawSecondarySong && !rawSecondarySong.id.startsWith('ai_'));
+
+  const linkedAlignmentMeta = useMemo(() => {
+    if (!currentSong || !rawSecondarySong || !isRealLinkedSecondary) {
+      return {
+        pairKey: '',
+        primaryHash: '',
+        secondaryHash: '',
+        structuresMatch: true,
+        alignment: null as LinkedSongAlignment | null
+      };
+    }
+    const pairKey = buildLinkedPairKey(currentSong.id, rawSecondarySong.id);
+    const primaryHash = hashSongLyrics(currentSong);
+    const secondaryHash = hashSongLyrics(rawSecondarySong);
+    const structuresMatch = hasIdenticalLyricsStructure(currentSong, rawSecondarySong);
+    const saved = linkedAlignments[pairKey];
+    const isValid = Boolean(
+      saved &&
+      saved.primaryHash === primaryHash &&
+      saved.secondaryHash === secondaryHash &&
+      Array.isArray(saved.blocks) &&
+      saved.blocks.length > 0
+    );
+    return {
+      pairKey,
+      primaryHash,
+      secondaryHash,
+      structuresMatch,
+      alignment: isValid ? saved : null
+    };
+  }, [currentSong, rawSecondarySong, isRealLinkedSecondary, linkedAlignments]);
+
+  const secondarySong: Song | null = useMemo(() => {
+    if (!rawSecondarySong) return null;
+    if (currentSong && isRealLinkedSecondary) {
+      if (linkedAlignmentMeta.alignment) {
+        return toVirtualAlignedLinkedSong(currentSong, rawSecondarySong, linkedAlignmentMeta.alignment.blocks);
+      }
+      if (!linkedAlignmentMeta.structuresMatch) {
+        return alignSongAndTranslation(currentSong, rawSecondarySong).alignedSong;
+      }
+    }
+    return rawSecondarySong;
+  }, [rawSecondarySong, currentSong, isRealLinkedSecondary, linkedAlignmentMeta.alignment, linkedAlignmentMeta.structuresMatch]);
+
+  const handleAlignLinkedLyrics = useCallback(async (
+    primary: Song,
+    linked: Song,
+    options?: { force?: boolean; silent?: boolean }
+  ) => {
+    const primaryBlocks = extractSongBlocksForTranslation(primary);
+    const secondaryBlocks = extractSongBlocksForTranslation(linked);
+    if (primaryBlocks.length === 0 || secondaryBlocks.length === 0) return;
+
+    const pairKey = buildLinkedPairKey(primary.id, linked.id);
+    const primaryHash = hashSongLyrics(primary);
+    const secondaryHash = hashSongLyrics(linked);
+
+    setIsAligningLinked(true);
+    setAlignLinkedError(null);
+    try {
+      const response = await fetch('/api/align-linked-lyrics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          primaryTitle: primary.title,
+          primaryLanguage: primary.language || 'Français',
+          primaryBlocks: primaryBlocks.map(b => ({
+            sectionTitle: b.sectionTitle,
+            lines: b.originalLines
+          })),
+          secondaryTitle: linked.title,
+          secondaryLanguage: linked.language || 'Anglais',
+          secondaryBlocks: secondaryBlocks.map(b => ({
+            sectionTitle: b.sectionTitle,
+            lines: b.originalLines
+          }))
+        })
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data?.ok || !Array.isArray(data?.blocks)) {
+        throw new Error(data?.error || `Erreur serveur (${response.status})`);
+      }
+
+      const alignment: LinkedSongAlignment = {
+        pairKey,
+        primarySongId: primary.id,
+        secondarySongId: linked.id,
+        primaryHash,
+        secondaryHash,
+        blocks: data.blocks,
+        updatedAt: Date.now()
+      };
+      const nextMap = saveLinkedAlignmentToStorage(alignment);
+      setLinkedAlignments(nextMap);
+
+      if (!options?.silent) {
+        showNotification?.({
+          title: 'Paroles alignées par IA',
+          message: `« ${linked.title} » synchronisé avec « ${primary.title} »`,
+          type: 'success'
+        });
+      }
+    } catch (err: any) {
+      const msg = err?.message || 'Impossible d’aligner les paroles par IA.';
+      setAlignLinkedError(msg);
+      if (!options?.silent) {
+        showNotification?.({
+          title: 'Échec de l’alignement IA',
+          message: msg,
+          type: 'error'
+        });
+      }
+    } finally {
+      setIsAligningLinked(false);
+    }
+  }, [showNotification]);
+
+  const handleResetLinkedAlignment = useCallback((pairKey: string) => {
+    if (!pairKey) return;
+    const nextMap = deleteLinkedAlignmentFromStorage(pairKey);
+    setLinkedAlignments(nextMap);
+    setAlignLinkedError(null);
+    showNotification?.({
+      title: 'Alignement IA réinitialisé',
+      message: 'Retour à la structure d’origine du chant lié.',
+      type: 'info'
+    });
+  }, [showNotification]);
+
+  // Alignement automatique par IA lorsqu'un chant lié a une structure différente
+  useEffect(() => {
+    if (!isBilingualMode || !currentSong || !rawSecondarySong || !isRealLinkedSecondary) {
+      setAlignLinkedError(null);
+      return;
+    }
+    if (linkedAlignmentMeta.structuresMatch || linkedAlignmentMeta.alignment || isAligningLinked) {
+      return;
+    }
+    const attemptKey = `${linkedAlignmentMeta.pairKey}__${linkedAlignmentMeta.primaryHash}__${linkedAlignmentMeta.secondaryHash}`;
+    if (autoAlignAttemptedRef.current.has(attemptKey)) {
+      return;
+    }
+    autoAlignAttemptedRef.current.add(attemptKey);
+    void handleAlignLinkedLyrics(currentSong, rawSecondarySong, { silent: false });
+  }, [
+    isBilingualMode,
+    currentSong,
+    rawSecondarySong,
+    isRealLinkedSecondary,
+    linkedAlignmentMeta,
+    isAligningLinked,
+    handleAlignLinkedLyrics
+  ]);
 
   const handleApplyAiTranslation = useCallback((translation: AiSongTranslation) => {
     const nextMap = saveAiTranslationToStorage(translation);
@@ -829,6 +1025,7 @@ export const PresentationManager: React.FC = () => {
         totalSlides: 1,
         isBlackout: blackout,
         fontScale: scale,
+        baseFontSize,
         backgroundImage: bgImg,
         backgroundOverlay: bgOverlay,
         countdown: cdPayload,
@@ -866,6 +1063,7 @@ export const PresentationManager: React.FC = () => {
         totalSlides: bSlides.length,
         isBlackout: blackout,
         fontScale: scale,
+        baseFontSize,
         backgroundImage: bgImg,
         backgroundOverlay: bgOverlay,
         countdown: cdPayload,
@@ -904,6 +1102,7 @@ export const PresentationManager: React.FC = () => {
         totalSlides: 0,
         isBlackout: true,
         fontScale: scale,
+        baseFontSize,
         backgroundImage: bgImg,
         backgroundOverlay: bgOverlay,
         countdown: cdPayload,
@@ -933,6 +1132,7 @@ export const PresentationManager: React.FC = () => {
         totalSlides: 0,
         isBlackout: true,
         fontScale: scale,
+        baseFontSize,
         backgroundImage: bgImg,
         backgroundOverlay: bgOverlay,
         countdown: cdPayload,
@@ -972,6 +1172,7 @@ export const PresentationManager: React.FC = () => {
         totalSlides: bSlides.length,
         isBlackout: blackout,
         fontScale: scale,
+        baseFontSize,
         backgroundImage: bgImg,
         backgroundOverlay: bgOverlay,
         countdown: cdPayload,
@@ -1010,6 +1211,7 @@ export const PresentationManager: React.FC = () => {
         totalSlides: 0,
         isBlackout: blackout,
         fontScale: scale,
+        baseFontSize,
         backgroundImage: bgImg,
         backgroundOverlay: bgOverlay,
         countdown: cdPayload,
@@ -1050,6 +1252,7 @@ export const PresentationManager: React.FC = () => {
       totalSlides: slides.length,
       isBlackout: blackout,
       fontScale: scale,
+      baseFontSize,
       backgroundImage: bgImg,
       backgroundOverlay: bgOverlay,
       countdown: cdPayload,
@@ -1076,7 +1279,7 @@ export const PresentationManager: React.FC = () => {
         }, '*');
       }
     } catch {}
-  }, [isBilingualMode, secondarySong, bilingualFormat, autoLayout]);
+  }, [isBilingualMode, secondarySong, bilingualFormat, autoLayout, baseFontSize]);
 
   // Synchronisation continue dès que le chant, la slide, l'échelle, le fond, le décompte, le live biblique ou le média change
   useEffect(() => {
@@ -1901,140 +2104,10 @@ export const PresentationManager: React.FC = () => {
               </div>
 
               {/* Actions Pupitre à droite */}
-              {activePupitreTab === 'songs' && (
+              {activePupitreTab === 'songs' && currentSong && currentQueueItem?.type !== 'bible' && (
                 <div className="flex items-center gap-2 flex-wrap">
-                  {/* Sélecteur d'ajout rapide de setlist en 1 clic */}
-                  <div className="flex items-center gap-1.5" ref={setlistDropdownRef}>
-                    <div className="relative">
-                      <button
-                        type="button"
-                        onClick={() => setIsSetlistDropdownOpen(prev => !prev)}
-                        aria-expanded={isSetlistDropdownOpen}
-                        aria-haspopup="menu"
-                        className={`px-3 py-1.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all flex items-center gap-2 shrink-0 active:scale-95 shadow-xs ${
-                          isSetlistDropdownOpen
-                            ? 'bg-blue-600/25 border-blue-400 ring-2 ring-blue-500/25 text-white'
-                            : 'bg-blue-600/15 hover:bg-blue-600/25 border-blue-500/40 hover:border-blue-500/60 text-blue-200 hover:text-white'
-                        }`}
-                        title="Ajouter les chants d'une setlist à la file de projection"
-                      >
-                        <ListMusic className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                        <span>Ajouter une setlist</span>
-                        <ChevronDown className={`w-3.5 h-3.5 text-blue-300/80 transition-transform shrink-0 ${isSetlistDropdownOpen ? 'rotate-180 text-blue-300' : ''}`} />
-                      </button>
-
-                      {isSetlistDropdownOpen && (
-                        <div
-                          role="menu"
-                          className="absolute left-0 top-full mt-1.5 bg-[#131319] border border-[#2B2B38] rounded-xl shadow-2xl p-1.5 z-50 w-72 sm:w-80 max-w-[calc(100vw-2.5rem)] animate-in fade-in zoom-in-95 duration-100 flex flex-col gap-1"
-                        >
-                          <div className="flex items-center justify-between px-2.5 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                            <span>Ajouter à la file</span>
-                            {setlists.length > 0 && (
-                              <span className="text-gray-500 font-normal normal-case">
-                                1 clic pour ajouter
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="space-y-1 max-h-60 overflow-y-auto custom-scrollbar pr-0.5">
-                            {setlists.length === 0 ? (
-                              <div className="px-3 py-5 text-center text-xs text-gray-500">
-                                Aucune setlist disponible
-                              </div>
-                            ) : (
-                              setlists.map((st) => {
-                                const validCount = (st.songIds || []).filter(id => songsById.has(id)).length;
-                                const isEmpty = validCount === 0;
-                                const isQueued = queuedSetlistIds.has(st.id);
-
-                                return (
-                                  <button
-                                    key={st.id}
-                                    type="button"
-                                    role="menuitem"
-                                    disabled={isEmpty}
-                                    onClick={() => {
-                                      handleAddSetlist(st.id);
-                                      setIsSetlistDropdownOpen(false);
-                                    }}
-                                    className={`w-full text-left px-2.5 py-2 rounded-lg text-xs transition-colors flex items-center justify-between gap-2.5 group border ${
-                                      isEmpty
-                                        ? 'opacity-45 cursor-not-allowed border-transparent text-gray-500'
-                                        : isQueued
-                                        ? 'bg-emerald-500/5 hover:bg-blue-600/15 border-emerald-500/20 hover:border-blue-500/40 text-gray-100 cursor-pointer'
-                                        : 'border-transparent hover:bg-blue-600/15 hover:border-blue-500/35 text-gray-200 hover:text-white cursor-pointer'
-                                    }`}
-                                    title={isEmpty ? 'Setlist vide' : `Ajouter les ${validCount} chant${validCount > 1 ? 's' : ''} de « ${st.name} » à la file`}
-                                  >
-                                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border transition-colors ${
-                                        isEmpty
-                                          ? 'bg-[#1A1A22] border-[#262632] text-gray-500'
-                                          : isQueued
-                                          ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-400 group-hover:bg-blue-500/15 group-hover:border-blue-500/30 group-hover:text-blue-300'
-                                          : 'bg-[#1A1A24] border-[#282836] text-blue-400 group-hover:bg-blue-500/20 group-hover:border-blue-500/40 group-hover:text-blue-300'
-                                      }`}>
-                                        <ListMusic className="w-3.5 h-3.5" />
-                                      </div>
-                                      <div className="min-w-0 flex-1">
-                                        <div className="font-semibold truncate leading-tight">
-                                          {st.name}
-                                        </div>
-                                        <div className="text-[10px] text-gray-400 mt-0.5 flex items-center gap-1.5">
-                                          <span>
-                                            {validCount} chant{validCount > 1 ? 's' : ''}
-                                          </span>
-                                          {st.date && (
-                                            <>
-                                              <span className="text-gray-600">•</span>
-                                              <span>{st.date.split('-').reverse().join('/')}</span>
-                                            </>
-                                          )}
-                                        </div>
-                                      </div>
-                                    </div>
-
-                                    <div className="shrink-0 flex items-center">
-                                      {isEmpty ? (
-                                        <span className="text-[10px] text-gray-500 px-1.5">Vide</span>
-                                      ) : isQueued ? (
-                                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-400 group-hover:text-blue-300 px-1.5 py-0.5 rounded-md bg-emerald-500/10 group-hover:bg-blue-500/15 transition-colors">
-                                          <Check className="w-3 h-3 group-hover:hidden" />
-                                          <Plus className="w-3 h-3 hidden group-hover:block" />
-                                          <span className="group-hover:hidden">Ajoutée</span>
-                                          <span className="hidden group-hover:inline">Réajouter</span>
-                                        </span>
-                                      ) : (
-                                        <Plus className="w-4 h-4 text-gray-500 group-hover:text-blue-400 group-hover:scale-110 transition-all" />
-                                      )}
-                                    </div>
-                                  </button>
-                                );
-                              })
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSongModalSearch('');
-                        setIsAddSongModalOpen(true);
-                      }}
-                      className="px-3 py-1.5 rounded-xl bg-emerald-600/15 hover:bg-emerald-600/25 border border-emerald-500/40 hover:border-emerald-500/60 text-emerald-300 hover:text-emerald-200 text-xs font-semibold cursor-pointer transition-all flex items-center gap-1.5 shrink-0 active:scale-95 shadow-xs"
-                      title="Ajouter un chant individuel (hors-liste) à la file de projection"
-                    >
-                      <Plus className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Chant libre</span>
-                    </button>
-                  </div>
-
                   {/* Contrôles Mode Bilingue & Traduction IA unifiés (uniquement pour les chants) */}
-                  {currentSong && currentQueueItem?.type !== 'bible' && (
-                    <div className="flex items-center gap-2 pl-2 border-l border-[#202028] relative">
+                  <div className="flex items-center gap-2 relative">
                       {/* Bouton Menu Traduction & Bilingue */}
                       <div className="relative">
                         <button
@@ -2050,8 +2123,9 @@ export const PresentationManager: React.FC = () => {
                           <Languages className={`w-4 h-4 ${isBilingualMode || activeAiTranslation ? 'text-indigo-400' : 'text-cyan-400'}`} />
                           <span>Traductions & Bilingue</span>
                           {isBilingualMode && (
-                            <span className="px-1.5 py-0.5 rounded-full bg-indigo-500/40 text-[10px] text-indigo-200 font-mono">
-                              Bilingue ON
+                            <span className="px-1.5 py-0.5 rounded-full bg-indigo-500/40 text-[10px] text-indigo-200 font-mono flex items-center gap-1">
+                              {isAligningLinked && <Loader2 className="w-2.5 h-2.5 animate-spin text-cyan-300" />}
+                              <span>Bilingue ON</span>
                             </span>
                           )}
                           {activeAiTranslation && !isBilingualMode && (
@@ -2166,6 +2240,76 @@ export const PresentationManager: React.FC = () => {
                                     <span>{secondarySong ? 'Changer / Lier un autre chant' : 'Lier une version...'}</span>
                                   </button>
 
+                                  {currentSong && rawSecondarySong && isRealLinkedSecondary && (
+                                    <div className="pt-1.5 border-t border-indigo-500/20 space-y-1.5">
+                                      <div className="flex items-center justify-between gap-1.5">
+                                        <div className="flex items-center gap-1.5 min-w-0">
+                                          {isAligningLinked ? (
+                                            <Loader2 className="w-3 h-3 text-cyan-400 animate-spin shrink-0" />
+                                          ) : (
+                                            <Sparkles className={`w-3 h-3 shrink-0 ${
+                                              linkedAlignmentMeta.alignment
+                                                ? 'text-emerald-400'
+                                                : !linkedAlignmentMeta.structuresMatch
+                                                ? 'text-amber-400'
+                                                : 'text-cyan-400'
+                                            }`} />
+                                          )}
+                                          <span className={`text-[10px] font-semibold truncate ${
+                                            isAligningLinked
+                                              ? 'text-cyan-300'
+                                              : linkedAlignmentMeta.alignment
+                                              ? 'text-emerald-300'
+                                              : !linkedAlignmentMeta.structuresMatch
+                                              ? 'text-amber-300'
+                                              : 'text-gray-300'
+                                          }`}>
+                                            {isAligningLinked
+                                              ? 'Alignement IA en cours...'
+                                              : linkedAlignmentMeta.alignment
+                                              ? 'Paroles ajustées par IA'
+                                              : !linkedAlignmentMeta.structuresMatch
+                                              ? 'Structure différente détectée'
+                                              : 'Alignement logique (IA)'}
+                                          </span>
+                                        </div>
+
+                                        <div className="flex items-center gap-1 shrink-0">
+                                          {linkedAlignmentMeta.alignment && !isAligningLinked && (
+                                            <button
+                                              type="button"
+                                              onClick={() => handleResetLinkedAlignment(linkedAlignmentMeta.pairKey)}
+                                              className="p-1 rounded-md text-gray-400 hover:text-white hover:bg-[#262636] transition-colors cursor-pointer"
+                                              title="Revenir au découpage brut du chant lié"
+                                            >
+                                              <RotateCcw className="w-3 h-3" />
+                                            </button>
+                                          )}
+                                          <button
+                                            type="button"
+                                            disabled={isAligningLinked}
+                                            onClick={() => {
+                                              if (currentSong && rawSecondarySong) {
+                                                void handleAlignLinkedLyrics(currentSong, rawSecondarySong, { force: true });
+                                              }
+                                            }}
+                                            className="px-2 py-1 rounded-md bg-cyan-600/20 hover:bg-cyan-600/35 disabled:opacity-50 border border-cyan-500/40 text-[10px] font-bold text-cyan-200 transition-colors cursor-pointer flex items-center gap-1"
+                                            title="Ajuster logiquement les paroles et traductions entre les deux chants liés"
+                                          >
+                                            <Sparkles className="w-2.5 h-2.5 text-cyan-300" />
+                                            <span>{linkedAlignmentMeta.alignment ? 'Réajuster' : 'Ajuster par IA'}</span>
+                                          </button>
+                                        </div>
+                                      </div>
+
+                                      {alignLinkedError && (
+                                        <p className="text-[10px] text-red-300 bg-red-950/40 border border-red-500/30 rounded-lg px-2 py-1 leading-snug">
+                                          {alignLinkedError}
+                                        </p>
+                                      )}
+                                    </div>
+                                  )}
+
                                   <div className="pt-1">
                                     <div className="text-[10px] font-semibold text-gray-400 mb-1">Format d'affichage :</div>
                                     <div className="grid grid-cols-2 gap-1 bg-[#141418] p-0.5 rounded-lg border border-[#2B2B38]">
@@ -2218,8 +2362,7 @@ export const PresentationManager: React.FC = () => {
                         <LayoutGrid className={`w-3.5 h-3.5 ${autoLayout ? 'text-emerald-400' : 'text-gray-400'}`} />
                         <span>Mise en page auto</span>
                       </button>
-                    </div>
-                  )}
+                  </div>
                 </div>
               )}
             </div>
@@ -2230,6 +2373,12 @@ export const PresentationManager: React.FC = () => {
                 onProjectLive={handleProjectLiveBible}
                 onAddToQueue={handleAddBibleToQueue}
                 activeLiveBibleRef={liveDirectBible ? (liveDirectSecondaryBible ? `${liveDirectBible.referenceText} (${liveDirectBible.version} • ${liveDirectSecondaryBible.version})` : `${liveDirectBible.referenceText} (${liveDirectBible.version})`) : null}
+                liveSlides={liveDirectSlides}
+                liveSlideIndex={liveDirectSlideIndex}
+                onSelectLiveSlide={(idx) => {
+                  setLiveDirectSlideIndex(idx);
+                  setIsBlackout(false);
+                }}
                 onStopLive={handleStopLiveBible}
                 onNextLiveVerse={handleNextLiveVerse}
                 onPrevLiveVerse={handlePrevLiveVerse}
@@ -2573,13 +2722,13 @@ export const PresentationManager: React.FC = () => {
                     title="Ajuster la taille de la police du texte projeté (paroles, mode bilingue, Bible)"
                   >
                     <Type className="w-4 h-4" />
-                    {Math.abs(fontScale - 1.0) > 0.05 && (
+                    {(Math.abs(fontScale - 1.0) > 0.05 || baseFontSize !== DEFAULT_BASE_FONT_SIZE_PX) && (
                       <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-blue-500 ring-2 ring-[#121215]" />
                     )}
                   </button>
 
                   {isFontScaleMenuOpen && (
-                    <div className="absolute left-0 top-full mt-2 w-60 max-w-[calc(100vw-32px)] bg-[#16161E] border border-[#2B2B38] rounded-xl p-3 shadow-2xl z-50 animate-in fade-in duration-100 flex flex-col gap-2.5">
+                    <div className="absolute left-0 top-full mt-2 w-64 max-w-[calc(100vw-32px)] bg-[#16161E] border border-[#2B2B38] rounded-xl p-3 shadow-2xl z-50 animate-in fade-in duration-100 flex flex-col gap-2.5">
                       <div className="flex items-center justify-between text-xs font-semibold text-gray-200">
                         <span className="flex items-center gap-1.5">
                           <Type className="w-3.5 h-3.5 text-blue-400" />
@@ -2587,12 +2736,12 @@ export const PresentationManager: React.FC = () => {
                         </span>
                         <div className="flex items-center gap-1.5">
                           <span className="font-mono text-blue-400 font-bold">{Math.round(fontScale * 100)}%</span>
-                          {Math.abs(fontScale - 1.0) > 0.02 && (
+                          {(Math.abs(fontScale - 1.0) > 0.02 || baseFontSize !== DEFAULT_BASE_FONT_SIZE_PX) && (
                             <button
                               type="button"
                               onClick={handleResetFontScale}
                               className="text-[10px] text-gray-400 hover:text-white p-0.5 rounded cursor-pointer transition-colors"
-                              title="Réinitialiser à 100%"
+                              title={`Réinitialiser (100% · ${DEFAULT_BASE_FONT_SIZE_PX}px)`}
                             >
                               <RotateCcw className="w-3 h-3" />
                             </button>
@@ -2601,7 +2750,7 @@ export const PresentationManager: React.FC = () => {
                       </div>
 
                       <p className="text-[10px] text-gray-400 leading-tight">
-                        S'applique à tout le texte projeté : paroles, mode bilingue et passages bibliques.
+                        Taille uniforme pour paroles, mode bilingue et versets bibliques.
                       </p>
 
                       {/* Presets rapides */}
@@ -2662,6 +2811,50 @@ export const PresentationManager: React.FC = () => {
                           <ZoomIn className="w-3.5 h-3.5" />
                         </button>
                       </div>
+
+                      {/* Taille de base fixe configurable */}
+                      <div className="pt-2 border-t border-[#262634] flex flex-col gap-1.5">
+                        <div className="flex items-center justify-between text-[11px] text-gray-300">
+                          <span className="font-medium">Taille de base</span>
+                          <span className="font-mono font-bold text-amber-300">{baseFontSize} px</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleAdjustBaseFontSize(-2)}
+                            disabled={baseFontSize <= MIN_BASE_FONT_SIZE_PX}
+                            className="w-6 h-6 rounded-md bg-[#20202C] hover:bg-[#2A2A3A] disabled:opacity-30 text-gray-300 hover:text-white flex items-center justify-center border border-[#2D2D3E] cursor-pointer text-xs font-bold"
+                            title="Réduire la taille de base"
+                          >
+                            -
+                          </button>
+                          <div className="grid grid-cols-3 gap-1 flex-1">
+                            {[36, DEFAULT_BASE_FONT_SIZE_PX, 56].map(px => (
+                              <button
+                                key={px}
+                                type="button"
+                                onClick={() => handleSetBaseFontSize(px)}
+                                className={`py-0.5 text-[10px] font-mono font-semibold rounded-md border transition-colors cursor-pointer ${
+                                  baseFontSize === px
+                                    ? 'bg-amber-500/25 border-amber-400/60 text-amber-200'
+                                    : 'bg-[#1E1E28] border-[#2A2A38] text-gray-400 hover:text-white'
+                                }`}
+                              >
+                                {px}px
+                              </button>
+                            ))}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleAdjustBaseFontSize(2)}
+                            disabled={baseFontSize >= MAX_BASE_FONT_SIZE_PX}
+                            className="w-6 h-6 rounded-md bg-[#20202C] hover:bg-[#2A2A3A] disabled:opacity-30 text-gray-300 hover:text-white flex items-center justify-center border border-[#2D2D3E] cursor-pointer text-xs font-bold"
+                            title="Augmenter la taille de base"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -2698,8 +2891,8 @@ export const PresentationManager: React.FC = () => {
                   <span className="text-[9px] font-mono text-gray-400 truncate block">
                     {liveDirectBible
                       ? `Diapo ${liveDirectSlideIndex + 1}/${liveDirectSlides.length}`
-                      : currentSong
-                      ? `Diapo ${activeSlideIndex + 1}/${currentSlides.length}`
+                      : currentSlides.length > 0
+                      ? `Diapo ${clampedSlideIndex + 1}/${currentSlides.length}`
                       : ''}
                   </span>
                 </div>
@@ -2737,11 +2930,21 @@ export const PresentationManager: React.FC = () => {
 
             {/* Moniteur Miniature de l'écran externe (Aperçu en direct 16:9) */}
             <div 
+              onClick={(e) => {
+                if (!liveDirectMedia?.isActive && !countdownActive && currentSlides.length > 1) {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  if (e.clientX - rect.left < rect.width * 0.35) {
+                    goToPrevSlide();
+                  } else {
+                    goToNextSlide();
+                  }
+                }
+              }}
               className={`w-full aspect-[16/9] max-h-56 sm:max-h-64 bg-black border-2 rounded-xl relative overflow-hidden flex flex-col justify-between ${
                 !isBlackout && !countdownActive && !liveDirectMedia?.isActive && activeSlide && activeSlide.lines.length > 0 && (liveDirectBible || activeSlide.itemType === 'bible')
                   ? 'p-2.5 sm:p-3.5 text-left'
                   : 'p-4 sm:p-6 text-center'
-              } shadow-inner select-none group bg-cover bg-center transition-all duration-300`}
+              } ${!liveDirectMedia?.isActive && !countdownActive && currentSlides.length > 1 ? 'cursor-pointer' : ''} shadow-inner select-none group bg-cover bg-center transition-all duration-300`}
               style={{
                 borderColor: liveDirectMedia?.isActive ? 'rgba(168, 85, 247, 0.7)' : liveDirectBible ? 'rgba(245, 158, 11, 0.7)' : 'rgba(59, 130, 246, 0.5)',
                 backgroundImage: backgroundImage ? `url("${backgroundImage}")` : undefined
@@ -2891,28 +3094,33 @@ export const PresentationManager: React.FC = () => {
                             )}
                           </div>
                         </div>
-                      ) : (liveDirectBible || activeSlide.itemType === 'bible') ? (
-                        <div className="space-y-1.5 text-left">
-                          <p 
-                            className="font-bold text-white leading-tight line-clamp-3 transition-all"
-                            style={{ 
-                              fontSize: `calc(0.76rem * ${Math.min(1.15, fontScale)})`,
-                              textShadow: '0 1px 3px rgba(0,0,0,0.85)'
-                            }}
-                          >
-                            {activeSlide.lines.map(l => cleanBibleVerseText(l)).filter(Boolean).join(' ')}
-                          </p>
-                          <p 
-                            className="font-medium text-cyan-200 italic leading-tight line-clamp-3 pt-1 border-t border-amber-500/20 transition-all"
-                            style={{ 
-                              fontSize: `calc(0.72rem * ${Math.min(1.15, fontScale)})`,
-                              textShadow: '0 1px 3px rgba(6,182,212,0.4)'
-                            }}
-                          >
-                            {activeSlide.secondaryLines.map(l => cleanBibleVerseText(l)).filter(Boolean).join(' ')}
-                          </p>
-                        </div>
-                      ) : (
+                      ) : (liveDirectBible || activeSlide.itemType === 'bible') ? (() => {
+                        const pText = activeSlide.lines.map(l => cleanBibleVerseText(l)).filter(Boolean).join(' ');
+                        const sText = activeSlide.secondaryLines.map(l => cleanBibleVerseText(l)).filter(Boolean).join(' ');
+                        const isShort = pText.length <= 95 && sText.length <= 95;
+                        return (
+                          <div className={`space-y-1.5 ${isShort ? 'text-center' : 'text-left'}`}>
+                            <p 
+                              className="font-bold text-white leading-tight line-clamp-3 transition-all"
+                              style={{ 
+                                fontSize: `calc(0.76rem * ${Math.min(1.15, fontScale)})`,
+                                textShadow: '0 1px 3px rgba(0,0,0,0.85)'
+                              }}
+                            >
+                              {pText}
+                            </p>
+                            <p 
+                              className="font-medium text-cyan-200 italic leading-tight line-clamp-3 pt-1 border-t border-amber-500/20 transition-all"
+                              style={{ 
+                                fontSize: `calc(0.72rem * ${Math.min(1.15, fontScale)})`,
+                                textShadow: '0 1px 3px rgba(6,182,212,0.4)'
+                              }}
+                            >
+                              {sText}
+                            </p>
+                          </div>
+                        );
+                      })() : (
                         <div className="space-y-1">
                           {activeSlide.lines.map((l, i) => (
                             <div key={i} className="space-y-0.5">
@@ -2940,17 +3148,21 @@ export const PresentationManager: React.FC = () => {
                           ))}
                         </div>
                       )
-                    ) : (liveDirectBible || activeSlide.itemType === 'bible') ? (
-                      <p 
-                        className="font-bold text-white drop-shadow transition-all leading-snug line-clamp-6 text-left"
-                        style={{ 
-                          fontSize: `calc(0.86rem * ${Math.min(1.15, fontScale)})`,
-                          textShadow: '0 1px 4px rgba(0,0,0,0.85)'
-                        }}
-                      >
-                        {activeSlide.lines.map(l => cleanBibleVerseText(l)).filter(Boolean).join(' ')}
-                      </p>
-                    ) : (
+                    ) : (liveDirectBible || activeSlide.itemType === 'bible') ? (() => {
+                      const soloText = activeSlide.lines.map(l => cleanBibleVerseText(l)).filter(Boolean).join(' ');
+                      const isShort = soloText.length <= 95;
+                      return (
+                        <p 
+                          className={`font-bold text-white drop-shadow transition-all leading-snug line-clamp-6 ${isShort ? 'text-center' : 'text-left'}`}
+                          style={{ 
+                            fontSize: `calc(0.86rem * ${Math.min(1.15, fontScale)})`,
+                            textShadow: '0 1px 4px rgba(0,0,0,0.85)'
+                          }}
+                        >
+                          {soloText}
+                        </p>
+                      );
+                    })() : (
                       activeSlide.lines.map((l, i) => (
                         <p 
                           key={i} 
@@ -2992,6 +3204,48 @@ export const PresentationManager: React.FC = () => {
               )}
 
             </div>
+
+            {/* Barre de navigation rapide sous le moniteur pour les longs versets multi-slides */}
+            {!countdownActive && !liveDirectMedia?.isActive && (liveDirectBible || activeSlide?.itemType === 'bible') && currentSlides.length > 1 && (
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-1.5 bg-[#15151C] border border-amber-500/30 rounded-xl px-2.5 py-1.5">
+                <div className="flex items-center gap-1 flex-wrap">
+                  {currentSlides.map((sl, sIdx) => {
+                    const isCurrent = sIdx === clampedSlideIndex;
+                    return (
+                      <button
+                        key={sl.id || sIdx}
+                        type="button"
+                        onClick={() => {
+                          if (liveDirectBible) {
+                            setLiveDirectSlideIndex(sIdx);
+                          } else {
+                            setActiveSlideIndex(sIdx);
+                          }
+                          setIsBlackout(false);
+                        }}
+                        className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-colors cursor-pointer ${
+                          isCurrent
+                            ? 'bg-amber-500 text-black'
+                            : 'bg-[#20202B] hover:bg-[#2B2B3A] text-amber-200'
+                        }`}
+                      >
+                        Slide {sIdx + 1}/{currentSlides.length}
+                      </button>
+                    );
+                  })}
+                </div>
+                {clampedSlideIndex < currentSlides.length - 1 && (
+                  <button
+                    type="button"
+                    onClick={goToNextSlide}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-[11px] font-bold transition-colors cursor-pointer"
+                  >
+                    <span>Suite ({clampedSlideIndex + 2}/{currentSlides.length})</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           {/* File de projection */}
@@ -3046,14 +3300,143 @@ export const PresentationManager: React.FC = () => {
               </div>
             </div>
 
+            {/* Sélecteur d'ajout rapide à la file de projection */}
+            <div className="px-3.5 sm:px-4 py-2.5 border-t border-[#1E1E26] flex items-center gap-2 flex-wrap" ref={setlistDropdownRef}>
+              <div className="relative flex-1 min-w-[155px]">
+                <button
+                  type="button"
+                  onClick={() => setIsSetlistDropdownOpen(prev => !prev)}
+                  aria-expanded={isSetlistDropdownOpen}
+                  aria-haspopup="menu"
+                  className={`w-full px-3 py-1.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all flex items-center justify-center gap-2 active:scale-95 shadow-xs ${
+                    isSetlistDropdownOpen
+                      ? 'bg-blue-600/25 border-blue-400 ring-2 ring-blue-500/25 text-white'
+                      : 'bg-blue-600/15 hover:bg-blue-600/25 border-blue-500/40 hover:border-blue-500/60 text-blue-200 hover:text-white'
+                  }`}
+                  title="Ajouter les chants d'une setlist à la file de projection"
+                >
+                  <ListMusic className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                  <span className="truncate">Ajouter une setlist</span>
+                  <ChevronDown className={`w-3.5 h-3.5 text-blue-300/80 transition-transform shrink-0 ${isSetlistDropdownOpen ? 'rotate-180 text-blue-300' : ''}`} />
+                </button>
+
+                {isSetlistDropdownOpen && (
+                  <div
+                    role="menu"
+                    className="absolute left-0 top-full mt-1.5 bg-[#131319] border border-[#2B2B38] rounded-xl shadow-2xl p-1.5 z-50 w-72 sm:w-80 max-w-[calc(100vw-2.5rem)] animate-in fade-in zoom-in-95 duration-100 flex flex-col gap-1"
+                  >
+                    <div className="flex items-center justify-between px-2.5 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                      <span>Ajouter à la file</span>
+                      {setlists.length > 0 && (
+                        <span className="text-gray-500 font-normal normal-case">
+                          1 clic pour ajouter
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="space-y-1 max-h-60 overflow-y-auto custom-scrollbar pr-0.5">
+                      {setlists.length === 0 ? (
+                        <div className="px-3 py-5 text-center text-xs text-gray-500">
+                          Aucune setlist disponible
+                        </div>
+                      ) : (
+                        setlists.map((st) => {
+                          const validCount = (st.songIds || []).filter(id => songsById.has(id)).length;
+                          const isEmpty = validCount === 0;
+                          const isQueued = queuedSetlistIds.has(st.id);
+
+                          return (
+                            <button
+                              key={st.id}
+                              type="button"
+                              role="menuitem"
+                              disabled={isEmpty}
+                              onClick={() => {
+                                handleAddSetlist(st.id);
+                                setIsSetlistDropdownOpen(false);
+                              }}
+                              className={`w-full text-left px-2.5 py-2 rounded-lg text-xs transition-colors flex items-center justify-between gap-2.5 group border ${
+                                isEmpty
+                                  ? 'opacity-45 cursor-not-allowed border-transparent text-gray-500'
+                                  : isQueued
+                                  ? 'bg-emerald-500/5 hover:bg-blue-600/15 border-emerald-500/20 hover:border-blue-500/40 text-gray-100 cursor-pointer'
+                                  : 'border-transparent hover:bg-blue-600/15 hover:border-blue-500/35 text-gray-200 hover:text-white cursor-pointer'
+                              }`}
+                              title={isEmpty ? 'Setlist vide' : `Ajouter les ${validCount} chant${validCount > 1 ? 's' : ''} de « ${st.name} » à la file`}
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border transition-colors ${
+                                  isEmpty
+                                    ? 'bg-[#1A1A22] border-[#262632] text-gray-500'
+                                    : isQueued
+                                    ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-400 group-hover:bg-blue-500/15 group-hover:border-blue-500/30 group-hover:text-blue-300'
+                                    : 'bg-[#1A1A24] border-[#282836] text-blue-400 group-hover:bg-blue-500/20 group-hover:border-blue-500/40 group-hover:text-blue-300'
+                                }`}>
+                                  <ListMusic className="w-3.5 h-3.5" />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="font-semibold truncate leading-tight">
+                                    {st.name}
+                                  </div>
+                                  <div className="text-[10px] text-gray-400 mt-0.5 flex items-center gap-1.5">
+                                    <span>
+                                      {validCount} chant{validCount > 1 ? 's' : ''}
+                                    </span>
+                                    {st.date && (
+                                      <>
+                                        <span className="text-gray-600">•</span>
+                                        <span>{st.date.split('-').reverse().join('/')}</span>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="shrink-0 flex items-center">
+                                {isEmpty ? (
+                                  <span className="text-[10px] text-gray-500 px-1.5">Vide</span>
+                                ) : isQueued ? (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-400 group-hover:text-blue-300 px-1.5 py-0.5 rounded-md bg-emerald-500/10 group-hover:bg-blue-500/15 transition-colors">
+                                    <Check className="w-3 h-3 group-hover:hidden" />
+                                    <Plus className="w-3 h-3 hidden group-hover:block" />
+                                    <span className="group-hover:hidden">Ajoutée</span>
+                                    <span className="hidden group-hover:inline">Réajouter</span>
+                                  </span>
+                                ) : (
+                                  <Plus className="w-4 h-4 text-gray-500 group-hover:text-blue-400 group-hover:scale-110 transition-all" />
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSongModalSearch('');
+                  setIsAddSongModalOpen(true);
+                }}
+                className="px-3 py-1.5 rounded-xl bg-emerald-600/15 hover:bg-emerald-600/25 border border-emerald-500/40 hover:border-emerald-500/60 text-emerald-300 hover:text-emerald-200 text-xs font-semibold cursor-pointer transition-all flex items-center justify-center gap-1.5 shrink-0 active:scale-95 shadow-xs"
+                title="Ajouter un chant individuel (hors-liste) à la file de projection"
+              >
+                <Plus className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Chant libre</span>
+              </button>
+            </div>
+
             {/* Corps du bloc déroulable */}
             {!isQueueCollapsed && (
-              <div className="px-3.5 sm:px-4 pb-3.5 sm:pb-4 pt-0 space-y-3 border-t border-[#1E1E26] mt-0.5 flex-1 min-h-0 flex flex-col">
+              <div className="px-3.5 sm:px-4 pb-3.5 sm:pb-4 pt-2 space-y-3 border-t border-[#1E1E26] flex-1 min-h-0 flex flex-col">
                 {visibleQueueCount === 0 ? (
                   <div className="text-center py-7 text-gray-500 text-xs flex-1 flex flex-col items-center justify-center">
                     <Music className="w-8 h-8 mx-auto mb-2 opacity-30 text-emerald-400" />
                     <span>Aucun chant ou passage dans la file.</span>
-                    <p className="text-[10px] mt-1 text-gray-600">Sélectionnez une setlist ou ajoutez un chant libre / passage dans le Pupitre.</p>
+                    <p className="text-[10px] mt-1 text-gray-600">Ajoutez une setlist ou un chant libre ci-dessus, ou un passage depuis l'onglet Bible.</p>
                   </div>
                 ) : (
                   <div className="space-y-1.5 overflow-y-auto pr-0.5 custom-scrollbar pt-1 flex-1 min-h-0 max-lg:max-h-[460px]">
@@ -3606,8 +3989,9 @@ export const PresentationManager: React.FC = () => {
           song={currentSong}
           existingAiTranslation={activeAiTranslation}
           existingLinkedSong={
-            secondarySong && !secondarySong.id.startsWith('ai_') ? secondarySong : null
+            rawSecondarySong && !rawSecondarySong.id.startsWith('ai_') ? rawSecondarySong : null
           }
+          existingAlignedBlocks={linkedAlignmentMeta.alignment?.blocks || null}
           initialEditMode={aiTranslateInitialEdit}
           canSaveToLibrary={canSaveTranslationToLibrary}
           onApplyForProjection={handleApplyAiTranslation}

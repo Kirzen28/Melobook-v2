@@ -161,27 +161,27 @@ service cloud.firestore {
         && data.id is string && data.id.size() >= 1 && data.id.size() <= 128
         && data.groupId == groupId
         && data.title is string && data.title.size() >= 1 && data.title.size() <= 240
-        && (!('artist' in data) || (data.artist is string && data.artist.size() <= 200))
-        && (!('album' in data) || (data.album is string && data.album.size() <= 200))
-        && (!('key' in data) || (data.key is string && data.key.size() <= 24))
-        && (!('tempo' in data) || data.tempo is number)
-        && (!('bpm' in data) || data.bpm is number)
-        && (!('timeSignature' in data) || (data.timeSignature is string && data.timeSignature.size() <= 20))
-        && (!('duration' in data) || (data.duration is string && data.duration.size() <= 32))
-        && (!('durationMode' in data) || data.durationMode in ['auto', 'custom'])
-        && (!('ccli' in data) || (data.ccli is string && data.ccli.size() <= 64))
-        && (!('copyright' in data) || (data.copyright is string && data.copyright.size() <= 500))
-        && (!('youtubeUrl' in data) || (data.youtubeUrl is string && data.youtubeUrl.size() <= 1000))
-        && (!('audioUrl' in data) || (data.audioUrl is string && data.audioUrl.size() <= 1000))
-        && (!('spotifyUrl' in data) || (data.spotifyUrl is string && data.spotifyUrl.size() <= 1000))
+        && (!('artist' in data) || data.artist == null || (data.artist is string && data.artist.size() <= 200))
+        && (!('album' in data) || data.album == null || (data.album is string && data.album.size() <= 200))
+        && (!('key' in data) || data.key == null || (data.key is string && data.key.size() <= 24))
+        && (!('tempo' in data) || data.tempo == null || data.tempo is number)
+        && (!('bpm' in data) || data.bpm == null || data.bpm is number)
+        && (!('timeSignature' in data) || data.timeSignature == null || (data.timeSignature is string && data.timeSignature.size() <= 20))
+        && (!('duration' in data) || data.duration == null || (data.duration is string && data.duration.size() <= 32))
+        && (!('durationMode' in data) || data.durationMode == null || data.durationMode in ['auto', 'custom'])
+        && (!('ccli' in data) || data.ccli == null || (data.ccli is string && data.ccli.size() <= 64))
+        && (!('copyright' in data) || data.copyright == null || (data.copyright is string && data.copyright.size() <= 500))
+        && (!('youtubeUrl' in data) || data.youtubeUrl == null || (data.youtubeUrl is string && data.youtubeUrl.size() <= 1000))
+        && (!('audioUrl' in data) || data.audioUrl == null || (data.audioUrl is string && data.audioUrl.size() <= 1000))
+        && (!('spotifyUrl' in data) || data.spotifyUrl == null || (data.spotifyUrl is string && data.spotifyUrl.size() <= 1000))
         && data.contentChordPro is string && data.contentChordPro.size() <= 100000
-        && (!('content' in data) || (data.content is string && data.content.size() <= 100000))
+        && (!('content' in data) || data.content == null || (data.content is string && data.content.size() <= 100000))
         && (!('folderId' in data) || data.folderId == null || (data.folderId is string && data.folderId.size() <= 128))
-        && (!('capo' in data) || data.capo is number)
-        && (!('tags' in data) || (data.tags is list && data.tags.size() <= 50))
-        && (!('language' in data) || (data.language is string && data.language.size() <= 40))
-        && (!('linkedSongIds' in data) || (data.linkedSongIds is list && data.linkedSongIds.size() <= 50))
-        && (!('notes' in data) || (data.notes is string && data.notes.size() <= 5000));
+        && (!('capo' in data) || data.capo == null || data.capo is number)
+        && (!('tags' in data) || data.tags == null || (data.tags is list && data.tags.size() <= 50))
+        && (!('language' in data) || data.language == null || (data.language is string && data.language.size() <= 40))
+        && (!('linkedSongIds' in data) || data.linkedSongIds == null || (data.linkedSongIds is list && data.linkedSongIds.size() <= 50))
+        && (!('notes' in data) || data.notes == null || (data.notes is string && data.notes.size() <= 5000));
     }
 
     function isValidSetlist(data, groupId) {
@@ -226,6 +226,64 @@ service cloud.firestore {
         && data.rootSemitone is number
         && data.rootKey is string && data.rootKey.size() >= 1 && data.rootKey.size() <= 16
         && (!('audioUrl' in data) || (data.audioUrl is string && data.audioUrl.size() <= 750000));
+    }
+
+    function isValidRoadmapImages(images) {
+      return images is list
+        && images.size() <= 3
+        && (
+          images.size() == 0 ||
+          (
+            images[0] is string && images[0].size() >= 1 && images[0].size() <= 260000
+            && (images.size() < 2 || (images[1] is string && images[1].size() >= 1 && images[1].size() <= 260000))
+            && (images.size() < 3 || (images[2] is string && images[2].size() >= 1 && images[2].size() <= 260000))
+          )
+        );
+    }
+
+    function isValidRoadmapItem(data) {
+      return data.keys().hasAll([
+          'id', 'title', 'description', 'category', 'status', 'images',
+          'authorId', 'authorName', 'likesCount', 'commentsCount', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'title', 'description', 'category', 'status', 'images',
+          'authorId', 'authorName', 'authorPhotoURL',
+          'likesCount', 'commentsCount', 'lastCommentId', 'createdAt', 'updatedAt'
+        ])
+        && data.id is string && data.id.size() >= 1 && data.id.size() <= 128
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 160
+        && data.description is string && data.description.size() >= 1 && data.description.size() <= 4000
+        && data.category in ['idea', 'bug']
+        && data.status in ['idea_bug', 'in_progress', 'live']
+        && isValidRoadmapImages(data.images)
+        && data.authorId is string && data.authorId.size() >= 1 && data.authorId.size() <= 128
+        && data.authorName is string && data.authorName.size() >= 1 && data.authorName.size() <= 120
+        && (!('authorPhotoURL' in data) || data.authorPhotoURL == null || (data.authorPhotoURL is string && data.authorPhotoURL.size() <= 2048))
+        && data.likesCount is int && data.likesCount >= 0 && data.likesCount <= 1000000
+        && data.commentsCount is int && data.commentsCount >= 0 && data.commentsCount <= 1000000
+        && (!('lastCommentId' in data) || data.lastCommentId == null || (data.lastCommentId is string && data.lastCommentId.size() >= 1 && data.lastCommentId.size() <= 128))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidRoadmapLike(data, userId) {
+      return data.keys().hasAll(['userId', 'createdAt'])
+        && data.keys().hasOnly(['userId', 'createdAt'])
+        && data.userId == userId
+        && data.createdAt == request.time;
+    }
+
+    function isValidRoadmapComment(data, itemId, commentId) {
+      return data.keys().hasAll(['id', 'itemId', 'text', 'authorId', 'authorName', 'createdAt'])
+        && data.keys().hasOnly(['id', 'itemId', 'text', 'authorId', 'authorName', 'authorPhotoURL', 'createdAt'])
+        && data.id == commentId
+        && data.itemId == itemId
+        && data.text is string && data.text.size() >= 1 && data.text.size() <= 2000
+        && data.authorId is string && data.authorId.size() >= 1 && data.authorId.size() <= 128
+        && data.authorName is string && data.authorName.size() >= 1 && data.authorName.size() <= 120
+        && (!('authorPhotoURL' in data) || data.authorPhotoURL == null || (data.authorPhotoURL is string && data.authorPhotoURL.size() <= 2048))
+        && data.createdAt == request.time;
     }
 
     // Users collection (PII isolated strictly to owner or bootstrapped admin)
@@ -344,7 +402,7 @@ service cloud.firestore {
         allow update: if canEditLibrarySongs(groupId)
           && isValidId(songId)
           && isValidSong(incoming(), groupId)
-          && incoming().groupId == existing().groupId;
+          && (!('groupId' in existing()) || incoming().groupId == existing().groupId);
         allow delete: if canEditLibrarySongs(groupId) && isValidId(songId);
       }
 
@@ -387,6 +445,125 @@ service cloud.firestore {
         allow delete: if isLibraryMember(groupId)
           && isValidId(padId)
           && (canEditLibrarySongs(groupId) || existing().createdBy == request.auth.uid);
+      }
+    }
+
+    // CollectionGroup query for current user's own likes
+    match /{path=**}/likes/{userId} {
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    // Global Roadmap (public read-only for guests & users, authenticated writes)
+    match /roadmap_items/{itemId} {
+      allow get: if isValidId(itemId);
+      allow list: if true;
+      allow create: if isSignedIn()
+        && isValidId(itemId)
+        && isValidRoadmapItem(incoming())
+        && incoming().id == itemId
+        && incoming().authorId == request.auth.uid
+        && incoming().status == 'idea_bug'
+        && incoming().likesCount == 0
+        && incoming().commentsCount == 0
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isSignedIn()
+        && isValidId(itemId)
+        && isValidRoadmapItem(incoming())
+        && incoming().id == existing().id
+        && incoming().authorId == existing().authorId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          // Action 1: Main app admin changes status (or moderates)
+          (
+            isBootstrappedAdmin()
+            && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'title', 'description', 'category', 'images', 'updatedAt'])
+          ) ||
+          // Action 2: Author edits post content (cannot change status)
+          (
+            existing().authorId == request.auth.uid
+            && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'category', 'images', 'updatedAt'])
+          ) ||
+          // Action 3: Signed-in user adds like atomically
+          (
+            incoming().diff(existing()).affectedKeys().hasOnly(['likesCount', 'updatedAt'])
+            && incoming().likesCount == existing().likesCount + 1
+            && !exists(/databases/$(database)/documents/roadmap_items/$(itemId)/likes/$(request.auth.uid))
+            && existsAfter(/databases/$(database)/documents/roadmap_items/$(itemId)/likes/$(request.auth.uid))
+          ) ||
+          // Action 4: Signed-in user removes like atomically
+          (
+            incoming().diff(existing()).affectedKeys().hasOnly(['likesCount', 'updatedAt'])
+            && existing().likesCount > 0
+            && incoming().likesCount == existing().likesCount - 1
+            && exists(/databases/$(database)/documents/roadmap_items/$(itemId)/likes/$(request.auth.uid))
+            && !existsAfter(/databases/$(database)/documents/roadmap_items/$(itemId)/likes/$(request.auth.uid))
+          ) ||
+          // Action 5: Signed-in user adds comment atomically
+          (
+            incoming().diff(existing()).affectedKeys().hasOnly(['commentsCount', 'lastCommentId', 'updatedAt'])
+            && incoming().commentsCount == existing().commentsCount + 1
+            && incoming().lastCommentId is string
+            && isValidId(incoming().lastCommentId)
+            && !exists(/databases/$(database)/documents/roadmap_items/$(itemId)/comments/$(incoming().lastCommentId))
+            && existsAfter(/databases/$(database)/documents/roadmap_items/$(itemId)/comments/$(incoming().lastCommentId))
+          ) ||
+          // Action 6: Comment author or admin removes comment atomically
+          (
+            incoming().diff(existing()).affectedKeys().hasOnly(['commentsCount', 'lastCommentId', 'updatedAt'])
+            && existing().commentsCount > 0
+            && incoming().commentsCount == existing().commentsCount - 1
+            && incoming().lastCommentId is string
+            && isValidId(incoming().lastCommentId)
+            && exists(/databases/$(database)/documents/roadmap_items/$(itemId)/comments/$(incoming().lastCommentId))
+            && !existsAfter(/databases/$(database)/documents/roadmap_items/$(itemId)/comments/$(incoming().lastCommentId))
+          )
+        );
+      allow delete: if isSignedIn()
+        && isValidId(itemId)
+        && (existing().authorId == request.auth.uid || isBootstrappedAdmin());
+
+      match /likes/{userId} {
+        allow get: if isValidId(itemId) && isValidId(userId) && isSignedIn() && request.auth.uid == userId;
+        allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+        allow create: if isSignedIn()
+          && isValidId(itemId)
+          && isValidId(userId)
+          && request.auth.uid == userId
+          && isValidRoadmapLike(incoming(), userId)
+          && exists(/databases/$(database)/documents/roadmap_items/$(itemId))
+          && getAfter(/databases/$(database)/documents/roadmap_items/$(itemId)).data.likesCount == get(/databases/$(database)/documents/roadmap_items/$(itemId)).data.likesCount + 1;
+        allow update: if false;
+        allow delete: if isSignedIn()
+          && isValidId(itemId)
+          && isValidId(userId)
+          && request.auth.uid == userId
+          && (
+            !exists(/databases/$(database)/documents/roadmap_items/$(itemId)) ||
+            getAfter(/databases/$(database)/documents/roadmap_items/$(itemId)).data.likesCount == get(/databases/$(database)/documents/roadmap_items/$(itemId)).data.likesCount - 1
+          );
+      }
+
+      match /comments/{commentId} {
+        allow get: if isValidId(itemId) && isValidId(commentId);
+        allow list: if isValidId(itemId);
+        allow create: if isSignedIn()
+          && isValidId(itemId)
+          && isValidId(commentId)
+          && isValidRoadmapComment(incoming(), itemId, commentId)
+          && incoming().authorId == request.auth.uid
+          && exists(/databases/$(database)/documents/roadmap_items/$(itemId))
+          && getAfter(/databases/$(database)/documents/roadmap_items/$(itemId)).data.commentsCount == get(/databases/$(database)/documents/roadmap_items/$(itemId)).data.commentsCount + 1;
+        allow update: if false;
+        allow delete: if isSignedIn()
+          && isValidId(itemId)
+          && isValidId(commentId)
+          && (existing().authorId == request.auth.uid || isBootstrappedAdmin())
+          && (
+            !exists(/databases/$(database)/documents/roadmap_items/$(itemId)) ||
+            getAfter(/databases/$(database)/documents/roadmap_items/$(itemId)).data.commentsCount == get(/databases/$(database)/documents/roadmap_items/$(itemId)).data.commentsCount - 1
+          );
       }
     }
   }

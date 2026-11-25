@@ -164,8 +164,8 @@ interface AppContextType {
   currentLibrary: Group | null;
   songs: Song[];
   setlists: Setlist[];
-  activeTab: 'repertoire' | 'setlists' | 'stage' | 'groups' | 'editor' | 'settings' | 'tuner' | 'presentation';
-  setActiveTab: (tab: 'repertoire' | 'setlists' | 'stage' | 'groups' | 'editor' | 'settings' | 'tuner' | 'presentation') => void;
+  activeTab: 'repertoire' | 'setlists' | 'stage' | 'groups' | 'editor' | 'settings' | 'tuner' | 'presentation' | 'roadmap';
+  setActiveTab: (tab: 'repertoire' | 'setlists' | 'stage' | 'groups' | 'editor' | 'settings' | 'tuner' | 'presentation' | 'roadmap') => void;
   editorSubTab: 'data' | 'chords';
   setEditorSubTab: (tab: 'data' | 'chords') => void;
   selectedSong: Song | null;
@@ -323,10 +323,10 @@ const AppContext = createContext<AppContextType | null>(null);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Navigation & Selection
-  const [activeTab, setActiveTabState] = useState<'repertoire' | 'setlists' | 'stage' | 'groups' | 'editor' | 'settings' | 'tuner' | 'presentation'>(() => {
+  const [activeTab, setActiveTabState] = useState<'repertoire' | 'setlists' | 'stage' | 'groups' | 'editor' | 'settings' | 'tuner' | 'presentation' | 'roadmap'>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('songbook_active_tab');
-      if (saved && ['repertoire', 'setlists', 'stage', 'groups', 'editor', 'settings', 'tuner', 'presentation'].includes(saved)) {
+      if (saved && ['repertoire', 'setlists', 'stage', 'groups', 'editor', 'settings', 'tuner', 'presentation', 'roadmap'].includes(saved)) {
         return saved as any;
       }
     }
@@ -355,10 +355,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     canAccessSettings: true
   });
 
-  const setActiveTab = useCallback((tab: 'repertoire' | 'setlists' | 'stage' | 'groups' | 'editor' | 'settings' | 'tuner' | 'presentation') => {
+  const setActiveTab = useCallback((tab: 'repertoire' | 'setlists' | 'stage' | 'groups' | 'editor' | 'settings' | 'tuner' | 'presentation' | 'roadmap') => {
     const p = permissionsRef.current;
     let resolvedTab = tab;
-    if (isGuest) {
+    if (tab === 'roadmap') {
+      resolvedTab = 'roadmap';
+    } else if (isGuest) {
       if (tab === 'editor' || tab === 'groups' || tab === 'settings') {
         resolvedTab = 'repertoire';
       }
@@ -2236,7 +2238,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateSong = useCallback(async (id: string, songData: Partial<Song>) => {
     if (blockIfGuest()) return;
-    const existing = songs.find(s => s.id === id);
+    const existing = songsRef.current.find(s => s.id === id) || songs.find(s => s.id === id);
     const groupId = existing?.groupId || currentGroup?.id;
     if (!groupId) return;
 
@@ -2247,21 +2249,66 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       resolvedData.language = detectSongLanguage(titleToUse, contentToUse) || '';
     }
 
-    songsRef.current = songsRef.current.map(s => s.id === id ? { ...s, ...resolvedData, updatedAt: new Date().toISOString() } : s);
-    setSongs(prev => prev.map(s => s.id === id ? { ...s, ...resolvedData, updatedAt: new Date().toISOString() } : s));
-    if (selectedSong?.id === id) {
-      setSelectedSong(prev => prev ? { ...prev, ...resolvedData } : null);
-    }
+    const prevSongs = songsRef.current;
+    const nextUpdatedAt = new Date().toISOString();
+    songsRef.current = prevSongs.map(s => s.id === id ? { ...s, ...resolvedData, updatedAt: nextUpdatedAt } : s);
+    setSongs(prev => prev.map(s => s.id === id ? { ...s, ...resolvedData, updatedAt: nextUpdatedAt } : s));
+    setSelectedSong(prev => (prev && prev.id === id) ? { ...prev, ...resolvedData, updatedAt: nextUpdatedAt } : prev);
 
-    showNotification('Enregistré');
+    const docRef = doc(db, 'groups', groupId, 'songs', id);
+    const baseRepairFields: Partial<Song> = {
+      id,
+      groupId,
+      ...(existing && !existing.title && !resolvedData.title ? { title: 'Nouveau Chant' } : {}),
+      ...(existing && typeof existing.contentChordPro !== 'string' && typeof resolvedData.contentChordPro !== 'string'
+        ? { contentChordPro: existing.content || '' }
+        : {})
+    };
 
     try {
-      const docRef = doc(db, 'groups', groupId, 'songs', id);
-      await updateDoc(docRef, stripUndefined({ ...resolvedData, updatedAt: serverTimestamp() }));
-    } catch (e) {
-      console.warn('Updated song locally:', e);
+      await updateDoc(docRef, stripUndefined({ ...resolvedData, ...baseRepairFields, updatedAt: serverTimestamp() }));
+      showNotification('Enregistré');
+    } catch (e: any) {
+      if (e?.code === 'not-found' && existing) {
+        try {
+          await setDoc(docRef, stripUndefined({
+            ...existing,
+            ...resolvedData,
+            id,
+            groupId,
+            title: resolvedData.title || existing.title || 'Nouveau Chant',
+            contentChordPro: resolvedData.contentChordPro ?? existing.contentChordPro ?? existing.content ?? '',
+            updatedAt: serverTimestamp()
+          }), { merge: true });
+          showNotification('Enregistré');
+          return;
+        } catch (fallbackErr: any) {
+          if (fallbackErr?.code === 'unavailable') {
+            showNotification('Enregistré');
+            return;
+          }
+          songsRef.current = prevSongs;
+          setSongs(prevSongs);
+          if (existing) {
+            setSelectedSong(prev => (prev && prev.id === id) ? existing : prev);
+          }
+          showNotification("Erreur lors de l'enregistrement", 'error');
+          handleFirestoreError(fallbackErr, OperationType.UPDATE, `groups/${groupId}/songs/${id}`);
+        }
+      }
+      if (e?.code === 'unavailable') {
+        showNotification('Enregistré');
+        return;
+      }
+      songsRef.current = prevSongs;
+      setSongs(prevSongs);
+      if (existing) {
+        setSelectedSong(prev => (prev && prev.id === id) ? existing : prev);
+      }
+      showNotification("Erreur lors de l'enregistrement", 'error');
+      handleFirestoreError(e, OperationType.UPDATE, `groups/${groupId}/songs/${id}`);
     }
-  }, [songs, currentGroup?.id, selectedSong?.id, showNotification]);
+  }, [songs, currentGroup?.id, showNotification]);
 
   const autoDetectSongLanguages = useCallback(async (songIds?: string[]): Promise<number> => {
     if (blockIfGuest()) return 0;
@@ -3620,7 +3667,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     if (isGuest || !currentUser) return;
     if (isRegieOnly) {
-      if (activeTab !== 'presentation') {
+      if (activeTab !== 'presentation' && activeTab !== 'roadmap') {
         setActiveTabState('presentation');
       }
       setIsPianoOpen(false);

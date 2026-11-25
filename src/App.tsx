@@ -22,6 +22,7 @@ import { LoginPage } from './components/LoginPage';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { MelobookLogo } from './components/MelobookLogo';
 import { UpdateBanner } from './components/UpdateBanner';
+import { RoadmapView } from './components/RoadmapView';
 
 const viewVariants = {
   initial: {
@@ -65,6 +66,7 @@ const AppContent: React.FC = () => {
   } = useApp();
 
   const renderMainView = () => {
+    if (activeTab === 'roadmap') return <RoadmapView />;
     if (!isGuest && isRegieOnly) {
       return <PresentationManager />;
     }
@@ -90,7 +92,7 @@ const AppContent: React.FC = () => {
       <main className="flex-1 relative overflow-x-hidden">
         <AnimatePresence mode="wait">
           <motion.div
-            key={!isGuest && isRegieOnly ? 'presentation' : activeTab}
+            key={activeTab === 'roadmap' ? 'roadmap' : (!isGuest && isRegieOnly ? 'presentation' : activeTab)}
             variants={viewVariants}
             initial="initial"
             animate="animate"

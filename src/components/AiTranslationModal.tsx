@@ -29,6 +29,7 @@ interface AiTranslationModalProps {
   song: Song;
   existingAiTranslation?: AiSongTranslation | null;
   existingLinkedSong?: Song | null;
+  existingAlignedBlocks?: AiTranslationBlock[] | null;
   initialEditMode?: boolean;
   canSaveToLibrary: boolean;
   onApplyForProjection: (translation: AiSongTranslation) => void;
@@ -48,6 +49,7 @@ export const AiTranslationModal: React.FC<AiTranslationModalProps> = ({
   song,
   existingAiTranslation,
   existingLinkedSong,
+  existingAlignedBlocks,
   initialEditMode = false,
   canSaveToLibrary,
   onApplyForProjection,
@@ -85,7 +87,11 @@ export const AiTranslationModal: React.FC<AiTranslationModalProps> = ({
     if (existingLinkedSong) {
       setTargetLanguage(existingLinkedSong.language || pickDefaultTargetLanguage(song.language));
       setTranslatedTitle(existingLinkedSong.title);
-      setBlocks(extractBlocksFromPairedSongs(song, existingLinkedSong));
+      setBlocks(
+        existingAlignedBlocks && existingAlignedBlocks.length > 0
+          ? existingAlignedBlocks
+          : extractBlocksFromPairedSongs(song, existingLinkedSong)
+      );
       setIsEditMode(true);
       return;
     }
@@ -94,7 +100,7 @@ export const AiTranslationModal: React.FC<AiTranslationModalProps> = ({
     setTranslatedTitle('');
     setBlocks(extractSongBlocksForTranslation(song));
     setIsEditMode(initialEditMode);
-  }, [isOpen, song, existingAiTranslation, existingLinkedSong, initialEditMode]);
+  }, [isOpen, song, existingAiTranslation, existingLinkedSong, existingAlignedBlocks, initialEditMode]);
 
   if (!isOpen) return null;
 

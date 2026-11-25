@@ -237,3 +237,34 @@ export interface CustomPad {
   createdByName?: string;
 }
 
+export type RoadmapCategory = 'idea' | 'bug';
+
+export type RoadmapStatus = 'idea_bug' | 'in_progress' | 'live';
+
+export interface RoadmapItem {
+  id: string;
+  title: string;
+  description: string;
+  category: RoadmapCategory;
+  status: RoadmapStatus;
+  images: string[];
+  authorId: string;
+  authorName: string;
+  authorPhotoURL?: string | null;
+  likesCount: number;
+  commentsCount: number;
+  lastCommentId?: string | null;
+  createdAt?: any;
+  updatedAt?: any;
+}
+
+export interface RoadmapComment {
+  id: string;
+  itemId: string;
+  text: string;
+  authorId: string;
+  authorName: string;
+  authorPhotoURL?: string | null;
+  createdAt?: any;
+}
+

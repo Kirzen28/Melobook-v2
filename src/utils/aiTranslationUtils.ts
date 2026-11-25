@@ -33,12 +33,16 @@ export function extractSongBlocksForTranslation(song: Song): AiTranslationBlock[
     const secTitle = (section.title || section.type || '').trim() || 'Paroles';
     const typeLower = (section.type || '').toLowerCase();
 
+    if (section.blockKind === 'grid' || section.blockKind === 'tab' || typeLower === 'grid' || typeLower === 'tab') {
+      continue;
+    }
+
     if (
       ['solo', 'intro', 'outro', 'interlude', 'instrumental'].includes(typeLower) &&
       (!secTitle || /intro|solo|instru/i.test(secTitle))
     ) {
       const hasAnyLyrics = section.lines.some((l) =>
-        l.items.some((it) => it.lyrics && it.lyrics.trim().length > 0)
+        l.type === 'lyrics' && l.items.some((it) => it.lyrics && it.lyrics.trim().length > 0)
       );
       if (!hasAnyLyrics) continue;
     }
@@ -52,6 +56,10 @@ export function extractSongBlocksForTranslation(song: Song): AiTranslationBlock[
           stanzas.push(currentStanza);
           currentStanza = [];
         }
+        continue;
+      }
+
+      if (l.type === 'comment' || l.type === 'comment_italic' || l.type === 'comment_box' || l.type === 'grid_row' || l.type === 'tab_row') {
         continue;
       }
 
@@ -304,4 +312,123 @@ export function testAiTranslationAlignment(): boolean {
     origSlides[0].lines.length === transSlides[0].lines.length &&
     transSlides[0].lines[0] === 'Grâce infinie, quel doux son'
   );
+}
+
+export interface LinkedSongAlignment {
+  pairKey: string;
+  primarySongId: string;
+  secondarySongId: string;
+  primaryHash: string;
+  secondaryHash: string;
+  blocks: AiTranslationBlock[];
+  updatedAt: number;
+}
+
+const LINKED_ALIGNMENT_STORAGE_KEY = 'melobook_linked_alignments_v1';
+
+export function buildLinkedPairKey(primarySongId: string, secondarySongId: string): string {
+  return `${primarySongId}__${secondarySongId}`;
+}
+
+export function hashSongLyrics(song: Song): string {
+  const blocks = extractSongBlocksForTranslation(song);
+  const normalized = blocks
+    .map(b => `${b.sectionTitle}:${b.originalLines.join('|')}`)
+    .join('||');
+  let h = 2166136261;
+  for (let i = 0; i < normalized.length; i++) {
+    h ^= normalized.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(36);
+}
+
+export function hasIdenticalLyricsStructure(primarySong: Song, secondarySong: Song): boolean {
+  const pBlocks = extractSongBlocksForTranslation(primarySong);
+  const sBlocks = extractSongBlocksForTranslation(secondarySong);
+  if (pBlocks.length === 0 || pBlocks.length !== sBlocks.length) return false;
+  return pBlocks.every((pb, idx) => pb.originalLines.length === sBlocks[idx].originalLines.length);
+}
+
+export function toVirtualAlignedLinkedSong(
+  primarySong: Song,
+  secondarySong: Song,
+  alignedBlocks: AiTranslationBlock[]
+): Song {
+  const primaryBlocks = extractSongBlocksForTranslation(primarySong);
+  const syncedBlocks: AiTranslationBlock[] = primaryBlocks.map((pBlock, bIdx) => {
+    const aBlock = alignedBlocks[bIdx];
+    return {
+      sectionTitle: aBlock?.sectionTitle || pBlock.sectionTitle,
+      originalLines: pBlock.originalLines,
+      translatedLines: pBlock.originalLines.map((_, lIdx) => aBlock?.translatedLines?.[lIdx] ?? ''),
+      sameSectionAsPrevious: pBlock.sameSectionAsPrevious
+    };
+  });
+
+  return {
+    ...secondarySong,
+    contentChordPro: buildChordProFromTranslation(secondarySong.title, syncedBlocks)
+  };
+}
+
+export function getSavedLinkedAlignments(): Record<string, LinkedSongAlignment> {
+  try {
+    const raw = localStorage.getItem(LINKED_ALIGNMENT_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+export function saveLinkedAlignmentToStorage(
+  alignment: LinkedSongAlignment
+): Record<string, LinkedSongAlignment> {
+  const current = getSavedLinkedAlignments();
+  const next = {
+    ...current,
+    [alignment.pairKey]: alignment
+  };
+  try {
+    localStorage.setItem(LINKED_ALIGNMENT_STORAGE_KEY, JSON.stringify(next));
+  } catch {}
+  return next;
+}
+
+export function deleteLinkedAlignmentFromStorage(
+  pairKey: string
+): Record<string, LinkedSongAlignment> {
+  const current = getSavedLinkedAlignments();
+  const next = { ...current };
+  delete next[pairKey];
+  try {
+    localStorage.setItem(LINKED_ALIGNMENT_STORAGE_KEY, JSON.stringify(next));
+  } catch {}
+  return next;
+}
+
+export function testLinkedAlignmentStructureCheck(): boolean {
+  const alaba: Song = {
+    id: 'alaba',
+    groupId: 'g-1',
+    title: 'Alaba',
+    artist: '',
+    key: 'C',
+    tempo: 80,
+    language: 'Espagnol',
+    contentChordPro: '{c: Verso 1}\nAlaba a Dios\nCon todo el corazón\n\n{c: Coro}\nSanto es el Señor'
+  };
+  const benisMismatch: Song = {
+    id: 'benis',
+    groupId: 'g-1',
+    title: 'Bénis',
+    artist: '',
+    key: 'C',
+    tempo: 80,
+    language: 'Français',
+    contentChordPro: '{c: Couplet 1}\nBénis Dieu de tout ton cœur\n\n{c: Refrain}\nSaint est le Seigneur'
+  };
+  return !hasIdenticalLyricsStructure(alaba, benisMismatch);
 }

@@ -419,6 +419,158 @@ ${JSON.stringify(sanitizedBlocks)}`;
     }
   });
 
+  // Alignement logique par IA entre un chant principal et un chant lié (structures différentes, mêmes paroles)
+  app.post('/api/align-linked-lyrics', async (req, res) => {
+    try {
+      const {
+        primaryTitle,
+        primaryLanguage,
+        primaryBlocks,
+        secondaryTitle,
+        secondaryLanguage,
+        secondaryBlocks
+      } = req.body || {};
+
+      if (!Array.isArray(primaryBlocks) || primaryBlocks.length === 0) {
+        return res.status(400).json({ error: 'Les blocs du chant principal sont requis.' });
+      }
+      if (!Array.isArray(secondaryBlocks) || secondaryBlocks.length === 0) {
+        return res.status(400).json({ error: 'Les blocs du chant lié sont requis.' });
+      }
+
+      const ai = getAIClient();
+      if (!ai) {
+        return res.status(500).json({ error: 'Clé API Gemini non configurée sur le serveur.' });
+      }
+
+      const sanitizedPrimary = primaryBlocks.map((b: any, idx: number) => ({
+        index: idx,
+        sectionTitle: String(b?.sectionTitle || 'Paroles'),
+        lines: Array.isArray(b?.lines) ? b.lines.map((l: any) => String(l ?? '')) : []
+      }));
+
+      const sanitizedSecondary = secondaryBlocks.map((b: any, idx: number) => ({
+        index: idx,
+        sectionTitle: String(b?.sectionTitle || 'Paroles'),
+        lines: Array.isArray(b?.lines) ? b.lines.map((l: any) => String(l ?? '')) : []
+      }));
+
+      const prompt = `Tu es un expert en chants chrétiens multilingues et en synchronisation de paroles pour la projection bilingue.
+Nous avons deux versions liées d'un même chant qui ont les mêmes paroles/sens mais une structure différente (sections dans un ordre différent, couplets fusionnés ou séparés, refrains répétés ou omis, découpage de lignes différent).
+
+Chant principal (${String(primaryLanguage || 'Langue principale')}) : "${String(primaryTitle || 'Sans titre')}"
+Chant lié (${String(secondaryLanguage || 'Langue secondaire')}) : "${String(secondaryTitle || 'Version liée')}"
+
+Ta mission : pour CHAQUE bloc (index 0 à ${sanitizedPrimary.length - 1}) et CHAQUE ligne du chant principal, associe par logique et par sens les paroles correspondantes provenant du chant lié "${String(secondaryTitle || 'Version liée')}".
+
+Règles strictes :
+1. PRIORITÉ ABSOLUE aux paroles existantes du chant lié : réutilise exactement les phrases et le vocabulaire du chant lié dès que le sens correspond (même si la section ou l'ordre est différent).
+2. Si le chant principal répète un refrain, un pont ou une section qui n'apparaît qu'une fois dans le chant lié, réutilise les paroles correspondantes du chant lié pour chaque occurrence.
+3. Si une phrase du chant lié couvre 2 lignes du chant principal, divise-la naturellement en 2 lignes équilibrées. Inversement, si 2 courtes lignes du chant lié correspondent à 1 ligne du chant principal, combine-les proprement.
+4. Pour chaque bloc (index 0 à ${sanitizedPrimary.length - 1}), le tableau "lines" retourné DOIT contenir EXACTEMENT le même nombre de lignes que primaryBlocks[index].lines, dans le même ordre exact (alignement 1-à-1).
+5. Uniquement si une ligne du chant principal est totalement absente du chant lié, traduis-la fidèlement en ${String(secondaryLanguage || 'la langue du chant lié')} pour éviter un blanc.
+6. Ne mets aucun accord entre crochets [C] dans les paroles.
+7. Indique dans "sectionTitle" le nom de section dans la langue du chant lié (ex: Couplet 1, Refrain, Pont).
+
+Chant principal (cible de structure) :
+${JSON.stringify(sanitizedPrimary)}
+
+Chant lié (source des paroles à réaligner) :
+${JSON.stringify(sanitizedSecondary)}`;
+
+      const candidateModels = ['gemini-4-hydrogen', 'gemini-3.1-flash-lite'];
+      let rawText = '';
+      let lastErr: any = null;
+
+      for (const modelName of candidateModels) {
+        try {
+          const config: any = {
+            systemInstruction:
+              'Tu es un spécialiste de l’alignement bilingue de chants chrétiens. Tu réponds uniquement en JSON conforme au schéma demandé, en conservant exactement le nombre de blocs et le nombre exact de lignes par bloc du chant principal.',
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                blocks: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      index: { type: Type.INTEGER },
+                      sectionTitle: { type: Type.STRING },
+                      lines: {
+                        type: Type.ARRAY,
+                        items: { type: Type.STRING }
+                      }
+                    },
+                    required: ['index', 'sectionTitle', 'lines']
+                  }
+                }
+              },
+              required: ['blocks']
+            }
+          };
+
+          if (modelName === 'gemini-4-hydrogen') {
+            config.thinkingConfig = { thinkingLevel: ThinkingLevel.LOW };
+          }
+
+          const response = await ai.models.generateContent({
+            model: modelName,
+            contents: prompt,
+            config
+          });
+          rawText = response.text || '';
+          if (rawText) break;
+        } catch (err: any) {
+          lastErr = err;
+        }
+      }
+
+      if (!rawText) {
+        const status = lastErr?.status || 500;
+        const msg = lastErr?.message || 'Échec de l’alignement IA Gemini.';
+        return res.status(status >= 400 && status < 600 ? status : 500).json({ error: msg });
+      }
+
+      let parsed: any;
+      try {
+        parsed = JSON.parse(rawText);
+      } catch {
+        const match = rawText.match(/\{[\s\S]*\}/);
+        if (!match) {
+          return res.status(502).json({ error: 'Réponse JSON invalide du modèle d’alignement.' });
+        }
+        parsed = JSON.parse(match[0]);
+      }
+
+      const alignedBlocks = sanitizedPrimary.map((orig: any, idx: number) => {
+        const candidate =
+          (Array.isArray(parsed?.blocks)
+            ? parsed.blocks.find((b: any) => b?.index === idx) || parsed.blocks[idx]
+            : null) || {};
+        const rawLines: string[] = Array.isArray(candidate.lines)
+          ? candidate.lines.map((l: any) => String(l ?? '').trim())
+          : [];
+        const alignedLines = orig.lines.map((_: string, lineIdx: number) => rawLines[lineIdx] ?? '');
+        return {
+          sectionTitle: String(candidate.sectionTitle || orig.sectionTitle),
+          originalLines: orig.lines,
+          translatedLines: alignedLines
+        };
+      });
+
+      return res.json({
+        ok: true,
+        blocks: alignedBlocks
+      });
+    } catch (err: any) {
+      console.error('Erreur /api/align-linked-lyrics:', err);
+      const status = err?.status && err.status >= 400 && err.status < 600 ? err.status : 500;
+      return res.status(status).json({ error: err?.message || 'Erreur serveur lors de l’alignement.' });
+    }
+  });
+
   // Désactiver la mise en cache HTTP agressive des navigateurs (Chrome / Brave) sur les pages, le SW et le manifeste de version
   app.use((req, res, next) => {
     if (

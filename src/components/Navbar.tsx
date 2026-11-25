@@ -25,7 +25,8 @@ import {
   Cloud,
   Piano,
   Tv,
-  Pencil
+  Pencil,
+  Map as RoadmapIcon
 } from 'lucide-react';
 import { MelobookLogo } from './MelobookLogo';
 import { MetronomeIcon } from './MetronomeIcon';
@@ -574,66 +575,82 @@ export const Navbar: React.FC = () => {
                   )}
 
                   {/* Navigation sections */}
-                  {(canAccessProjection || canAccessGroupsView || canAccessSettings) && (
-                    <div className="py-1">
-                      {canAccessProjection && (
-                        <button
-                          onClick={() => handleNavClick('presentation')}
-                          className={`w-full text-left px-3.5 py-2 flex items-center justify-between transition-colors ${
-                            activeTab === 'presentation'
-                              ? 'bg-[#1C1C1E] text-blue-400 font-semibold'
-                              : 'text-gray-300 hover:bg-[#1C1C1E] hover:text-white'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <Tv className="w-3.5 h-3.5 text-blue-400" />
-                            <span>Mode Projection</span>
-                          </div>
-                          {activeTab === 'presentation' && (
-                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                          )}
-                        </button>
-                      )}
+                  <div className="py-1">
+                    {canAccessProjection && (
+                      <button
+                        onClick={() => handleNavClick('presentation')}
+                        className={`w-full text-left px-3.5 py-2 flex items-center justify-between transition-colors ${
+                          activeTab === 'presentation'
+                            ? 'bg-[#1C1C1E] text-blue-400 font-semibold'
+                            : 'text-gray-300 hover:bg-[#1C1C1E] hover:text-white'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <Tv className="w-3.5 h-3.5 text-blue-400" />
+                          <span>Mode Projection</span>
+                        </div>
+                        {activeTab === 'presentation' && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                        )}
+                      </button>
+                    )}
 
-                      {canAccessGroupsView && (
-                        <button
-                          onClick={() => handleNavClick('groups')}
-                          className={`w-full text-left px-3.5 py-2 flex items-center justify-between transition-colors ${
-                            activeTab === 'groups'
-                              ? 'bg-[#1C1C1E] text-blue-400 font-semibold'
-                              : 'text-gray-300 hover:bg-[#1C1C1E] hover:text-white'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <Library className="w-3.5 h-3.5 text-blue-400" />
-                            <span>Bibliothèques</span>
-                          </div>
-                          {activeTab === 'groups' && (
-                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                          )}
-                        </button>
-                      )}
+                    {canAccessGroupsView && (
+                      <button
+                        onClick={() => handleNavClick('groups')}
+                        className={`w-full text-left px-3.5 py-2 flex items-center justify-between transition-colors ${
+                          activeTab === 'groups'
+                            ? 'bg-[#1C1C1E] text-blue-400 font-semibold'
+                            : 'text-gray-300 hover:bg-[#1C1C1E] hover:text-white'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <Library className="w-3.5 h-3.5 text-blue-400" />
+                          <span>Bibliothèques</span>
+                        </div>
+                        {activeTab === 'groups' && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                        )}
+                      </button>
+                    )}
 
-                      {canAccessSettings && (
-                        <button
-                          onClick={() => handleNavClick('settings')}
-                          className={`w-full text-left px-3.5 py-2 flex items-center justify-between transition-colors cursor-pointer ${
-                            activeTab === 'settings'
-                              ? 'bg-[#1C1C1E] text-purple-400 font-semibold'
-                              : 'text-gray-300 hover:bg-[#1C1C1E] hover:text-white'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <Sliders className="w-3.5 h-3.5 text-purple-400" />
-                            <span>Réglages</span>
-                          </div>
-                          {activeTab === 'settings' && (
-                            <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
-                          )}
-                        </button>
+                    <button
+                      type="button"
+                      onClick={() => handleNavClick('roadmap')}
+                      className={`w-full text-left px-3.5 py-2 flex items-center justify-between transition-colors cursor-pointer ${
+                        activeTab === 'roadmap'
+                          ? 'bg-[#1C1C1E] text-blue-400 font-semibold'
+                          : 'text-gray-300 hover:bg-[#1C1C1E] hover:text-white'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <RoadmapIcon className="w-3.5 h-3.5 text-blue-400" />
+                        <span>Roadmap &amp; Bugs</span>
+                      </div>
+                      {activeTab === 'roadmap' && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
                       )}
-                    </div>
-                  )}
+                    </button>
+
+                    {canAccessSettings && (
+                      <button
+                        onClick={() => handleNavClick('settings')}
+                        className={`w-full text-left px-3.5 py-2 flex items-center justify-between transition-colors cursor-pointer ${
+                          activeTab === 'settings'
+                            ? 'bg-[#1C1C1E] text-purple-400 font-semibold'
+                            : 'text-gray-300 hover:bg-[#1C1C1E] hover:text-white'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <Sliders className="w-3.5 h-3.5 text-purple-400" />
+                          <span>Réglages</span>
+                        </div>
+                        {activeTab === 'settings' && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
+                        )}
+                      </button>
+                    )}
+                  </div>
 
                   {isInstallable && (
                     <div className="py-1">

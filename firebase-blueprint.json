@@ -155,6 +155,66 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "groupId", "name", "rootSemitone", "rootKey"]
+    },
+    "RoadmapItem": {
+      "title": "RoadmapItem",
+      "description": "Global application feature idea or bug report card",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "description": { "type": "string", "minLength": 1, "maxLength": 4000 },
+        "category": { "type": "string", "enum": ["idea", "bug"] },
+        "status": { "type": "string", "enum": ["idea_bug", "in_progress", "live"] },
+        "images": { "type": "array" },
+        "authorId": { "type": "string", "maxLength": 128 },
+        "authorName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "authorPhotoURL": { "type": "string", "maxLength": 2048 },
+        "likesCount": { "type": "number" },
+        "commentsCount": { "type": "number" },
+        "lastCommentId": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id",
+        "title",
+        "description",
+        "category",
+        "status",
+        "images",
+        "authorId",
+        "authorName",
+        "likesCount",
+        "commentsCount",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "RoadmapLike": {
+      "title": "RoadmapLike",
+      "description": "Single user upvote for a roadmap item",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "createdAt"]
+    },
+    "RoadmapComment": {
+      "title": "RoadmapComment",
+      "description": "Comment on a roadmap item",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "itemId": { "type": "string", "maxLength": 128 },
+        "text": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "authorId": { "type": "string", "maxLength": 128 },
+        "authorName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "authorPhotoURL": { "type": "string", "maxLength": 2048 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "itemId", "text", "authorId", "authorName", "createdAt"]
     }
   },
   "firestore": {
@@ -189,6 +249,18 @@
     "/groups/{groupId}/custom_pads/{padId}": {
       "schema": "CustomPad",
       "description": "Audio pads isolated per library"
+    },
+    "/roadmap_items/{itemId}": {
+      "schema": "RoadmapItem",
+      "description": "Global roadmap feature ideas and bug reports"
+    },
+    "/roadmap_items/{itemId}/likes/{userId}": {
+      "schema": "RoadmapLike",
+      "description": "Per-user likes on a roadmap item"
+    },
+    "/roadmap_items/{itemId}/comments/{commentId}": {
+      "schema": "RoadmapComment",
+      "description": "Comments on a roadmap item"
     }
   }
 }

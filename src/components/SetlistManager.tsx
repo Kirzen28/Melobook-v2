@@ -61,6 +61,7 @@ export const SetlistManager: React.FC = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newSetName, setNewSetName] = useState('');
   const [newSetDate, setNewSetDate] = useState(new Date().toISOString().split('T')[0]);
+  const [newSetNotes, setNewSetNotes] = useState('');
   const [newSetDuration, setNewSetDuration] = useState(25);
 
   // Add songs to active setlist modal
@@ -72,6 +73,7 @@ export const SetlistManager: React.FC = () => {
   const [editingSetlist, setEditingSetlist] = useState<Setlist | null>(null);
   const [editName, setEditName] = useState('');
   const [editDate, setEditDate] = useState('');
+  const [editNotes, setEditNotes] = useState('');
   const [editTargetDuration, setEditTargetDuration] = useState(25);
 
   // Drag-and-Drop state for song reordering
@@ -112,6 +114,7 @@ export const SetlistManager: React.FC = () => {
   const handleCreateForDate = (dateStr: string) => {
     setNewSetDate(dateStr);
     setNewSetName('');
+    setNewSetNotes('');
     setIsCreateModalOpen(true);
   };
 
@@ -197,11 +200,12 @@ export const SetlistManager: React.FC = () => {
     e.preventDefault();
     if (!newSetName.trim()) return;
 
+    const trimmedNotes = newSetNotes.trim().slice(0, 5000);
     const newId = await createSetlist({
       name: newSetName.trim(),
       date: newSetDate,
       songIds: [],
-      notes: '',
+      notes: trimmedNotes,
       targetDuration: Number(newSetDuration) || 20
     });
 
@@ -210,6 +214,7 @@ export const SetlistManager: React.FC = () => {
     }
 
     setNewSetName('');
+    setNewSetNotes('');
     setIsCreateModalOpen(false);
   };
 
@@ -218,6 +223,7 @@ export const SetlistManager: React.FC = () => {
     setEditingSetlist(st);
     setEditName(st.name || '');
     setEditDate(st.date || new Date().toISOString().split('T')[0]);
+    setEditNotes(st.notes || '');
     setEditTargetDuration(st.targetDuration || 25);
   };
 
@@ -227,11 +233,13 @@ export const SetlistManager: React.FC = () => {
     if (!editingSetlist || !editName.trim()) return;
 
     const trimmedName = editName.trim();
+    const trimmedNotes = editNotes.trim().slice(0, 5000);
     const durationNum = Number(editTargetDuration) || 20;
 
     await updateSetlist(editingSetlist.id, {
       name: trimmedName,
       date: editDate,
+      notes: trimmedNotes,
       targetDuration: durationNum
     });
 
@@ -240,6 +248,7 @@ export const SetlistManager: React.FC = () => {
         ...selectedSetlist,
         name: trimmedName,
         date: editDate,
+        notes: trimmedNotes,
         targetDuration: durationNum
       });
     }
@@ -472,6 +481,7 @@ export const SetlistManager: React.FC = () => {
             <button
               onClick={() => {
                 setNewSetDate(new Date().toISOString().split('T')[0]);
+                setNewSetNotes('');
                 setIsCreateModalOpen(true);
               }}
               className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-md bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-sm transition-all active:scale-95 whitespace-nowrap"
@@ -844,6 +854,26 @@ export const SetlistManager: React.FC = () => {
                 {/* Expanded Content: Songs Sequence */}
                 {isExpanded && (
                   <div className="px-4 sm:px-6 pb-6 pt-2 border-t border-[#1F1F24] bg-[#0C0C0E]/70 space-y-4">
+                    {st.notes?.trim() && (
+                      <div className="rounded-xl bg-gradient-to-r from-amber-500/20 via-amber-500/10 to-orange-500/10 border border-amber-400/50 border-l-4 border-l-amber-400 px-3.5 py-3 text-xs text-amber-50 flex items-start justify-between gap-2.5 shadow-lg shadow-amber-500/10">
+                        <div className="min-w-0">
+                          <span className="text-[11px] font-extrabold uppercase tracking-wider text-amber-300 block mb-1">
+                            Notes
+                          </span>
+                          <p className="whitespace-pre-wrap break-words leading-relaxed text-amber-50/95">{st.notes}</p>
+                        </div>
+                        {canManageSetlists && (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditModal(st)}
+                            className="p-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/30 border border-amber-400/30 text-amber-300 hover:text-amber-100 transition-colors shrink-0 cursor-pointer"
+                            title="Modifier les notes"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    )}
                     {/* Songs Sequence Management */}
                     <div>
                       {validSongs.length === 0 ? (
@@ -1064,6 +1094,20 @@ export const SetlistManager: React.FC = () => {
                 })()}
               </div>
 
+              <div>
+                <label className="block text-xs font-medium text-gray-300 mb-1">
+                  Notes pour la setlist
+                </label>
+                <textarea
+                  rows={3}
+                  maxLength={5000}
+                  placeholder="Consignes, transitions, thème du culte..."
+                  value={newSetNotes}
+                  onChange={(e) => setNewSetNotes(e.target.value)}
+                  className="w-full bg-[#1C1C1E] border border-[#333] rounded-md px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 resize-y"
+                />
+              </div>
+
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#222224]">
                 <button
                   type="button"
@@ -1147,6 +1191,20 @@ export const SetlistManager: React.FC = () => {
                 <DarkDateInput
                   value={editDate}
                   onChange={setEditDate}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-300 mb-1">
+                  Notes pour la setlist
+                </label>
+                <textarea
+                  rows={3}
+                  maxLength={5000}
+                  placeholder="Consignes, transitions, thème du culte..."
+                  value={editNotes}
+                  onChange={(e) => setEditNotes(e.target.value)}
+                  className="w-full bg-[#1C1C1E] border border-[#333] rounded-lg px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors resize-y"
                 />
               </div>
 

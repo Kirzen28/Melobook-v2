@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { 
   PresentationState, 
   getSavedPresentationState, 
@@ -7,21 +7,26 @@ import {
   buildPresentationSlides,
   fetchPresentationStateFromServer,
   getSavedFontScale,
+  getSavedBaseFontSize,
   getSavedBackgroundImage,
   getSavedBackgroundOverlay,
   FONT_SCALE_KEY,
+  BASE_FONT_SIZE_KEY,
+  MIN_BASE_FONT_SIZE_PX,
+  MAX_BASE_FONT_SIZE_PX,
   BACKGROUND_IMAGE_KEY,
   BACKGROUND_OVERLAY_KEY,
   formatRemainingTime,
   getCountdownTheme,
-  cleanBibleVerseText
+  cleanBibleVerseText,
+  getPresentationFontSizeCss
 } from '../utils/presentationUtils';
 import { BIBLE_TRANSLATIONS } from '../services/bibleService';
 import { BIBLE_BOOKS } from '../data/bibleBooksData';
 import { stripParentheses } from '../utils/chordUtils';
 import { useApp } from '../context/AppContext';
 import { requestFullscreenSafe, exitFullscreenSafe, getIsNativeFullscreen } from '../utils/fullscreen';
-import { Maximize2, Minimize2, EyeOff, Timer, Clock, Sparkles, BookOpen, Music, Video, Image as ImageIcon } from 'lucide-react';
+import { Maximize2, Minimize2, EyeOff, Timer, Clock, Sparkles, BookOpen, Music, Video, Image as ImageIcon, ChevronRight } from 'lucide-react';
 
 
 export const PresentationDisplay: React.FC = () => {
@@ -127,11 +132,17 @@ export const PresentationDisplay: React.FC = () => {
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [showControlsHint, setShowControlsHint] = useState<boolean>(true);
 
-  // Échelle de police synchronisée depuis l'onglet présentation
+  // Échelle et taille de base de police synchronisées depuis l'onglet présentation
   const [fontScale, setFontScale] = useState<number>(() => {
     const savedState = getSavedPresentationState();
     if (typeof savedState?.fontScale === 'number') return savedState.fontScale;
     return getSavedFontScale();
+  });
+
+  const [baseFontSize, setBaseFontSize] = useState<number>(() => {
+    const savedState = getSavedPresentationState();
+    if (typeof savedState?.baseFontSize === 'number') return savedState.baseFontSize;
+    return getSavedBaseFontSize();
   });
 
   // Image d'arrière-plan personnalisée et filtre sombre automatique
@@ -157,6 +168,11 @@ export const PresentationDisplay: React.FC = () => {
         const val = parseFloat(e.newValue);
         if (!isNaN(val) && val >= 0.5 && val <= 2.5) {
           setFontScale(val);
+        }
+      } else if (e.key === BASE_FONT_SIZE_KEY && e.newValue) {
+        const val = parseFloat(e.newValue);
+        if (!isNaN(val) && val >= MIN_BASE_FONT_SIZE_PX && val <= MAX_BASE_FONT_SIZE_PX) {
+          setBaseFontSize(Math.round(val));
         }
       } else if (e.key === BACKGROUND_IMAGE_KEY) {
         setBackgroundImage(e.newValue || '');
@@ -214,6 +230,9 @@ export const PresentationDisplay: React.FC = () => {
     if (typeof incoming.fontScale === 'number' && !isNaN(incoming.fontScale)) {
       setFontScale(incoming.fontScale);
     }
+    if (typeof incoming.baseFontSize === 'number' && !isNaN(incoming.baseFontSize)) {
+      setBaseFontSize(incoming.baseFontSize);
+    }
     if (typeof incoming.backgroundImage === 'string') {
       setBackgroundImage(incoming.backgroundImage);
     }
@@ -232,6 +251,7 @@ export const PresentationDisplay: React.FC = () => {
         prev.lines.length === incoming.lines.length &&
         prev.lines.every((l, i) => l === incoming.lines[i]) &&
         prev.fontScale === incoming.fontScale &&
+        prev.baseFontSize === incoming.baseFontSize &&
         prev.backgroundImage === incoming.backgroundImage &&
         prev.backgroundOverlay === incoming.backgroundOverlay &&
         prev.isBilingual === incoming.isBilingual &&
@@ -404,10 +424,14 @@ export const PresentationDisplay: React.FC = () => {
   const currentIdx = (displayState?.slideIndex ?? 0) + 1;
   const totalSlides = displayState?.totalSlides ?? 0;
 
-  // Échelle de police effective garantie (prend la valeur la plus fraîche entre l'état de projection et le storage)
+  // Échelle et taille de base effectives garanties (prennent la valeur la plus fraîche entre l'état de projection et le storage)
   const effectiveFontScale = (typeof displayState?.fontScale === 'number' && !isNaN(displayState.fontScale))
     ? displayState.fontScale
     : fontScale;
+
+  const effectiveBaseFontSize = (typeof displayState?.baseFontSize === 'number' && !isNaN(displayState.baseFontSize))
+    ? displayState.baseFontSize
+    : baseFontSize;
 
   const isCountdownActive = Boolean(displayState?.countdown?.isActive);
   const countdownTheme = getCountdownTheme(displayState?.countdown?.themeId);
@@ -442,52 +466,21 @@ export const PresentationDisplay: React.FC = () => {
     () => (displayState?.secondaryLines || []).map(l => cleanBibleVerseText(l)).filter(Boolean).join(' '),
     [displayState?.secondaryLines]
   );
+  const isShortBibleText = primaryVerseText.length <= 95 && (!secondaryVerseText || secondaryVerseText.length <= 95);
 
-  const bibleBoxRef = useRef<HTMLDivElement | null>(null);
-  const bibleContentRef = useRef<HTMLDivElement | null>(null);
-  const [bibleFontSizePx, setBibleFontSizePx] = useState<number>(48);
-
-  const fitBibleText = useCallback(() => {
-    const box = bibleBoxRef.current;
-    const content = bibleContentRef.current;
-    if (!box || !content || !isBibleContentActive) return;
-
-    const availH = box.clientHeight;
-    const availW = box.clientWidth;
-    if (availH <= 0 || availW <= 0) return;
-
-    let low = 12;
-    let high = 220;
-    let best = low;
-
-    while (low <= high) {
-      const mid = Math.floor((low + high) / 2);
-      content.style.setProperty('--bible-font-size', `${mid}px`);
-      if (content.scrollHeight <= availH && content.scrollWidth <= availW + 1) {
-        best = mid;
-        low = mid + 1;
-      } else {
-        high = mid - 1;
-      }
-    }
-
-    content.style.setProperty('--bible-font-size', `${best}px`);
-    setBibleFontSizePx(prev => (prev === best ? prev : best));
-  }, [isBibleContentActive]);
-
-  useLayoutEffect(() => {
-    fitBibleText();
-  }, [fitBibleText, primaryVerseText, secondaryVerseText, displayState?.bilingualFormat, effectiveFontScale]);
-
-  useEffect(() => {
-    const box = bibleBoxRef.current;
-    if (!box || !isBibleContentActive) return;
-    const observer = new ResizeObserver(() => {
-      fitBibleText();
-    });
-    observer.observe(box);
-    return () => observer.disconnect();
-  }, [fitBibleText, isBibleContentActive]);
+  // Tailles de police uniformes et fixes (avec plancher responsive minimal), indépendantes de l'espace vide ou de la longueur du texte
+  const uniformTextFontCss = useMemo(
+    () => getPresentationFontSizeCss(effectiveBaseFontSize, effectiveFontScale, 1),
+    [effectiveBaseFontSize, effectiveFontScale]
+  );
+  const uniformBilingualFontCss = useMemo(
+    () => getPresentationFontSizeCss(effectiveBaseFontSize, effectiveFontScale, 0.85),
+    [effectiveBaseFontSize, effectiveFontScale]
+  );
+  const uniformSecondarySongFontCss = useMemo(
+    () => getPresentationFontSizeCss(effectiveBaseFontSize, effectiveFontScale, 0.72),
+    [effectiveBaseFontSize, effectiveFontScale]
+  );
 
   return (
     <div 
@@ -530,10 +523,10 @@ export const PresentationDisplay: React.FC = () => {
       </header>
 
       {/* Zone centrale des paroles avec mise à l'échelle dynamique ou Décompte avant événement */}
-      <main className={`flex-1 min-h-0 flex items-center relative z-20 ${
+      <main className={`flex-1 min-h-0 flex relative z-20 ${
         isBibleContentActive
-          ? 'justify-start px-3 sm:px-5 md:px-6 pt-3 pb-1 text-left overflow-hidden'
-          : 'justify-center px-6 sm:px-12 md:px-20 text-center'
+          ? `flex-col px-4 sm:px-6 md:px-8 pt-3 pb-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${isShortBibleText ? 'text-center' : 'text-left'}`
+          : 'items-center justify-center px-6 sm:px-12 md:px-20 text-center'
       }`}>
         {isBlackout ? (
           <div className="flex items-center gap-2 text-gray-400 animate-pulse text-sm">
@@ -646,27 +639,20 @@ export const PresentationDisplay: React.FC = () => {
           </div>
         ) : lines.length > 0 ? (
           (displayState?.itemType === 'bible' || Boolean(displayState?.bibleReference)) ? (
-            <div
-              ref={bibleBoxRef}
-              className="w-full h-full flex items-center justify-start overflow-hidden"
-            >
-              <div
-                ref={bibleContentRef}
-                className="w-full text-left"
-                style={{ '--bible-font-size': `${bibleFontSizePx}px` } as React.CSSProperties}
-              >
+            <div className="w-full my-auto flex items-center justify-center">
+              <div className={`w-full ${isShortBibleText ? 'text-center' : 'text-left'}`}>
                 {displayState?.isBilingual && displayState?.secondaryLines && displayState.secondaryLines.length > 0 ? (
                   displayState.bilingualFormat === 'columns' ? (
                     <div 
                       key={`bible-bi-cols-${displayState?.bibleReference || title}-${displayState?.slideIndex}`}
-                      className="w-full grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8 items-start animate-presentation-slide select-none text-left"
+                      className={`w-full grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8 items-start animate-presentation-slide select-none ${isShortBibleText ? 'text-center' : 'text-left'}`}
                     >
                       {/* Left Column : Primary Version */}
-                      <div className="flex flex-col items-start justify-start text-left w-full">
+                      <div className={`flex flex-col justify-start w-full ${isShortBibleText ? 'items-center text-center' : 'items-start text-left'}`}>
                         <p
-                          className="font-extrabold tracking-normal text-white select-none drop-shadow-md text-left w-full break-words"
+                          className={`font-extrabold tracking-normal text-white select-none drop-shadow-md w-full break-words transition-all ${isShortBibleText ? 'text-center' : 'text-left'}`}
                           style={{
-                            fontSize: 'var(--bible-font-size)',
+                            fontSize: uniformBilingualFontCss,
                             lineHeight: 1.24,
                             textShadow: '0 2px 12px rgba(0, 0, 0, 0.9), 0 4px 25px rgba(0, 0, 0, 0.7)'
                           }}
@@ -676,11 +662,11 @@ export const PresentationDisplay: React.FC = () => {
                       </div>
 
                       {/* Right Column : Secondary Version */}
-                      <div className="flex flex-col items-start justify-start text-left md:border-l md:border-amber-400/25 md:pl-6 w-full">
+                      <div className={`flex flex-col justify-start md:border-l md:border-amber-400/25 md:pl-6 w-full ${isShortBibleText ? 'items-center text-center' : 'items-start text-left'}`}>
                         <p
-                          className="font-bold tracking-normal text-cyan-100/95 select-none drop-shadow-md text-left w-full break-words"
+                          className={`font-bold tracking-normal text-cyan-100/95 select-none drop-shadow-md w-full break-words transition-all ${isShortBibleText ? 'text-center' : 'text-left'}`}
                           style={{
-                            fontSize: 'var(--bible-font-size)',
+                            fontSize: uniformBilingualFontCss,
                             lineHeight: 1.24,
                             textShadow: '0 2px 12px rgba(6, 182, 212, 0.4), 0 4px 25px rgba(0, 0, 0, 0.9)'
                           }}
@@ -693,14 +679,14 @@ export const PresentationDisplay: React.FC = () => {
                     /* Stacked / Subtitles for Bible */
                     <div 
                       key={`bible-bi-stacked-${displayState?.bibleReference || title}-${displayState?.slideIndex}`}
-                      className="w-full flex flex-col items-start justify-center gap-3 sm:gap-4 animate-presentation-slide select-none text-left"
+                      className={`w-full flex flex-col justify-center gap-3 sm:gap-4 animate-presentation-slide select-none ${isShortBibleText ? 'items-center text-center' : 'items-start text-left'}`}
                     >
                       {/* Section 1 : Version Principale */}
                       <p
-                        className="font-black tracking-normal text-white select-none drop-shadow-lg text-left w-full break-words"
+                        className={`font-black tracking-normal text-white select-none drop-shadow-lg w-full break-words transition-all ${isShortBibleText ? 'text-center' : 'text-left'}`}
                         style={{
-                          fontSize: 'var(--bible-font-size)',
-                          lineHeight: 1.2,
+                          fontSize: uniformBilingualFontCss,
+                          lineHeight: 1.22,
                           textShadow: '0 2px 12px rgba(0, 0, 0, 0.95), 0 4px 30px rgba(0, 0, 0, 0.8)'
                         }}
                       >
@@ -709,12 +695,12 @@ export const PresentationDisplay: React.FC = () => {
 
                       {/* Section 2 : Version Secondaire */}
                       {secondaryVerseText && (
-                        <div className="w-full text-left pt-3 sm:pt-4 border-t border-amber-500/25">
+                        <div className={`w-full pt-3 sm:pt-4 border-t border-amber-500/25 ${isShortBibleText ? 'text-center' : 'text-left'}`}>
                           <p
-                            className="font-semibold tracking-normal text-cyan-200/95 italic select-none text-left w-full break-words"
+                            className={`font-semibold tracking-normal text-cyan-200/95 italic select-none w-full break-words transition-all ${isShortBibleText ? 'text-center' : 'text-left'}`}
                             style={{
-                              fontSize: 'var(--bible-font-size)',
-                              lineHeight: 1.2,
+                              fontSize: uniformBilingualFontCss,
+                              lineHeight: 1.22,
                               textShadow: '0 2px 10px rgba(6, 182, 212, 0.5), 0 4px 20px rgba(0, 0, 0, 0.95)'
                             }}
                           >
@@ -727,13 +713,13 @@ export const PresentationDisplay: React.FC = () => {
                 ) : (
                   <div 
                     key={`bible-${displayState?.bibleReference || title}-${displayState?.slideIndex}`}
-                    className="w-full flex flex-col items-start justify-center animate-presentation-slide select-none text-left"
+                    className={`w-full flex flex-col justify-center animate-presentation-slide select-none ${isShortBibleText ? 'items-center text-center' : 'items-start text-left'}`}
                   >
                     <p
-                      className="font-bold tracking-normal text-white select-none text-left w-full break-words"
+                      className={`font-bold tracking-normal text-white select-none w-full break-words transition-all ${isShortBibleText ? 'text-center' : 'text-left'}`}
                       style={{
-                        fontSize: 'var(--bible-font-size)',
-                        lineHeight: 1.22,
+                        fontSize: uniformTextFontCss,
+                        lineHeight: 1.24,
                         textShadow: '0 2px 10px rgba(0, 0, 0, 0.9), 0 6px 30px rgba(0, 0, 0, 0.75)'
                       }}
                     >
@@ -762,7 +748,7 @@ export const PresentationDisplay: React.FC = () => {
                       key={`p-${idx}`}
                       className="font-extrabold tracking-wide text-white leading-relaxed select-none transition-all drop-shadow-md text-left w-full"
                       style={{
-                        fontSize: `calc(clamp(1.5rem, 3.2vw, 3.6rem) * ${effectiveFontScale})`,
+                        fontSize: uniformBilingualFontCss,
                         lineHeight: 1.38,
                         textShadow: '0 2px 12px rgba(0, 0, 0, 0.9), 0 4px 25px rgba(0, 0, 0, 0.7)'
                       }}
@@ -785,7 +771,7 @@ export const PresentationDisplay: React.FC = () => {
                       key={`s-${idx}`}
                       className="font-bold tracking-wide text-cyan-100/95 leading-relaxed select-none transition-all drop-shadow-md text-left w-full"
                       style={{
-                        fontSize: `calc(clamp(1.5rem, 3.2vw, 3.6rem) * ${effectiveFontScale})`,
+                        fontSize: uniformBilingualFontCss,
                         lineHeight: 1.38,
                         textShadow: '0 2px 12px rgba(6, 182, 212, 0.4), 0 4px 25px rgba(0, 0, 0, 0.9)'
                       }}
@@ -808,7 +794,7 @@ export const PresentationDisplay: React.FC = () => {
                       <p
                         className="font-black tracking-wide text-white leading-tight select-none drop-shadow-lg transition-all"
                         style={{
-                          fontSize: `calc(clamp(1.65rem, 3.8vw, 4.2rem) * ${effectiveFontScale})`,
+                          fontSize: uniformTextFontCss,
                           lineHeight: 1.3,
                           textShadow: '0 2px 12px rgba(0, 0, 0, 0.95), 0 4px 30px rgba(0, 0, 0, 0.8)'
                         }}
@@ -819,7 +805,7 @@ export const PresentationDisplay: React.FC = () => {
                         <p
                           className="font-semibold tracking-wide text-cyan-200/90 italic leading-snug select-none transition-all"
                           style={{
-                            fontSize: `calc(clamp(1.2rem, 2.7vw, 2.9rem) * ${effectiveFontScale})`,
+                            fontSize: uniformSecondarySongFontCss,
                             lineHeight: 1.35,
                             textShadow: '0 2px 10px rgba(6, 182, 212, 0.5), 0 4px 20px rgba(0, 0, 0, 0.95)'
                           }}
@@ -842,7 +828,7 @@ export const PresentationDisplay: React.FC = () => {
                   key={idx}
                   className="font-bold tracking-wide text-white leading-relaxed select-none transition-all"
                   style={{
-                    fontSize: `calc(clamp(1.75rem, 4.3vw, 4.5rem) * ${effectiveFontScale})`,
+                    fontSize: uniformTextFontCss,
                     lineHeight: 1.42,
                     textShadow: '0 2px 10px rgba(0, 0, 0, 0.85), 0 4px 25px rgba(0, 0, 0, 0.65)'
                   }}
@@ -887,6 +873,26 @@ export const PresentationDisplay: React.FC = () => {
                   </span>
                 )}
               </div>
+            )}
+
+            {totalSlides > 1 && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (currentIdx < totalSlides) {
+                    handleNext();
+                  } else {
+                    handleLocalNav(0);
+                  }
+                }}
+                className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-gray-100 font-bold tracking-wide backdrop-blur-xs transition-colors shadow-md cursor-pointer"
+                style={{ fontSize: 'clamp(0.72rem, 1vw, 0.9rem)' }}
+                title={currentIdx < totalSlides ? 'Passer à la slide suivante' : 'Revenir à la première slide'}
+              >
+                <span className="font-mono">{currentIdx}/{totalSlides}</span>
+                {currentIdx < totalSlides && <ChevronRight className="w-3.5 h-3.5 text-amber-300" />}
+              </button>
             )}
           </div>
         ) : (

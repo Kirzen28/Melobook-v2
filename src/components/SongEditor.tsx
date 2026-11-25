@@ -1073,7 +1073,7 @@ export const SongEditor: React.FC = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-3 sm:px-6 py-6 pb-16 text-[#E0E0E0]">
+    <div className="max-w-4xl mx-auto px-3 sm:px-6 py-6 pb-16 text-[#E0E0E0]">
       
       {/* Bandeau en haut : Mode Éditeur (Aligné à gauche, clair & bouton quitter intuitif) */}
       <div className="mb-4 flex items-center justify-between gap-3 px-3.5 sm:px-4 py-3 rounded-2xl bg-[#141418] border border-amber-500/25 shadow-md shadow-black/40 flex-wrap">
@@ -1626,15 +1626,6 @@ export const SongEditor: React.FC = () => {
                     <span>Langue du chant</span>
                   </label>
                   <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={handleAutoDetectLanguage}
-                      className="text-xs text-emerald-400 hover:text-emerald-300 font-medium flex items-center gap-1 transition-colors px-2 py-0.5 rounded-md bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 cursor-pointer"
-                      title="Deviner la langue automatiquement grâce au titre et aux paroles"
-                    >
-                      <Sparkles className="w-3 h-3" />
-                      <span>Deviner</span>
-                    </button>
                     {selectedSong && (
                       <button
                         type="button"

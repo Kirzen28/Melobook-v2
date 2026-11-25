@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { BiblePassageData, BibleVerseItem } from '../types';
+import { PresentationSlide, cleanBibleVerseText } from '../utils/presentationUtils';
 import {
   BIBLE_BOOKS,
   BibleBookInfo,
@@ -41,6 +42,9 @@ interface BibleProjectionModuleProps {
   onProjectLive: (passage: BiblePassageData, secondaryPassage?: BiblePassageData | null, format?: 'stacked' | 'columns') => void;
   onAddToQueue: (passage: BiblePassageData, secondaryPassage?: BiblePassageData | null, format?: 'stacked' | 'columns') => void;
   activeLiveBibleRef?: string | null;
+  liveSlides?: PresentationSlide[];
+  liveSlideIndex?: number;
+  onSelectLiveSlide?: (index: number) => void;
   onStopLive?: () => void;
   onNextLiveVerse?: () => void;
   onPrevLiveVerse?: () => void;
@@ -136,6 +140,9 @@ export const BibleProjectionModule: React.FC<BibleProjectionModuleProps> = ({
   onProjectLive,
   onAddToQueue,
   activeLiveBibleRef,
+  liveSlides,
+  liveSlideIndex = 0,
+  onSelectLiveSlide,
   onStopLive,
   onNextLiveVerse,
   onPrevLiveVerse,
@@ -662,7 +669,34 @@ export const BibleProjectionModule: React.FC<BibleProjectionModuleProps> = ({
     }
   }, [selectedVerseStart, chapterVerses, selectedBook, selectedChapter, selectedTranslation, secondaryTranslation, isBilingual, bilingualFormat, autoProject, handleSelectVerse, addToRecentHistory, onProjectLive]);
 
-  // Écoute des raccourcis clavier pour naviguer entre les versets (←, →, ↑, ↓, Espace, PageUp, PageDown)
+  const liveTotalSlides = liveSlides?.length || 0;
+  const hasLiveMultiSlides = Boolean(activeLiveBibleRef && liveTotalSlides > 1);
+
+  const handleSmartNext = useCallback(() => {
+    if (hasLiveMultiSlides && liveSlideIndex < liveTotalSlides - 1) {
+      if (onSelectLiveSlide) {
+        onSelectLiveSlide(liveSlideIndex + 1);
+      } else {
+        onNextLiveVerse?.();
+      }
+      return;
+    }
+    handleNextVerse();
+  }, [hasLiveMultiSlides, liveSlideIndex, liveTotalSlides, onSelectLiveSlide, onNextLiveVerse, handleNextVerse]);
+
+  const handleSmartPrev = useCallback(() => {
+    if (hasLiveMultiSlides && liveSlideIndex > 0) {
+      if (onSelectLiveSlide) {
+        onSelectLiveSlide(liveSlideIndex - 1);
+      } else {
+        onPrevLiveVerse?.();
+      }
+      return;
+    }
+    handlePrevVerse();
+  }, [hasLiveMultiSlides, liveSlideIndex, onSelectLiveSlide, onPrevLiveVerse, handlePrevVerse]);
+
+  // Écoute des raccourcis clavier pour naviguer entre les slides d'un long verset puis entre les versets
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
@@ -672,16 +706,16 @@ export const BibleProjectionModule: React.FC<BibleProjectionModuleProps> = ({
 
       if (['ArrowRight', 'ArrowDown', 'PageDown', ' '].includes(e.key)) {
         e.preventDefault();
-        handleNextVerse();
+        handleSmartNext();
       } else if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(e.key)) {
         e.preventDefault();
-        handlePrevVerse();
+        handleSmartPrev();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleNextVerse, handlePrevVerse, isTranslationDropdownOpen, isSecondaryDropdownOpen]);
+  }, [handleSmartNext, handleSmartPrev, isTranslationDropdownOpen, isSecondaryDropdownOpen]);
 
   // Défilement automatique dans la liste pour garder le verset sélectionné visible
   useEffect(() => {
@@ -946,31 +980,35 @@ export const BibleProjectionModule: React.FC<BibleProjectionModuleProps> = ({
           <div className="flex items-center gap-1.5 shrink-0 max-w-full">
             {activeLiveBibleRef ? (
               <div className="flex items-center gap-1 bg-[#1D1812] border border-amber-500/45 rounded-xl p-1 shadow-md max-w-full">
-                <div
-                  className="flex items-center gap-1.5 px-2 text-xs font-semibold text-amber-200 min-w-0"
+                <div className="flex items-center gap-1.5 px-2 text-xs font-semibold text-amber-200 min-w-0"
                   title={`Diffusion en direct : ${activeLiveBibleRef}`}
                 >
                   <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse shrink-0" />
                   <span className="truncate max-w-[120px] sm:max-w-[190px]">
                     {activeLiveBibleRef}
                   </span>
+                  {hasLiveMultiSlides && (
+                    <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-500/25 border border-amber-400/40 text-amber-200 shrink-0">
+                      {liveSlideIndex + 1}/{liveTotalSlides}
+                    </span>
+                  )}
                 </div>
 
                 <div className="w-px h-4 bg-amber-500/25 shrink-0" />
 
                 <button
                   type="button"
-                  onClick={handlePrevVerse}
+                  onClick={handleSmartPrev}
                   className="p-1.5 rounded-lg hover:bg-white/10 text-amber-200 flex items-center justify-center cursor-pointer transition-colors shrink-0"
-                  title="Verset précédent (Flèche Gauche / Flèche Haut)"
+                  title={hasLiveMultiSlides && liveSlideIndex > 0 ? 'Slide précédente (Flèche Gauche)' : 'Verset précédent (Flèche Gauche / Flèche Haut)'}
                 >
                   <ChevronLeft className="w-3.5 h-3.5" />
                 </button>
                 <button
                   type="button"
-                  onClick={handleNextVerse}
+                  onClick={handleSmartNext}
                   className="p-1.5 rounded-lg bg-amber-600/85 hover:bg-amber-500 text-white flex items-center justify-center cursor-pointer transition-colors shrink-0"
-                  title="Verset suivant (Flèche Droite / Flèche Bas / Espace)"
+                  title={hasLiveMultiSlides && liveSlideIndex < liveTotalSlides - 1 ? `Slide suivante (${liveSlideIndex + 2}/${liveTotalSlides}) · Espace / Flèche Droite` : 'Verset suivant (Flèche Droite / Espace)'}
                 >
                   <ChevronRight className="w-3.5 h-3.5" />
                 </button>
@@ -1404,7 +1442,65 @@ export const BibleProjectionModule: React.FC<BibleProjectionModuleProps> = ({
         )}
       </div>
 
+      {/* Contrôle intuitif des slides multiples pour les versets longs (ex: Esther 8:9) */}
+      {hasLiveMultiSlides && liveSlides && (
+        <div className="bg-amber-950/25 border border-amber-500/40 rounded-xl px-3 py-2 flex flex-wrap items-center justify-between gap-2 animate-in fade-in duration-150">
+          <div className="flex items-center gap-2 flex-wrap min-w-0 flex-1">
+            <span className="text-[11px] font-bold text-amber-300 uppercase tracking-wider shrink-0">
+              Verset long · Slide {liveSlideIndex + 1}/{liveTotalSlides}
+            </span>
+            <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+              {liveSlides.map((sl, idx) => {
+                const isActive = idx === liveSlideIndex;
+                const rawPreview = cleanBibleVerseText(sl.lines[0] || '');
+                const shortPreview = rawPreview.length > 36 ? `${rawPreview.slice(0, 36).trim()}…` : rawPreview;
+                return (
+                  <button
+                    key={sl.id || idx}
+                    type="button"
+                    onClick={() => onSelectLiveSlide?.(idx)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs border transition-all cursor-pointer max-w-[230px] ${
+                      isActive
+                        ? 'bg-amber-500 text-black border-amber-400 font-bold shadow-xs'
+                        : 'bg-[#171722] hover:bg-[#222232] text-gray-300 border-[#2D2D3F]'
+                    }`}
+                    title={rawPreview}
+                  >
+                    <span className={`font-mono font-extrabold text-[11px] shrink-0 ${isActive ? 'text-black' : 'text-amber-400'}`}>
+                      {idx + 1}
+                    </span>
+                    <span className="truncate text-[11px] opacity-90 hidden sm:inline">
+                      {shortPreview}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
+          <div className="flex items-center gap-1.5 shrink-0">
+            {liveSlideIndex < liveTotalSlides - 1 ? (
+              <button
+                type="button"
+                onClick={() => onSelectLiveSlide?.(liveSlideIndex + 1)}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs transition-colors cursor-pointer shadow-sm whitespace-nowrap"
+              >
+                <span>Slide suivante ({liveSlideIndex + 2}/{liveTotalSlides})</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleNextVerse}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#232334] hover:bg-[#2E2E42] border border-amber-500/35 text-amber-200 font-semibold text-xs transition-colors cursor-pointer whitespace-nowrap"
+              >
+                <span>Verset suivant</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 4. Navigateur Visuel : 3 Colonnes (Livres -> Chapitres -> Versets avec preview texte) */}
       <div className="flex flex-col gap-3 pt-1 border-t border-[#22222C]">
@@ -1534,6 +1630,40 @@ export const BibleProjectionModule: React.FC<BibleProjectionModuleProps> = ({
                             <span className="text-[9px] font-mono font-bold uppercase text-cyan-400 mr-1.5">{currentSecondaryTranslation.shortName}:</span>
                             {secVerse.text}
                           </p>
+                        )}
+                        {isCurrentlyLive && inRange && hasLiveMultiSlides && liveSlides && (
+                          <div
+                            className="mt-2 flex flex-wrap items-center gap-1.5"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {liveSlides.map((sl, sIdx) => {
+                              const isSlideActive = sIdx === liveSlideIndex;
+                              return (
+                                <button
+                                  key={sl.id || sIdx}
+                                  type="button"
+                                  onClick={() => onSelectLiveSlide?.(sIdx)}
+                                  className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition-colors cursor-pointer ${
+                                    isSlideActive
+                                      ? 'bg-amber-500 text-black border-amber-400'
+                                      : 'bg-[#1D1D2B] hover:bg-[#28283B] text-amber-200 border-amber-500/35'
+                                  }`}
+                                >
+                                  Slide {sIdx + 1}/{liveTotalSlides}
+                                </button>
+                              );
+                            })}
+                            {liveSlideIndex < liveTotalSlides - 1 && (
+                              <button
+                                type="button"
+                                onClick={() => onSelectLiveSlide?.(liveSlideIndex + 1)}
+                                className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-600 hover:bg-amber-500 text-white transition-colors cursor-pointer"
+                              >
+                                <span>Suite</span>
+                                <ChevronRight className="w-3 h-3" />
+                              </button>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>

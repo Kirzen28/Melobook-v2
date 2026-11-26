@@ -57,7 +57,7 @@ import {
   handleFirestoreError
 } from '../firebase';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { getSongDuration } from '../utils/chordUtils';
+import { getSongDuration, calculateSongAutoDuration, fetchYouTubeDuration, getYouTubeVideoId } from '../utils/chordUtils';
 import { detectSongLanguage } from '../utils/languageUtils';
 import { 
   registerServiceWorker, 
@@ -2184,6 +2184,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const toSafeStrList = (val: unknown, maxItems: number): string[] | undefined =>
       Array.isArray(val) ? val.filter((x): x is string => typeof x === 'string').slice(0, maxItems) : undefined;
 
+    const resolvedBpm = toFiniteInt(songData.bpm) ?? toFiniteInt(songData.tempo);
+    const resolvedTimeSig = toSafeStr(songData.timeSignature, 20);
+    const explicitDuration = toSafeStr(songData.duration, 32);
+    const hasExplicitCustomDuration = Boolean(
+      explicitDuration &&
+      explicitDuration.trim().toLowerCase() !== 'auto' &&
+      songData.durationMode !== 'auto'
+    );
+    const resolvedDurationMode: 'auto' | 'custom' = hasExplicitCustomDuration ? 'custom' : 'auto';
+    const resolvedDuration = hasExplicitCustomDuration
+      ? explicitDuration
+      : calculateSongAutoDuration(safeChordPro, resolvedBpm || 100, resolvedTimeSig || '4/4').formatted;
+    const resolvedYoutubeUrl = toSafeStr(songData.youtubeUrl, 1000);
+
     const newSong: Song = stripUndefined({
       id: newId,
       groupId,
@@ -2193,12 +2207,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       key: toSafeStr(songData.key, 24),
       tempo: toFiniteInt(songData.tempo),
       bpm: toFiniteInt((songData as any).bpm),
-      timeSignature: toSafeStr(songData.timeSignature, 20),
-      duration: toSafeStr(songData.duration, 32),
-      durationMode: songData.durationMode === 'auto' || songData.durationMode === 'custom' ? songData.durationMode : undefined,
+      timeSignature: resolvedTimeSig,
+      duration: resolvedDuration,
+      durationMode: resolvedDurationMode,
       ccli: toSafeStr(songData.ccli, 64),
       copyright: toSafeStr(songData.copyright, 500),
-      youtubeUrl: toSafeStr(songData.youtubeUrl, 1000),
+      youtubeUrl: resolvedYoutubeUrl,
       audioUrl: toSafeStr(songData.audioUrl, 1000),
       spotifyUrl: toSafeStr(songData.spotifyUrl, 1000),
       contentChordPro: safeChordPro,
@@ -2225,6 +2239,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const docRef = doc(db, 'groups', groupId, 'songs', newId);
       await setDoc(docRef, stripUndefined({ ...newSong, createdAt: serverTimestamp(), updatedAt: serverTimestamp() }));
+      if (resolvedDurationMode === 'auto' && resolvedYoutubeUrl && getYouTubeVideoId(resolvedYoutubeUrl)) {
+        fetchYouTubeDuration(resolvedYoutubeUrl).then((ytDur) => {
+          if (!ytDur?.formatted || ytDur.formatted === resolvedDuration) return;
+          const nextUpdatedAt = new Date().toISOString();
+          songsRef.current = songsRef.current.map(s => s.id === newId ? { ...s, duration: ytDur.formatted, durationMode: 'auto', updatedAt: nextUpdatedAt } : s);
+          setSongs(prev => prev.map(s => s.id === newId ? { ...s, duration: ytDur.formatted, durationMode: 'auto', updatedAt: nextUpdatedAt } : s));
+          setSelectedSong(prev => (prev && prev.id === newId) ? { ...prev, duration: ytDur.formatted, durationMode: 'auto', updatedAt: nextUpdatedAt } : prev);
+          updateDoc(docRef, { duration: ytDur.formatted, durationMode: 'auto', updatedAt: serverTimestamp() }).catch(() => {});
+        }).catch(() => {});
+      }
     } catch (e) {
       console.warn('Saved song locally (Firestore offline/error):', e);
     }

@@ -1,11 +1,10 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect, useImperativeHandle } from 'react';
 import {
   Video,
   Image as ImageIcon,
   Music,
   Upload,
   Link as LinkIcon,
-  Play,
   Square,
   Volume2,
   VolumeX,
@@ -13,77 +12,251 @@ import {
   Globe,
   Folder,
   MonitorPlay,
-  Info,
   Star,
   X,
   FolderPlus,
-  FolderOpen
+  FolderOpen,
+  Search
 } from 'lucide-react';
 import {
   MediaType,
   MediaSourceType,
   MediaPresentationState,
   getYouTubeEmbedUrl,
-  extractYouTubeVideoId
+  extractYouTubeVideoId,
+  inferMediaTypeFromUrl
 } from '../utils/presentationUtils';
+
+export interface MediaProjectionHandle {
+  projectCurrent: () => Promise<void>;
+}
 
 interface MediaProjectionModuleProps {
   activeMedia: MediaPresentationState | null;
   onProjectMedia: (media: MediaPresentationState) => void;
   onStopMedia: () => void;
+  onCanProjectChange?: (canProject: boolean) => void;
   className?: string;
 }
 
-export const MediaProjectionModule: React.FC<MediaProjectionModuleProps> = ({
+interface MediaFavoriteItem {
+  id: string;
+  title: string;
+  url: string;
+  type: MediaType;
+  source: MediaSourceType;
+  category: string;
+  thumbnail?: string;
+  author?: string;
+  createdAt: number;
+}
+
+const DEFAULT_CATEGORIES = ['Backgrounds', 'Tutos', 'Backing tracks'];
+
+const MEDIA_TYPE_LABELS: Record<MediaType, string> = {
+  video: 'Vidéo',
+  image: 'Image',
+  audio: 'Audio'
+};
+
+const SOURCE_LABELS: Record<MediaSourceType, string> = {
+  youtube: 'YouTube',
+  url: 'URL directe',
+  local: 'Fichier local'
+};
+
+const renderTypeIcon = (type: MediaType, className = 'w-3.5 h-3.5') => {
+  if (type === 'image') return <ImageIcon className={`${className} text-blue-400 shrink-0`} />;
+  if (type === 'audio') return <Music className={`${className} text-emerald-400 shrink-0`} />;
+  return <Video className={`${className} text-purple-400 shrink-0`} />;
+};
+
+export const MediaProjectionModule = React.forwardRef<MediaProjectionHandle, MediaProjectionModuleProps>(({
   activeMedia,
   onProjectMedia,
   onStopMedia,
-  className,
-}) => {
-  // Onglet de média : Vidéo | Image | Audio
-  const [selectedMediaType, setSelectedMediaType] = useState<MediaType>('video');
-  // Source active : 'youtube' | 'url' | 'local'
+  onCanProjectChange,
+  className
+}, ref) => {
+  // Source active pour l'aperçu et la projection (détectée automatiquement selon la saisie)
   const [selectedSource, setSelectedSource] = useState<MediaSourceType>('youtube');
 
   // Champs de saisie
   const [youtubeInput, setYoutubeInput] = useState<string>('');
   const [urlInput, setUrlInput] = useState<string>('');
-  const [mediaTitleInput, setMediaTitleInput] = useState<string>('');
   const [isLoop, setIsLoop] = useState<boolean>(true);
   const [isMuted, setIsMuted] = useState<boolean>(false);
+
+  // Surcharges manuelles ponctuelles (YouTube Audio vs Vidéo, ou URL sans extension)
+  const [youtubeMode, setYoutubeMode] = useState<'video' | 'audio'>('video');
+  const [urlTypeOverride, setUrlTypeOverride] = useState<'auto' | MediaType>('auto');
+  const [previewLoadError, setPreviewLoadError] = useState<boolean>(false);
+  const [isDraggingFile, setIsDraggingFile] = useState<boolean>(false);
 
   // Fichier local chargé
   const [localFileMedia, setLocalFileMedia] = useState<{
     file: File;
     url: string;
+    remoteUrl?: string;
+    isUploading?: boolean;
     type: MediaType;
     name: string;
   } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const localUploadPromiseRef = useRef<Promise<string> | null>(null);
 
-  // Gestion du fichier local (ordinateur)
-  const handleLocalFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  // Nettoyage de l'ObjectURL précédent
+  useEffect(() => {
+    const currentUrl = localFileMedia?.url;
+    return () => {
+      if (currentUrl && currentUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(currentUrl);
+      }
+    };
+  }, [localFileMedia?.url]);
+
+  // Réinitialisation d'erreur d'aperçu dès que la source ou l'URL change
+  useEffect(() => {
+    setPreviewLoadError(false);
+  }, [selectedSource, urlInput, youtubeInput, localFileMedia?.url, urlTypeOverride]);
+
+  // Auto-détection du type de média selon la source active
+  const urlDetection = useMemo(() => inferMediaTypeFromUrl(urlInput), [urlInput]);
+  const youtubeVideoId = useMemo(() => extractYouTubeVideoId(youtubeInput), [youtubeInput]);
+  const youtubeTitleCacheRef = useRef<Record<string, string>>({});
+  const youtubeTitlePromisesRef = useRef<Map<string, Promise<string>>>(new Map());
+
+  const resolveYouTubeTitle = (videoId: string): Promise<string> => {
+    const cached = youtubeTitleCacheRef.current[videoId];
+    if (cached) return Promise.resolve(cached);
+
+    const pending = youtubeTitlePromisesRef.current.get(videoId);
+    if (pending) return pending;
+
+    const promise = (async () => {
+      try {
+        const res = await fetch(`/api/youtube-title?videoId=${encodeURIComponent(videoId)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (typeof data?.title === 'string' && data.title.trim()) {
+            const clean = data.title.trim();
+            youtubeTitleCacheRef.current[videoId] = clean;
+            return clean;
+          }
+        }
+      } catch {}
+
+      try {
+        const watchUrl = `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`;
+        const oembedRes = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(watchUrl)}&format=json`);
+        if (oembedRes.ok) {
+          const data = await oembedRes.json();
+          if (typeof data?.title === 'string' && data.title.trim()) {
+            const clean = data.title.trim();
+            youtubeTitleCacheRef.current[videoId] = clean;
+            return clean;
+          }
+        }
+      } catch {}
+
+      return `Vidéo YouTube (${videoId})`;
+    })().finally(() => {
+      youtubeTitlePromisesRef.current.delete(videoId);
+    });
+
+    youtubeTitlePromisesRef.current.set(videoId, promise);
+    return promise;
+  };
+
+  useEffect(() => {
+    if (youtubeVideoId) {
+      resolveYouTubeTitle(youtubeVideoId);
+    }
+  }, [youtubeVideoId]);
+
+  const effectiveMediaType: MediaType = useMemo(() => {
+    if (selectedSource === 'youtube') {
+      return youtubeMode;
+    }
+    if (selectedSource === 'local') {
+      return localFileMedia?.type || 'video';
+    }
+    return urlTypeOverride === 'auto' ? urlDetection.type : urlTypeOverride;
+  }, [selectedSource, youtubeMode, localFileMedia?.type, urlTypeOverride, urlDetection.type]);
+
+  const readFileAsDataUrl = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => (typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('read failed')));
+      reader.onerror = () => reject(reader.error || new Error('read failed'));
+      reader.readAsDataURL(file);
+    });
+
+  const uploadLocalMediaForProjection = async (file: File, detectedType: MediaType, fallbackUrl: string): Promise<string> => {
+    try {
+      const res = await fetch('/api/presentation-media', {
+        method: 'POST',
+        headers: {
+          'Content-Type': file.type || 'application/octet-stream'
+        },
+        body: file
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.url) {
+          return data.url;
+        }
+      }
+    } catch {}
+
+    // Fallback cross-fenêtre pour images si le serveur est inaccessible
+    if (detectedType === 'image' && file.size <= 4 * 1024 * 1024) {
+      try {
+        return await readFileAsDataUrl(file);
+      } catch {}
+    }
+    return fallbackUrl;
+  };
+
+  // Chargement d'un fichier local (clic ou glisser-déposer)
+  const loadLocalFile = (file: File | undefined) => {
     if (!file) return;
-
     let detectedType: MediaType = 'image';
     if (file.type.startsWith('video/')) detectedType = 'video';
     else if (file.type.startsWith('audio/')) detectedType = 'audio';
+    else if (file.type.startsWith('image/')) detectedType = 'image';
+    else {
+      detectedType = inferMediaTypeFromUrl(file.name).type;
+    }
 
     const objectUrl = URL.createObjectURL(file);
+    setSelectedSource('local');
     setLocalFileMedia({
       file,
       url: objectUrl,
+      isUploading: true,
       type: detectedType,
       name: file.name
     });
-    setMediaTitleInput(file.name.replace(/\.[^/.]+$/, ''));
+
+    const uploadPromise = uploadLocalMediaForProjection(file, detectedType, objectUrl).then((resolvedUrl) => {
+      setLocalFileMedia((prev) =>
+        prev && prev.url === objectUrl
+          ? { ...prev, remoteUrl: resolvedUrl, isUploading: false }
+          : prev
+      );
+      return resolvedUrl;
+    });
+    localUploadPromiseRef.current = uploadPromise;
   };
 
-  // Système de dossiers / catégories pour organiser les favoris (Backgrounds, Tutos, Backing tracks, etc.)
-  const DEFAULT_CATEGORIES = ['Backgrounds', 'Tutos', 'Backing tracks'];
+  const handleLocalFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    loadLocalFile(e.target.files?.[0]);
+    e.target.value = '';
+  };
 
+  // Système de dossiers & favoris (bibliothèque en bas)
   const [categories, setCategories] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem('melobook_media_favorite_categories');
@@ -99,29 +272,21 @@ export const MediaProjectionModule: React.FC<MediaProjectionModuleProps> = ({
   const [isCreatingCategory, setIsCreatingCategory] = useState<boolean>(false);
   const [newCategoryName, setNewCategoryName] = useState<string>('');
   const [targetCategoryForAdd, setTargetCategoryForAdd] = useState<string>('Backgrounds');
+  const [favoritesSearch, setFavoritesSearch] = useState<string>('');
 
-  const [mediaFavorites, setMediaFavorites] = useState<{
-    id: string;
-    title: string;
-    url: string;
-    type: MediaType;
-    source: MediaSourceType;
-    category: string;
-    thumbnail?: string;
-    author?: string;
-    createdAt: number;
-  }[]>(() => {
+  const [mediaFavorites, setMediaFavorites] = useState<MediaFavoriteItem[]>(() => {
     try {
       const saved = localStorage.getItem('melobook_media_search_favorites');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
           return parsed
-            .filter((item: any) =>
-              item &&
-              typeof item.url === 'string' &&
-              item.url.trim() !== '' &&
-              (item.source === 'youtube' || item.source === 'url')
+            .filter(
+              (item: any) =>
+                item &&
+                typeof item.url === 'string' &&
+                item.url.trim() !== '' &&
+                (item.source === 'youtube' || item.source === 'url')
             )
             .map((item: any, idx: number) => ({
               id: item.id || `fav-${idx}-${Date.now()}`,
@@ -129,9 +294,9 @@ export const MediaProjectionModule: React.FC<MediaProjectionModuleProps> = ({
               url: item.url,
               type: (item.type || item.mediaType || 'video') as MediaType,
               source: item.source as MediaSourceType,
-              category: item.category || (
-                (item.mediaType === 'audio' || item.type === 'audio') ? 'Backing tracks' : 'Backgrounds'
-              ),
+              category:
+                item.category ||
+                (item.mediaType === 'audio' || item.type === 'audio' ? 'Backing tracks' : 'Backgrounds'),
               thumbnail: item.thumbnail,
               author: item.author,
               createdAt: item.createdAt || Date.now()
@@ -142,7 +307,7 @@ export const MediaProjectionModule: React.FC<MediaProjectionModuleProps> = ({
     return [];
   });
 
-  const saveFavorites = (favs: typeof mediaFavorites) => {
+  const saveFavorites = (favs: MediaFavoriteItem[]) => {
     setMediaFavorites(favs);
     try {
       localStorage.setItem('melobook_media_search_favorites', JSON.stringify(favs));
@@ -177,14 +342,17 @@ export const MediaProjectionModule: React.FC<MediaProjectionModuleProps> = ({
     const remaining = categories.filter(c => c !== catToDelete);
     saveCategories(remaining);
     const fallback = remaining[0] || 'Backgrounds';
-    saveFavorites(mediaFavorites.map(f => f.category === catToDelete ? { ...f, category: fallback } : f));
+    saveFavorites(mediaFavorites.map(f => (f.category === catToDelete ? { ...f, category: fallback } : f)));
     if (selectedCategoryFilter === catToDelete) {
       setSelectedCategoryFilter('all');
+    }
+    if (targetCategoryForAdd === catToDelete) {
+      setTargetCategoryForAdd(fallback);
     }
   };
 
   const handleChangeFavoriteCategory = (favId: string, newCat: string) => {
-    saveFavorites(mediaFavorites.map(f => f.id === favId ? { ...f, category: newCat } : f));
+    saveFavorites(mediaFavorites.map(f => (f.id === favId ? { ...f, category: newCat } : f)));
   };
 
   const removeFavorite = (id: string, e?: React.MouseEvent) => {
@@ -195,30 +363,34 @@ export const MediaProjectionModule: React.FC<MediaProjectionModuleProps> = ({
     saveFavorites(mediaFavorites.filter(f => f.id !== id));
   };
 
-  const handleTriggerFavorite = (fav: typeof mediaFavorites[0]) => {
+  const handleTriggerFavorite = async (fav: MediaFavoriteItem) => {
     if (fav.source === 'youtube') {
+      const mode: 'video' | 'audio' = fav.type === 'audio' ? 'audio' : 'video';
       const embedUrl = getYouTubeEmbedUrl(fav.url, true, isLoop, isMuted);
-      setSelectedMediaType(fav.type);
       setSelectedSource('youtube');
+      setYoutubeMode(mode);
       setYoutubeInput(fav.url);
-      setMediaTitleInput(fav.title);
+      let resolvedTitle = fav.title;
+      const favVid = extractYouTubeVideoId(fav.url);
+      if (favVid && /^Vidéo YouTube \(/.test(resolvedTitle)) {
+        resolvedTitle = await resolveYouTubeTitle(favVid);
+      }
       onProjectMedia({
         isActive: true,
-        type: fav.type,
+        type: mode,
         source: 'youtube',
         url: embedUrl || fav.url,
-        title: fav.title,
+        title: resolvedTitle,
         isLoop,
-        isMuted: fav.type === 'video' ? isMuted : false
+        isMuted: mode === 'video' ? isMuted : false
       });
       return;
     }
 
     if (fav.source === 'url') {
-      setSelectedMediaType(fav.type);
       setSelectedSource('url');
+      setUrlTypeOverride(fav.type);
       setUrlInput(fav.url);
-      setMediaTitleInput(fav.title);
       onProjectMedia({
         isActive: true,
         type: fav.type,
@@ -231,331 +403,571 @@ export const MediaProjectionModule: React.FC<MediaProjectionModuleProps> = ({
     }
   };
 
-  // Favoris affichés selon le filtre de dossier
   const displayedFavorites = useMemo(() => {
-    if (selectedCategoryFilter === 'all') return mediaFavorites;
-    return mediaFavorites.filter(f => f.category === selectedCategoryFilter);
-  }, [mediaFavorites, selectedCategoryFilter]);
+    const byFolder =
+      selectedCategoryFilter === 'all'
+        ? mediaFavorites
+        : mediaFavorites.filter(f => f.category === selectedCategoryFilter);
+    const q = favoritesSearch.trim().toLowerCase();
+    if (!q) return byFolder;
+    return byFolder.filter(
+      f => f.title.toLowerCase().includes(q) || f.category.toLowerCase().includes(q)
+    );
+  }, [mediaFavorites, selectedCategoryFilter, favoritesSearch]);
 
-  // Déclencher la projection YouTube
-  const handleProjectYouTube = () => {
-    const videoId = extractYouTubeVideoId(youtubeInput);
-    if (!videoId) return;
+  // Projection selon la source active
+  const canProject = useMemo(() => {
+    if (selectedSource === 'youtube') return Boolean(youtubeVideoId);
+    if (selectedSource === 'url') return Boolean(urlInput.trim());
+    return Boolean(localFileMedia);
+  }, [selectedSource, youtubeVideoId, urlInput, localFileMedia]);
 
-    const embedUrl = getYouTubeEmbedUrl(youtubeInput, true, isLoop, isMuted);
-    if (!embedUrl) return;
+  const handleProjectCurrent = async () => {
+    if (selectedSource === 'youtube') {
+      if (!youtubeVideoId) return;
+      const embedUrl = getYouTubeEmbedUrl(youtubeInput, true, isLoop, isMuted);
+      if (!embedUrl) return;
+      const resolvedTitle = await resolveYouTubeTitle(youtubeVideoId);
+      onProjectMedia({
+        isActive: true,
+        type: youtubeMode,
+        source: 'youtube',
+        url: embedUrl,
+        title: resolvedTitle,
+        thumbnail: `https://img.youtube.com/vi/${youtubeVideoId}/hqdefault.jpg`,
+        isLoop,
+        isMuted: youtubeMode === 'video' ? isMuted : false
+      });
+      return;
+    }
 
-    const title = mediaTitleInput.trim() || `Vidéo YouTube (${videoId})`;
-    onProjectMedia({
-      isActive: true,
-      type: selectedMediaType === 'audio' ? 'audio' : 'video',
-      source: 'youtube',
-      url: embedUrl,
-      title,
-      thumbnail: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
-      isLoop,
-      isMuted
-    });
+    if (selectedSource === 'url') {
+      const trimmedUrl = urlInput.trim();
+      if (!trimmedUrl) return;
+      const fallbackName = trimmedUrl.split(/[?#]/)[0].split('/').pop() || 'Média en ligne';
+      onProjectMedia({
+        isActive: true,
+        type: effectiveMediaType,
+        source: 'url',
+        url: trimmedUrl,
+        title: fallbackName,
+        isLoop,
+        isMuted: effectiveMediaType === 'video' ? isMuted : false
+      });
+      return;
+    }
+
+    if (selectedSource === 'local' && localFileMedia) {
+      let projectionUrl = localFileMedia.remoteUrl;
+      if (!projectionUrl && localUploadPromiseRef.current) {
+        projectionUrl = await localUploadPromiseRef.current;
+      }
+      onProjectMedia({
+        isActive: true,
+        type: localFileMedia.type,
+        source: 'local',
+        url: projectionUrl || localFileMedia.url,
+        title: localFileMedia.name.replace(/\.[^/.]+$/, '') || localFileMedia.name,
+        isLoop,
+        isMuted: localFileMedia.type === 'video' ? isMuted : false
+      });
+    }
   };
 
-  // Déclencher la projection via URL directe
-  const handleProjectUrl = () => {
-    if (!urlInput.trim()) return;
-    const title = mediaTitleInput.trim() || `Média (${urlInput.substring(urlInput.lastIndexOf('/') + 1)})`;
+  useEffect(() => {
+    onCanProjectChange?.(canProject);
+  }, [canProject, onCanProjectChange]);
 
-    onProjectMedia({
-      isActive: true,
-      type: selectedMediaType,
-      source: 'url',
-      url: urlInput.trim(),
-      title,
-      isLoop,
-      isMuted
-    });
+  useImperativeHandle(ref, () => ({
+    projectCurrent: handleProjectCurrent
+  }));
+
+  const canSaveFavorite =
+    (selectedSource === 'youtube' && Boolean(youtubeVideoId)) ||
+    (selectedSource === 'url' && Boolean(urlInput.trim()));
+
+  const handleSaveCurrentFavorite = async () => {
+    if (!canSaveFavorite) return;
+    const defaultCat =
+      effectiveMediaType === 'audio'
+        ? 'Backing tracks'
+        : selectedSource === 'youtube'
+        ? 'Tutos'
+        : 'Backgrounds';
+    const targetCat = categories.includes(targetCategoryForAdd) ? targetCategoryForAdd : defaultCat;
+    const rawUrl = selectedSource === 'youtube' ? youtubeInput.trim() : urlInput.trim();
+    const defaultTitle =
+      selectedSource === 'youtube' && youtubeVideoId
+        ? await resolveYouTubeTitle(youtubeVideoId)
+        : rawUrl.split(/[?#]/)[0].split('/').pop() || 'Média en ligne';
+
+    const newFav: MediaFavoriteItem = {
+      id: `fav-${Date.now()}`,
+      title: defaultTitle,
+      url: rawUrl,
+      type: effectiveMediaType,
+      source: selectedSource,
+      category: targetCat,
+      createdAt: Date.now()
+    };
+    saveFavorites([newFav, ...mediaFavorites]);
   };
 
-  // Déclencher la projection d'un fichier local de l'ordinateur
-  const handleProjectLocalFile = () => {
-    if (!localFileMedia) return;
-    const title = mediaTitleInput.trim() || localFileMedia.name;
-
-    onProjectMedia({
-      isActive: true,
-      type: selectedMediaType,
-      source: 'local',
-      url: localFileMedia.url,
-      title,
-      isLoop,
-      isMuted
-    });
+  const isFavoriteActive = (fav: MediaFavoriteItem): boolean => {
+    if (!activeMedia?.isActive) return false;
+    if (activeMedia.url === fav.url) return true;
+    if (fav.source === 'youtube' && activeMedia.source === 'youtube') {
+      const favVid = extractYouTubeVideoId(fav.url);
+      const activeVid = extractYouTubeVideoId(activeMedia.url);
+      return Boolean(favVid && activeVid && favVid === activeVid);
+    }
+    return false;
   };
 
   return (
-    <div className={className ? `flex flex-col gap-4 text-gray-200 ${className}` : "bg-[#121215] border border-[#222226] rounded-2xl p-4 sm:p-5 shadow-md flex flex-col gap-4 text-gray-200"}>
-
-      {/* 1. Bandeau de statut en direct si un média est actif */}
-      {activeMedia?.isActive ? (
-        <div className="p-3.5 sm:p-4 rounded-xl bg-purple-950/40 border border-purple-500/50 shadow-inner flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in duration-150">
+    <div
+      className={
+        className
+          ? `flex flex-col gap-4 text-gray-200 ${className}`
+          : 'bg-[#121215] border border-[#222226] rounded-2xl p-4 sm:p-5 shadow-md flex flex-col gap-4 text-gray-200'
+      }
+    >
+      {/* 1. Bandeau compact de diffusion active */}
+      {activeMedia?.isActive && (
+        <div className="px-3.5 py-2.5 rounded-xl bg-[#191524] border border-purple-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-purple-600/30 border border-purple-400/40 flex items-center justify-center text-purple-300 shrink-0">
-              {activeMedia.type === 'video' ? (
-                <Video className="w-5 h-5 animate-pulse" />
-              ) : activeMedia.type === 'image' ? (
-                <ImageIcon className="w-5 h-5" />
-              ) : (
-                <Music className="w-5 h-5 animate-pulse" />
-              )}
+            <div className="w-8 h-8 rounded-lg bg-purple-600/20 border border-purple-400/30 flex items-center justify-center shrink-0">
+              {renderTypeIcon(activeMedia.type, 'w-4 h-4')}
             </div>
             <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-purple-500/30 text-purple-200 border border-purple-400/30 animate-pulse">
-                  Média en direct
-                </span>
-                <span className="text-[11px] font-mono text-gray-400 uppercase">
-                  {activeMedia.type} • {activeMedia.source}
-                </span>
+              <div className="flex items-center gap-1.5 text-[11px] text-purple-200/90">
+                <span className="font-semibold text-purple-300">En direct</span>
+                <span aria-hidden="true" className="text-gray-500">·</span>
+                <span>{MEDIA_TYPE_LABELS[activeMedia.type]}</span>
+                <span aria-hidden="true" className="text-gray-500">·</span>
+                <span className="text-gray-400">{SOURCE_LABELS[activeMedia.source]}</span>
               </div>
-              <h3 className="text-sm sm:text-base font-bold text-white truncate mt-0.5">
+              <h3 className="text-sm font-semibold text-white truncate">
                 {activeMedia.title}
               </h3>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={onStopMedia}
-              className="px-3.5 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white shadow-md shadow-amber-900/30 ring-1 ring-amber-400/40 flex items-center gap-1.5 cursor-pointer transition-all"
-            >
-              <Square className="w-3.5 h-3.5 fill-current" />
-              <span>Arrêter la diffusion</span>
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="p-3 rounded-xl bg-[#16161D] border border-[#262633] flex items-center justify-between gap-3 text-xs text-gray-400">
-          <div className="flex items-center gap-2.5">
-            <MonitorPlay className="w-4 h-4 text-purple-400" />
-            <span>Sélectionnez ou téléversez un média pour le projeter instantanément sur le grand écran.</span>
-          </div>
-          <span className="hidden sm:inline-block text-[11px] font-mono text-gray-500">Vidéo • Image • Audio</span>
+          <button
+            type="button"
+            onClick={onStopMedia}
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-600 hover:bg-amber-500 text-white flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap shrink-0 self-start sm:self-center"
+          >
+            <Square className="w-3 h-3 fill-current" />
+            <span>Arrêter la diffusion</span>
+          </button>
         </div>
       )}
 
-      {/* 2. Sélecteur du Type de média (Vidéo | Image | Audio) */}
-      <div className="flex items-center justify-between border-b border-[#202028] pb-3.5 gap-2">
-        <div className="flex items-center gap-1.5 p-1 bg-[#16161C] border border-[#262633] rounded-xl">
-          <button
-            type="button"
-            onClick={() => setSelectedMediaType('video')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-              selectedMediaType === 'video'
-                ? 'bg-purple-600 text-white shadow-md shadow-purple-900/40 ring-1 ring-purple-400/40'
-                : 'text-gray-400 hover:text-gray-200 hover:bg-[#202028]'
-            }`}
-          >
-            <Video className="w-3.5 h-3.5" />
-            <span>Vidéo</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedMediaType('image');
-              if (selectedSource === 'youtube') setSelectedSource('url');
-            }}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-              selectedMediaType === 'image'
-                ? 'bg-purple-600 text-white shadow-md shadow-purple-900/40 ring-1 ring-purple-400/40'
-                : 'text-gray-400 hover:text-gray-200 hover:bg-[#202028]'
-            }`}
-          >
-            <ImageIcon className="w-3.5 h-3.5" />
-            <span>Image</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setSelectedMediaType('audio')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-              selectedMediaType === 'audio'
-                ? 'bg-purple-600 text-white shadow-md shadow-purple-900/40 ring-1 ring-purple-400/40'
-                : 'text-gray-400 hover:text-gray-200 hover:bg-[#202028]'
-            }`}
-          >
-            <Music className="w-3.5 h-3.5" />
-            <span>Audio</span>
-          </button>
-        </div>
-
-        {/* Options de lecture pour la projection (Boucle / Muet) */}
-        <div className="flex items-center gap-1.5 text-xs">
-          <button
-            type="button"
-            onClick={() => setIsLoop(l => !l)}
-            className={`px-2.5 py-1.5 rounded-lg border text-[11px] font-semibold transition-colors flex items-center gap-1 cursor-pointer ${
-              isLoop
-                ? 'bg-purple-600/20 border-purple-500/40 text-purple-300'
-                : 'bg-[#181820] border-[#2A2A38] text-gray-400 hover:text-gray-200'
-            }`}
-            title="Répéter en boucle sur l'écran externe"
-          >
-            <Repeat className="w-3 h-3" />
-            <span className="hidden sm:inline">Boucle</span>
-          </button>
-
-          {selectedMediaType === 'video' && (
-            <button
-              type="button"
-              onClick={() => setIsMuted(m => !m)}
-              className={`px-2.5 py-1.5 rounded-lg border text-[11px] font-semibold transition-colors flex items-center gap-1 cursor-pointer ${
-                isMuted
-                  ? 'bg-amber-600/20 border-amber-500/40 text-amber-300'
-                  : 'bg-[#181820] border-[#2A2A38] text-gray-400 hover:text-gray-200'
-              }`}
-              title="Couper le son de la vidéo"
-            >
-              {isMuted ? <VolumeX className="w-3 h-3 text-amber-400" /> : <Volume2 className="w-3 h-3" />}
-              <span className="hidden sm:inline">{isMuted ? 'Muet' : 'Son actif'}</span>
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* 3. Sélecteur de Source (YouTube, URL, Ordinateur) */}
-      <div className="flex items-center gap-1 overflow-x-auto pb-1 text-xs">
-        {/* Source YouTube (pour Vidéo et Audio) */}
-        {(selectedMediaType === 'video' || selectedMediaType === 'audio') && (
-          <button
-            type="button"
-            onClick={() => setSelectedSource('youtube')}
-            className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
-              selectedSource === 'youtube'
-                ? 'bg-red-600/25 border-red-400 text-white ring-1 ring-red-500/40 shadow-xs'
-                : 'bg-[#181820] border-[#292936] text-gray-300 hover:bg-[#20202A] hover:text-white'
-            }`}
-          >
-            <Globe className="w-3.5 h-3.5 text-red-400" />
-            <span>YouTube</span>
-          </button>
-        )}
-
-        {/* Source URL d'un fichier */}
-        <button
-          type="button"
-          onClick={() => setSelectedSource('url')}
-          className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
-            selectedSource === 'url'
-              ? 'bg-blue-600/25 border-blue-400 text-white ring-1 ring-blue-500/40 shadow-xs'
-              : 'bg-[#181820] border-[#292936] text-gray-300 hover:bg-[#20202A] hover:text-white'
-          }`}
-        >
-          <LinkIcon className="w-3.5 h-3.5 text-blue-400" />
-          <span>URL d'un fichier</span>
-        </button>
-
-        {/* Source Ordinateur (Fichier local) */}
-        <button
-          type="button"
-          onClick={() => setSelectedSource('local')}
-          className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
-            selectedSource === 'local'
-              ? 'bg-emerald-600/25 border-emerald-400 text-white ring-1 ring-emerald-500/40 shadow-xs'
-              : 'bg-[#181820] border-[#292936] text-gray-300 hover:bg-[#20202A] hover:text-white'
-          }`}
-        >
-          <Folder className="w-3.5 h-3.5 text-emerald-400" />
-          <span>Ordinateur (Fichier local)</span>
-        </button>
-      </div>
-
-      {/* Système de Dossiers & Favoris Média (Backgrounds, Tutos, Backing tracks, etc.) */}
-      <div className="p-3 rounded-2xl bg-[#14141E] border border-[#242436] space-y-2.5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          {/* Onglets Dossiers / Catégories */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 custom-scrollbar text-xs">
-            <span className="text-[10px] uppercase font-bold text-amber-400 tracking-wider flex items-center gap-1 shrink-0 mr-1">
-              <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-              Dossiers :
-            </span>
-
-            {/* Tous */}
-            <button
-              type="button"
-              onClick={() => setSelectedCategoryFilter('all')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer transition-all shrink-0 flex items-center gap-1.5 ${
-                selectedCategoryFilter === 'all'
-                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-xs'
-                  : 'bg-[#191924] text-gray-400 hover:text-white border border-[#272736]'
-              }`}
-            >
-              <span>Tous</span>
-              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/40 text-gray-300 font-mono">
-                {mediaFavorites.length}
-              </span>
-            </button>
-
-            {/* Catégories / Dossiers */}
-            {categories.map((cat) => {
-              const count = mediaFavorites.filter(f => f.category === cat).length;
-              const isSelected = selectedCategoryFilter === cat;
-              return (
-                <div key={cat} className="relative group shrink-0 flex items-center">
+      {/* 2. Régie côte à côte : 3 sources visibles à gauche | Aperçu 16:9 à droite */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+        {/* Colonne gauche : YouTube, URL directe et Fichier local visibles ensemble */}
+        <div className="lg:col-span-7 bg-[#15151C] border border-[#242432] rounded-xl p-4 flex flex-col justify-between gap-3.5">
+          <div className="space-y-2.5">
+            {/* Lien YouTube */}
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-gray-300 flex items-center gap-1.5">
+                <Globe className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                <span>Lien YouTube</span>
+              </label>
+              <div className="relative flex items-center">
+                <input
+                  type="text"
+                  value={youtubeInput}
+                  onFocus={() => {
+                    if (youtubeInput.trim() || (!urlInput.trim() && !localFileMedia)) {
+                      setSelectedSource('youtube');
+                    }
+                  }}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setYoutubeInput(next);
+                    if (next.trim()) {
+                      setSelectedSource('youtube');
+                    } else if (urlInput.trim()) {
+                      setSelectedSource('url');
+                    } else if (localFileMedia) {
+                      setSelectedSource('local');
+                    }
+                  }}
+                  className={`w-full bg-[#1A1A24] border rounded-lg pl-3 pr-8 py-2 text-xs text-white focus:outline-none transition-colors ${
+                    selectedSource === 'youtube' && youtubeInput.trim()
+                      ? 'border-red-500/70'
+                      : 'border-[#2F2F40] focus:border-red-500'
+                  }`}
+                />
+                {youtubeInput && (
                   <button
                     type="button"
                     onClick={() => {
-                      setSelectedCategoryFilter(cat);
-                      setTargetCategoryForAdd(cat);
+                      setYoutubeInput('');
+                      if (urlInput.trim()) setSelectedSource('url');
+                      else if (localFileMedia) setSelectedSource('local');
                     }}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer transition-all flex items-center gap-1.5 ${
-                      isSelected
-                        ? 'bg-amber-500/25 text-amber-200 border border-amber-400/50 shadow-xs'
-                        : 'bg-[#191924] text-gray-300 hover:text-white border border-[#272736]'
-                    }`}
+                    aria-label="Effacer le lien YouTube"
+                    className="absolute right-2 p-1 text-gray-400 hover:text-white cursor-pointer"
                   >
-                    <FolderOpen className="w-3 h-3 text-amber-400" />
-                    <span>{cat}</span>
-                    <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/40 text-gray-300 font-mono">
-                      {count}
-                    </span>
+                    <X className="w-3.5 h-3.5" />
                   </button>
+                )}
+              </div>
+            </div>
 
-                  {!['Backgrounds', 'Tutos', 'Backing tracks'].includes(cat) && (
+            {/* URL directe */}
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-gray-300 flex items-center gap-1.5">
+                <LinkIcon className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                <span>URL directe (vidéo, image ou audio)</span>
+              </label>
+              <div className="relative flex items-center">
+                <input
+                  type="url"
+                  value={urlInput}
+                  onFocus={() => {
+                    if (urlInput.trim()) setSelectedSource('url');
+                  }}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    if (extractYouTubeVideoId(next)) {
+                      setYoutubeInput(next);
+                      setUrlInput('');
+                      setSelectedSource('youtube');
+                      return;
+                    }
+                    setUrlInput(next);
+                    setUrlTypeOverride('auto');
+                    if (next.trim()) {
+                      setSelectedSource('url');
+                    } else if (youtubeInput.trim()) {
+                      setSelectedSource('youtube');
+                    } else if (localFileMedia) {
+                      setSelectedSource('local');
+                    }
+                  }}
+                  className={`w-full bg-[#1A1A24] border rounded-lg pl-3 pr-8 py-2 text-xs text-white focus:outline-none transition-colors font-mono ${
+                    selectedSource === 'url' && urlInput.trim()
+                      ? 'border-blue-500/70'
+                      : 'border-[#2F2F40] focus:border-blue-500'
+                  }`}
+                />
+                {urlInput && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUrlInput('');
+                      setUrlTypeOverride('auto');
+                      if (youtubeInput.trim()) setSelectedSource('youtube');
+                      else if (localFileMedia) setSelectedSource('local');
+                    }}
+                    aria-label="Effacer l'URL"
+                    className="absolute right-2 p-1 text-gray-400 hover:text-white cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Fichier local */}
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-gray-300 flex items-center gap-1.5">
+                <Folder className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span>Fichier local (vidéo, image ou audio)</span>
+              </label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="video/*,image/*,audio/*"
+                onChange={handleLocalFileChange}
+                className="hidden"
+              />
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setIsDraggingFile(true);
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  setIsDraggingFile(false);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setIsDraggingFile(false);
+                  loadLocalFile(e.dataTransfer.files?.[0]);
+                }}
+                onClick={() => {
+                  if (localFileMedia && selectedSource !== 'local') {
+                    setSelectedSource('local');
+                    return;
+                  }
+                  fileInputRef.current?.click();
+                }}
+                className={`border border-dashed rounded-xl px-3.5 py-2.5 flex items-center gap-3 cursor-pointer transition-colors ${
+                  isDraggingFile
+                    ? 'border-emerald-400 bg-emerald-950/25'
+                    : selectedSource === 'local' && localFileMedia
+                    ? 'border-emerald-500/70 bg-[#18201E]'
+                    : 'border-[#343446] hover:border-emerald-500/60 bg-[#181822] hover:bg-[#1C1C28]'
+                }`}
+              >
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center text-emerald-400 shrink-0">
+                  <Upload className="w-4 h-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-semibold text-gray-200 truncate">
+                    {localFileMedia ? localFileMedia.name : 'Déposer un fichier'}
+                  </p>
+                </div>
+                {localFileMedia && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setLocalFileMedia(null);
+                      if (youtubeInput.trim()) setSelectedSource('youtube');
+                      else if (urlInput.trim()) setSelectedSource('url');
+                    }}
+                    aria-label="Retirer le fichier local"
+                    className="p-1 text-gray-400 hover:text-white cursor-pointer shrink-0"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Ligne d'auto-détection du type + options de lecture */}
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-xs">
+              <div className="flex flex-wrap items-center gap-2 text-gray-400">
+                {selectedSource === 'youtube' && youtubeVideoId && (
+                  <div className="flex items-center gap-1 bg-[#181822] border border-[#282838] rounded-lg p-0.5">
                     <button
                       type="button"
-                      onClick={(e) => handleDeleteCategory(cat, e)}
-                      className="ml-0.5 p-1 text-gray-500 hover:text-red-400 opacity-60 group-hover:opacity-100 transition-opacity cursor-pointer"
-                      title={`Supprimer le dossier "${cat}"`}
+                      onClick={() => setYoutubeMode('video')}
+                      className={`px-2 py-0.5 rounded text-[11px] font-medium cursor-pointer transition-colors ${
+                        youtubeMode === 'video' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white'
+                      }`}
                     >
-                      <X className="w-3 h-3" />
+                      Vidéo
                     </button>
-                  )}
-                </div>
-              );
-            })}
+                    <button
+                      type="button"
+                      onClick={() => setYoutubeMode('audio')}
+                      className={`px-2 py-0.5 rounded text-[11px] font-medium cursor-pointer transition-colors ${
+                        youtubeMode === 'audio' ? 'bg-emerald-600 text-white' : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      Audio seul
+                    </button>
+                  </div>
+                )}
 
-            {/* Formulaire ajout nouveau dossier */}
+                {selectedSource === 'url' && urlInput.trim() && (
+                  <select
+                    value={urlTypeOverride}
+                    onChange={(e) => setUrlTypeOverride(e.target.value as 'auto' | MediaType)}
+                    aria-label="Forcer le type de média pour cette URL"
+                    className="bg-[#181822] border border-[#2A2A3A] text-gray-300 text-[11px] rounded-lg px-2 py-1 cursor-pointer focus:outline-none focus:border-blue-500"
+                  >
+                    <option value="auto" className="bg-[#161622] text-white">
+                      Auto ({MEDIA_TYPE_LABELS[urlDetection.type]})
+                    </option>
+                    <option value="video" className="bg-[#161622] text-white">Forcer : Vidéo</option>
+                    <option value="image" className="bg-[#161622] text-white">Forcer : Image</option>
+                    <option value="audio" className="bg-[#161622] text-white">Forcer : Audio</option>
+                  </select>
+                )}
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setIsLoop(l => !l)}
+                  className={`px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-colors flex items-center gap-1 cursor-pointer whitespace-nowrap shrink-0 ${
+                    isLoop
+                      ? 'bg-purple-600/20 border-purple-500/40 text-purple-200'
+                      : 'bg-[#181820] border-[#2A2A38] text-gray-400 hover:text-gray-200'
+                  }`}
+                  title="Répéter en boucle sur l'écran externe"
+                >
+                  <Repeat className="w-3 h-3" />
+                  <span>Boucle</span>
+                </button>
+
+                {effectiveMediaType === 'video' && (
+                  <button
+                    type="button"
+                    onClick={() => setIsMuted(m => !m)}
+                    className={`px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-colors flex items-center gap-1 cursor-pointer whitespace-nowrap shrink-0 ${
+                      isMuted
+                        ? 'bg-amber-600/20 border-amber-500/40 text-amber-200'
+                        : 'bg-[#181820] border-[#2A2A38] text-gray-400 hover:text-gray-200'
+                    }`}
+                    title="Couper le son de la vidéo"
+                  >
+                    {isMuted ? <VolumeX className="w-3 h-3 text-amber-400" /> : <Volume2 className="w-3 h-3" />}
+                    <span>{isMuted ? 'Muet' : 'Son'}</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Barre d'actions : Enregistrer en favori */}
+          {canSaveFavorite && (
+            <div className="pt-3 border-t border-[#222230] flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                onClick={handleSaveCurrentFavorite}
+                className="px-3 py-2 rounded-lg bg-[#1D1D2B] hover:bg-[#252538] border border-[#323246] text-amber-300 text-xs font-semibold flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 transition-colors"
+                title="Enregistrer ce média dans le dossier choisi"
+              >
+                <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                <span>+ Favori</span>
+              </button>
+              <select
+                value={targetCategoryForAdd}
+                onChange={(e) => setTargetCategoryForAdd(e.target.value)}
+                aria-label="Dossier de destination du favori"
+                className="bg-[#1A1A26] border border-[#323246] text-amber-200 text-xs rounded-lg px-2 py-2 cursor-pointer focus:outline-none max-w-[140px] truncate"
+              >
+                {categories.map((c) => (
+                  <option key={c} value={c} className="bg-[#161622] text-white">
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+
+        {/* Colonne droite : Moniteur d'aperçu 16:9 */}
+        <div className="lg:col-span-5 bg-[#101016] border border-[#242432] rounded-xl overflow-hidden flex flex-col">
+          <div className="px-3.5 py-2 border-b border-[#1E1E28] flex items-center justify-between text-[11px]">
+            <span className="font-semibold text-gray-300">Aperçu</span>
+            <span className="text-gray-400">
+              {MEDIA_TYPE_LABELS[effectiveMediaType]} · {SOURCE_LABELS[selectedSource]}
+            </span>
+          </div>
+
+          <div className="aspect-video w-full bg-black/75 flex items-center justify-center p-2 flex-1 min-h-[180px]">
+            {selectedSource === 'youtube' && youtubeVideoId ? (
+              <iframe
+                src={getYouTubeEmbedUrl(youtubeInput, false, isLoop, isMuted) || ''}
+                title="Aperçu YouTube"
+                className="w-full h-full rounded-lg"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            ) : selectedSource === 'url' && urlInput.trim() ? (
+              previewLoadError ? (
+                <div className="text-center px-4 space-y-1.5">
+                  <MonitorPlay className="w-7 h-7 text-gray-600 mx-auto" />
+                  <p className="text-xs text-gray-400">Aperçu indisponible pour ce lien</p>
+                </div>
+              ) : effectiveMediaType === 'video' ? (
+                <video
+                  src={urlInput}
+                  controls
+                  onError={() => setPreviewLoadError(true)}
+                  className="w-full h-full object-contain rounded-lg"
+                />
+              ) : effectiveMediaType === 'image' ? (
+                <img
+                  src={urlInput}
+                  alt="Aperçu du média"
+                  referrerPolicy="no-referrer"
+                  onError={() => setPreviewLoadError(true)}
+                  className="w-full h-full object-contain rounded-lg"
+                />
+              ) : (
+                <div className="w-full px-3 space-y-2 text-center">
+                  <Music className="w-8 h-8 text-emerald-400 mx-auto" />
+                  <p className="text-xs text-gray-300 truncate">Piste audio</p>
+                  <audio src={urlInput} controls className="w-full" />
+                </div>
+              )
+            ) : selectedSource === 'local' && localFileMedia ? (
+              localFileMedia.type === 'video' ? (
+                <video src={localFileMedia.url} controls className="w-full h-full object-contain rounded-lg" />
+              ) : localFileMedia.type === 'image' ? (
+                <img
+                  src={localFileMedia.url}
+                  alt={localFileMedia.name}
+                  className="w-full h-full object-contain rounded-lg"
+                />
+              ) : (
+                <div className="w-full px-3 space-y-2 text-center">
+                  <Music className="w-8 h-8 text-emerald-400 mx-auto" />
+                  <p className="text-xs text-gray-300 truncate">{localFileMedia.name}</p>
+                  <audio src={localFileMedia.url} controls className="w-full" />
+                </div>
+              )
+            ) : (
+              <div className="text-center px-4 space-y-1.5">
+                <MonitorPlay className="w-8 h-8 text-gray-600 mx-auto" />
+                <p className="text-xs text-gray-500">
+                  Saisissez un lien ou choisissez un fichier pour l'aperçu
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* 4. Bibliothèque Dossiers & Favoris (placée en bas sous le panneau de projection) */}
+      <div className="pt-4 border-t border-[#22222C] space-y-3">
+        {/* En-tête de bibliothèque */}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-xs">
+            <Star className="w-4 h-4 text-amber-400 fill-amber-400 shrink-0" />
+            <span className="font-semibold text-white">Dossiers & Favoris</span>
+            <span aria-hidden="true" className="text-gray-600">·</span>
+            <span className="text-gray-400 tabular-nums font-mono text-[11px]">
+              {mediaFavorites.length} enregistré{mediaFavorites.length > 1 ? 's' : ''}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {mediaFavorites.length > 4 && (
+              <div className="relative flex items-center">
+                <Search className="w-3.5 h-3.5 text-gray-500 absolute left-2.5 pointer-events-none" />
+                <input
+                  type="text"
+                  value={favoritesSearch}
+                  onChange={(e) => setFavoritesSearch(e.target.value)}
+                  placeholder="Filtrer les favoris..."
+                  className="bg-[#181820] border border-[#2A2A38] rounded-lg pl-7 pr-2.5 py-1 text-xs text-white placeholder:text-gray-500 focus:outline-none focus:border-amber-500/60 w-40 sm:w-48"
+                />
+              </div>
+            )}
+
             {isCreatingCategory ? (
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
                   handleAddCategory();
                 }}
-                className="flex items-center gap-1 shrink-0"
+                className="flex items-center gap-1"
               >
                 <input
                   type="text"
                   value={newCategoryName}
                   onChange={(e) => setNewCategoryName(e.target.value)}
-                  placeholder="Nouveau dossier..."
-                  className="px-2 py-1 text-xs bg-[#191924] border border-amber-500/50 rounded-lg text-white placeholder:text-gray-500 focus:outline-none w-32"
+                  placeholder="Nom du dossier..."
+                  className="px-2.5 py-1 text-xs bg-[#181820] border border-amber-500/50 rounded-lg text-white placeholder:text-gray-500 focus:outline-none w-32"
                   autoFocus
                 />
                 <button
                   type="submit"
-                  className="px-2 py-1 text-xs bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-lg cursor-pointer"
+                  className="px-2.5 py-1 text-xs bg-amber-500 hover:bg-amber-400 text-black font-semibold rounded-lg cursor-pointer whitespace-nowrap"
                 >
-                  Ajouter
+                  Créer
                 </button>
                 <button
                   type="button"
@@ -563,408 +975,152 @@ export const MediaProjectionModule: React.FC<MediaProjectionModuleProps> = ({
                     setIsCreatingCategory(false);
                     setNewCategoryName('');
                   }}
+                  aria-label="Annuler la création de dossier"
                   className="p-1 text-gray-400 hover:text-white cursor-pointer"
                 >
-                  <X className="w-3 h-3" />
+                  <X className="w-3.5 h-3.5" />
                 </button>
               </form>
             ) : (
               <button
                 type="button"
                 onClick={() => setIsCreatingCategory(true)}
-                className="px-2 py-1 rounded-lg text-xs font-medium text-gray-400 hover:text-amber-300 bg-[#191924]/60 hover:bg-[#191924] border border-dashed border-[#333346] cursor-pointer flex items-center gap-1 shrink-0"
-                title="Créer un nouveau dossier ou catégorie"
+                className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-gray-300 hover:text-amber-200 bg-[#181820] hover:bg-[#20202C] border border-[#2C2C3C] cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-colors"
               >
-                <FolderPlus className="w-3 h-3 text-amber-400" />
-                <span>+ Dossier</span>
+                <FolderPlus className="w-3.5 h-3.5 text-amber-400" />
+                <span>Nouveau dossier</span>
               </button>
             )}
           </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="text-[10px] text-gray-500 hidden md:inline">
-              {displayedFavorites.length} favori(s) • Cliquez pour projeter
-            </span>
-          </div>
         </div>
 
-        {/* Liste des favoris du dossier sélectionné */}
+        {/* Barre des dossiers */}
+        <div className="flex items-center gap-1.5 flex-wrap text-xs">
+          <button
+            type="button"
+            onClick={() => setSelectedCategoryFilter('all')}
+            className={`px-3 py-1.5 rounded-lg font-medium cursor-pointer transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+              selectedCategoryFilter === 'all'
+                ? 'bg-amber-500/20 text-amber-200 border border-amber-500/45'
+                : 'bg-[#16161E] text-gray-400 hover:text-white border border-[#252534]'
+            }`}
+          >
+            <span>Tous</span>
+            <span className="text-[11px] font-mono tabular-nums text-gray-400">
+              {mediaFavorites.length}
+            </span>
+          </button>
+
+          {categories.map((cat) => {
+            const count = mediaFavorites.filter(f => f.category === cat).length;
+            const isSelected = selectedCategoryFilter === cat;
+            const isDefault = DEFAULT_CATEGORIES.includes(cat);
+
+            return (
+              <div key={cat} className="inline-flex items-center group">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedCategoryFilter(cat);
+                    setTargetCategoryForAdd(cat);
+                  }}
+                  className={`px-3 py-1.5 rounded-lg font-medium cursor-pointer transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+                    isSelected
+                      ? 'bg-amber-500/20 text-amber-200 border border-amber-500/45'
+                      : 'bg-[#16161E] text-gray-300 hover:text-white border border-[#252534]'
+                  }`}
+                >
+                  <FolderOpen className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span>{cat}</span>
+                  <span className="text-[11px] font-mono tabular-nums text-gray-400">
+                    {count}
+                  </span>
+                </button>
+
+                {!isDefault && (
+                  <button
+                    type="button"
+                    onClick={(e) => handleDeleteCategory(cat, e)}
+                    className="ml-0.5 p-1 text-gray-500 hover:text-red-400 opacity-70 group-hover:opacity-100 transition-opacity cursor-pointer"
+                    title={`Supprimer le dossier « ${cat} »`}
+                    aria-label={`Supprimer le dossier ${cat}`}
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Grille des favoris du dossier actif */}
         {displayedFavorites.length === 0 ? (
-          <div className="p-3 rounded-xl bg-[#101016] border border-[#20202C] text-center">
-            <p className="text-[11px] text-gray-500 italic">
-              Aucun favori dans le dossier {selectedCategoryFilter === 'all' ? 'actuel' : `"${selectedCategoryFilter}"`}. Utilisez le bouton « + Favori » sur un lien YouTube ou une URL pour l'enregistrer ici.
+          <div className="px-4 py-5 rounded-xl bg-[#14141C] border border-[#222230] text-center">
+            <p className="text-xs text-gray-400">
+              Aucun favori dans {selectedCategoryFilter === 'all' ? 'la bibliothèque' : `« ${selectedCategoryFilter} »`}. Utilisez « + Favori » ci-dessus pour enregistrer un lien YouTube ou une URL.
             </p>
           </div>
         ) : (
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs custom-scrollbar">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[260px] overflow-y-auto pr-1 custom-scrollbar">
             {displayedFavorites.map((fav) => {
-              const isUrlActive = Boolean(fav.url && activeMedia?.isActive && activeMedia.url === fav.url);
+              const isActive = isFavoriteActive(fav);
 
               return (
                 <div
                   key={fav.id}
-                  className={`group flex items-center gap-1.5 pl-2.5 pr-1.5 py-1.5 rounded-xl border transition-all shrink-0 ${
-                    isUrlActive
-                      ? 'bg-amber-400/20 border-amber-400 text-amber-200 shadow-xs'
-                      : 'bg-[#181824] border-[#29293C] text-gray-300 hover:text-white hover:border-amber-400/40 hover:bg-[#1E1E2C]'
+                  className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl border transition-colors min-h-[44px] ${
+                    isActive
+                      ? 'bg-amber-500/15 border-amber-400/60 text-white'
+                      : 'bg-[#15151D] border-[#252534] hover:border-[#36364A] hover:bg-[#191924] text-gray-200'
                   }`}
                 >
                   <button
                     type="button"
                     onClick={() => handleTriggerFavorite(fav)}
-                    className="flex items-center gap-1.5 cursor-pointer font-medium text-left"
-                    title={`Projeter "${fav.title}" (${fav.category})`}
+                    className="flex items-center gap-2.5 min-w-0 flex-1 text-left cursor-pointer"
+                    title={`Projeter « ${fav.title} »`}
                   >
-                    {fav.type === 'video' ? (
-                      <Video className="w-3.5 h-3.5 text-purple-400 shrink-0" />
-                    ) : fav.type === 'audio' ? (
-                      <Music className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                    ) : (
-                      <ImageIcon className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                    )}
-                    <span className="text-[11px] max-w-[130px] truncate">{fav.title}</span>
+                    {renderTypeIcon(fav.type, 'w-4 h-4')}
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs font-semibold truncate">{fav.title}</div>
+                      <div className="text-[11px] text-gray-400 truncate">
+                        {SOURCE_LABELS[fav.source]} · {MEDIA_TYPE_LABELS[fav.type]}
+                        {isActive ? ' · En direct' : ''}
+                      </div>
+                    </div>
                   </button>
 
-                  {/* Sélecteur de dossier/catégorie pour déplacer facilement */}
-                  <select
-                    value={fav.category}
-                    onChange={(e) => handleChangeFavoriteCategory(fav.id, e.target.value)}
-                    className="text-[9px] bg-[#12121A] text-amber-300/80 hover:text-amber-300 border border-[#2D2D3E] rounded px-1 py-0.5 cursor-pointer focus:outline-none"
-                    title="Déplacer vers un autre dossier"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {categories.map((c) => (
-                      <option key={c} value={c} className="bg-[#161622] text-white">
-                        {c}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <select
+                      value={fav.category}
+                      onChange={(e) => handleChangeFavoriteCategory(fav.id, e.target.value)}
+                      aria-label={`Déplacer ${fav.title} vers un dossier`}
+                      className="text-[11px] bg-[#111118] text-gray-300 border border-[#2A2A3B] rounded-md px-1.5 py-1 cursor-pointer focus:outline-none max-w-[105px] truncate"
+                      title="Déplacer vers un autre dossier"
+                    >
+                      {categories.map((c) => (
+                        <option key={c} value={c} className="bg-[#161622] text-white">
+                          {c}
+                        </option>
+                      ))}
+                    </select>
 
-                  <button
-                    type="button"
-                    onClick={(e) => removeFavorite(fav.id, e)}
-                    className="p-0.5 rounded text-gray-500 hover:text-red-400 hover:bg-red-950/40 cursor-pointer transition-colors"
-                    title="Retirer ce favori"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
+                    <button
+                      type="button"
+                      onClick={(e) => removeFavorite(fav.id, e)}
+                      className="p-1.5 rounded-md text-gray-500 hover:text-red-400 hover:bg-red-950/30 cursor-pointer transition-colors"
+                      title="Retirer ce favori"
+                      aria-label={`Retirer ${fav.title}`}
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               );
             })}
           </div>
         )}
       </div>
-
-      {/* 4. Panneau de contenu selon la source sélectionnée */}
-
-      {/* A. Source : YouTube (Vidéo ou Audio) */}
-      {selectedSource === 'youtube' && (
-        <div className="space-y-3.5 p-4 rounded-xl bg-[#16161D] border border-[#272736] animate-in fade-in duration-100">
-          <div className="flex items-center gap-2">
-            <Globe className="w-4 h-4 text-red-500 shrink-0" />
-            <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-              Projeter une vidéo ou musique YouTube
-            </h4>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-[11px] font-semibold text-gray-300 block">
-              Lien ou ID de la vidéo YouTube :
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={youtubeInput}
-                onChange={(e) => setYoutubeInput(e.target.value)}
-                placeholder="Ex: https://www.youtube.com/watch?v=dQw4w9WgXcQ ou https://youtu.be/..."
-                className="flex-1 bg-[#1A1A24] border border-[#2F2F40] rounded-xl px-3 py-2 text-xs text-white placeholder:text-gray-500 focus:outline-none focus:border-red-500 transition-colors"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-semibold text-gray-400 block">
-              Titre personnalisé (facultatif) :
-            </label>
-            <input
-              type="text"
-              value={mediaTitleInput}
-              onChange={(e) => setMediaTitleInput(e.target.value)}
-              placeholder="Ex: Moment d'adoration & louange"
-              className="w-full bg-[#1A1A24] border border-[#2F2F40] rounded-xl px-3 py-2 text-xs text-white placeholder:text-gray-500 focus:outline-none focus:border-red-500 transition-colors"
-            />
-          </div>
-
-          {/* Prévisualisation YouTube */}
-          {extractYouTubeVideoId(youtubeInput) && (
-            <div className="space-y-2 pt-2 border-t border-[#262635]">
-              <span className="text-[11px] font-semibold text-gray-400 block">Aperçu YouTube :</span>
-              <div className="aspect-video w-full max-w-md rounded-xl overflow-hidden border border-[#333346] bg-black">
-                <iframe
-                  src={getYouTubeEmbedUrl(youtubeInput, false, isLoop, isMuted) || ''}
-                  title="Aperçu YouTube"
-                  className="w-full h-full"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              </div>
-            </div>
-          )}
-
-          <div className="pt-2 flex flex-wrap items-center justify-between gap-2">
-            {extractYouTubeVideoId(youtubeInput) && (
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const title = mediaTitleInput.trim() || 'Vidéo YouTube';
-                    const targetCat = targetCategoryForAdd || 'Tutos';
-                    const newFav = {
-                      id: `fav-${Date.now()}`,
-                      title,
-                      url: youtubeInput.trim(),
-                      type: (selectedMediaType === 'audio' ? 'audio' : 'video') as MediaType,
-                      source: 'youtube' as MediaSourceType,
-                      category: targetCat,
-                      createdAt: Date.now()
-                    };
-                    saveFavorites([newFav, ...mediaFavorites]);
-                  }}
-                  className="px-3 py-2 rounded-xl bg-[#1D1D2B] hover:bg-[#252538] border border-[#333348] text-amber-300 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
-                  title="Enregistrer ce lien YouTube dans vos favoris"
-                >
-                  <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                  <span>+ Favori ({targetCategoryForAdd || 'Tutos'})</span>
-                </button>
-                <select
-                  value={targetCategoryForAdd}
-                  onChange={(e) => setTargetCategoryForAdd(e.target.value)}
-                  className="bg-[#1A1A26] border border-[#333348] text-amber-300 text-[11px] rounded-xl px-2 py-2 cursor-pointer focus:outline-none"
-                  title="Choisir le dossier"
-                >
-                  {categories.map((c) => (
-                    <option key={c} value={c} className="bg-[#161622] text-white">
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            <button
-              type="button"
-              onClick={handleProjectYouTube}
-              disabled={!extractYouTubeVideoId(youtubeInput)}
-              className="px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 disabled:opacity-30 disabled:pointer-events-none text-white text-xs font-bold transition-all shadow-lg shadow-red-900/30 flex items-center gap-2 cursor-pointer ml-auto"
-            >
-              <Play className="w-3.5 h-3.5 fill-current" />
-              <span>Projeter la vidéo YouTube sur l'écran</span>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* B. Source : URL directe d'un fichier */}
-      {selectedSource === 'url' && (
-        <div className="space-y-3.5 p-4 rounded-xl bg-[#16161D] border border-[#272736] animate-in fade-in duration-100">
-          <div className="flex items-center gap-2">
-            <LinkIcon className="w-4 h-4 text-blue-400 shrink-0" />
-            <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-              Projeter depuis l'URL d'un fichier en ligne
-            </h4>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-[11px] font-semibold text-gray-300 block">
-              URL directe du fichier ({selectedMediaType === 'video' ? 'MP4, WebM' : selectedMediaType === 'image' ? 'JPG, PNG, WebP' : 'MP3, WAV, AAC'}) :
-            </label>
-            <input
-              type="url"
-              value={urlInput}
-              onChange={(e) => setUrlInput(e.target.value)}
-              placeholder={
-                selectedMediaType === 'video'
-                  ? 'https://mon-serveur.com/video-louange.mp4'
-                  : selectedMediaType === 'image'
-                  ? 'https://mon-serveur.com/arriere-plan.jpg'
-                  : 'https://mon-serveur.com/musique-fond.mp3'
-              }
-              className="w-full bg-[#1A1A24] border border-[#2F2F40] rounded-xl px-3 py-2 text-xs text-white placeholder:text-gray-500 focus:outline-none focus:border-blue-500 transition-colors font-mono"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-semibold text-gray-400 block">
-              Titre du média affiché :
-            </label>
-            <input
-              type="text"
-              value={mediaTitleInput}
-              onChange={(e) => setMediaTitleInput(e.target.value)}
-              placeholder="Ex: Arrière-plan cinématique ou cantique"
-              className="w-full bg-[#1A1A24] border border-[#2F2F40] rounded-xl px-3 py-2 text-xs text-white placeholder:text-gray-500 focus:outline-none focus:border-blue-500 transition-colors"
-            />
-          </div>
-
-          {/* Prévisualisation de l'URL */}
-          {urlInput.trim() && (
-            <div className="pt-2 border-t border-[#262635] space-y-1.5">
-              <span className="text-[11px] font-semibold text-gray-400 block">Aperçu direct :</span>
-              <div className="max-w-md rounded-xl overflow-hidden border border-[#333346] bg-black/60 p-2 flex items-center justify-center">
-                {selectedMediaType === 'video' ? (
-                  <video src={urlInput} controls className="max-h-48 w-full object-contain rounded-lg" />
-                ) : selectedMediaType === 'image' ? (
-                  <img src={urlInput} alt="Aperçu" className="max-h-48 w-full object-contain rounded-lg" />
-                ) : (
-                  <audio src={urlInput} controls className="w-full" />
-                )}
-              </div>
-            </div>
-          )}
-
-          <div className="pt-2 flex flex-wrap items-center justify-between gap-2">
-            {urlInput.trim() && (
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const title = mediaTitleInput.trim() || 'Fichier en ligne';
-                    const targetCat = targetCategoryForAdd || (selectedMediaType === 'audio' ? 'Backing tracks' : 'Backgrounds');
-                    const newFav = {
-                      id: `fav-${Date.now()}`,
-                      title,
-                      url: urlInput.trim(),
-                      type: selectedMediaType,
-                      source: 'url' as MediaSourceType,
-                      category: targetCat,
-                      createdAt: Date.now()
-                    };
-                    saveFavorites([newFav, ...mediaFavorites]);
-                  }}
-                  className="px-3 py-2 rounded-xl bg-[#1D1D2B] hover:bg-[#252538] border border-[#333348] text-amber-300 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
-                  title="Enregistrer ce fichier dans vos favoris"
-                >
-                  <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                  <span>+ Favori ({targetCategoryForAdd || (selectedMediaType === 'audio' ? 'Backing tracks' : 'Backgrounds')})</span>
-                </button>
-                <select
-                  value={targetCategoryForAdd}
-                  onChange={(e) => setTargetCategoryForAdd(e.target.value)}
-                  className="bg-[#1A1A26] border border-[#333348] text-amber-300 text-[11px] rounded-xl px-2 py-2 cursor-pointer focus:outline-none"
-                  title="Choisir le dossier"
-                >
-                  {categories.map((c) => (
-                    <option key={c} value={c} className="bg-[#161622] text-white">
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            <button
-              type="button"
-              onClick={handleProjectUrl}
-              disabled={!urlInput.trim()}
-              className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-30 disabled:pointer-events-none text-white text-xs font-bold transition-all shadow-lg shadow-blue-900/30 flex items-center gap-2 cursor-pointer ml-auto"
-            >
-              <Play className="w-3.5 h-3.5 fill-current" />
-              <span>Projeter ce fichier sur l'écran</span>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* C. Source : Ordinateur (Fichier local) */}
-      {selectedSource === 'local' && (
-        <div className="space-y-3.5 p-4 rounded-xl bg-[#16161D] border border-[#272736] animate-in fade-in duration-100">
-          <div className="flex items-center gap-2">
-            <Folder className="w-4 h-4 text-emerald-400 shrink-0" />
-            <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-              Sélectionner un fichier sur votre ordinateur
-            </h4>
-          </div>
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept={
-              selectedMediaType === 'video'
-                ? 'video/mp4,video/webm,video/ogg,video/quicktime'
-                : selectedMediaType === 'image'
-                ? 'image/jpeg,image/png,image/webp,image/svg+xml,image/gif'
-                : 'audio/mp3,audio/wav,audio/aac,audio/ogg,audio/m4a'
-            }
-            onChange={handleLocalFileChange}
-            className="hidden"
-          />
-
-          <div
-            onClick={() => fileInputRef.current?.click()}
-            className="border-2 border-dashed border-[#343445] hover:border-emerald-500/70 bg-[#181822] hover:bg-[#1C1C28] p-6 rounded-2xl flex flex-col items-center justify-center gap-2.5 cursor-pointer transition-all text-center group"
-          >
-            <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
-              <Upload className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-gray-200">
-                {localFileMedia ? localFileMedia.name : "Cliquez pour choisir un fichier sur l'ordinateur"}
-              </p>
-              <p className="text-[11px] text-gray-500 mt-0.5">
-                {selectedMediaType === 'video'
-                  ? 'Fichiers acceptés : MP4, WebM, MOV'
-                  : selectedMediaType === 'image'
-                  ? 'Fichiers acceptés : JPG, PNG, WebP, SVG'
-                  : 'Fichiers acceptés : MP3, WAV, AAC, M4A'}
-              </p>
-            </div>
-          </div>
-
-          {localFileMedia && (
-            <div className="space-y-3 pt-2">
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-semibold text-gray-400 block">
-                  Titre du média affiché :
-                </label>
-                <input
-                  type="text"
-                  value={mediaTitleInput}
-                  onChange={(e) => setMediaTitleInput(e.target.value)}
-                  className="w-full bg-[#1A1A24] border border-[#2F2F40] rounded-xl px-3 py-2 text-xs text-white placeholder:text-gray-500 focus:outline-none focus:border-emerald-500 transition-colors"
-                />
-              </div>
-
-              {/* Aperçu local */}
-              <div className="max-w-md rounded-xl overflow-hidden border border-[#333346] bg-black/60 p-2 flex items-center justify-center">
-                {selectedMediaType === 'video' ? (
-                  <video src={localFileMedia.url} controls className="max-h-48 w-full object-contain rounded-lg" />
-                ) : selectedMediaType === 'image' ? (
-                  <img src={localFileMedia.url} alt="Aperçu local" className="max-h-48 w-full object-contain rounded-lg" />
-                ) : (
-                  <audio src={localFileMedia.url} controls className="w-full" />
-                )}
-              </div>
-
-              <div className="pt-2 flex justify-end">
-                <button
-                  type="button"
-                  onClick={handleProjectLocalFile}
-                  className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-lg shadow-emerald-900/30 flex items-center gap-2 cursor-pointer"
-                >
-                  <Play className="w-3.5 h-3.5 fill-current" />
-                  <span>Projeter ce fichier sur l'écran</span>
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Note d'information */}
-      <div className="flex items-center gap-2 text-[11px] text-gray-500 pt-1 border-t border-[#1C1C22]">
-        <Info className="w-3.5 h-3.5 text-purple-400 shrink-0" />
-        <span>Le média projeté prend la priorité sur l'écran externe tout en laissant le pupitre et les paroles disponibles pour la suite du culte.</span>
-      </div>
     </div>
   );
-};
+});

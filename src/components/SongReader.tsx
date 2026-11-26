@@ -21,6 +21,7 @@ import {
   getYouTubeEmbedUrl,
   normalizeYouTubeUrl,
   syncYoutubeDirectiveInChordPro,
+  fetchYouTubeDuration,
   getSpotifyEmbedUrl,
   isDirectAudioUrl,
   isChordGridToken,
@@ -483,7 +484,9 @@ export const SongReader: React.FC<SongReaderProps> = ({
   const personalKey = capoStorageKey ? personalKeys[capoStorageKey] : undefined;
   const effectiveBaseKey = personalKey || defaultBaseKey;
   const effectiveTempo = setlistOverride?.bpm || setlistOverride?.tempo || song?.bpm || song?.tempo || parsedData?.tempo || 120;
-  const rawDuration = setlistOverride?.duration || song?.duration || parsedData?.duration || '03:30';
+  const rawDuration = setlistOverride?.duration
+    || getSongDuration(song ? { ...song, tempo: effectiveTempo, bpm: effectiveTempo } : null)
+    || '03:30';
   const effectiveDuration = useMemo(() => formatDurationToMMSS(rawDuration), [rawDuration]);
   const effectiveCcli = (song?.ccli || parsedData?.ccli || '').trim();
   const effectiveCopyright = (song?.copyright || parsedData?.copyright || '').trim();
@@ -711,6 +714,29 @@ export const SongReader: React.FC<SongReaderProps> = ({
           updates.contentChordPro = syncedChordPro;
         }
       }
+      const previousYoutube = (song.youtubeUrl || '').trim();
+      const shouldAutoUpdateDuration = song.durationMode !== 'custom' || !song.duration || song.duration === '03:30' || clean !== previousYoutube;
+      if (clean && shouldAutoUpdateDuration) {
+        const ytDur = await fetchYouTubeDuration(clean);
+        if (ytDur?.formatted) {
+          updates.duration = ytDur.formatted;
+          updates.durationMode = 'auto';
+        } else if (song.durationMode !== 'custom' || !song.duration) {
+          updates.duration = calculateSongAutoDuration(
+            updates.contentChordPro || song.contentChordPro,
+            effectiveTempo,
+            song.timeSignature
+          ).formatted;
+          updates.durationMode = 'auto';
+        }
+      } else if (!clean && song.durationMode !== 'custom') {
+        updates.duration = calculateSongAutoDuration(
+          updates.contentChordPro || song.contentChordPro,
+          effectiveTempo,
+          song.timeSignature
+        ).formatted;
+        updates.durationMode = 'auto';
+      }
       await updateSong(song.id, updates);
       setYoutubeInputUrl(clean);
       setShowYoutubeConfig(false);
@@ -905,16 +931,15 @@ export const SongReader: React.FC<SongReaderProps> = ({
 
   const handleEstimateAutoDuration = async () => {
     if (!parsedData || !song) return;
-    const chordLinesCount = parsedData.sections.reduce((acc, sec) => {
-      return acc + sec.lines.filter(l => l.chords.length > 0 || l.lyrics.trim().length > 0).length;
-    }, 0);
-    const beatsPerMeasure = 4;
-    const estimatedMeasures = Math.max(16, chordLinesCount * 2);
-    const beats = estimatedMeasures * beatsPerMeasure;
-    const bpm = effectiveTempo || 120;
-    const seconds = Math.round((beats / bpm) * 60);
-    const formatted = formatDurationToMMSS(Math.max(60, Math.min(900, seconds)));
-    await handleSetDurationCustom(formatted);
+    const ytDur = effectiveYoutubeUrl ? await fetchYouTubeDuration(effectiveYoutubeUrl) : null;
+    const formatted = ytDur?.formatted
+      || calculateSongAutoDuration(song.contentChordPro, effectiveTempo, song.timeSignature).formatted;
+    setInlineDurationValue(formatted);
+    if (isSetlistMode && currentSetlist) {
+      await updateSetlistSongOverride(currentSetlist.id, song.id, { duration: formatted });
+    } else {
+      await updateSong(song.id, { duration: formatted, durationMode: 'auto' });
+    }
   };
 
 

@@ -7,7 +7,9 @@ import { searchShirSongs, getShirSongDetail } from './server/shirService';
 import { searchUltimateGuitar, getUltimateGuitarSongDetail } from './server/ultimateGuitarService';
 import { searchWorshipTogether, getWorshipTogetherSongDetail } from './server/worshipTogetherService';
 import { searchLaCuerda, getLaCuerdaSongDetail } from './server/laCuerdaService';
+import { searchCifraClub, getCifraClubSongDetail } from './server/cifraClubService';
 import { decodeHtmlEntities } from './src/utils/htmlEntities';
+import { getYouTubeVideoId, formatDurationToMMSS } from './src/utils/chordUtils';
 
 dotenv.config();
 
@@ -58,6 +60,64 @@ async function startServer() {
       latestPresentationState = { ...req.body.state, updatedAt: Date.now() };
     }
     res.json({ ok: true, state: latestPresentationState });
+  });
+
+  // Temporary in-memory media store for local files projected across windows/screens
+  const presentationMediaStore = new Map<string, { buffer: Buffer; mimeType: string }>();
+  const MAX_PRESENTATION_MEDIA_ITEMS = 8;
+
+  app.post(
+    '/api/presentation-media',
+    express.raw({ type: '*/*', limit: '50mb' }),
+    (req, res) => {
+      const body = req.body;
+      if (!Buffer.isBuffer(body) || body.length === 0) {
+        return res.status(400).json({ error: 'Fichier média vide ou invalide' });
+      }
+      const rawMime = String(req.headers['content-type'] || 'application/octet-stream').split(';')[0].trim().toLowerCase();
+      const allowedPrefix = rawMime.startsWith('image/') || rawMime.startsWith('video/') || rawMime.startsWith('audio/');
+      const mimeType = allowedPrefix ? rawMime : 'application/octet-stream';
+
+      const id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+      if (presentationMediaStore.size >= MAX_PRESENTATION_MEDIA_ITEMS) {
+        const oldestKey = presentationMediaStore.keys().next().value;
+        if (oldestKey) presentationMediaStore.delete(oldestKey);
+      }
+      presentationMediaStore.set(id, { buffer: body, mimeType });
+      return res.json({ ok: true, id, url: `/api/presentation-media/${id}` });
+    }
+  );
+
+  app.get('/api/presentation-media/:id', (req, res) => {
+    const entry = presentationMediaStore.get(req.params.id);
+    if (!entry) {
+      return res.status(404).send('Média introuvable ou expiré');
+    }
+    const { buffer, mimeType } = entry;
+    const total = buffer.length;
+    res.setHeader('Content-Type', mimeType);
+    res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Content-Security-Policy', "default-src 'none'");
+
+    const range = req.headers.range;
+    if (range) {
+      const match = /^bytes=(\d*)-(\d*)$/.exec(range);
+      if (match) {
+        const start = match[1] ? parseInt(match[1], 10) : 0;
+        const end = match[2] ? Math.min(parseInt(match[2], 10), total - 1) : total - 1;
+        if (start <= end && start < total) {
+          res.status(206);
+          res.setHeader('Content-Range', `bytes ${start}-${end}/${total}`);
+          res.setHeader('Content-Length', String(end - start + 1));
+          return res.send(buffer.subarray(start, end + 1));
+        }
+      }
+    }
+
+    res.setHeader('Content-Length', String(total));
+    return res.send(buffer);
   });
 
   function cleanBibleVerseText(raw: string): string {
@@ -122,6 +182,151 @@ async function startServer() {
     }
   });
 
+  // Fetch YouTube video duration from watch page metadata (in-memory cached)
+  const youtubeDurationCache = new Map<string, number>();
+
+  function parseIso8601DurationSeconds(iso: string): number {
+    const match = iso.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/i);
+    if (!match) return 0;
+    const hours = parseInt(match[1] || '0', 10);
+    const mins = parseInt(match[2] || '0', 10);
+    const secs = parseInt(match[3] || '0', 10);
+    return hours * 3600 + mins * 60 + secs;
+  }
+
+  app.get('/api/youtube-duration', async (req, res) => {
+    try {
+      const rawUrl = typeof req.query.url === 'string' ? req.query.url.trim() : '';
+      const rawVideoId = typeof req.query.videoId === 'string' ? req.query.videoId.trim() : '';
+      const videoId = rawVideoId && /^[a-zA-Z0-9_-]{11}$/.test(rawVideoId)
+        ? rawVideoId
+        : getYouTubeVideoId(rawUrl);
+
+      if (!videoId) {
+        return res.status(400).json({ ok: false, error: 'Lien ou ID YouTube invalide' });
+      }
+
+      if (youtubeDurationCache.has(videoId)) {
+        const cachedSecs = youtubeDurationCache.get(videoId)!;
+        return res.json({
+          ok: true,
+          videoId,
+          seconds: cachedSecs,
+          formatted: formatDurationToMMSS(cachedSecs)
+        });
+      }
+
+      const watchUrl = `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`;
+      const response = await fetch(watchUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          'Accept-Language': 'en-US,en;q=0.9,fr;q=0.8'
+        },
+        signal: AbortSignal.timeout(5000)
+      });
+
+      if (!response.ok) {
+        return res.status(502).json({ ok: false, error: 'Impossible de joindre YouTube' });
+      }
+
+      const html = await response.text();
+      let seconds = 0;
+
+      const lengthMatch = html.match(/"lengthSeconds"\s*:\s*"(\d+)"/);
+      if (lengthMatch) {
+        seconds = parseInt(lengthMatch[1], 10);
+      }
+      if (!seconds || seconds <= 0) {
+        const isoMatch = html.match(/itemprop=["']duration["']\s+content=["'](PT[^"']+)["']/i);
+        if (isoMatch) {
+          seconds = parseIso8601DurationSeconds(isoMatch[1]);
+        }
+      }
+      if (!seconds || seconds <= 0) {
+        const approxMatch = html.match(/"approxDurationMs"\s*:\s*"(\d+)"/);
+        if (approxMatch) {
+          seconds = Math.round(parseInt(approxMatch[1], 10) / 1000);
+        }
+      }
+
+      if (!seconds || !Number.isFinite(seconds) || seconds <= 0) {
+        return res.status(404).json({ ok: false, error: 'Durée YouTube indisponible' });
+      }
+
+      youtubeDurationCache.set(videoId, seconds);
+      return res.json({
+        ok: true,
+        videoId,
+        seconds,
+        formatted: formatDurationToMMSS(seconds)
+      });
+    } catch (err: any) {
+      return res.status(500).json({ ok: false, error: err?.message || 'Erreur récupération durée YouTube' });
+    }
+  });
+
+  const youtubeTitleCache = new Map<string, string>();
+
+  app.get('/api/youtube-title', async (req, res) => {
+    try {
+      const rawUrl = typeof req.query.url === 'string' ? req.query.url.trim() : '';
+      const rawVideoId = typeof req.query.videoId === 'string' ? req.query.videoId.trim() : '';
+      const videoId = rawVideoId && /^[a-zA-Z0-9_-]{11}$/.test(rawVideoId)
+        ? rawVideoId
+        : getYouTubeVideoId(rawUrl);
+
+      if (!videoId) {
+        return res.status(400).json({ ok: false, error: 'Lien ou ID YouTube invalide' });
+      }
+
+      if (youtubeTitleCache.has(videoId)) {
+        return res.json({ ok: true, videoId, title: youtubeTitleCache.get(videoId) });
+      }
+
+      const watchUrl = `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`;
+      let title = '';
+
+      try {
+        const oembedRes = await fetch(
+          `https://www.youtube.com/oembed?url=${encodeURIComponent(watchUrl)}&format=json`,
+          { signal: AbortSignal.timeout(4000) }
+        );
+        if (oembedRes.ok) {
+          const data: any = await oembedRes.json();
+          if (typeof data?.title === 'string' && data.title.trim()) {
+            title = data.title.trim();
+          }
+        }
+      } catch {}
+
+      if (!title) {
+        const pageRes = await fetch(watchUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.8'
+          },
+          signal: AbortSignal.timeout(5000)
+        });
+        if (pageRes.ok) {
+          const html = await pageRes.text();
+          const ogMatch = html.match(/<meta\s+property=["']og:title["']\s+content=["']([^"']+)["']/i);
+          const titleTagMatch = html.match(/<title>([^<]+)<\/title>/i);
+          const rawTitle = ogMatch?.[1] || titleTagMatch?.[1]?.replace(/\s*-\s*YouTube\s*$/i, '') || '';
+          title = decodeHtmlEntities(rawTitle, 2).trim();
+        }
+      }
+
+      if (!title) {
+        return res.status(404).json({ ok: false, error: 'Titre YouTube indisponible' });
+      }
+
+      youtubeTitleCache.set(videoId, title);
+      return res.json({ ok: true, videoId, title });
+    } catch (err: any) {
+      return res.status(500).json({ ok: false, error: err?.message || 'Erreur récupération titre YouTube' });
+    }
+  });
+
   // Fetch full song details and chords on-demand from external site
 
   app.post('/api/external-song-detail', async (req, res) => {
@@ -144,6 +349,9 @@ async function startServer() {
       } else if (source === 'LaCuerda' || source === 'LaCuerda.net') {
         const detail = await getLaCuerdaSongDetail(target);
         if (detail) return res.json({ ok: true, song: detail });
+      } else if (source === 'Cifra Club' || source === 'CifraClub') {
+        const detail = await getCifraClubSongDetail(target);
+        if (detail) return res.json({ ok: true, song: detail });
       } else {
         // Fallback by URL signature or try Shirley / others
         if (target.includes('ultimate-guitar.com')) {
@@ -154,6 +362,9 @@ async function startServer() {
           if (detail) return res.json({ ok: true, song: detail });
         } else if (target.includes('lacuerda.net')) {
           const detail = await getLaCuerdaSongDetail(target);
+          if (detail) return res.json({ ok: true, song: detail });
+        } else if (target.includes('cifraclub.com')) {
+          const detail = await getCifraClubSongDetail(target);
           if (detail) return res.json({ ok: true, song: detail });
         } else {
           const detail = await getShirSongDetail(target);
@@ -199,13 +410,19 @@ async function startServer() {
         return res.json({ results: lcResults, total: lcResults.length, source: 'LaCuerda' });
       }
 
+      if (source === 'Cifra Club' || source === 'CifraClub') {
+        const ccResults = await searchCifraClub(q, 35);
+        return res.json({ results: ccResults, total: ccResults.length, source: 'Cifra Club' });
+      }
+
       // 2. Direct search across all sites in parallel if source === 'all' or not specified
       if (!source || source === 'all') {
-        const [shirRes, ugRes, wtRes, lcRes] = await Promise.allSettled([
+        const [shirRes, ugRes, wtRes, lcRes, ccRes] = await Promise.allSettled([
           searchShirSongs(q, 20),
           searchUltimateGuitar(q, 20),
           searchWorshipTogether(q, 20),
-          searchLaCuerda(q, 15)
+          searchLaCuerda(q, 15),
+          searchCifraClub(q, 15)
         ]);
 
         const merged: any[] = [];
@@ -213,6 +430,7 @@ async function startServer() {
         if (ugRes.status === 'fulfilled') merged.push(...ugRes.value);
         if (wtRes.status === 'fulfilled') merged.push(...wtRes.value);
         if (lcRes.status === 'fulfilled') merged.push(...lcRes.value);
+        if (ccRes.status === 'fulfilled') merged.push(...ccRes.value);
 
         if (merged.length > 0) {
           return res.json({ results: merged, total: merged.length, source: 'all' });

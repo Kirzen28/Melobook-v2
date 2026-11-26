@@ -1,7 +1,19 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { Song, Setlist } from '../types';
-import { parseDurationToSeconds, formatSetlistDuration, getSongDuration, stripParentheses, getYouTubeEmbedUrl, getSpotifyEmbedUrl } from '../utils/chordUtils';
+import {
+  parseDurationToSeconds,
+  formatSetlistDuration,
+  getSongDuration,
+  stripParentheses,
+  getYouTubeEmbedUrl,
+  getSpotifyEmbedUrl,
+  fetchYouTubeDuration,
+  calculateSongAutoDuration,
+  normalizeYouTubeUrl,
+  getYouTubeVideoId,
+  syncYoutubeDirectiveInChordPro
+} from '../utils/chordUtils';
 import { generateSetlistPdf, DEFAULT_PDF_OPTIONS } from '../utils/pdfExport';
 import { SongImportModal } from './SongImportModal';
 import { SetlistPdfModal } from './SetlistPdfModal';
@@ -230,9 +242,33 @@ export const SongList: React.FC = () => {
     if (!quickMediaSong) return;
     setIsSavingQuickMedia(true);
     try {
-      const url = quickYoutubeInput.trim();
-      await updateSong(quickMediaSong.id, { youtubeUrl: url });
-      setQuickMediaSong(prev => prev ? { ...prev, youtubeUrl: url } : null);
+      const rawUrl = quickYoutubeInput.trim();
+      const url = rawUrl ? normalizeYouTubeUrl(rawUrl) : '';
+      const updates: Partial<Song> = { youtubeUrl: url };
+      if (quickMediaSong.contentChordPro) {
+        const synced = syncYoutubeDirectiveInChordPro(quickMediaSong.contentChordPro, url);
+        if (synced !== quickMediaSong.contentChordPro) {
+          updates.contentChordPro = synced;
+        }
+      }
+      const prevYt = (quickMediaSong.youtubeUrl || '').trim();
+      const shouldAutoDuration = quickMediaSong.durationMode !== 'custom' || !quickMediaSong.duration || quickMediaSong.duration === '03:30' || url !== prevYt;
+      if (url && getYouTubeVideoId(url) && shouldAutoDuration) {
+        const ytDur = await fetchYouTubeDuration(url);
+        if (ytDur?.formatted) {
+          updates.duration = ytDur.formatted;
+          updates.durationMode = 'auto';
+        }
+      } else if (!url && quickMediaSong.durationMode !== 'custom') {
+        updates.duration = calculateSongAutoDuration(
+          updates.contentChordPro || quickMediaSong.contentChordPro,
+          quickMediaSong.bpm || quickMediaSong.tempo,
+          quickMediaSong.timeSignature
+        ).formatted;
+        updates.durationMode = 'auto';
+      }
+      await updateSong(quickMediaSong.id, updates);
+      setQuickMediaSong(prev => prev ? { ...prev, ...updates } : null);
       if (!quickMediaSong.spotifyUrl) {
         setActiveQuickEditSource('spotify');
       } else {
@@ -292,11 +328,36 @@ export const SongList: React.FC = () => {
     if (!audioLinkSong) return;
     setIsSavingAudioLink(true);
     try {
-      await updateSong(audioLinkSong.id, {
-        youtubeUrl: audioLinkYoutubeInput.trim(),
+      const rawYt = audioLinkYoutubeInput.trim();
+      const cleanYt = rawYt ? normalizeYouTubeUrl(rawYt) : '';
+      const updates: Partial<Song> = {
+        youtubeUrl: cleanYt,
         spotifyUrl: audioLinkSpotifyInput.trim(),
         audioUrl: audioLinkAudioInput.trim()
-      });
+      };
+      if (audioLinkSong.contentChordPro) {
+        const synced = syncYoutubeDirectiveInChordPro(audioLinkSong.contentChordPro, cleanYt);
+        if (synced !== audioLinkSong.contentChordPro) {
+          updates.contentChordPro = synced;
+        }
+      }
+      const prevYt = (audioLinkSong.youtubeUrl || '').trim();
+      const shouldAutoDuration = audioLinkSong.durationMode !== 'custom' || !audioLinkSong.duration || audioLinkSong.duration === '03:30' || cleanYt !== prevYt;
+      if (cleanYt && getYouTubeVideoId(cleanYt) && shouldAutoDuration) {
+        const ytDur = await fetchYouTubeDuration(cleanYt);
+        if (ytDur?.formatted) {
+          updates.duration = ytDur.formatted;
+          updates.durationMode = 'auto';
+        }
+      } else if (!cleanYt && audioLinkSong.durationMode !== 'custom') {
+        updates.duration = calculateSongAutoDuration(
+          updates.contentChordPro || audioLinkSong.contentChordPro,
+          audioLinkSong.bpm || audioLinkSong.tempo,
+          audioLinkSong.timeSignature
+        ).formatted;
+        updates.durationMode = 'auto';
+      }
+      await updateSong(audioLinkSong.id, updates);
       showNotification('Liens multimédias enregistrés');
       setAudioLinkSong(null);
     } catch (err) {
@@ -5029,8 +5090,23 @@ export const SongList: React.FC = () => {
                         onClick={async () => {
                           if (activeQuickEditSource === 'youtube') {
                             setQuickYoutubeInput('');
-                            await updateSong(quickMediaSong.id, { youtubeUrl: '' });
-                            setQuickMediaSong(prev => prev ? { ...prev, youtubeUrl: '' } : null);
+                            const updates: Partial<Song> = { youtubeUrl: '' };
+                            if (quickMediaSong.contentChordPro) {
+                              const synced = syncYoutubeDirectiveInChordPro(quickMediaSong.contentChordPro, '');
+                              if (synced !== quickMediaSong.contentChordPro) {
+                                updates.contentChordPro = synced;
+                              }
+                            }
+                            if (quickMediaSong.durationMode !== 'custom') {
+                              updates.duration = calculateSongAutoDuration(
+                                updates.contentChordPro || quickMediaSong.contentChordPro,
+                                quickMediaSong.bpm || quickMediaSong.tempo,
+                                quickMediaSong.timeSignature
+                              ).formatted;
+                              updates.durationMode = 'auto';
+                            }
+                            await updateSong(quickMediaSong.id, updates);
+                            setQuickMediaSong(prev => prev ? { ...prev, ...updates } : null);
                           } else {
                             setQuickSpotifyInput('');
                             await updateSong(quickMediaSong.id, { spotifyUrl: '' });

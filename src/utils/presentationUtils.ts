@@ -192,6 +192,37 @@ export function getYouTubeEmbedUrl(url: string, autoplay = true, loop = true, mu
   return `https://www.youtube-nocookie.com/embed/${videoId}?${params.toString()}`;
 }
 
+export function inferMediaTypeFromUrl(rawUrl: string): { type: MediaType; confident: boolean } {
+  const trimmed = (rawUrl || '').trim();
+  if (!trimmed) return { type: 'video', confident: false };
+
+  if (extractYouTubeVideoId(trimmed)) {
+    return { type: 'video', confident: true };
+  }
+
+  let pathname = trimmed;
+  try {
+    pathname = new URL(trimmed).pathname;
+  } catch {
+    pathname = trimmed.split(/[?#]/)[0];
+  }
+
+  const extMatch = pathname.match(/\.([a-z0-9]{2,5})$/i);
+  const ext = extMatch ? extMatch[1].toLowerCase() : '';
+
+  if (['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'avif', 'bmp'].includes(ext)) {
+    return { type: 'image', confident: true };
+  }
+  if (['mp3', 'wav', 'aac', 'ogg', 'm4a', 'flac', 'opus'].includes(ext)) {
+    return { type: 'audio', confident: true };
+  }
+  if (['mp4', 'webm', 'mov', 'm4v', 'mkv', 'ogv'].includes(ext)) {
+    return { type: 'video', confident: true };
+  }
+
+  return { type: 'video', confident: false };
+}
+
 
 export function getTargetTimestampFromTime(timeStr: string): number {
   if (!timeStr) return Date.now();

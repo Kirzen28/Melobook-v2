@@ -58,15 +58,10 @@ export const RoadmapView: React.FC = () => {
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [pendingLikeId, setPendingLikeId] = useState<string | null>(null);
   const [pendingStatusId, setPendingStatusId] = useState<string | null>(null);
-  const [sendingVerification, setSendingVerification] = useState(false);
 
   const uid = firebaseUser?.uid || currentUser?.uid || null;
   const email = currentUser?.email || firebaseUser?.email || null;
-  const isAdmin = !isGuest && isMainAppAdmin(email);
   const canChangeStatus = canChangeRoadmapStatus(email, isGuest);
-  const needsAdminEmailVerification = Boolean(
-    isAdmin && firebaseUser && !firebaseUser.emailVerified
-  );
 
   useEffect(() => {
     setLoading(true);
@@ -160,29 +155,13 @@ export const RoadmapView: React.FC = () => {
       await updateRoadmapItemStatus(item.id, nextStatus);
       showNotification('Statut mis à jour', 'success');
     } catch {
-      showNotification(
-        needsAdminEmailVerification
-          ? "Vérifiez votre e-mail d'administrateur pour déplacer les cartes"
-          : 'Impossible de modifier le statut',
-        'error'
-      );
+      showNotification('Impossible de modifier le statut', 'error');
     } finally {
       setPendingStatusId(null);
     }
   };
 
-  const handleSendVerification = async () => {
-    if (!firebaseUser || sendingVerification) return;
-    setSendingVerification(true);
-    try {
-      await sendEmailVerification(firebaseUser);
-      showNotification('E-mail de vérification envoyé', 'success');
-    } catch {
-      showNotification("Impossible d'envoyer l'e-mail de vérification", 'error');
-    } finally {
-      setSendingVerification(false);
-    }
-  };
+
 
   const openCreateModal = () => {
     if (isGuest || !uid) {
@@ -380,25 +359,7 @@ export const RoadmapView: React.FC = () => {
         </div>
       )}
 
-      {/* Admin email verification notice if needed for Firestore rule compliance */}
-      {needsAdminEmailVerification && (
-        <div className="px-4 py-2.5 rounded-xl bg-amber-950/25 border border-amber-500/30 flex flex-wrap items-center justify-between gap-2 text-xs text-amber-200">
-          <span className="inline-flex items-center gap-2">
-            <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0" />
-            <span>
-              Vérifiez votre adresse e-mail administrateur pour activer le changement de statut en base de données.
-            </span>
-          </span>
-          <button
-            type="button"
-            disabled={sendingVerification}
-            onClick={handleSendVerification}
-            className="px-3 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-semibold cursor-pointer"
-          >
-            {sendingVerification ? 'Envoi...' : "Envoyer l'e-mail de vérification"}
-          </button>
-        </div>
-      )}
+
 
       {/* Search & Filters */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">

@@ -1532,16 +1532,17 @@ export interface AutoDurationResult {
  */
 export function calculateSongAutoDuration(
   contentChordPro?: string,
-  tempo: number = 100,
-  timeSignature: string = '4/4'
+  tempo?: number,
+  timeSignature?: string
 ): AutoDurationResult {
   const rawText = contentChordPro || '';
   const parsed = parseChordPro(rawText);
-  const bpm = Math.max(40, Math.min(260, tempo || parsed.tempo || 100));
+  const resolvedTempo = Number(tempo) || Number(parsed.bpm) || Number(parsed.tempo) || 100;
+  const bpm = Math.max(40, Math.min(260, resolvedTempo));
 
-  // Extract beats per bar (e.g., "4/4" -> 4, "3/4" -> 3, "6/8" -> 2 or 6)
+  // Extract beats per bar (e.g., "4/4" -> 4, "3/4" -> 3, "6/8" -> 6)
   let beatsPerBar = 4;
-  const sig = timeSignature || parsed.timeSignature || '4/4';
+  const sig = (timeSignature && timeSignature.trim()) || parsed.timeSignature || '4/4';
   const sigParts = sig.split('/');
   if (sigParts.length > 0) {
     const num = parseInt(sigParts[0], 10);
@@ -1553,12 +1554,12 @@ export function calculateSongAutoDuration(
   let totalBars = 0;
 
   if (parsed.sections && parsed.sections.length > 0) {
-    for (const section of parsed.sections) {
+    const baseBarsByIndex = parsed.sections.map((section) => {
       const titleLower = (section.title || '').toLowerCase();
       let sectionBars = 0;
       const validLines = section.lines.filter(l => {
         if (l.type === 'empty' || l.type === 'comment' || l.type === 'comment_italic' || l.type === 'comment_box') return false;
-        if (l.type === 'grid_row') return Boolean(l.gridBars && l.gridBars.length > 0);
+        if (l.type === 'grid_row') return !l.isStrumRow && Boolean(l.gridBars && l.gridBars.length > 0);
         if (l.type === 'tab_row') return Boolean(l.tabText && l.tabText.trim().length > 0);
         return l.items && l.items.some(it => (it.lyrics && it.lyrics.trim().length > 0) || (it.chord && it.chord.trim().length > 0));
       });
@@ -1572,29 +1573,45 @@ export function calculateSongAutoDuration(
           const chordCount = line.items ? line.items.filter(it => it.chord && it.chord.trim().length > 0).length : 0;
           if (chordCount >= 4) {
             sectionBars += 4;
-          } else if (chordCount >= 2) {
-            sectionBars += 2;
           } else {
             sectionBars += 2;
           }
         }
+      } else if (section.blockKind === 'chorus_recall' || section.isChorusRecall) {
+        return 0;
+      } else if (titleLower.includes('intro') || titleLower.includes('outro') || titleLower.includes('solo') || titleLower.includes('instrumental')) {
+        sectionBars += 8;
       } else {
-        if (titleLower.includes('intro') || titleLower.includes('outro') || titleLower.includes('solo') || titleLower.includes('instrumental')) {
-          sectionBars += 8;
-        } else {
-          sectionBars += 16;
-        }
+        sectionBars += 16;
       }
 
-      // Ensure minimum standard structure per section
       if (titleLower.includes('intro') || titleLower.includes('outro') || titleLower.includes('tag')) {
         sectionBars = Math.max(4, sectionBars);
       } else {
         sectionBars = Math.max(8, sectionBars);
       }
 
-      totalBars += sectionBars;
-    }
+      return sectionBars;
+    });
+
+    parsed.sections.forEach((section, idx) => {
+      const repeatCount = Math.max(1, Number(section.repeat) || 1);
+      let baseBars = baseBarsByIndex[idx];
+      if ((section.blockKind === 'chorus_recall' || section.isChorusRecall) && baseBars === 0) {
+        const recallTarget = (section.recallLabel || section.title || '').toLowerCase().trim();
+        const matchingChorusIdx = parsed.sections.findIndex((s, i) =>
+          i !== idx &&
+          !(s.blockKind === 'chorus_recall' || s.isChorusRecall) &&
+          (s.type === 'chorus' || (s.title || '').toLowerCase().includes('refrain') || (s.title || '').toLowerCase().includes('chorus')) &&
+          (!recallTarget || (s.title || '').toLowerCase().includes(recallTarget))
+        );
+        const fallbackChorusIdx = matchingChorusIdx !== -1
+          ? matchingChorusIdx
+          : parsed.sections.findIndex((s, i) => i !== idx && s.type === 'chorus' && !(s.blockKind === 'chorus_recall' || s.isChorusRecall));
+        baseBars = fallbackChorusIdx !== -1 ? baseBarsByIndex[fallbackChorusIdx] : 8;
+      }
+      totalBars += baseBars * repeatCount;
+    });
   } else {
     // Fallback: estimate from non-empty lines
     const lines = rawText.split('\n').filter(l => l.trim().length > 0 && !l.trim().startsWith('{'));
@@ -1606,7 +1623,7 @@ export function calculateSongAutoDuration(
 
   const totalBeats = totalBars * beatsPerBar;
   const rawSeconds = Math.round((totalBeats / bpm) * 60);
-  const seconds = Math.max(45, Math.min(900, rawSeconds)); // clamp between 45s and 15min
+  const seconds = Math.max(45, Math.min(1800, rawSeconds)); // clamp between 45s and 30min
 
   const formatted = formatSecondsToMinutes(seconds);
   const explanation = `${totalBars} mesures à ${bpm} BPM (${sig})`;
@@ -1619,6 +1636,32 @@ export function calculateSongAutoDuration(
     beatsPerBar,
     explanation
   };
+}
+
+/**
+ * Fetch exact YouTube video duration via backend /api/youtube-duration.
+ */
+export async function fetchYouTubeDuration(youtubeUrl?: string): Promise<{ seconds: number; formatted: string } | null> {
+  if (!youtubeUrl || !getYouTubeVideoId(youtubeUrl) || typeof fetch !== 'function') return null;
+  try {
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timeoutId = controller ? setTimeout(() => controller.abort(), 4500) : null;
+    const res = await fetch(`/api/youtube-duration?url=${encodeURIComponent(youtubeUrl.trim())}`, {
+      signal: controller?.signal
+    });
+    if (timeoutId) clearTimeout(timeoutId);
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data?.ok && typeof data.seconds === 'number' && data.seconds > 0) {
+      return {
+        seconds: data.seconds,
+        formatted: data.formatted || formatDurationToMMSS(data.seconds)
+      };
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -1641,38 +1684,60 @@ export function formatDurationToMMSS(duration?: string | number | { duration?: s
 
 /**
  * Extract or resolve duration from song object or its ChordPro text formatted as MM:SS.
+ * Falls back to tempo & structure estimation when no custom duration is set.
  */
 export function getSongDuration(song?: { 
   duration?: string; 
   durationMode?: 'auto' | 'custom';
+  youtubeUrl?: string;
   contentChordPro?: string;
   tempo?: number;
+  bpm?: number;
   timeSignature?: string;
 } | null): string {
   if (!song) return '';
 
-  let raw = '';
-  if (song.duration && song.duration.trim() && song.duration !== 'auto') {
-    raw = song.duration.trim();
-  } else if (song.contentChordPro) {
+  const hasValidYoutube = Boolean(song.youtubeUrl && getYouTubeVideoId(song.youtubeUrl));
+  const rawField = (song.duration && song.duration.trim() && song.duration.trim().toLowerCase() !== 'auto')
+    ? song.duration.trim()
+    : '';
+
+  if (song.durationMode === 'auto') {
+    if (hasValidYoutube && rawField) {
+      return formatDurationToMMSS(rawField);
+    }
+    return calculateSongAutoDuration(
+      song.contentChordPro,
+      song.bpm || song.tempo,
+      song.timeSignature
+    ).formatted;
+  }
+
+  let raw = rawField;
+  if (!raw && song.contentChordPro) {
     const match = song.contentChordPro.match(/\{(?:duration|dur|d|duree|durée|time_duration)\s*:\s*([^}]+)\}/i);
     if (match && match[1] && match[1].trim() && match[1].trim().toLowerCase() !== 'auto') {
       raw = match[1].trim();
     }
   }
 
-  if (!raw) {
-    raw = '03:30';
+  if (raw) {
+    return formatDurationToMMSS(raw);
   }
 
-  return formatDurationToMMSS(raw);
+  return calculateSongAutoDuration(
+    song.contentChordPro,
+    song.bpm || song.tempo,
+    song.timeSignature
+  ).formatted;
 }
 
 /**
  * Check if a song uses automatic duration
  */
-export function isSongDurationAuto(song?: { duration?: string; durationMode?: 'auto' | 'custom' } | null): boolean {
-  return false;
+export function isSongDurationAuto(song?: { duration?: string; durationMode?: 'auto' | 'custom'; [key: string]: unknown } | null): boolean {
+  if (!song) return false;
+  return song.durationMode === 'auto' || !song.duration || song.duration.trim().toLowerCase() === 'auto';
 }
 
 /**

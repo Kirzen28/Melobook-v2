@@ -1,6 +1,27 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { Song } from '../types';
+import {
+  DEFAULT_ARTIST_SUGGESTIONS,
+  getCustomArtists,
+  saveCustomArtists
+} from '../utils/artistUtils';
+import {
+  DEFAULT_CATEGORY_SUGGESTIONS,
+  getCustomCategories,
+  getHiddenCategories,
+  saveCustomCategories
+} from '../utils/categoryUtils';
+import {
+  NameDuplicateGroup,
+  NameMatchMode,
+  buildArtistMergeUpdates,
+  buildCategoryMergeUpdates,
+  cleanCustomNameList,
+  collectArtistVariants,
+  collectCategoryVariants,
+  findNameDuplicateGroups
+} from '../utils/duplicateUtils';
 import { 
   Trash2, 
   CheckCircle2, 
@@ -11,14 +32,12 @@ import {
   ChevronDown, 
   ChevronUp, 
   Copy, 
-  Layers, 
-  ArrowRight,
   ListMusic,
   Check,
-  X,
-  FileText,
-  SlidersHorizontal,
-  Info
+  Music,
+  Users,
+  Tag,
+  GitMerge
 } from 'lucide-react';
 
 // Normalisation du texte
@@ -68,6 +87,7 @@ const getSongCompletenessScore = (song: Song): number => {
 };
 
 type DetectionCriteria = 'title_only' | 'title_and_artist' | 'similar_content';
+type CleanerTab = 'songs' | 'artists' | 'categories';
 
 interface DuplicateGroup {
   id: string;
@@ -85,8 +105,9 @@ export const DuplicateCleanerSection: React.FC<DuplicateCleanerSectionProps> = (
   isOpen = true,
   onToggle
 }) => {
-  const { songs, setlists, updateSetlist, deleteSong } = useApp();
+  const { songs, setlists, updateSetlist, deleteSong, updateSong } = useApp();
 
+  const [activeTab, setActiveTab] = useState<CleanerTab>('songs');
   const [criteria, setCriteria] = useState<DetectionCriteria>('title_only');
   const [userKeepMap, setUserKeepMap] = useState<Record<string, string>>({});
   const [userDeleteOverrides, setUserDeleteOverrides] = useState<Record<string, boolean>>({});
@@ -97,6 +118,16 @@ export const DuplicateCleanerSection: React.FC<DuplicateCleanerSectionProps> = (
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const [deleteProgress, setDeleteProgress] = useState<{ current: number; total: number } | null>(null);
   const [lastCleanResult, setLastCleanResult] = useState<string | null>(null);
+
+  // État pour doublons Artistes / Catégories
+  const [nameMatchMode, setNameMatchMode] = useState<NameMatchMode>('exact_norm');
+  const [nameKeepMap, setNameKeepMap] = useState<Record<string, string>>({});
+  const [nameMergeOverrides, setNameMergeOverrides] = useState<Record<string, boolean>>({});
+  const [nameCollapsedGroups, setNameCollapsedGroups] = useState<Record<string, boolean>>({});
+  const [customListVersion, setCustomListVersion] = useState<number>(0);
+  const [isNameConfirmOpen, setIsNameConfirmOpen] = useState<boolean>(false);
+  const [isMergingNames, setIsMergingNames] = useState<boolean>(false);
+  const [nameMergeProgress, setNameMergeProgress] = useState<{ current: number; total: number } | null>(null);
 
   // Détection des groupes de doublons selon le critère choisi
   const duplicateGroups = useMemo<DuplicateGroup[]>(() => {
@@ -291,6 +322,154 @@ export const DuplicateCleanerSection: React.FC<DuplicateCleanerSectionProps> = (
     }
   };
 
+  // --- Détection & nettoyage des doublons Artistes et Catégories ---
+  const artistVariantsMap = useMemo(
+    () => collectArtistVariants(songs, getCustomArtists(), DEFAULT_ARTIST_SUGGESTIONS),
+    [songs, customListVersion]
+  );
+
+  const categoryVariantsMap = useMemo(
+    () => collectCategoryVariants(songs, getCustomCategories(), DEFAULT_CATEGORY_SUGGESTIONS, getHiddenCategories()),
+    [songs, customListVersion]
+  );
+
+  const artistDuplicateGroups = useMemo<NameDuplicateGroup[]>(
+    () => findNameDuplicateGroups(artistVariantsMap, nameMatchMode, 'artist'),
+    [artistVariantsMap, nameMatchMode]
+  );
+
+  const categoryDuplicateGroups = useMemo<NameDuplicateGroup[]>(
+    () => findNameDuplicateGroups(categoryVariantsMap, nameMatchMode, 'cat'),
+    [categoryVariantsMap, nameMatchMode]
+  );
+
+  const activeNameGroups = activeTab === 'artists' ? artistDuplicateGroups : categoryDuplicateGroups;
+  const activeUniqueCount = activeTab === 'artists' ? artistVariantsMap.size : categoryVariantsMap.size;
+
+  const getKeepVariantName = (group: NameDuplicateGroup): string => {
+    const chosen = nameKeepMap[group.id];
+    if (chosen && group.variants.some(v => v.name === chosen)) {
+      return chosen;
+    }
+    return group.recommendedKeepName;
+  };
+
+  const variantKey = (groupId: string, name: string) => `${groupId}::${name}`;
+
+  const isVariantMarkedForMerge = (group: NameDuplicateGroup, name: string): boolean => {
+    if (name === getKeepVariantName(group)) return false;
+    const override = nameMergeOverrides[variantKey(group.id, name)];
+    return override !== undefined ? override : true;
+  };
+
+  const handleSelectKeepVariant = (groupId: string, name: string) => {
+    const group = activeNameGroups.find(g => g.id === groupId);
+    if (!group) return;
+
+    setNameKeepMap(prev => ({ ...prev, [groupId]: name }));
+    setNameMergeOverrides(prev => {
+      const next = { ...prev };
+      group.variants.forEach(v => {
+        next[variantKey(groupId, v.name)] = v.name !== name;
+      });
+      return next;
+    });
+  };
+
+  const handleToggleVariantMerge = (groupId: string, name: string) => {
+    const group = activeNameGroups.find(g => g.id === groupId);
+    if (!group || name === getKeepVariantName(group)) return;
+    const key = variantKey(groupId, name);
+    const current = isVariantMarkedForMerge(group, name);
+    setNameMergeOverrides(prev => ({ ...prev, [key]: !current }));
+  };
+
+  const handleToggleSelectAllVariants = (select: boolean) => {
+    const updates: Record<string, boolean> = {};
+    activeNameGroups.forEach(group => {
+      const keepName = getKeepVariantName(group);
+      group.variants.forEach(v => {
+        if (v.name !== keepName) {
+          updates[variantKey(group.id, v.name)] = select;
+        }
+      });
+    });
+    setNameMergeOverrides(prev => ({ ...prev, ...updates }));
+  };
+
+  const nameReplacementMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    activeNameGroups.forEach(group => {
+      const keepName = getKeepVariantName(group);
+      group.variants.forEach(v => {
+        if (v.name !== keepName && isVariantMarkedForMerge(group, v.name)) {
+          map[v.name] = keepName;
+        }
+      });
+    });
+    return map;
+  }, [activeNameGroups, nameKeepMap, nameMergeOverrides]);
+
+  const totalVariantsToMergeCount = Object.keys(nameReplacementMap).length;
+
+  const pendingNameSongUpdates = useMemo(() => {
+    if (activeTab === 'artists') {
+      return buildArtistMergeUpdates(songs, nameReplacementMap);
+    }
+    if (activeTab === 'categories') {
+      return buildCategoryMergeUpdates(songs, nameReplacementMap);
+    }
+    return [];
+  }, [activeTab, songs, nameReplacementMap]);
+
+  const handleExecuteNameMerge = async () => {
+    if (totalVariantsToMergeCount === 0) return;
+
+    setIsMergingNames(true);
+    const totalSteps = pendingNameSongUpdates.length || 1;
+    setNameMergeProgress({ current: 0, total: totalSteps });
+
+    try {
+      if (activeTab === 'artists') {
+        const updates = buildArtistMergeUpdates(songs, nameReplacementMap);
+        let done = 0;
+        for (const u of updates) {
+          await updateSong(u.id, { artist: u.artist });
+          done++;
+          setNameMergeProgress({ current: done, total: updates.length });
+        }
+        saveCustomArtists(cleanCustomNameList(getCustomArtists(), nameReplacementMap));
+        setLastCleanResult(
+          `${totalVariantsToMergeCount} variante(s) d'artiste fusionnée(s) (${updates.length} chant(s) mis à jour).`
+        );
+      } else if (activeTab === 'categories') {
+        const updates = buildCategoryMergeUpdates(songs, nameReplacementMap);
+        let done = 0;
+        for (const u of updates) {
+          await updateSong(u.id, { tags: u.tags });
+          done++;
+          setNameMergeProgress({ current: done, total: updates.length });
+        }
+        saveCustomCategories(cleanCustomNameList(getCustomCategories(), nameReplacementMap));
+        setLastCleanResult(
+          `${totalVariantsToMergeCount} catégorie(s) en double fusionnée(s) (${updates.length} chant(s) mis à jour).`
+        );
+      }
+
+      setCustomListVersion(v => v + 1);
+      setNameKeepMap({});
+      setNameMergeOverrides({});
+      setTimeout(() => setLastCleanResult(null), 5000);
+    } catch (err) {
+      console.error('Erreur lors de la fusion des doublons:', err);
+      setLastCleanResult('Une erreur est survenue lors de la fusion.');
+    } finally {
+      setIsMergingNames(false);
+      setNameMergeProgress(null);
+      setIsNameConfirmOpen(false);
+    }
+  };
+
   return (
     <div className="bg-[#111112] border border-[#222224] rounded-xl overflow-hidden shadow-sm transition-colors hover:border-[#303036]">
       {/* En-tête de section */}
@@ -322,49 +501,142 @@ export const DuplicateCleanerSection: React.FC<DuplicateCleanerSectionProps> = (
       <div className={`p-4 sm:p-5 pt-0 sm:pt-0 ${isOpen ? 'block' : 'hidden'}`}>
         <div className="border-t border-[#222224] mb-4" />
 
-        {/* Critère de détection */}
+        {/* Sélecteur de cible : Chants / Artistes / Catégories */}
         <div className="flex flex-wrap items-center justify-between gap-2.5 pb-3 mb-4 border-b border-[#1E1E22]">
-          <div className="flex items-center gap-1.5">
-            <span className="text-[11px] text-gray-400 font-medium">Critère de détection :</span>
-            <div className="flex items-center bg-[#18181A] border border-[#2B2B30] rounded-lg p-0.5 text-xs">
-              <button
-                type="button"
-                onClick={() => setCriteria('title_only')}
-                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
-                  criteria === 'title_only'
-                    ? 'bg-blue-600 text-white shadow-xs'
-                    : 'text-gray-400 hover:text-white'
-                }`}
-                title="Compare les titres uniquement sans tenir compte de la casse ni des accents"
-              >
-                Même titre
-              </button>
-              <button
-                type="button"
-                onClick={() => setCriteria('title_and_artist')}
-                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
-                  criteria === 'title_and_artist'
-                    ? 'bg-blue-600 text-white shadow-xs'
-                    : 'text-gray-400 hover:text-white'
-                }`}
-                title="Compare le titre et l'artiste"
-              >
-                Titre & Artiste
-              </button>
-              <button
-                type="button"
-                onClick={() => setCriteria('similar_content')}
-                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
-                  criteria === 'similar_content'
-                    ? 'bg-blue-600 text-white shadow-xs'
-                    : 'text-gray-400 hover:text-white'
-                }`}
-                title="Compare le début des paroles pour détecter les copies identiques"
-              >
-                Paroles
-              </button>
-            </div>
+          <div className="flex items-center bg-[#18181A] border border-[#2B2B30] rounded-lg p-0.5 text-xs">
+            <button
+              type="button"
+              onClick={() => setActiveTab('songs')}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
+                activeTab === 'songs'
+                  ? 'bg-rose-600 text-white shadow-xs'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              <Music className="w-3.5 h-3.5" />
+              <span>Chants</span>
+              {duplicateGroups.length > 0 && (
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                  activeTab === 'songs' ? 'bg-black/25 text-white' : 'bg-rose-500/20 text-rose-300'
+                }`}>
+                  {duplicateGroups.length}
+                </span>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('artists')}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
+                activeTab === 'artists'
+                  ? 'bg-rose-600 text-white shadow-xs'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>Artistes</span>
+              {artistDuplicateGroups.length > 0 && (
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                  activeTab === 'artists' ? 'bg-black/25 text-white' : 'bg-amber-500/20 text-amber-300'
+                }`}>
+                  {artistDuplicateGroups.length}
+                </span>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('categories')}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
+                activeTab === 'categories'
+                  ? 'bg-rose-600 text-white shadow-xs'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              <Tag className="w-3.5 h-3.5" />
+              <span>Catégories</span>
+              {categoryDuplicateGroups.length > 0 && (
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                  activeTab === 'categories' ? 'bg-black/25 text-white' : 'bg-amber-500/20 text-amber-300'
+                }`}>
+                  {categoryDuplicateGroups.length}
+                </span>
+              )}
+            </button>
           </div>
+
+          {/* Critère de détection selon l'onglet */}
+          {activeTab === 'songs' ? (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[11px] text-gray-400 font-medium">Critère :</span>
+              <div className="flex items-center bg-[#18181A] border border-[#2B2B30] rounded-lg p-0.5 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setCriteria('title_only')}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
+                    criteria === 'title_only'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                  title="Compare les titres uniquement sans tenir compte de la casse ni des accents"
+                >
+                  Même titre
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCriteria('title_and_artist')}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
+                    criteria === 'title_and_artist'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                  title="Compare le titre et l'artiste"
+                >
+                  Titre & Artiste
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCriteria('similar_content')}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
+                    criteria === 'similar_content'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                  title="Compare le début des paroles pour détecter les copies identiques"
+                >
+                  Paroles
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[11px] text-gray-400 font-medium">Détection :</span>
+              <div className="flex items-center bg-[#18181A] border border-[#2B2B30] rounded-lg p-0.5 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setNameMatchMode('exact_norm')}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
+                    nameMatchMode === 'exact_norm'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                  title="Détecte les différences de majuscules, accents, espaces ou tirets"
+                >
+                  Même nom
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNameMatchMode('similar')}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
+                    nameMatchMode === 'similar'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                  title="Inclut les pluriels et légères fautes de frappe"
+                >
+                  Noms proches
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
       {/* Notification de résultat */}
@@ -375,8 +647,9 @@ export const DuplicateCleanerSection: React.FC<DuplicateCleanerSectionProps> = (
         </div>
       )}
 
-      {/* État 1 : AUCUN DOUBLON */}
-      {duplicateGroups.length === 0 ? (
+      {/* CONTENU ONGLET CHANTS */}
+      {activeTab === 'songs' && (
+      duplicateGroups.length === 0 ? (
         <div className="p-6 rounded-xl bg-[#151518] border border-[#252528] text-center flex flex-col items-center justify-center">
           <div className="w-10 h-10 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mb-2.5">
             <CheckCircle2 className="w-5 h-5" />
@@ -609,6 +882,186 @@ export const DuplicateCleanerSection: React.FC<DuplicateCleanerSectionProps> = (
           </div>
 
         </div>
+      ))}
+
+      {/* CONTENU ONGLET ARTISTES / CATÉGORIES */}
+      {(activeTab === 'artists' || activeTab === 'categories') && (
+        activeNameGroups.length === 0 ? (
+          <div className="p-6 rounded-xl bg-[#151518] border border-[#252528] text-center flex flex-col items-center justify-center">
+            <div className="w-10 h-10 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mb-2.5">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
+            <h3 className="text-sm font-bold text-white mb-1">
+              {activeTab === 'artists'
+                ? "Aucun doublon d'artiste détecté"
+                : 'Aucune catégorie en double détectée'}
+            </h3>
+            <p className="text-xs text-gray-400 max-w-md">
+              L'analyse de {activeUniqueCount} {activeTab === 'artists' ? 'artistes' : 'catégories'} sur {songs.length} chants n'a révélé aucune variante en double avec ce critère.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {/* Barre d'action supérieure */}
+            <div className="p-3 rounded-lg bg-[#18181A] border border-[#28282D] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-gray-300 font-medium">
+                  <strong className="text-amber-400 font-bold">{totalVariantsToMergeCount}</strong> variante(s) sélectionnée(s) pour fusion
+                </span>
+                <span className="text-gray-500">•</span>
+                <button
+                  type="button"
+                  onClick={() => handleToggleSelectAllVariants(true)}
+                  className="text-[11px] text-blue-400 hover:text-blue-300 hover:underline cursor-pointer"
+                >
+                  Tout cocher
+                </button>
+                <span className="text-gray-600">|</span>
+                <button
+                  type="button"
+                  onClick={() => handleToggleSelectAllVariants(false)}
+                  className="text-[11px] text-gray-400 hover:text-gray-200 hover:underline cursor-pointer"
+                >
+                  Tout décocher
+                </button>
+              </div>
+
+              <button
+                type="button"
+                disabled={totalVariantsToMergeCount === 0 || isMergingNames}
+                onClick={() => setIsNameConfirmOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer shrink-0"
+              >
+                <GitMerge className="w-3.5 h-3.5" />
+                <span>Fusionner {totalVariantsToMergeCount}</span>
+              </button>
+            </div>
+
+            {/* Groupes de variantes */}
+            <div className="space-y-3">
+              {activeNameGroups.map(group => {
+                const keepName = getKeepVariantName(group);
+                const isExpanded = !nameCollapsedGroups[group.id];
+
+                return (
+                  <div
+                    key={group.id}
+                    className="rounded-xl bg-[#141416] border border-[#252528] overflow-hidden"
+                  >
+                    <div
+                      onClick={() => setNameCollapsedGroups(prev => ({ ...prev, [group.id]: !prev[group.id] }))}
+                      className="px-3.5 py-2.5 bg-[#18181C] border-b border-[#222226] flex items-center justify-between cursor-pointer hover:bg-[#1C1C20] transition-colors"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-5 h-5 rounded bg-amber-500/20 text-amber-300 flex items-center justify-center text-[10px] font-bold shrink-0">
+                          {group.variants.length}
+                        </div>
+                        <span className="font-bold text-white text-xs truncate">
+                          {keepName}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-[10px] text-gray-400 hidden sm:inline">
+                          1 conservé • {group.variants.length - 1} variante(s)
+                        </span>
+                        {isExpanded ? (
+                          <ChevronUp className="w-4 h-4 text-gray-400" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4 text-gray-400" />
+                        )}
+                      </div>
+                    </div>
+
+                    {isExpanded && (
+                      <div className="p-3 space-y-2">
+                        {group.variants.map(variant => {
+                          const isKept = variant.name === keepName;
+                          const isMarked = isVariantMarkedForMerge(group, variant.name);
+                          const isRecommended = variant.name === group.recommendedKeepName;
+
+                          return (
+                            <div
+                              key={variant.name}
+                              className={`p-2.5 rounded-lg border transition-all flex items-center justify-between gap-2 ${
+                                isKept
+                                  ? 'bg-emerald-950/20 border-emerald-500/40'
+                                  : isMarked
+                                  ? 'bg-rose-950/15 border-rose-500/30'
+                                  : 'bg-[#18181A] border-[#2A2A2E]'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <button
+                                  type="button"
+                                  onClick={() => handleSelectKeepVariant(group.id, variant.name)}
+                                  className={`w-4 h-4 rounded-full border flex items-center justify-center transition-all cursor-pointer shrink-0 ${
+                                    isKept
+                                      ? 'bg-emerald-500 border-emerald-400 text-black shadow-xs'
+                                      : 'border-gray-500 hover:border-gray-300'
+                                  }`}
+                                  title={isKept ? 'Nom conservé' : 'Cliquer pour conserver cette écriture'}
+                                >
+                                  {isKept && <div className="w-1.5 h-1.5 rounded-full bg-black" />}
+                                </button>
+
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="font-semibold text-white text-xs truncate">
+                                      {variant.name}
+                                    </span>
+                                    {isKept && (
+                                      <span className="px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9px] font-bold">
+                                        À CONSERVER
+                                      </span>
+                                    )}
+                                    {isRecommended && (
+                                      <span className="px-1.5 py-0.2 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30 text-[9px] font-medium">
+                                        Recommandé
+                                      </span>
+                                    )}
+                                    {variant.isDefault && (
+                                      <span className="px-1.5 py-0.2 rounded bg-[#222226] text-gray-300 border border-[#333] text-[9px]">
+                                        Par défaut
+                                      </span>
+                                    )}
+                                    {variant.isCustom && (
+                                      <span className="px-1.5 py-0.2 rounded bg-purple-500/15 text-purple-300 border border-purple-500/30 text-[9px]">
+                                        Personnalisée
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="text-[10px] text-gray-400 mt-0.5">
+                                    Utilisé sur <strong className="text-gray-300">{variant.songCount}</strong> chant{variant.songCount > 1 ? 's' : ''}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {!isKept && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleVariantMerge(group.id, variant.name)}
+                                  className={`px-2 py-1 rounded text-[11px] font-semibold border flex items-center gap-1.5 cursor-pointer transition-colors shrink-0 ${
+                                    isMarked
+                                      ? 'bg-rose-600/20 text-rose-300 border-rose-500/40 hover:bg-rose-600/30'
+                                      : 'bg-[#222] text-gray-400 border-[#333] hover:text-white'
+                                  }`}
+                                >
+                                  <GitMerge className="w-3 h-3" />
+                                  <span>{isMarked ? 'Fusionner' : 'Ignorer'}</span>
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )
       )}
 
       {/* MODAL DE CONFIRMATION DE SUPPRESSION */}
@@ -689,6 +1142,86 @@ export const DuplicateCleanerSection: React.FC<DuplicateCleanerSectionProps> = (
                   <>
                     <Trash2 className="w-3.5 h-3.5" />
                     <span>Confirmer la suppression</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE CONFIRMATION DE FUSION ARTISTES / CATÉGORIES */}
+      {isNameConfirmOpen && (
+        <div
+          className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="bg-[#18181B] border border-[#2E2E33] rounded-2xl max-w-md w-full p-5 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-amber-400">
+              <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center shrink-0">
+                <GitMerge className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white">
+                  Confirmer la fusion des {activeTab === 'artists' ? 'artistes' : 'catégories'}
+                </h3>
+                <p className="text-[11px] text-gray-400">
+                  Les variantes sélectionnées seront remplacées par le nom conservé sur tous les chants concernés.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-[#111112] border border-[#252528] text-xs space-y-2">
+              <div className="flex items-center justify-between text-gray-300">
+                <span>Variantes fusionnées :</span>
+                <strong className="text-rose-400 font-bold">{totalVariantsToMergeCount}</strong>
+              </div>
+              <div className="flex items-center justify-between text-gray-300">
+                <span>Chants mis à jour :</span>
+                <strong className="text-white font-bold">{pendingNameSongUpdates.length}</strong>
+              </div>
+            </div>
+
+            {isMergingNames && nameMergeProgress && (
+              <div className="space-y-1.5 pt-1">
+                <div className="flex justify-between text-[11px] text-gray-400 font-mono">
+                  <span>Mise à jour en cours...</span>
+                  <span>{nameMergeProgress.current} / {nameMergeProgress.total}</span>
+                </div>
+                <div className="w-full h-1.5 bg-[#252528] rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-rose-500 transition-all duration-150"
+                    style={{ width: `${(nameMergeProgress.current / Math.max(1, nameMergeProgress.total)) * 100}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                disabled={isMergingNames}
+                onClick={() => setIsNameConfirmOpen(false)}
+                className="px-3.5 py-1.5 rounded-lg bg-[#222] hover:bg-[#28282D] text-gray-300 hover:text-white border border-[#333] text-xs font-semibold transition-colors cursor-pointer"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                disabled={isMergingNames}
+                onClick={handleExecuteNameMerge}
+                className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white text-xs font-bold transition-all shadow-md active:scale-95 cursor-pointer"
+              >
+                {isMergingNames ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Fusion...</span>
+                  </>
+                ) : (
+                  <>
+                    <GitMerge className="w-3.5 h-3.5" />
+                    <span>Confirmer la fusion</span>
                   </>
                 )}
               </button>

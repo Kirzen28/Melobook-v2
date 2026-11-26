@@ -6,7 +6,11 @@ import {
   getVocalBadgeStyle,
   formatSecondsToMinutes, 
   parseDurationToSeconds,
-  formatDurationToMMSS
+  formatDurationToMMSS,
+  calculateSongAutoDuration,
+  fetchYouTubeDuration,
+  getYouTubeVideoId,
+  normalizeYouTubeUrl
 } from '../utils/chordUtils';
 import { 
   VisualSection, 
@@ -194,7 +198,20 @@ export const SongEditor: React.FC = () => {
   };
   const [bpm, setBpm] = useState<number>(selectedSong?.bpm || selectedSong?.tempo || 100);
   const [timeSignature, setTimeSignature] = useState(selectedSong?.timeSignature || '4/4');
-  const [duration, setDuration] = useState(selectedSong?.duration ? formatDurationToMMSS(selectedSong.duration) : '03:30');
+  const [durationMode, setDurationMode] = useState<'auto' | 'custom'>(
+    selectedSong?.durationMode === 'custom' && selectedSong?.duration ? 'custom' : 'auto'
+  );
+  const [duration, setDuration] = useState(() => {
+    if (selectedSong?.duration && selectedSong.duration !== 'auto') {
+      return formatDurationToMMSS(selectedSong.duration);
+    }
+    return calculateSongAutoDuration(
+      selectedSong?.contentChordPro || SAMPLE_TEMPLATE,
+      selectedSong?.bpm || selectedSong?.tempo || 100,
+      selectedSong?.timeSignature || '4/4'
+    ).formatted;
+  });
+  const ytDurationUrlRef = useRef<string>('');
   const [capo, setCapo] = useState<number>(selectedSong?.capo || 0);
   const [language, setLanguage] = useState<string>(() => {
     if (selectedSong?.language) return selectedSong.language;
@@ -568,7 +585,17 @@ export const SongEditor: React.FC = () => {
       setTempo(songBpm);
       setBpm(songBpm);
       setTimeSignature(selectedSong.timeSignature || '4/4');
-      setDuration(selectedSong.duration && selectedSong.duration !== 'auto' ? formatDurationToMMSS(selectedSong.duration) : '03:30');
+      const songDurationMode: 'auto' | 'custom' = (selectedSong.durationMode === 'custom' && selectedSong.duration) ? 'custom' : 'auto';
+      setDurationMode(songDurationMode);
+      setDuration(
+        selectedSong.duration && selectedSong.duration !== 'auto'
+          ? formatDurationToMMSS(selectedSong.duration)
+          : calculateSongAutoDuration(
+              selectedSong.contentChordPro || selectedSong.content || '',
+              songBpm,
+              selectedSong.timeSignature || '4/4'
+            ).formatted
+      );
       setCapo(selectedSong.capo || 0);
       
       const detected = detectSongLanguageWithConfidence(selectedSong.title, selectedSong.contentChordPro || selectedSong.content);
@@ -581,7 +608,11 @@ export const SongEditor: React.FC = () => {
       setAlbum(selectedSong.album || parsedMeta.album || '');
       setCcli(selectedSong.ccli || parsedMeta.ccli || '');
       setCopyright(selectedSong.copyright || parsedMeta.copyright || '');
-      setYoutubeUrl(selectedSong.youtubeUrl || parsedMeta.youtubeUrl || '');
+      const initialYoutube = selectedSong.youtubeUrl || parsedMeta.youtubeUrl || '';
+      setYoutubeUrl(initialYoutube);
+      ytDurationUrlRef.current = (songDurationMode === 'auto' && selectedSong.duration && getYouTubeVideoId(initialYoutube))
+        ? normalizeYouTubeUrl(initialYoutube)
+        : '';
       setAudioUrl(selectedSong.audioUrl || parsedMeta.audioUrl || '');
       setSpotifyUrl(selectedSong.spotifyUrl || parsedMeta.spotifyUrl || '');
 
@@ -599,7 +630,9 @@ export const SongEditor: React.FC = () => {
       setTempo(100);
       setBpm(100);
       setTimeSignature('4/4');
-      setDuration('3:30');
+      setDurationMode('auto');
+      setDuration(calculateSongAutoDuration(SAMPLE_TEMPLATE, 100, '4/4').formatted);
+      ytDurationUrlRef.current = '';
       setCapo(0);
       setCcli('');
       setCopyright('');
@@ -618,6 +651,45 @@ export const SongEditor: React.FC = () => {
       setVisualSections(chordProToVisualSections(SAMPLE_TEMPLATE));
     }
   }, [selectedSong]);
+
+  // Auto-resolve duration from YouTube link when present and in auto mode
+  useEffect(() => {
+    const cleanYt = normalizeYouTubeUrl(youtubeUrl);
+    if (!cleanYt || !getYouTubeVideoId(cleanYt)) {
+      ytDurationUrlRef.current = '';
+      return;
+    }
+    if (durationMode !== 'auto') return;
+    if (ytDurationUrlRef.current === cleanYt) return;
+
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      const ytDur = await fetchYouTubeDuration(cleanYt);
+      if (cancelled) return;
+      if (ytDur?.formatted) {
+        ytDurationUrlRef.current = cleanYt;
+        setDuration(ytDur.formatted);
+      } else {
+        ytDurationUrlRef.current = '';
+      }
+    }, 400);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [youtubeUrl, durationMode]);
+
+  // Auto-estimate duration from tempo & structure when no YouTube duration overrides it
+  useEffect(() => {
+    if (durationMode !== 'auto') return;
+    const cleanYt = normalizeYouTubeUrl(youtubeUrl);
+    if (cleanYt && getYouTubeVideoId(cleanYt) && ytDurationUrlRef.current === cleanYt) return;
+
+    const previewChordPro = visualSectionsToChordPro(visualSections);
+    const estimated = calculateSongAutoDuration(previewChordPro, Number(bpm || tempo) || 100, timeSignature).formatted;
+    setDuration(prev => (prev === estimated ? prev : estimated));
+  }, [durationMode, youtubeUrl, visualSections, bpm, tempo, timeSignature]);
 
   // Extract all chords present in the current visual sections
   const songChords = useMemo(() => {
@@ -986,20 +1058,47 @@ export const SongEditor: React.FC = () => {
     }
 
     setIsSaving(true);
-    const resolvedDuration = formatDurationToMMSS(duration.trim() || '03:30');
-
     const resolvedBpm = Number(bpm || tempo) || 100;
+    const cleanYoutubeUrl = youtubeUrl.trim() ? normalizeYouTubeUrl(youtubeUrl) : '';
 
     const resolvedKey = key.trim().endsWith('m')
       ? key.trim().slice(0, -1).toUpperCase() + 'm'
       : key.trim().toUpperCase();
+
+    const baseChordPro = visualSectionsToChordPro(visualSections, buildChordProMetadata({
+      key: resolvedKey,
+      tempo: resolvedBpm,
+      bpm: resolvedBpm,
+      youtubeUrl: cleanYoutubeUrl
+    }));
+
+    let resolvedDuration = formatDurationToMMSS(duration.trim() || '03:30');
+    if (durationMode === 'auto') {
+      if (cleanYoutubeUrl && getYouTubeVideoId(cleanYoutubeUrl)) {
+        if (ytDurationUrlRef.current === cleanYoutubeUrl && duration.trim()) {
+          resolvedDuration = formatDurationToMMSS(duration);
+        } else {
+          const ytDur = await fetchYouTubeDuration(cleanYoutubeUrl);
+          if (ytDur?.formatted) {
+            ytDurationUrlRef.current = cleanYoutubeUrl;
+            resolvedDuration = ytDur.formatted;
+          } else {
+            resolvedDuration = calculateSongAutoDuration(baseChordPro, resolvedBpm, timeSignature).formatted;
+          }
+        }
+      } else {
+        resolvedDuration = calculateSongAutoDuration(baseChordPro, resolvedBpm, timeSignature).formatted;
+      }
+      setDuration(resolvedDuration);
+    }
 
     // Ensure ChordPro content is up to date from visual sections
     const finalChordPro = visualSectionsToChordPro(visualSections, buildChordProMetadata({
       key: resolvedKey,
       tempo: resolvedBpm,
       bpm: resolvedBpm,
-      duration: resolvedDuration
+      duration: resolvedDuration,
+      youtubeUrl: cleanYoutubeUrl
     }));
 
     const songData: Partial<Song> = {
@@ -1011,11 +1110,11 @@ export const SongEditor: React.FC = () => {
       bpm: resolvedBpm,
       timeSignature,
       duration: resolvedDuration,
-      durationMode: 'custom',
+      durationMode,
       capo: Number(capo) || 0,
       ccli: ccli.trim(),
       copyright: copyright.trim(),
-      youtubeUrl: youtubeUrl.trim(),
+      youtubeUrl: cleanYoutubeUrl,
       audioUrl: audioUrl.trim(),
       spotifyUrl: spotifyUrl.trim(),
       language: language || detectSongLanguage(title.trim(), finalChordPro),
@@ -1590,17 +1689,51 @@ export const SongEditor: React.FC = () => {
 
               {/* Durée */}
               <div>
-                <label className="block text-xs sm:text-[13px] font-semibold text-gray-300 mb-1.5 text-center">
-                  Durée estimée
-                </label>
+                <div className="flex items-center justify-center gap-1.5 mb-1.5">
+                  <label className="text-xs sm:text-[13px] font-semibold text-gray-300">
+                    Durée
+                  </label>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setDurationMode('auto');
+                      const cleanYt = normalizeYouTubeUrl(youtubeUrl);
+                      if (cleanYt && getYouTubeVideoId(cleanYt)) {
+                        const ytDur = await fetchYouTubeDuration(cleanYt);
+                        if (ytDur?.formatted) {
+                          ytDurationUrlRef.current = cleanYt;
+                          setDuration(ytDur.formatted);
+                          return;
+                        }
+                      }
+                      ytDurationUrlRef.current = '';
+                      setDuration(calculateSongAutoDuration(visualSectionsToChordPro(visualSections), Number(bpm || tempo) || 100, timeSignature).formatted);
+                    }}
+                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded border transition-colors cursor-pointer ${
+                      durationMode === 'auto'
+                        ? 'bg-cyan-500/20 border-cyan-500/40 text-cyan-300'
+                        : 'bg-[#1A1A1E] border-[#33333A] text-gray-400 hover:text-cyan-300 hover:border-cyan-500/40'
+                    }`}
+                    title={durationMode === 'auto'
+                      ? 'Durée calculée automatiquement (YouTube ou tempo + structure)'
+                      : 'Recalculer automatiquement selon YouTube ou tempo + structure'}
+                  >
+                    Auto
+                  </button>
+                </div>
                 <input
                   type="text"
                   placeholder="03:30"
                   value={duration}
-                  onChange={(e) => setDuration(e.target.value)}
+                  onChange={(e) => {
+                    setDurationMode('custom');
+                    setDuration(e.target.value);
+                  }}
                   onBlur={() => {
                     if (duration.trim()) {
                       setDuration(formatDurationToMMSS(duration));
+                    } else {
+                      setDurationMode('auto');
                     }
                   }}
                   className="w-full h-10 bg-[#1A1A1E] border border-[#33333A] hover:border-[#4B4B55] focus:border-cyan-400 rounded-xl px-2 text-sm text-cyan-300 font-mono font-bold focus:outline-none focus:ring-1 focus:ring-cyan-400/30 text-center transition-all shadow-2xs"

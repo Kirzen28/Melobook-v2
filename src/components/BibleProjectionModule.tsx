@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef, useImperativeHandle } from 'react';
 import { BiblePassageData, BibleVerseItem } from '../types';
 import { PresentationSlide, cleanBibleVerseText } from '../utils/presentationUtils';
 import {
@@ -38,6 +38,11 @@ import {
   X
 } from 'lucide-react';
 
+export interface BibleProjectionHandle {
+  projectCurrent: () => void;
+  setBilingualFormat: (format: 'stacked' | 'columns') => void;
+}
+
 interface BibleProjectionModuleProps {
   onProjectLive: (passage: BiblePassageData, secondaryPassage?: BiblePassageData | null, format?: 'stacked' | 'columns') => void;
   onAddToQueue: (passage: BiblePassageData, secondaryPassage?: BiblePassageData | null, format?: 'stacked' | 'columns') => void;
@@ -48,6 +53,7 @@ interface BibleProjectionModuleProps {
   onStopLive?: () => void;
   onNextLiveVerse?: () => void;
   onPrevLiveVerse?: () => void;
+  onBilingualStateChange?: (enabled: boolean, format: 'stacked' | 'columns') => void;
   className?: string;
 }
 
@@ -136,7 +142,7 @@ export const LanguageFlagIcon: React.FC<{ language: string; className?: string }
   return null;
 };
 
-export const BibleProjectionModule: React.FC<BibleProjectionModuleProps> = ({
+export const BibleProjectionModule = React.forwardRef<BibleProjectionHandle, BibleProjectionModuleProps>(({
   onProjectLive,
   onAddToQueue,
   activeLiveBibleRef,
@@ -146,8 +152,9 @@ export const BibleProjectionModule: React.FC<BibleProjectionModuleProps> = ({
   onStopLive,
   onNextLiveVerse,
   onPrevLiveVerse,
+  onBilingualStateChange,
   className
-}) => {
+}, ref) => {
   // Traduction courante (LSG par défaut)
   const [selectedTranslation, setSelectedTranslation] = useState<string>(() => {
     try {
@@ -225,6 +232,10 @@ export const BibleProjectionModule: React.FC<BibleProjectionModuleProps> = ({
       return 'stacked';
     }
   });
+
+  useEffect(() => {
+    onBilingualStateChange?.(isBilingual, bilingualFormat);
+  }, [isBilingual, bilingualFormat, onBilingualStateChange]);
 
   const handleToggleBilingual = () => {
     setIsBilingual(prev => {
@@ -829,6 +840,22 @@ export const BibleProjectionModule: React.FC<BibleProjectionModuleProps> = ({
     }
   }, [isCurrentlyLive, autoProject, activeLiveBibleRef, currentSelectedPassage, isBilingual, currentSecondaryPassage, bilingualFormat, addToRecentHistory, onProjectLive, onStopLive]);
 
+  useImperativeHandle(ref, () => ({
+    projectCurrent: () => {
+      if (currentSelectedPassage) {
+        setAutoProject(true);
+        try {
+          localStorage.setItem('bible_auto_project_mode', 'true');
+        } catch {}
+        addToRecentHistory(currentSelectedPassage);
+        onProjectLive(currentSelectedPassage, isBilingual ? currentSecondaryPassage : null, bilingualFormat);
+      } else {
+        handleToggleProject();
+      }
+    },
+    setBilingualFormat: handleSelectBilingualFormat
+  }));
+
   // Ajouter à la file de projection la sélection courante
   const handleAddToQueueCurrent = useCallback(() => {
     if (!currentSelectedPassage) return;
@@ -977,8 +1004,8 @@ export const BibleProjectionModule: React.FC<BibleProjectionModuleProps> = ({
             )}
           </div>
 
-          <div className="flex items-center gap-1.5 shrink-0 max-w-full">
-            {activeLiveBibleRef ? (
+          {activeLiveBibleRef && (
+            <div className="flex items-center gap-1.5 shrink-0 max-w-full">
               <div className="flex items-center gap-1 bg-[#1D1812] border border-amber-500/45 rounded-xl p-1 shadow-md max-w-full">
                 <div className="flex items-center gap-1.5 px-2 text-xs font-semibold text-amber-200 min-w-0"
                   title={`Diffusion en direct : ${activeLiveBibleRef}`}
@@ -1033,33 +1060,8 @@ export const BibleProjectionModule: React.FC<BibleProjectionModuleProps> = ({
                   </button>
                 )}
               </div>
-            ) : null}
-
-            {(!activeLiveBibleRef || (currentSelectedPassage && !isCurrentlyLive)) && (
-              <button
-                type="button"
-                onClick={handleToggleProject}
-                className="py-2 px-3.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-md whitespace-nowrap shrink-0 bg-amber-600 hover:bg-amber-500 active:scale-95 text-white shadow-amber-950/30"
-                title={
-                  autoProject
-                    ? 'Projection auto active : chaque clic sur un verset le projette immédiatement.'
-                    : 'Projeter ce passage en direct'
-                }
-              >
-                <Zap className="w-3.5 h-3.5 fill-current shrink-0 text-amber-200" />
-                <span>
-                  {autoProject
-                    ? currentSelectedPassage
-                      ? 'Projeter'
-                      : 'Projection auto'
-                    : 'Projeter'}
-                </span>
-                {autoProject && currentSelectedPassage && (
-                  <span className="text-[10px] font-medium opacity-75 hidden sm:inline">· Auto</span>
-                )}
-              </button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Ligne 2 : Sélecteurs de version unifiés + Mode Bilingue */}
@@ -1361,36 +1363,6 @@ export const BibleProjectionModule: React.FC<BibleProjectionModuleProps> = ({
               </>
             )}
           </div>
-
-          {/* Contrôle droit : choisir Empilé / 2 Colonnes en mode bilingue */}
-          {isBilingual && (
-            <div className="flex items-center gap-0.5 bg-[#101018] p-0.5 rounded-lg border border-[#2B2B3B] shrink-0">
-              <button
-                type="button"
-                onClick={() => handleSelectBilingualFormat('stacked')}
-                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer whitespace-nowrap ${
-                  bilingualFormat === 'stacked'
-                    ? 'bg-indigo-600 text-white'
-                    : 'text-gray-400 hover:text-gray-200'
-                }`}
-                title="Affichage empilé (Version 1 au-dessus, Version 2 en dessous)"
-              >
-                Empilé
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSelectBilingualFormat('columns')}
-                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer whitespace-nowrap ${
-                  bilingualFormat === 'columns'
-                    ? 'bg-indigo-600 text-white'
-                    : 'text-gray-400 hover:text-gray-200'
-                }`}
-                title="Affichage en 2 colonnes côte-à-côte"
-              >
-                2 Colonnes
-              </button>
-            </div>
-          )}
         </div>
 
 
@@ -1677,4 +1649,4 @@ export const BibleProjectionModule: React.FC<BibleProjectionModuleProps> = ({
       </div>
     </div>
   );
-};
+});

@@ -36,8 +36,8 @@ import { stripParentheses } from '../utils/chordUtils';
 import { getLinkedSongVersions, getLanguageMeta, PRESET_LANGUAGES } from '../utils/languageUtils';
 import { includesIgnoreAccents, getSongSearchScore } from '../utils/songSearchUtils';
 import { PresentationBackgroundModal } from './PresentationBackgroundModal';
-import { BibleProjectionModule } from './BibleProjectionModule';
-import { MediaProjectionModule } from './MediaProjectionModule';
+import { BibleProjectionModule, BibleProjectionHandle } from './BibleProjectionModule';
+import { MediaProjectionModule, MediaProjectionHandle } from './MediaProjectionModule';
 import { AiTranslationModal } from './AiTranslationModal';
 import {
   AiSongTranslation,
@@ -313,6 +313,16 @@ export const PresentationManager: React.FC = () => {
     } catch {}
     return null;
   });
+  const bibleModuleRef = useRef<BibleProjectionHandle | null>(null);
+  const mediaModuleRef = useRef<MediaProjectionHandle | null>(null);
+  const [canProjectMedia, setCanProjectMedia] = useState<boolean>(false);
+  const [bibleBilingualState, setBibleBilingualState] = useState<{ enabled: boolean; format: 'stacked' | 'columns' }>({
+    enabled: false,
+    format: 'stacked'
+  });
+  const handleBibleBilingualStateChange = useCallback((enabled: boolean, format: 'stacked' | 'columns') => {
+    setBibleBilingualState({ enabled, format });
+  }, []);
 
 
   // Échelle et taille de base de police globales pour l'écran externe (pilotées depuis la régie)
@@ -2103,9 +2113,10 @@ export const PresentationManager: React.FC = () => {
                 )}
               </div>
 
-              {/* Actions Pupitre à droite */}
-              {activePupitreTab === 'songs' && currentSong && currentQueueItem?.type !== 'bible' && (
-                <div className="flex items-center gap-2 flex-wrap">
+              {/* Actions à droite : options Pupitre + bouton Projeter sur l'écran */}
+              <div className="flex items-center gap-2 flex-wrap ml-auto">
+                {activePupitreTab === 'songs' && currentSong && currentQueueItem?.type !== 'bible' && (
+                  <div className="flex items-center gap-2 flex-wrap">
                   {/* Contrôles Mode Bilingue & Traduction IA unifiés (uniquement pour les chants) */}
                   <div className="flex items-center gap-2 relative">
                       {/* Bouton Menu Traduction & Bilingue */}
@@ -2362,14 +2373,98 @@ export const PresentationManager: React.FC = () => {
                         <LayoutGrid className={`w-3.5 h-3.5 ${autoLayout ? 'text-emerald-400' : 'text-gray-400'}`} />
                         <span>Mise en page auto</span>
                       </button>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+
+                {activePupitreTab === 'bible' && bibleBilingualState.enabled && (
+                  <div className="flex items-center gap-0.5 bg-[#101018] p-0.5 rounded-lg border border-[#2B2B3B] shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => bibleModuleRef.current?.setBilingualFormat('stacked')}
+                      className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer whitespace-nowrap ${
+                        bibleBilingualState.format === 'stacked'
+                          ? 'bg-indigo-600 text-white'
+                          : 'text-gray-400 hover:text-gray-200'
+                      }`}
+                      title="Affichage empilé (Version 1 au-dessus, Version 2 en dessous)"
+                    >
+                      Empilé
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => bibleModuleRef.current?.setBilingualFormat('columns')}
+                      className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer whitespace-nowrap ${
+                        bibleBilingualState.format === 'columns'
+                          ? 'bg-indigo-600 text-white'
+                          : 'text-gray-400 hover:text-gray-200'
+                      }`}
+                      title="Affichage en 2 colonnes côte-à-côte"
+                    >
+                      2 Colonnes
+                    </button>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (activePupitreTab === 'media') {
+                      mediaModuleRef.current?.projectCurrent();
+                    } else if (activePupitreTab === 'bible') {
+                      bibleModuleRef.current?.projectCurrent();
+                    } else {
+                      setLiveDirectBible(null);
+                      setLiveDirectSecondaryBible(null);
+                      setLiveDirectMedia(null);
+                      setIsBlackout(false);
+                      try { localStorage.removeItem('presentation_media_active'); } catch {}
+                      broadcastCurrentState(
+                        currentQueueItem,
+                        currentSong,
+                        activeSlideIndex,
+                        false,
+                        fontScale,
+                        backgroundImage,
+                        backgroundOverlay,
+                        countdownActive,
+                        countdownTime,
+                        countdownTitle,
+                        countdownThemeId,
+                        null,
+                        null,
+                        liveDirectBibleFormat,
+                        0,
+                        null,
+                        'songs'
+                      );
+                    }
+                  }}
+                  disabled={
+                    activePupitreTab === 'media'
+                      ? !canProjectMedia
+                      : activePupitreTab === 'songs'
+                      ? currentSlides.length === 0
+                      : false
+                  }
+                  className={`px-3.5 py-1.5 rounded-xl disabled:opacity-35 disabled:pointer-events-none text-white text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 shadow-sm ${
+                    activePupitreTab === 'bible'
+                      ? 'bg-amber-600 hover:bg-amber-500'
+                      : activePupitreTab === 'songs'
+                      ? 'bg-blue-600 hover:bg-blue-500'
+                      : 'bg-purple-600 hover:bg-purple-500'
+                  }`}
+                >
+                  <Play className="w-3.5 h-3.5 fill-current" />
+                  <span>Projeter sur l'écran</span>
+                </button>
+              </div>
             </div>
 
             {/* Corps du module actif : Bible OU Média OU Grille de slides */}
             {activePupitreTab === 'bible' ? (
               <BibleProjectionModule
+                ref={bibleModuleRef}
                 onProjectLive={handleProjectLiveBible}
                 onAddToQueue={handleAddBibleToQueue}
                 activeLiveBibleRef={liveDirectBible ? (liveDirectSecondaryBible ? `${liveDirectBible.referenceText} (${liveDirectBible.version} • ${liveDirectSecondaryBible.version})` : `${liveDirectBible.referenceText} (${liveDirectBible.version})`) : null}
@@ -2382,13 +2477,16 @@ export const PresentationManager: React.FC = () => {
                 onStopLive={handleStopLiveBible}
                 onNextLiveVerse={handleNextLiveVerse}
                 onPrevLiveVerse={handlePrevLiveVerse}
+                onBilingualStateChange={handleBibleBilingualStateChange}
                 className="bg-transparent border-0 p-0 shadow-none"
               />
             ) : activePupitreTab === 'media' ? (
               <MediaProjectionModule
+                ref={mediaModuleRef}
                 activeMedia={liveDirectMedia}
                 onProjectMedia={handleProjectMedia}
                 onStopMedia={handleStopMedia}
+                onCanProjectChange={setCanProjectMedia}
                 className="bg-transparent border-0 p-0 shadow-none"
               />
             ) : (
@@ -3008,7 +3106,7 @@ export const PresentationManager: React.FC = () => {
                       </div>
                     ) : liveDirectMedia.type === 'image' ? (
                       <div className="w-36 h-20 rounded-lg overflow-hidden border border-purple-500/50 bg-black shadow-lg">
-                        <img src={liveDirectMedia.url} alt="" className="w-full h-full object-cover" />
+                        <img src={liveDirectMedia.url} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
                       </div>
                     ) : (
                       <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-purple-900/50 border border-purple-400/40 text-purple-200 shadow-lg">

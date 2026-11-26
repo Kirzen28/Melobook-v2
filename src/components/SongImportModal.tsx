@@ -47,6 +47,7 @@ const SOURCE_OPTIONS: Array<{
   { id: 'JEM / Recueils', label: 'JEM / Recueils', badge: 'Cantiques', color: 'bg-amber-600/20 text-amber-300 border-amber-500/30', icon: BookOpen },
   { id: 'Ultimate Guitar', label: 'Ultimate Guitar', badge: 'Tablatures', color: 'bg-rose-600/20 text-rose-300 border-rose-500/30', icon: Music },
   { id: 'LaCuerda', label: 'LaCuerda', badge: 'Alabanza ES', color: 'bg-orange-600/20 text-orange-300 border-orange-500/30', icon: Globe },
+  { id: 'Cifra Club', label: 'Cifra Club', badge: 'Cifras PT/ES/EN', color: 'bg-lime-600/20 text-lime-300 border-lime-500/30', icon: Music },
 ];
 
 export const SongImportModal: React.FC<SongImportModalProps> = ({

@@ -2,7 +2,7 @@ export interface ExternalSongItem {
   id: string;
   title: string;
   artist: string;
-  source: 'Shir.fr' | 'WorshipTogether' | 'Ultimate Guitar' | 'LaCuerda' | 'JEM / Recueils' | 'CCLI Praise' | string;
+  source: 'Shir.fr' | 'WorshipTogether' | 'Ultimate Guitar' | 'LaCuerda' | 'Cifra Club' | 'JEM / Recueils' | 'CCLI Praise' | string;
   key: string;
   tempo: number;
   timeSignature?: string;

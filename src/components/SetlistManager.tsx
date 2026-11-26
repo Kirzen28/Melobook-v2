@@ -82,6 +82,24 @@ export const SetlistManager: React.FC = () => {
   const [datePickerSetlist, setDatePickerSetlist] = useState<Setlist | null>(null);
   const [activeMenuSetlistId, setActiveMenuSetlistId] = useState<string | null>(null);
   const songsListContainerRef = useRef<HTMLDivElement>(null);
+  const hoverCloseTimerRef = useRef<number | null>(null);
+
+  const isSetlistInteractionLocked =
+    isAddSongModalOpen ||
+    isCreateModalOpen ||
+    Boolean(editingSetlist) ||
+    Boolean(pdfModalSetlist) ||
+    Boolean(datePickerSetlist) ||
+    Boolean(activeMenuSetlistId) ||
+    draggedSongIndex !== null;
+
+  useEffect(() => {
+    return () => {
+      if (hoverCloseTimerRef.current !== null) {
+        window.clearTimeout(hoverCloseTimerRef.current);
+      }
+    };
+  }, []);
 
   const setlistsRef = useRef(setlists);
   useEffect(() => {
@@ -551,6 +569,16 @@ export const SetlistManager: React.FC = () => {
             return (
               <div
                 key={st.id}
+                onPointerLeave={(e) => {
+                  if (e.pointerType === 'touch' || isSetlistInteractionLocked) return;
+                  if (hoverCloseTimerRef.current !== null) {
+                    window.clearTimeout(hoverCloseTimerRef.current);
+                  }
+                  hoverCloseTimerRef.current = window.setTimeout(() => {
+                    setExpandedSetlistId(prev => (prev === st.id ? null : prev));
+                    hoverCloseTimerRef.current = null;
+                  }, 120);
+                }}
                 className={`rounded-xl border transition-all duration-200 ${
                   activeMenuSetlistId === st.id ? 'overflow-visible z-20 relative' : 'overflow-hidden'
                 } ${
@@ -561,6 +589,15 @@ export const SetlistManager: React.FC = () => {
               >
                 {/* Accordion Header / Setlist Bar : clic direct sur le bloc = lancement du Live dès le 1er chant */}
                 <div
+                  onPointerEnter={(e) => {
+                    if (e.pointerType === 'touch') return;
+                    if (hoverCloseTimerRef.current !== null) {
+                      window.clearTimeout(hoverCloseTimerRef.current);
+                      hoverCloseTimerRef.current = null;
+                    }
+                    setExpandedSetlistId(st.id);
+                    setSelectedSetlist(st);
+                  }}
                   onClick={() => {
                     if (validSongs.length > 0) {
                       handleLaunchLive(st, 0);
@@ -853,7 +890,7 @@ export const SetlistManager: React.FC = () => {
 
                 {/* Expanded Content: Songs Sequence */}
                 {isExpanded && (
-                  <div className="px-4 sm:px-6 pb-6 pt-2 border-t border-[#1F1F24] bg-[#0C0C0E]/70 space-y-4">
+                  <div className="px-4 sm:px-6 pb-6 pt-2 border-t border-[#1F1F24] bg-[#0C0C0E]/70 space-y-4 animate-in fade-in slide-in-from-top-1 duration-150">
                     {st.notes?.trim() && (
                       <div className="rounded-xl bg-gradient-to-r from-amber-500/20 via-amber-500/10 to-orange-500/10 border border-amber-400/50 border-l-4 border-l-amber-400 px-3.5 py-3 text-xs text-amber-50 flex items-start justify-between gap-2.5 shadow-lg shadow-amber-500/10">
                         <div className="min-w-0">

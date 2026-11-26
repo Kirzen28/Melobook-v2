@@ -131,6 +131,11 @@ export const PresentationDisplay: React.FC = () => {
 
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [showControlsHint, setShowControlsHint] = useState<boolean>(true);
+  const [mediaImgError, setMediaImgError] = useState<boolean>(false);
+
+  useEffect(() => {
+    setMediaImgError(false);
+  }, [displayState?.media?.url]);
 
   // Échelle et taille de base de police synchronisées depuis l'onglet présentation
   const [fontScale, setFontScale] = useState<number>(() => {
@@ -260,7 +265,13 @@ export const PresentationDisplay: React.FC = () => {
         prev.secondaryLanguage === incoming.secondaryLanguage &&
         prev.secondarySongTitle === incoming.secondarySongTitle &&
         prev.secondaryLines?.length === incoming.secondaryLines?.length &&
-        (prev.secondaryLines || []).every((l, i) => l === (incoming.secondaryLines || [])[i])
+        (prev.secondaryLines || []).every((l, i) => l === (incoming.secondaryLines || [])[i]) &&
+        prev.media?.isActive === incoming.media?.isActive &&
+        prev.media?.url === incoming.media?.url &&
+        prev.media?.type === incoming.media?.type &&
+        prev.media?.title === incoming.media?.title &&
+        prev.media?.isLoop === incoming.media?.isLoop &&
+        prev.media?.isMuted === incoming.media?.isMuted
       ) {
         return prev;
       }
@@ -441,6 +452,8 @@ export const PresentationDisplay: React.FC = () => {
   const countdownInfo = formatRemainingTime(countdownRemainingMs);
 
   const isBibleSlide = Boolean(displayState?.itemType === 'bible' || displayState?.bibleReference);
+  const isMediaActive = Boolean(displayState?.media?.isActive && !isBlackout && !isCountdownActive);
+  const isVisualMediaActive = Boolean(isMediaActive && displayState?.media?.type !== 'audio');
   const isBibleContentActive = Boolean(
     isBibleSlide && !isBlackout && !isCountdownActive && !displayState?.media?.isActive && lines.length > 0
   );
@@ -502,7 +515,7 @@ export const PresentationDisplay: React.FC = () => {
       <header 
         onClick={(e) => e.stopPropagation()}
         className={`${
-          isBibleContentActive
+          (isBibleContentActive || isMediaActive)
             ? 'absolute top-2.5 right-3'
             : 'w-full flex items-center justify-end px-4 py-3 relative shrink-0'
         } z-30 transition-opacity duration-300 ${
@@ -526,6 +539,8 @@ export const PresentationDisplay: React.FC = () => {
       <main className={`flex-1 min-h-0 flex relative z-20 ${
         isBibleContentActive
           ? `flex-col px-4 sm:px-6 md:px-8 pt-3 pb-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${isShortBibleText ? 'text-center' : 'text-left'}`
+          : isVisualMediaActive
+          ? 'items-center justify-center p-0 text-center'
           : 'items-center justify-center px-6 sm:px-12 md:px-20 text-center'
       }`}>
         {isBlackout ? (
@@ -569,10 +584,10 @@ export const PresentationDisplay: React.FC = () => {
             </div>
           </div>
         ) : displayState?.media?.isActive ? (
-          <div className="max-w-7xl w-full h-full flex flex-col items-center justify-center gap-4 animate-presentation-slide select-none">
+          <div className="w-full h-full flex flex-col items-center justify-center animate-presentation-slide select-none">
             {displayState.media.type === 'video' ? (
               displayState.media.source === 'youtube' ? (
-                <div className="w-full aspect-video max-h-[85vh] rounded-3xl overflow-hidden shadow-2xl border border-white/10 bg-black flex items-center justify-center">
+                <div className="w-full h-full bg-black flex items-center justify-center">
                   <iframe
                     src={displayState.media.url}
                     title={displayState.media.title}
@@ -582,47 +597,50 @@ export const PresentationDisplay: React.FC = () => {
                   />
                 </div>
               ) : (
-                <div className="w-full max-h-[85vh] flex items-center justify-center rounded-3xl overflow-hidden shadow-2xl border border-white/10 bg-black">
+                <div className="w-full h-full flex items-center justify-center bg-black">
                   <video
                     src={displayState.media.url}
                     autoPlay
                     loop={displayState.media.isLoop ?? true}
                     muted={displayState.media.isMuted ?? false}
                     playsInline
-                    className="max-h-[85vh] max-w-full w-auto h-auto object-contain rounded-2xl"
+                    className="w-full h-full object-contain"
                   />
                 </div>
               )
             ) : displayState.media.type === 'image' ? (
-              <div className="w-full max-h-[85vh] flex items-center justify-center rounded-3xl overflow-hidden shadow-2xl border border-white/10 bg-black/40 backdrop-blur-xs">
-                <img
-                  src={displayState.media.url}
-                  alt={displayState.media.title}
-                  className="max-h-[85vh] max-w-full w-auto h-auto object-contain rounded-2xl animate-in fade-in zoom-in-95 duration-200"
-                />
+              <div className="w-full h-full flex items-center justify-center bg-black/40">
+                {mediaImgError ? (
+                  <div className="flex flex-col items-center justify-center gap-2 p-10 text-gray-400">
+                    <ImageIcon className="w-10 h-10 text-gray-500" />
+                    <span className="text-sm font-medium text-gray-300">{displayState.media.title}</span>
+                    <span className="text-xs text-gray-500">Image indisponible sur cet écran</span>
+                  </div>
+                ) : (
+                  <img
+                    key={displayState.media.url}
+                    src={displayState.media.url}
+                    alt={displayState.media.title}
+                    referrerPolicy="no-referrer"
+                    onError={() => setMediaImgError(true)}
+                    className="w-full h-full object-contain animate-in fade-in zoom-in-95 duration-200"
+                  />
+                )}
               </div>
             ) : (
-              /* Audio */
-              <div className="max-w-2xl w-full p-8 sm:p-12 rounded-3xl bg-black/75 border border-purple-500/40 shadow-2xl backdrop-blur-xl flex flex-col items-center justify-center gap-6 text-center animate-in fade-in zoom-in-95">
-                <div className="w-24 h-24 rounded-full bg-purple-600/30 border-2 border-purple-400/50 flex items-center justify-center text-purple-300 shadow-xl shadow-purple-950/50 animate-pulse">
-                  <Music className="w-12 h-12" />
-                </div>
-                <div>
-                  <span className="text-xs uppercase font-extrabold px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 border border-purple-400/30">
-                    Diffusion Audio
-                  </span>
-                  <h2 
-                    className="font-extrabold text-white mt-3"
-                    style={{ fontSize: `calc(clamp(1.5rem, 3.2vw, 2.5rem) * ${effectiveFontScale})` }}
-                  >
-                    {displayState.media.title}
-                  </h2>
-                </div>
+              /* Audio : titre uniquement, lecteur caché */
+              <div className="max-w-4xl w-full px-6 flex items-center justify-center text-center animate-in fade-in zoom-in-95">
+                <h2
+                  className="font-extrabold text-white tracking-wide drop-shadow-lg break-words"
+                  style={{ fontSize: `calc(clamp(1.75rem, 4vw, 3.25rem) * ${effectiveFontScale})` }}
+                >
+                  {displayState.media.title}
+                </h2>
                 {displayState.media.source === 'youtube' ? (
                   <iframe
                     src={displayState.media.url}
                     title={displayState.media.title}
-                    className="w-full h-24 rounded-xl border border-white/10"
+                    className="fixed -left-[9999px] top-0 w-64 h-36 opacity-0 pointer-events-none"
                     allow="autoplay; encrypted-media"
                   />
                 ) : (
@@ -630,8 +648,7 @@ export const PresentationDisplay: React.FC = () => {
                     src={displayState.media.url}
                     autoPlay
                     loop={displayState.media.isLoop ?? true}
-                    controls
-                    className="w-full max-w-md accent-purple-500"
+                    className="hidden"
                   />
                 )}
               </div>
@@ -843,8 +860,9 @@ export const PresentationDisplay: React.FC = () => {
         )}
       </main>
 
-      {/* Footer minimaliste */}
-      <footer className={`w-full shrink-0 ${isBibleSlide && !isCountdownActive && !displayState?.media?.isActive ? 'px-3 sm:px-5 md:px-6 py-2.5 sm:py-3' : 'px-8 py-5'} relative z-20 flex items-center justify-center text-gray-300`}>
+      {/* Footer minimaliste (masqué pendant la projection média pour plein écran maximal) */}
+      {!isMediaActive && (
+      <footer className={`w-full shrink-0 ${isBibleSlide && !isCountdownActive ? 'px-3 sm:px-5 md:px-6 py-2.5 sm:py-3' : 'px-8 py-5'} relative z-20 flex items-center justify-center text-gray-300`}>
         {!isCountdownActive && !displayState?.media?.isActive && isBibleSlide ? (
           <div className="w-full flex flex-wrap items-center justify-center gap-2 sm:gap-3">
             <div
@@ -921,6 +939,7 @@ export const PresentationDisplay: React.FC = () => {
           </div>
         )}
       </footer>
+      )}
 
       {showControlsHint && (
         <div className="absolute bottom-16 left-1/2 -translate-x-1/2 bg-gray-900/95 text-gray-300 text-xs px-4 py-2 rounded-full border border-gray-700/80 pointer-events-none transition-opacity shadow-2xl flex items-center gap-2 z-30">

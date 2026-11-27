@@ -214,28 +214,28 @@ export const AiTranslationModal: React.FC<AiTranslationModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-4xl bg-[#14141A] border border-[#2B2B38] rounded-2xl shadow-2xl flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-150 overflow-hidden"
+        className="w-full max-w-4xl bg-slate-50 dark:bg-[#14141A] border border-slate-300 dark:border-[#2B2B38] rounded-2xl shadow-2xl flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-150 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* En-tête */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#22222E] bg-[#16161E]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-[#22222E] bg-slate-50 dark:bg-[#16161E]">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500/25 to-indigo-500/25 border border-cyan-400/40 flex items-center justify-center text-cyan-300 shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-50 dark:from-cyan-500/25 to-indigo-500/25 border border-cyan-400/40 flex items-center justify-center text-cyan-700 dark:text-cyan-300 shrink-0">
               <Languages className="w-4 h-4" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-sm sm:text-base font-bold text-white truncate">
+                <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white truncate">
                   Traduction IA & Édition
                 </h3>
                 <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${sourceLangMeta.badgeClass}`}>
                   {sourceLangMeta.code} → {getLanguageMeta(targetLanguage).code}
                 </span>
               </div>
-              <p className="text-[11px] text-gray-400 truncate">
-                Chant : <strong className="text-gray-200">{song.title}</strong>
+              <p className="text-[11px] text-slate-600 dark:text-gray-400 truncate">
+                Chant : <strong className="text-slate-800 dark:text-gray-200">{song.title}</strong>
                 {existingLinkedSong && (
-                  <span className="ml-2 text-indigo-300">• Lié à « {existingLinkedSong.title} »</span>
+                  <span className="ml-2 text-indigo-700 dark:text-indigo-300">• Lié à « {existingLinkedSong.title} »</span>
                 )}
               </p>
             </div>
@@ -244,7 +244,7 @@ export const AiTranslationModal: React.FC<AiTranslationModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#242430] transition-colors cursor-pointer shrink-0"
+            className="p-1.5 rounded-lg text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-[#242430] transition-colors cursor-pointer shrink-0"
             title="Fermer"
           >
             <X className="w-4 h-4" />
@@ -252,9 +252,9 @@ export const AiTranslationModal: React.FC<AiTranslationModalProps> = ({
         </div>
 
         {/* Barre de commande : Langue cible + Bouton Traduire IA + Toggle Mode Édition */}
-        <div className="px-5 py-3 border-b border-[#22222E] bg-[#13131A] flex flex-wrap items-center justify-between gap-3">
+        <div className="px-5 py-3 border-b border-slate-200 dark:border-[#22222E] bg-slate-50 dark:bg-[#13131A] flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2 flex-wrap">
-            <label htmlFor="ai-target-lang" className="text-xs font-semibold text-gray-300">
+            <label htmlFor="ai-target-lang" className="text-xs font-semibold text-slate-700 dark:text-gray-300">
               Traduire en :
             </label>
             <select
@@ -268,10 +268,10 @@ export const AiTranslationModal: React.FC<AiTranslationModalProps> = ({
                 const val = e.target.value;
                 if (val !== 'Autre') setTargetLanguage(val);
               }}
-              className="bg-[#1C1C26] border border-[#303042] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500 cursor-pointer font-medium"
+              className="bg-[#EDF1F5] dark:bg-[#1C1C26] border border-slate-300 dark:border-[#303042] rounded-lg px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500 cursor-pointer font-medium"
             >
               {PRESET_LANGUAGES.filter((l) => l.code !== 'OTHER').map((lang) => (
-                <option key={lang.code} value={lang.name} className="bg-[#14141A]">
+                <option key={lang.code} value={lang.name} className="bg-slate-50 dark:bg-[#14141A]">
                   {lang.name} ({lang.code})
                 </option>
               ))}
@@ -298,14 +298,14 @@ export const AiTranslationModal: React.FC<AiTranslationModalProps> = ({
           </div>
 
           {/* Toggle Aperçu / Mode Édition manuelle */}
-          <div className="flex items-center gap-1 bg-[#1A1A24] border border-[#2C2C3A] rounded-xl p-1">
+          <div className="flex items-center gap-1 bg-[#EDF1F5] dark:bg-[#1A1A24] border border-slate-300 dark:border-[#2C2C3A] rounded-xl p-1">
             <button
               type="button"
               onClick={() => setIsEditMode(false)}
               className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer ${
                 !isEditMode
-                  ? 'bg-[#2A2A3A] text-white shadow-xs'
-                  : 'text-gray-400 hover:text-gray-200'
+                  ? 'bg-[#EDF1F5] dark:bg-[#2A2A3A] text-slate-900 dark:text-white shadow-xs'
+                  : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200'
               }`}
             >
               <Eye className="w-3.5 h-3.5" />
@@ -317,7 +317,7 @@ export const AiTranslationModal: React.FC<AiTranslationModalProps> = ({
               className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer ${
                 isEditMode
                   ? 'bg-amber-600 text-white shadow-xs'
-                  : 'text-gray-400 hover:text-gray-200'
+                  : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200'
               }`}
             >
               <Edit3 className="w-3.5 h-3.5" />
@@ -328,8 +328,8 @@ export const AiTranslationModal: React.FC<AiTranslationModalProps> = ({
 
         {/* Message d'erreur éventuel */}
         {errorMsg && (
-          <div className="mx-5 mt-3 p-3 rounded-xl bg-red-950/50 border border-red-500/40 text-red-200 text-xs flex items-start gap-2">
-            <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+          <div className="mx-5 mt-3 p-3 rounded-xl bg-red-50 dark:bg-red-950/50 border border-red-500/40 text-red-700 dark:text-red-200 text-xs flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
             <span>{errorMsg}</span>
           </div>
         )}
@@ -337,15 +337,15 @@ export const AiTranslationModal: React.FC<AiTranslationModalProps> = ({
         {/* Corps principal : Titre + Blocs (Original vs Traduction) */}
         <div className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-4">
           {/* Titre traduit */}
-          <div className="p-3.5 rounded-xl bg-[#181822] border border-[#282836] flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="p-3.5 rounded-xl bg-[#EDF1F5] dark:bg-[#181822] border border-slate-300 dark:border-[#282836] flex flex-col sm:flex-row sm:items-center gap-3">
             <div className="sm:w-1/2">
               <span className="text-[10px] uppercase font-bold text-gray-500 block">
                 Titre original ({sourceLangMeta.name})
               </span>
-              <span className="text-xs font-semibold text-gray-200">{song.title}</span>
+              <span className="text-xs font-semibold text-slate-800 dark:text-gray-200">{song.title}</span>
             </div>
             <div className="sm:w-1/2">
-              <label className="text-[10px] uppercase font-bold text-cyan-400 block mb-1">
+              <label className="text-[10px] uppercase font-bold text-cyan-700 dark:text-cyan-400 block mb-1">
                 Titre traduit ({targetLanguage})
               </label>
               {isEditMode ? (
@@ -354,10 +354,10 @@ export const AiTranslationModal: React.FC<AiTranslationModalProps> = ({
                   value={translatedTitle}
                   onChange={(e) => setTranslatedTitle(e.target.value)}
                   placeholder={`${song.title} (${targetLanguage})`}
-                  className="w-full bg-[#121218] border border-[#323244] focus:border-amber-500 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none"
+                  className="w-full bg-white dark:bg-[#121218] border border-slate-300 dark:border-[#323244] focus:border-amber-500 rounded-lg px-3 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none"
                 />
               ) : (
-                <span className="text-xs font-bold text-cyan-200">
+                <span className="text-xs font-bold text-cyan-700 dark:text-cyan-200">
                   {translatedTitle || <span className="text-gray-500 italic">Non traduit</span>}
                 </span>
               )}
@@ -365,9 +365,9 @@ export const AiTranslationModal: React.FC<AiTranslationModalProps> = ({
           </div>
 
           {!hasAnyTranslation && !isEditMode && !isTranslating && (
-            <div className="p-6 rounded-2xl bg-[#161620] border border-dashed border-[#2E2E3E] text-center space-y-2">
-              <Sparkles className="w-7 h-7 text-cyan-400 mx-auto opacity-80" />
-              <p className="text-xs text-gray-300 font-medium">
+            <div className="p-6 rounded-2xl bg-slate-50 dark:bg-[#161620] border border-dashed border-slate-300 dark:border-[#2E2E3E] text-center space-y-2">
+              <Sparkles className="w-7 h-7 text-cyan-700 dark:text-cyan-400 mx-auto opacity-80" />
+              <p className="text-xs text-slate-700 dark:text-gray-300 font-medium">
                 Cliquez sur <strong>Traduire automatiquement (IA)</strong> pour générer les paroles traduites ligne par ligne, ou passez en mode <strong>Éditer à la main</strong>.
               </p>
             </div>
@@ -383,19 +383,19 @@ export const AiTranslationModal: React.FC<AiTranslationModalProps> = ({
               return (
                 <div
                   key={bIdx}
-                  className="rounded-xl border border-[#262634] bg-[#171720] overflow-hidden"
+                  className="rounded-xl border border-slate-300 dark:border-[#262634] bg-slate-50 dark:bg-[#171720] overflow-hidden"
                 >
-                  <div className="px-3.5 py-2 bg-[#1B1B26] border-b border-[#252534] flex items-center justify-between gap-2">
+                  <div className="px-3.5 py-2 bg-[#EDF1F5] dark:bg-[#1B1B26] border-b border-slate-300 dark:border-[#252534] flex items-center justify-between gap-2">
                     {isEditMode ? (
                       <input
                         type="text"
                         value={block.sectionTitle}
                         onChange={(e) => handleBlockSectionTitleChange(bIdx, e.target.value)}
-                        className="bg-[#121218] border border-[#303042] focus:border-amber-500 rounded-md px-2 py-0.5 text-[11px] font-bold text-cyan-300 focus:outline-none w-48"
+                        className="bg-white dark:bg-[#121218] border border-slate-300 dark:border-[#303042] focus:border-amber-500 rounded-md px-2 py-0.5 text-[11px] font-bold text-cyan-700 dark:text-cyan-300 focus:outline-none w-48"
                         placeholder="Section"
                       />
                     ) : (
-                      <span className="text-[11px] font-bold text-cyan-300">
+                      <span className="text-[11px] font-bold text-cyan-700 dark:text-cyan-300">
                         {block.sectionTitle}
                       </span>
                     )}
@@ -403,10 +403,10 @@ export const AiTranslationModal: React.FC<AiTranslationModalProps> = ({
                     <span
                       className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${
                         transCount === 0
-                          ? 'bg-gray-800/60 text-gray-400 border-gray-700'
+                          ? 'bg-[#EDF1F5]/60 dark:bg-gray-800/60 text-slate-600 dark:text-gray-400 border-slate-300 dark:border-gray-700'
                           : lineCountExact
-                          ? 'bg-emerald-950/50 text-emerald-300 border-emerald-500/30'
-                          : 'bg-amber-950/50 text-amber-300 border-amber-500/30'
+                          ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
+                          : 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border-amber-500/30'
                       }`}
                       title="Pour synchroniser les sous-titres, gardez le même nombre de lignes qu'à l'original"
                     >
@@ -414,22 +414,22 @@ export const AiTranslationModal: React.FC<AiTranslationModalProps> = ({
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-[#252534]">
+                  <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-slate-200 dark:divide-[#252534]">
                     {/* Original */}
-                    <div className="p-3.5 space-y-1 bg-[#14141B]">
+                    <div className="p-3.5 space-y-1 bg-slate-50 dark:bg-[#14141B]">
                       <span className="text-[9px] uppercase font-bold text-gray-500 block mb-1">
                         Original
                       </span>
                       {block.originalLines.map((line, lIdx) => (
-                        <p key={lIdx} className="text-xs text-gray-300 leading-relaxed">
+                        <p key={lIdx} className="text-xs text-slate-700 dark:text-gray-300 leading-relaxed">
                           {line}
                         </p>
                       ))}
                     </div>
 
                     {/* Traduction (Édition manuelle ou Aperçu) */}
-                    <div className="p-3.5 bg-[#171722]">
-                      <span className="text-[9px] uppercase font-bold text-cyan-400/80 block mb-1">
+                    <div className="p-3.5 bg-[#EDF1F5] dark:bg-[#171722]">
+                      <span className="text-[9px] uppercase font-bold text-cyan-700 dark:text-cyan-400/80 block mb-1">
                         Traduction ({targetLanguage})
                       </span>
                       {isEditMode ? (
@@ -438,14 +438,14 @@ export const AiTranslationModal: React.FC<AiTranslationModalProps> = ({
                           onChange={(e) => handleBlockTextChange(bIdx, e.target.value)}
                           rows={Math.max(2, origCount)}
                           placeholder={block.originalLines.join('\n')}
-                          className="w-full bg-[#101016] border border-[#2F2F42] focus:border-amber-500 rounded-lg p-2.5 text-xs text-cyan-100 leading-relaxed focus:outline-none resize-y font-sans"
+                          className="w-full bg-white dark:bg-[#101016] border border-slate-300 dark:border-[#2F2F42] focus:border-amber-500 rounded-lg p-2.5 text-xs text-cyan-100 leading-relaxed focus:outline-none resize-y font-sans"
                         />
                       ) : (
                         <div className="space-y-1">
                           {block.translatedLines.some((l) => l.trim().length > 0) ? (
                             block.translatedLines.map((line, lIdx) => (
-                              <p key={lIdx} className="text-xs text-cyan-200 leading-relaxed italic">
-                                {line || <span className="text-gray-600">—</span>}
+                              <p key={lIdx} className="text-xs text-cyan-700 dark:text-cyan-200 leading-relaxed italic">
+                                {line || <span className="text-slate-500 dark:text-gray-600">—</span>}
                               </p>
                             ))
                           ) : (
@@ -462,7 +462,7 @@ export const AiTranslationModal: React.FC<AiTranslationModalProps> = ({
         </div>
 
         {/* Pied de modal : Actions */}
-        <div className="px-5 py-3.5 border-t border-[#22222E] bg-[#16161E] flex flex-wrap items-center justify-between gap-2.5">
+        <div className="px-5 py-3.5 border-t border-slate-200 dark:border-[#22222E] bg-slate-50 dark:bg-[#16161E] flex flex-wrap items-center justify-between gap-2.5">
           <div className="flex items-center gap-2">
             {existingAiTranslation && onDeleteLocalTranslation && (
               <button
@@ -471,7 +471,7 @@ export const AiTranslationModal: React.FC<AiTranslationModalProps> = ({
                   onDeleteLocalTranslation(song.id);
                   onClose();
                 }}
-                className="px-3 py-1.5 rounded-xl bg-red-950/30 hover:bg-red-950/60 border border-red-500/30 text-red-300 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors"
+                className="px-3 py-1.5 rounded-xl bg-red-50 dark:bg-red-950/30 hover:bg-red-100 dark:hover:bg-red-950/60 border border-red-500/30 text-red-700 dark:text-red-300 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors"
                 title="Supprimer la traduction IA locale de ce chant"
               >
                 <Trash2 className="w-3.5 h-3.5" />
@@ -485,7 +485,7 @@ export const AiTranslationModal: React.FC<AiTranslationModalProps> = ({
                   setBlocks(extractSongBlocksForTranslation(song));
                   setTranslatedTitle('');
                 }}
-                className="px-2.5 py-1.5 rounded-xl bg-[#1E1E28] hover:bg-[#262634] border border-[#2E2E3E] text-gray-400 hover:text-white text-xs font-medium flex items-center gap-1.5 cursor-pointer transition-colors"
+                className="px-2.5 py-1.5 rounded-xl bg-[#EDF1F5] dark:bg-[#1E1E28] hover:bg-slate-200 dark:hover:bg-[#262634] border border-slate-300 dark:border-[#2E2E3E] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white text-xs font-medium flex items-center gap-1.5 cursor-pointer transition-colors"
                 title="Réinitialiser les champs de traduction"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
@@ -498,7 +498,7 @@ export const AiTranslationModal: React.FC<AiTranslationModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-3.5 py-2 rounded-xl bg-[#1E1E28] hover:bg-[#272736] text-gray-300 text-xs font-semibold cursor-pointer transition-colors"
+              className="px-3.5 py-2 rounded-xl bg-[#EDF1F5] dark:bg-[#1E1E28] hover:bg-slate-200 dark:hover:bg-[#272736] text-slate-700 dark:text-gray-300 text-xs font-semibold cursor-pointer transition-colors"
             >
               Annuler
             </button>
@@ -508,7 +508,7 @@ export const AiTranslationModal: React.FC<AiTranslationModalProps> = ({
                 type="button"
                 onClick={handleSaveLibrary}
                 disabled={!hasAnyTranslation || isSavingLibrary}
-                className="px-3.5 py-2 rounded-xl bg-indigo-600/25 hover:bg-indigo-600/40 disabled:opacity-40 border border-indigo-500/50 text-indigo-200 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
+                className="px-3.5 py-2 rounded-xl bg-indigo-600/25 hover:bg-indigo-600/40 disabled:opacity-40 border border-indigo-500/50 text-indigo-700 dark:text-indigo-200 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
                 title="Enregistrer les modifications dans le chant lié du répertoire"
               >
                 {isSavingLibrary ? (

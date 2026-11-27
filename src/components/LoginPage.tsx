@@ -101,14 +101,14 @@ export const LoginPage: React.FC = () => {
   const isPasswordStrongEnough = passwordCorePassedCount === 4;
   const passwordStrength = (() => {
     if (!password) {
-      return { level: 0, label: '', color: 'bg-[#262630]', textColor: 'text-gray-400', feedback: '' };
+      return { level: 0, label: '', color: 'bg-[#EDF1F5] dark:bg-[#262630]', textColor: 'text-slate-600 dark:text-gray-400', feedback: '' };
     }
     if (password.length < 6 || passwordCorePassedCount <= 1) {
       return {
         level: 1,
         label: 'Faible',
         color: 'bg-rose-500',
-        textColor: 'text-rose-400',
+        textColor: 'text-rose-600 dark:text-rose-400',
         feedback: 'Mot de passe trop faible : utilisez au moins 8 caractères, une majuscule, une minuscule et un chiffre.'
       };
     }
@@ -117,7 +117,7 @@ export const LoginPage: React.FC = () => {
         level: 2,
         label: 'Moyen',
         color: 'bg-amber-500',
-        textColor: 'text-amber-400',
+        textColor: 'text-amber-600 dark:text-amber-400',
         feedback: 'Presque bon : complétez tous les critères ci-dessous.'
       };
     }
@@ -126,7 +126,7 @@ export const LoginPage: React.FC = () => {
         level: 4,
         label: 'Très fort',
         color: 'bg-emerald-500',
-        textColor: 'text-emerald-400',
+        textColor: 'text-emerald-600 dark:text-emerald-400',
         feedback: 'Mot de passe très sécurisé.'
       };
     }
@@ -134,7 +134,7 @@ export const LoginPage: React.FC = () => {
       level: 3,
       label: 'Valide',
       color: 'bg-blue-500',
-      textColor: 'text-blue-400',
+      textColor: 'text-blue-600 dark:text-blue-400',
       feedback: 'Mot de passe valide (ajoutez un caractère spécial pour le renforcer).'
     };
   })();
@@ -327,11 +327,11 @@ export const LoginPage: React.FC = () => {
   const renderLibraryChoiceFields = () => (
     <div className="space-y-3 pt-1">
       <div className="flex items-center justify-between">
-        <label className="block text-xs font-semibold text-white">
+        <label className="block text-xs font-semibold text-slate-900 dark:text-white">
           Votre bibliothèque
         </label>
-        <span className="text-[10px] text-gray-400 flex items-center gap-1">
-          <Database className="w-3 h-3 text-blue-400" />
+        <span className="text-[10px] text-slate-600 dark:text-gray-400 flex items-center gap-1">
+          <Database className="w-3 h-3 text-blue-600 dark:text-blue-400" />
           Base de données dédiée
         </span>
       </div>
@@ -346,15 +346,15 @@ export const LoginPage: React.FC = () => {
           }}
           className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
             libraryChoice === 'create'
-              ? 'bg-blue-600/15 border-blue-500 text-white shadow-xs ring-1 ring-blue-500/30'
-              : 'bg-[#16161A] border-[#262630] text-gray-400 hover:text-white hover:border-[#363644]'
+              ? 'bg-blue-600/15 border-blue-500 text-slate-900 dark:text-white shadow-xs ring-1 ring-blue-500/30'
+              : 'bg-slate-50 dark:bg-[#16161A] border-slate-300 dark:border-[#262630] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:border-slate-400 dark:hover:border-[#363644]'
           }`}
         >
           <div className="flex items-center gap-1.5 font-semibold text-xs mb-0.5">
-            <Plus className={`w-3.5 h-3.5 shrink-0 ${libraryChoice === 'create' ? 'text-blue-400' : 'text-gray-500'}`} />
+            <Plus className={`w-3.5 h-3.5 shrink-0 ${libraryChoice === 'create' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500'}`} />
             <span>Créer</span>
           </div>
-          <p className="text-[10px] text-gray-400 leading-tight">
+          <p className="text-[10px] text-slate-600 dark:text-gray-400 leading-tight">
             Nouvelle bibliothèque & base isolée
           </p>
         </button>
@@ -367,24 +367,24 @@ export const LoginPage: React.FC = () => {
           }}
           className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
             libraryChoice === 'join'
-              ? 'bg-blue-600/15 border-blue-500 text-white shadow-xs ring-1 ring-blue-500/30'
-              : 'bg-[#16161A] border-[#262630] text-gray-400 hover:text-white hover:border-[#363644]'
+              ? 'bg-blue-600/15 border-blue-500 text-slate-900 dark:text-white shadow-xs ring-1 ring-blue-500/30'
+              : 'bg-slate-50 dark:bg-[#16161A] border-slate-300 dark:border-[#262630] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:border-slate-400 dark:hover:border-[#363644]'
           }`}
         >
           <div className="flex items-center gap-1.5 font-semibold text-xs mb-0.5">
-            <KeyRound className={`w-3.5 h-3.5 shrink-0 ${libraryChoice === 'join' ? 'text-blue-400' : 'text-gray-500'}`} />
+            <KeyRound className={`w-3.5 h-3.5 shrink-0 ${libraryChoice === 'join' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500'}`} />
             <span>Rejoindre</span>
           </div>
-          <p className="text-[10px] text-gray-400 leading-tight">
+          <p className="text-[10px] text-slate-600 dark:text-gray-400 leading-tight">
             Via l'identifiant d'une bibliothèque
           </p>
         </button>
       </div>
 
       {libraryChoice === 'create' ? (
-        <div className="space-y-2.5 p-3 rounded-xl bg-[#0D0D10] border border-[#222228]">
+        <div className="space-y-2.5 p-3 rounded-xl bg-[#F4F6F9] dark:bg-[#0D0D10] border border-slate-200 dark:border-[#222228]">
           <div>
-            <label className="block text-[11px] font-medium text-gray-300 mb-1">
+            <label className="block text-[11px] font-medium text-slate-700 dark:text-gray-300 mb-1">
               Nom de la bibliothèque
             </label>
             <div className="relative">
@@ -394,13 +394,13 @@ export const LoginPage: React.FC = () => {
                 placeholder="Ex: Équipe Louange Paris"
                 value={libraryName}
                 onChange={(e) => setLibraryName(e.target.value)}
-                className="w-full bg-[#18181B] border border-[#2E2E33] focus:border-blue-500 rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none transition-colors"
+                className="w-full bg-slate-50 dark:bg-[#18181B] border border-slate-300 dark:border-[#2E2E33] focus:border-blue-500 rounded-lg pl-9 pr-3 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none transition-colors"
                 required
               />
             </div>
           </div>
           <div>
-            <label className="block text-[11px] font-medium text-gray-400 mb-1">
+            <label className="block text-[11px] font-medium text-slate-600 dark:text-gray-400 mb-1">
               Description (facultative)
             </label>
             <input
@@ -408,16 +408,16 @@ export const LoginPage: React.FC = () => {
               placeholder="Répertoire du groupe, setlists..."
               value={libraryDescription}
               onChange={(e) => setLibraryDescription(e.target.value)}
-              className="w-full bg-[#18181B] border border-[#2E2E33] focus:border-blue-500 rounded-lg px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none transition-colors"
+              className="w-full bg-slate-50 dark:bg-[#18181B] border border-slate-300 dark:border-[#2E2E33] focus:border-blue-500 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none transition-colors"
             />
           </div>
-          <p className="text-[10px] text-gray-400 leading-relaxed">
+          <p className="text-[10px] text-slate-600 dark:text-gray-400 leading-relaxed">
             Un identifiant unique sera généré pour votre bibliothèque afin d'inviter vos musiciens.
           </p>
         </div>
       ) : (
-        <div className="space-y-2 p-3 rounded-xl bg-[#0D0D10] border border-[#222228]">
-          <label className="block text-[11px] font-medium text-gray-300">
+        <div className="space-y-2 p-3 rounded-xl bg-[#F4F6F9] dark:bg-[#0D0D10] border border-slate-200 dark:border-[#222228]">
+          <label className="block text-[11px] font-medium text-slate-700 dark:text-gray-300">
             Identifiant de la bibliothèque
           </label>
           <div className="flex items-center gap-2">
@@ -428,7 +428,7 @@ export const LoginPage: React.FC = () => {
                 placeholder="Ex: K7M4P9"
                 value={libraryIdentifier}
                 onChange={(e) => setLibraryIdentifier(e.target.value.toUpperCase())}
-                className="w-full bg-[#18181B] border border-[#2E2E33] focus:border-blue-500 rounded-lg pl-9 pr-3 py-2 text-xs font-mono font-bold tracking-wider text-blue-300 placeholder-gray-500 focus:outline-none transition-colors"
+                className="w-full bg-slate-50 dark:bg-[#18181B] border border-slate-300 dark:border-[#2E2E33] focus:border-blue-500 rounded-lg pl-9 pr-3 py-2 text-xs font-mono font-bold tracking-wider text-blue-700 dark:text-blue-300 placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none transition-colors"
                 required
               />
             </div>
@@ -438,14 +438,14 @@ export const LoginPage: React.FC = () => {
                 setErrorMsg('');
                 setQrScannerMode('member');
               }}
-              className="px-2.5 py-2 rounded-lg bg-[#18181E] hover:bg-[#22222C] border border-[#2E2E3A] text-cyan-300 hover:text-cyan-200 text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
+              className="px-2.5 py-2 rounded-lg bg-slate-50 dark:bg-[#18181E] hover:bg-slate-200/70 dark:hover:bg-[#22222C] border border-slate-300 dark:border-[#2E2E3A] text-cyan-700 dark:text-cyan-300 hover:text-cyan-800 dark:hover:text-cyan-200 text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
               title="Scanner le QR code d'invitation d'une bibliothèque"
             >
               <QrCode className="w-3.5 h-3.5" />
               <span>Scanner</span>
             </button>
           </div>
-          <p className="text-[10px] text-gray-400 leading-relaxed">
+          <p className="text-[10px] text-slate-600 dark:text-gray-400 leading-relaxed">
             Saisissez l'identifiant ou scannez le QR code partagé par le responsable de la bibliothèque pour accéder directement à sa base de données.
           </p>
         </div>
@@ -454,7 +454,7 @@ export const LoginPage: React.FC = () => {
   );
 
   return (
-    <div className="min-h-screen w-full bg-[#09090B] text-[#E0E0E0] flex flex-col justify-center items-center p-4 relative overflow-hidden font-sans selection:bg-blue-600/30 selection:text-blue-200">
+    <div className="min-h-screen w-full bg-[#F4F6F9] dark:bg-[#09090B] text-slate-900 dark:text-[#E0E0E0] flex flex-col justify-center items-center p-4 relative overflow-hidden font-sans selection:bg-blue-600/30 selection:text-blue-200">
       {/* Subtle Ambient Background Glow */}
       <div
         className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[540px] h-[540px] rounded-full pointer-events-none blur-[120px] opacity-25"
@@ -466,26 +466,26 @@ export const LoginPage: React.FC = () => {
       <div className="relative z-10 w-full max-w-[440px]">
         {/* Brand Header */}
         <div className="text-center mb-6">
-          <div className="inline-flex p-3 rounded-2xl bg-[#141417] border border-[#222225] shadow-xl shadow-cyan-950/20 mb-3">
+          <div className="inline-flex p-3 rounded-2xl bg-slate-50 dark:bg-[#141417] border border-slate-200 dark:border-[#222225] shadow-xl shadow-cyan-950/20 mb-3">
             <MelobookLogo className="w-11 h-11" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">Melobook</h1>
-          <p className="text-xs text-gray-400 mt-1">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Melobook</h1>
+          <p className="text-xs text-slate-600 dark:text-gray-400 mt-1">
             Partitions, setlists & répertoires par bibliothèque
           </p>
         </div>
 
         {/* Main Card */}
-        <div className="bg-[#121214] border border-[#222225] rounded-2xl p-6 sm:p-7 shadow-2xl backdrop-blur-xl">
+        <div className="bg-white dark:bg-[#121214] border border-slate-200 dark:border-[#222225] rounded-2xl p-6 sm:p-7 shadow-2xl backdrop-blur-xl">
           {firebaseUser && needsLibraryOnboarding ? (
             /* ÉTAPE DE CONFIGURATION BIBLIOTHÈQUE (si pas encore de bibliothèque) */
             <div className="space-y-4">
-              <div className="flex items-center justify-between gap-3 pb-3 border-b border-[#1E1E22]">
+              <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-[#1E1E22]">
                 <div className="min-w-0">
-                  <h2 className="text-sm font-bold text-white truncate">
+                  <h2 className="text-sm font-bold text-slate-900 dark:text-white truncate">
                     Bienvenue, {firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Musicien'}
                   </h2>
-                  <p className="text-[11px] text-gray-400 truncate">
+                  <p className="text-[11px] text-slate-600 dark:text-gray-400 truncate">
                     {firebaseUser.email}
                   </p>
                 </div>
@@ -495,20 +495,20 @@ export const LoginPage: React.FC = () => {
                     setErrorMsg('');
                     handleSignOut();
                   }}
-                  className="px-2.5 py-1.5 rounded-lg bg-[#1A1A20] hover:bg-[#24242C] text-gray-300 hover:text-white border border-[#2C2C36] text-[11px] font-medium flex items-center gap-1.5 shrink-0 cursor-pointer transition-colors"
+                  className="px-2.5 py-1.5 rounded-lg bg-[#EDF1F5] dark:bg-[#1A1A20] hover:bg-slate-200 dark:hover:bg-[#24242C] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-[#2C2C36] text-[11px] font-medium flex items-center gap-1.5 shrink-0 cursor-pointer transition-colors"
                 >
                   <LogOut className="w-3 h-3" />
                   <span>Changer</span>
                 </button>
               </div>
 
-              <p className="text-xs text-gray-300 leading-relaxed">
+              <p className="text-xs text-slate-700 dark:text-gray-300 leading-relaxed">
                 Choisissez si vous souhaitez créer votre propre bibliothèque ou rejoindre une bibliothèque existante avec son identifiant :
               </p>
 
               {errorMsg && (
-                <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-start gap-2.5">
-                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-400 mt-0.5" />
+                <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs flex items-start gap-2.5">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 dark:text-rose-400 mt-0.5" />
                   <div className="leading-relaxed">{errorMsg}</div>
                 </div>
               )}
@@ -539,10 +539,10 @@ export const LoginPage: React.FC = () => {
           ) : isGuestEntry ? (
             /* ÉCRAN ACCÈS INVITÉ (LECTURE SEULE) */
             <>
-              <div className="mb-5 flex items-center justify-between pb-3 border-b border-[#1E1E22]">
+              <div className="mb-5 flex items-center justify-between pb-3 border-b border-slate-200 dark:border-[#1E1E22]">
                 <div>
-                  <h2 className="text-sm font-semibold text-white">Consulter sans compte</h2>
-                  <p className="text-xs text-gray-400">Accès visiteur en lecture seule (chants & setlists)</p>
+                  <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Consulter sans compte</h2>
+                  <p className="text-xs text-slate-600 dark:text-gray-400">Accès visiteur en lecture seule (chants & setlists)</p>
                 </div>
                 <button
                   type="button"
@@ -551,22 +551,22 @@ export const LoginPage: React.FC = () => {
                     setErrorMsg('');
                     setSuccessMsg('');
                   }}
-                  className="text-xs text-blue-400 hover:text-blue-300 font-medium cursor-pointer"
+                  className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium cursor-pointer"
                 >
                   Retour
                 </button>
               </div>
 
               {errorMsg && (
-                <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-start gap-2.5">
-                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-400 mt-0.5" />
+                <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs flex items-start gap-2.5">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 dark:text-rose-400 mt-0.5" />
                   <div className="leading-relaxed">{errorMsg}</div>
                 </div>
               )}
 
               <form onSubmit={handleGuestSubmit} className="space-y-3.5">
                 <div>
-                  <label className="block text-xs font-medium text-gray-300 mb-1.5">
+                  <label className="block text-xs font-medium text-slate-700 dark:text-gray-300 mb-1.5">
                     Code de la bibliothèque
                   </label>
                   <div className="flex items-center gap-2">
@@ -577,7 +577,7 @@ export const LoginPage: React.FC = () => {
                         placeholder="Ex: K7M4P9"
                         value={guestCodeInput}
                         onChange={(e) => setGuestCodeInput(e.target.value.toUpperCase())}
-                        className="w-full bg-[#18181B] border border-[#2E2E33] focus:border-blue-500 rounded-xl pl-9 pr-3.5 py-2 text-xs font-mono font-bold tracking-wider text-blue-300 placeholder-gray-500 focus:outline-none transition-colors"
+                        className="w-full bg-slate-50 dark:bg-[#18181B] border border-slate-300 dark:border-[#2E2E33] focus:border-blue-500 rounded-xl pl-9 pr-3.5 py-2 text-xs font-mono font-bold tracking-wider text-blue-700 dark:text-blue-300 placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none transition-colors"
                         required
                       />
                     </div>
@@ -587,14 +587,14 @@ export const LoginPage: React.FC = () => {
                         setErrorMsg('');
                         setQrScannerMode('guest');
                       }}
-                      className="px-3 py-2 rounded-xl bg-[#18181E] hover:bg-[#22222C] border border-[#2E2E3A] text-cyan-300 hover:text-cyan-200 text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
+                      className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-[#18181E] hover:bg-slate-200/70 dark:hover:bg-[#22222C] border border-slate-300 dark:border-[#2E2E3A] text-cyan-700 dark:text-cyan-300 hover:text-cyan-800 dark:hover:text-cyan-200 text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
                       title="Scanner le QR code d'une bibliothèque avec la caméra"
                     >
                       <QrCode className="w-4 h-4" />
                       <span>Scanner</span>
                     </button>
                   </div>
-                  <p className="text-[11px] text-gray-400 mt-2 leading-relaxed">
+                  <p className="text-[11px] text-slate-600 dark:text-gray-400 mt-2 leading-relaxed">
                     Saisissez le code unique de la bibliothèque ou scannez son QR code pour consulter les chants et les setlists en lecture seule.
                   </p>
                 </div>
@@ -619,7 +619,7 @@ export const LoginPage: React.FC = () => {
             /* ÉCRAN CONNEXION / CRÉATION DE COMPTE */
             <>
               {!isResetPassword && (
-                <div className="flex bg-[#0A0A0C] p-1 rounded-xl border border-[#1E1E22] mb-5">
+                <div className="flex bg-[#F4F6F9] dark:bg-[#0A0A0C] p-1 rounded-xl border border-slate-200 dark:border-[#1E1E22] mb-5">
                   <button
                     type="button"
                     onClick={() => {
@@ -629,8 +629,8 @@ export const LoginPage: React.FC = () => {
                     }}
                     className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                       tab === 'signin'
-                        ? 'bg-[#1E1E22] text-white shadow-sm border border-[#2F2F35]'
-                        : 'text-gray-400 hover:text-white'
+                        ? 'bg-[#EDF1F5] dark:bg-[#1E1E22] text-slate-900 dark:text-white shadow-sm border border-slate-300 dark:border-[#2F2F35]'
+                        : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                     }`}
                   >
                     Connexion
@@ -644,8 +644,8 @@ export const LoginPage: React.FC = () => {
                     }}
                     className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                       tab === 'signup'
-                        ? 'bg-[#1E1E22] text-white shadow-sm border border-[#2F2F35]'
-                        : 'text-gray-400 hover:text-white'
+                        ? 'bg-[#EDF1F5] dark:bg-[#1E1E22] text-slate-900 dark:text-white shadow-sm border border-slate-300 dark:border-[#2F2F35]'
+                        : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                     }`}
                   >
                     Créer un compte
@@ -654,10 +654,10 @@ export const LoginPage: React.FC = () => {
               )}
 
               {isResetPassword && (
-                <div className="mb-5 flex items-center justify-between pb-3 border-b border-[#1E1E22]">
+                <div className="mb-5 flex items-center justify-between pb-3 border-b border-slate-200 dark:border-[#1E1E22]">
                   <div>
-                    <h2 className="text-sm font-semibold text-white">Réinitialiser le mot de passe</h2>
-                    <p className="text-xs text-gray-400">Recevez un lien de récupération par e-mail</p>
+                    <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Réinitialiser le mot de passe</h2>
+                    <p className="text-xs text-slate-600 dark:text-gray-400">Recevez un lien de récupération par e-mail</p>
                   </div>
                   <button
                     type="button"
@@ -666,7 +666,7 @@ export const LoginPage: React.FC = () => {
                       setErrorMsg('');
                       setSuccessMsg('');
                     }}
-                    className="text-xs text-blue-400 hover:text-blue-300 font-medium cursor-pointer"
+                    className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium cursor-pointer"
                   >
                     Retour
                   </button>
@@ -674,15 +674,15 @@ export const LoginPage: React.FC = () => {
               )}
 
               {errorMsg && (
-                <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-start gap-2.5">
-                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-400 mt-0.5" />
+                <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs flex items-start gap-2.5">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 dark:text-rose-400 mt-0.5" />
                   <div className="leading-relaxed">{errorMsg}</div>
                 </div>
               )}
 
               {successMsg && (
-                <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-start gap-2.5">
-                  <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400 mt-0.5" />
+                <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs flex items-start gap-2.5">
+                  <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400 mt-0.5" />
                   <div className="leading-relaxed">{successMsg}</div>
                 </div>
               )}
@@ -691,7 +691,7 @@ export const LoginPage: React.FC = () => {
                 {tab === 'signup' && !isResetPassword && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     <div>
-                      <label className="block text-xs font-medium text-gray-300 mb-1.5">
+                      <label className="block text-xs font-medium text-slate-700 dark:text-gray-300 mb-1.5">
                         NOM
                       </label>
                       <div className="relative">
@@ -702,14 +702,14 @@ export const LoginPage: React.FC = () => {
                           placeholder="Dupont"
                           value={lastName}
                           onChange={(e) => setLastName(e.target.value)}
-                          className="w-full bg-[#18181B] border border-[#2E2E33] focus:border-blue-500 rounded-xl pl-9 pr-3.5 py-2 text-xs text-white placeholder-gray-500 focus:outline-none transition-colors"
+                          className="w-full bg-slate-50 dark:bg-[#18181B] border border-slate-300 dark:border-[#2E2E33] focus:border-blue-500 rounded-xl pl-9 pr-3.5 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none transition-colors"
                           required
                         />
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-xs font-medium text-gray-300 mb-1.5">
+                      <label className="block text-xs font-medium text-slate-700 dark:text-gray-300 mb-1.5">
                         Prénom
                       </label>
                       <div className="relative">
@@ -720,7 +720,7 @@ export const LoginPage: React.FC = () => {
                           placeholder="Alex"
                           value={firstName}
                           onChange={(e) => setFirstName(e.target.value)}
-                          className="w-full bg-[#18181B] border border-[#2E2E33] focus:border-blue-500 rounded-xl pl-9 pr-3.5 py-2 text-xs text-white placeholder-gray-500 focus:outline-none transition-colors"
+                          className="w-full bg-slate-50 dark:bg-[#18181B] border border-slate-300 dark:border-[#2E2E33] focus:border-blue-500 rounded-xl pl-9 pr-3.5 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none transition-colors"
                           required
                         />
                       </div>
@@ -729,7 +729,7 @@ export const LoginPage: React.FC = () => {
                 )}
 
                 <div>
-                  <label className="block text-xs font-medium text-gray-300 mb-1.5">
+                  <label className="block text-xs font-medium text-slate-700 dark:text-gray-300 mb-1.5">
                     Email
                   </label>
                   <div className="relative">
@@ -739,7 +739,7 @@ export const LoginPage: React.FC = () => {
                       placeholder="nom@exemple.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="w-full bg-[#18181B] border border-[#2E2E33] focus:border-blue-500 rounded-xl pl-9 pr-3.5 py-2 text-xs text-white placeholder-gray-500 focus:outline-none transition-colors"
+                      className="w-full bg-slate-50 dark:bg-[#18181B] border border-slate-300 dark:border-[#2E2E33] focus:border-blue-500 rounded-xl pl-9 pr-3.5 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none transition-colors"
                       required
                     />
                   </div>
@@ -748,7 +748,7 @@ export const LoginPage: React.FC = () => {
                 {!isResetPassword && (
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-xs font-medium text-gray-300">
+                      <label className="text-xs font-medium text-slate-700 dark:text-gray-300">
                         Mot de passe
                       </label>
                       {tab === 'signin' && (
@@ -759,7 +759,7 @@ export const LoginPage: React.FC = () => {
                             setErrorMsg('');
                             setSuccessMsg('');
                           }}
-                          className="text-[11px] text-blue-400 hover:text-blue-300 cursor-pointer"
+                          className="text-[11px] text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 cursor-pointer"
                         >
                           Mot de passe oublié ?
                         </button>
@@ -772,14 +772,14 @@ export const LoginPage: React.FC = () => {
                         placeholder="••••••••"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className="w-full bg-[#18181B] border border-[#2E2E33] focus:border-blue-500 rounded-xl pl-9 pr-9 py-2 text-xs text-white placeholder-gray-500 focus:outline-none transition-colors"
+                        className="w-full bg-slate-50 dark:bg-[#18181B] border border-slate-300 dark:border-[#2E2E33] focus:border-blue-500 rounded-xl pl-9 pr-9 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none transition-colors"
                         required
                         minLength={tab === 'signup' ? 8 : 6}
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white p-0.5 cursor-pointer"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white p-0.5 cursor-pointer"
                         tabIndex={-1}
                       >
                         {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
@@ -787,14 +787,14 @@ export const LoginPage: React.FC = () => {
                     </div>
 
                     {tab === 'signup' && (
-                      <div className="mt-2.5 p-2.5 rounded-xl bg-[#0D0D10] border border-[#222228] space-y-2">
+                      <div className="mt-2.5 p-2.5 rounded-xl bg-[#F4F6F9] dark:bg-[#0D0D10] border border-slate-200 dark:border-[#222228] space-y-2">
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex-1 grid grid-cols-4 gap-1">
                             {[1, 2, 3, 4].map((step) => (
                               <span
                                 key={step}
                                 className={`h-1 rounded-full transition-colors ${
-                                  passwordStrength.level >= step ? passwordStrength.color : 'bg-[#262630]'
+                                  passwordStrength.level >= step ? passwordStrength.color : 'bg-[#EDF1F5] dark:bg-[#262630]'
                                 }`}
                               />
                             ))}
@@ -816,7 +816,7 @@ export const LoginPage: React.FC = () => {
                             <div
                               key={rule.label}
                               className={`flex items-center gap-1 transition-colors ${
-                                rule.ok ? 'text-emerald-400' : 'text-gray-400'
+                                rule.ok ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-600 dark:text-gray-400'
                               }`}
                             >
                               <Check className={`w-3 h-3 shrink-0 ${rule.ok ? 'opacity-100' : 'opacity-30'}`} />
@@ -862,7 +862,7 @@ export const LoginPage: React.FC = () => {
               </form>
 
               {!isResetPassword && (
-                <div className="mt-4 pt-4 border-t border-[#1E1E22] space-y-3 text-center">
+                <div className="mt-4 pt-4 border-t border-slate-200 dark:border-[#1E1E22] space-y-3 text-center">
                   <button
                     type="button"
                     onClick={() => {
@@ -870,17 +870,17 @@ export const LoginPage: React.FC = () => {
                       setErrorMsg('');
                       setSuccessMsg('');
                     }}
-                    className="text-xs text-gray-400 hover:text-white transition-colors cursor-pointer"
+                    className="text-xs text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
                   >
                     {tab === 'signin' ? (
                       <>
                         Pas encore de compte ?{' '}
-                        <span className="text-blue-400 hover:text-blue-300 font-semibold">Créer un compte</span>
+                        <span className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-semibold">Créer un compte</span>
                       </>
                     ) : (
                       <>
                         Déjà un compte ?{' '}
-                        <span className="text-blue-400 hover:text-blue-300 font-semibold">Se connecter</span>
+                        <span className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-semibold">Se connecter</span>
                       </>
                     )}
                   </button>
@@ -893,9 +893,9 @@ export const LoginPage: React.FC = () => {
                         setErrorMsg('');
                         setSuccessMsg('');
                       }}
-                      className="w-full py-2 px-3 rounded-xl bg-[#16161B] hover:bg-[#1E1E26] border border-[#2A2A35] text-xs font-medium text-gray-200 hover:text-white transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                      className="w-full py-2 px-3 rounded-xl bg-slate-50 dark:bg-[#16161B] hover:bg-slate-200/70 dark:hover:bg-[#1E1E26] border border-slate-300 dark:border-[#2A2A35] text-xs font-medium text-slate-800 dark:text-gray-200 hover:text-slate-900 dark:hover:text-white transition-colors flex items-center justify-center gap-2 cursor-pointer"
                     >
-                      <Eye className="w-3.5 h-3.5 text-cyan-400" />
+                      <Eye className="w-3.5 h-3.5 text-cyan-700 dark:text-cyan-400" />
                       <span>Consulter sans compte (lecture seule)</span>
                     </button>
 
@@ -906,7 +906,7 @@ export const LoginPage: React.FC = () => {
                         setSuccessMsg('');
                         setQrScannerMode('guest');
                       }}
-                      className="py-2 px-3 rounded-xl bg-[#16161B] hover:bg-[#1E1E26] border border-cyan-500/30 text-xs font-semibold text-cyan-300 hover:text-cyan-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                      className="py-2 px-3 rounded-xl bg-slate-50 dark:bg-[#16161B] hover:bg-slate-200/70 dark:hover:bg-[#1E1E26] border border-cyan-500/30 text-xs font-semibold text-cyan-700 dark:text-cyan-300 hover:text-cyan-800 dark:hover:text-cyan-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                       title="Scanner le QR code d'une bibliothèque"
                     >
                       <QrCode className="w-3.5 h-3.5" />

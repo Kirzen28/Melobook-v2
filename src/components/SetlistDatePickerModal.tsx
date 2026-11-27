@@ -127,25 +127,25 @@ const CalendarPanel: React.FC<CalendarPanelProps> = ({
   };
 
   return (
-    <div className="rounded-2xl bg-[#13141B] border border-[#2C2F3E] shadow-[0_20px_50px_rgba(0,0,0,0.85)] p-3.5 text-gray-200">
+    <div className="rounded-2xl bg-slate-50 dark:bg-[#13141B] border border-slate-300 dark:border-[#2C2F3E] shadow-[0_20px_50px_rgba(0,0,0,0.85)] p-3.5 text-slate-800 dark:text-gray-200">
       {topSlot}
 
       {/* Header Mois / Année + Navigation */}
-      <div className="flex items-center justify-between gap-2 pb-2.5 mb-2.5 border-b border-[#232532]">
+      <div className="flex items-center justify-between gap-2 pb-2.5 mb-2.5 border-b border-slate-300 dark:border-[#232532]">
         <button
           type="button"
           onClick={() => setIsMonthPickerOpen(prev => !prev)}
-          className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold text-white hover:bg-[#1E202B] transition-colors capitalize cursor-pointer"
+          className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold text-slate-900 dark:text-white hover:bg-slate-200/70 dark:hover:bg-[#1E202B] transition-colors capitalize cursor-pointer"
         >
           <span>{MONTH_NAMES_FR[viewMonth].toLowerCase()} {viewYear}</span>
-          <ChevronDown className={`w-3.5 h-3.5 text-blue-400 transition-transform ${isMonthPickerOpen ? 'rotate-180' : ''}`} />
+          <ChevronDown className={`w-3.5 h-3.5 text-blue-600 dark:text-blue-400 transition-transform ${isMonthPickerOpen ? 'rotate-180' : ''}`} />
         </button>
 
         <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={handlePrevMonth}
-            className="p-1.5 rounded-lg bg-[#1A1C24] hover:bg-[#242734] border border-[#2C2F3D] text-gray-300 hover:text-white transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg bg-[#EDF1F5] dark:bg-[#1A1C24] hover:bg-slate-200 dark:hover:bg-[#242734] border border-slate-300 dark:border-[#2C2F3D] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
             title="Mois précédent"
             aria-label="Mois précédent"
           >
@@ -154,7 +154,7 @@ const CalendarPanel: React.FC<CalendarPanelProps> = ({
           <button
             type="button"
             onClick={handleNextMonth}
-            className="p-1.5 rounded-lg bg-[#1A1C24] hover:bg-[#242734] border border-[#2C2F3D] text-gray-300 hover:text-white transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg bg-[#EDF1F5] dark:bg-[#1A1C24] hover:bg-slate-200 dark:hover:bg-[#242734] border border-slate-300 dark:border-[#2C2F3D] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
             title="Mois suivant"
             aria-label="Mois suivant"
           >
@@ -169,15 +169,15 @@ const CalendarPanel: React.FC<CalendarPanelProps> = ({
             <button
               type="button"
               onClick={() => setViewYear(y => y - 1)}
-              className="p-1 rounded-md bg-[#1A1C24] hover:bg-[#242734] border border-[#2C2F3D] text-gray-300 hover:text-white cursor-pointer"
+              className="p-1 rounded-md bg-[#EDF1F5] dark:bg-[#1A1C24] hover:bg-slate-200 dark:hover:bg-[#242734] border border-slate-300 dark:border-[#2C2F3D] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white cursor-pointer"
             >
               <ChevronLeft className="w-3.5 h-3.5" />
             </button>
-            <span className="text-xs font-bold text-white font-mono">{viewYear}</span>
+            <span className="text-xs font-bold text-slate-900 dark:text-white font-mono">{viewYear}</span>
             <button
               type="button"
               onClick={() => setViewYear(y => y + 1)}
-              className="p-1 rounded-md bg-[#1A1C24] hover:bg-[#242734] border border-[#2C2F3D] text-gray-300 hover:text-white cursor-pointer"
+              className="p-1 rounded-md bg-[#EDF1F5] dark:bg-[#1A1C24] hover:bg-slate-200 dark:hover:bg-[#242734] border border-slate-300 dark:border-[#2C2F3D] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white cursor-pointer"
             >
               <ChevronRight className="w-3.5 h-3.5" />
             </button>
@@ -196,7 +196,7 @@ const CalendarPanel: React.FC<CalendarPanelProps> = ({
                   className={`py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
                     active
                       ? 'bg-blue-600 text-white font-semibold shadow-sm'
-                      : 'bg-[#1A1C24] text-gray-300 hover:bg-[#242734] hover:text-white'
+                      : 'bg-[#EDF1F5] dark:bg-[#1A1C24] text-slate-700 dark:text-gray-300 hover:bg-slate-200 dark:hover:bg-[#242734] hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
                   {label}
@@ -213,7 +213,7 @@ const CalendarPanel: React.FC<CalendarPanelProps> = ({
               <div
                 key={dName}
                 className={`text-[10px] font-semibold uppercase tracking-wide py-1 ${
-                  i >= 5 ? 'text-blue-400/90' : 'text-gray-400'
+                  i >= 5 ? 'text-blue-600 dark:text-blue-400/90' : 'text-slate-600 dark:text-gray-400'
                 }`}
               >
                 {dName}
@@ -237,10 +237,10 @@ const CalendarPanel: React.FC<CalendarPanelProps> = ({
                     isSelected
                       ? 'bg-blue-600 text-white font-bold ring-2 ring-blue-400/70 shadow-md shadow-blue-600/30'
                       : isToday
-                      ? 'border border-blue-400/60 bg-blue-500/10 text-blue-300 font-semibold hover:bg-blue-500/20'
+                      ? 'border border-blue-400/60 bg-blue-500/10 text-blue-700 dark:text-blue-300 font-semibold hover:bg-blue-500/20'
                       : cell.isCurrentMonth
-                      ? 'text-gray-200 hover:bg-[#232634] hover:text-white font-medium'
-                      : 'text-gray-600 hover:bg-[#1B1D26] hover:text-gray-400'
+                      ? 'text-slate-800 dark:text-gray-200 hover:bg-slate-200 dark:hover:bg-[#232634] hover:text-slate-900 dark:hover:text-white font-medium'
+                      : 'text-slate-500 dark:text-gray-600 hover:bg-slate-200/70 dark:hover:bg-[#1B1D26] hover:text-gray-400'
                   }`}
                 >
                   {cell.dayNumber}
@@ -252,7 +252,7 @@ const CalendarPanel: React.FC<CalendarPanelProps> = ({
       )}
 
       {/* Pied de page : Effacer / Aujourd'hui */}
-      <div className="flex items-center justify-between gap-2 pt-2.5 mt-2.5 border-t border-[#232532]">
+      <div className="flex items-center justify-between gap-2 pt-2.5 mt-2.5 border-t border-slate-300 dark:border-[#232532]">
         <button
           type="button"
           disabled={disabled}
@@ -260,7 +260,7 @@ const CalendarPanel: React.FC<CalendarPanelProps> = ({
             setIsMonthPickerOpen(false);
             onSelectDate('');
           }}
-          className="px-2 py-1 rounded-lg text-[11px] font-medium text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors cursor-pointer disabled:opacity-50"
+          className="px-2 py-1 rounded-lg text-[11px] font-medium text-rose-600 dark:text-rose-400 hover:text-rose-800 dark:hover:text-rose-300 hover:bg-rose-500/10 transition-colors cursor-pointer disabled:opacity-50"
         >
           Effacer
         </button>
@@ -273,7 +273,7 @@ const CalendarPanel: React.FC<CalendarPanelProps> = ({
             setIsMonthPickerOpen(false);
             onSelectDate(todayStr);
           }}
-          className="px-2.5 py-1 rounded-lg text-[11px] font-semibold text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 transition-colors cursor-pointer disabled:opacity-50"
+          className="px-2.5 py-1 rounded-lg text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:bg-blue-500/10 transition-colors cursor-pointer disabled:opacity-50"
         >
           Aujourd'hui
         </button>
@@ -332,13 +332,13 @@ export const DarkDateInput: React.FC<DarkDateInputProps> = ({
         onClick={() => setIsOpen(prev => !prev)}
         className={`w-full flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-xs transition-all cursor-pointer border ${
           isOpen
-            ? 'bg-[#20232E] border-blue-500 ring-2 ring-blue-500/20 text-white'
-            : 'bg-[#1E2028] hover:bg-[#232630] border-[#323542] hover:border-blue-500/40 text-white'
+            ? 'bg-[#EDF1F5] dark:bg-[#20232E] border-blue-500 ring-2 ring-blue-500/20 text-slate-900 dark:text-white'
+            : 'bg-[#EDF1F5] dark:bg-[#1E2028] hover:bg-slate-200 dark:hover:bg-[#232630] border-slate-300 dark:border-[#323542] hover:border-blue-500/40 text-slate-900 dark:text-white'
         }`}
       >
         <span className="flex items-center gap-2 min-w-0">
-          <CalendarIcon className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-          <span className={formattedDisplay ? 'font-mono font-medium text-white' : 'text-gray-400'}>
+          <CalendarIcon className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+          <span className={formattedDisplay ? 'font-mono font-medium text-slate-900 dark:text-white' : 'text-slate-600 dark:text-gray-400'}>
             {formattedDisplay || placeholder}
           </span>
         </span>
@@ -351,13 +351,13 @@ export const DarkDateInput: React.FC<DarkDateInputProps> = ({
                 e.stopPropagation();
                 onChange('');
               }}
-              className="p-0.5 rounded text-gray-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+              className="p-0.5 rounded text-slate-600 dark:text-gray-400 hover:text-rose-800 dark:hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
               title="Effacer la date"
             >
               <X className="w-3 h-3" />
             </span>
           )}
-          <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-150 ${isOpen ? 'rotate-180 text-blue-400' : ''}`} />
+          <ChevronDown className={`w-3.5 h-3.5 text-slate-600 dark:text-gray-400 transition-transform duration-150 ${isOpen ? 'rotate-180 text-blue-600 dark:text-blue-400' : ''}`} />
         </span>
       </button>
 
@@ -427,10 +427,10 @@ export const SetlistDatePickerModal: React.FC<SetlistDatePickerModalProps> = ({
           resetSignal={isOpen}
           onSelectDate={handleSave}
           topSlot={
-            <div className="flex items-center justify-between gap-2 pb-2.5 mb-2.5 border-b border-[#232532]">
+            <div className="flex items-center justify-between gap-2 pb-2.5 mb-2.5 border-b border-slate-300 dark:border-[#232532]">
               <div className="flex items-center gap-1.5 min-w-0">
-                <CalendarIcon className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                <span className="text-xs font-semibold text-white truncate" title={setlistTitle}>
+                <CalendarIcon className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+                <span className="text-xs font-semibold text-slate-900 dark:text-white truncate" title={setlistTitle}>
                   {setlistTitle}
                 </span>
               </div>
@@ -438,7 +438,7 @@ export const SetlistDatePickerModal: React.FC<SetlistDatePickerModalProps> = ({
                 type="button"
                 onClick={onClose}
                 disabled={isSubmitting}
-                className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-[#1E202B] transition-colors shrink-0 cursor-pointer"
+                className="p-1 rounded-lg text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#1E202B] transition-colors shrink-0 cursor-pointer"
                 aria-label="Fermer"
               >
                 <X className="w-3.5 h-3.5" />

@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
+import { MODAL_BACKDROP_MOTION, MODAL_PANEL_MOTION } from '../utils/motionPresets';
 import { 
   X, 
   ChevronLeft, 
@@ -359,50 +361,58 @@ export const MiniPianoPopup: React.FC = () => {
     return 'Touchez les touches pour entendre les notes et accords';
   }, [pressedMidis, lastPlayedNote, selectedRoot, selectedScaleId]);
 
-  if (!isPianoOpen) return null;
-
   return (
-    <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/50 backdrop-blur-[2px] animate-in fade-in duration-150"
-      onClick={() => setIsPianoOpen(false)}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Piano"
-    >
-      <div 
-        onClick={(e) => e.stopPropagation()}
-        className="h-[360px] sm:h-[400px] max-h-[72vh] w-full max-w-xl md:max-w-2xl lg:max-w-3xl bg-[#0E0E12] text-[#E0E0E0] rounded-2xl border border-[#2D2D36] shadow-2xl flex flex-col select-none touch-none relative animate-in zoom-in-95 duration-150"
-      >
+    <AnimatePresence>
+      {isPianoOpen && (
+        <motion.div
+          initial={MODAL_BACKDROP_MOTION.initial}
+          animate={MODAL_BACKDROP_MOTION.animate}
+          exit={MODAL_BACKDROP_MOTION.exit}
+          transition={MODAL_BACKDROP_MOTION.transition}
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/50 backdrop-blur-[2px]"
+          onClick={() => setIsPianoOpen(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Piano"
+        >
+          <motion.div
+            initial={MODAL_PANEL_MOTION.initial}
+            animate={MODAL_PANEL_MOTION.animate}
+            exit={MODAL_PANEL_MOTION.exit}
+            transition={MODAL_PANEL_MOTION.transition}
+            onClick={(e) => e.stopPropagation()}
+            className="h-[360px] sm:h-[400px] max-h-[72vh] w-full max-w-xl md:max-w-2xl lg:max-w-3xl bg-white dark:bg-[#0E0E12] text-slate-900 dark:text-[#E0E0E0] rounded-2xl border border-slate-300 dark:border-[#2D2D36] shadow-2xl flex flex-col select-none touch-none relative"
+          >
         {/* 1. Header Toolbar */}
-      <header className="shrink-0 px-3 py-2 sm:px-4 sm:py-2.5 bg-[#141418] border-b border-[#24242C] flex items-center justify-between gap-2 flex-wrap text-xs shadow-md z-30">
+      <header className="shrink-0 px-3 py-2 sm:px-4 sm:py-2.5 bg-slate-50 dark:bg-[#141418] border-b border-slate-200 dark:border-[#24242C] flex items-center justify-between gap-2 flex-wrap text-xs shadow-md z-30">
         {/* Left: Branding & Octave navigation */}
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-          <div className="flex items-center gap-1.5 font-bold text-white tracking-wide">
-            <div className="w-6 h-6 rounded-md bg-blue-600/30 border border-blue-500/40 flex items-center justify-center text-blue-400">
+          <div className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white tracking-wide">
+            <div className="w-6 h-6 rounded-md bg-blue-600/30 border border-blue-500/40 flex items-center justify-center text-blue-600 dark:text-blue-400">
               <Music className="w-3.5 h-3.5" />
             </div>
             <span className="hidden xs:inline text-xs sm:text-sm font-semibold">Piano</span>
           </div>
 
           {/* Octave Shift Controls */}
-          <div className="flex items-center gap-1 bg-[#1A1A20] rounded-lg border border-[#2D2D36] p-0.5">
+          <div className="flex items-center gap-1 bg-[#EDF1F5] dark:bg-[#1A1A20] rounded-lg border border-slate-300 dark:border-[#2D2D36] p-0.5">
             <button
               onClick={() => setBaseOctave(prev => Math.max(1, prev - 1))}
               disabled={baseOctave <= 1}
-              className="p-1 rounded text-gray-300 hover:text-white hover:bg-[#282832] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
+              className="p-1 rounded text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-[#282832] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
               title="Octave inférieure"
             >
               <ChevronLeft className="w-3.5 h-3.5" />
             </button>
 
-            <span className="px-2 font-mono text-[11px] sm:text-xs font-bold text-white whitespace-nowrap">
+            <span className="px-2 font-mono text-[11px] sm:text-xs font-bold text-slate-900 dark:text-white whitespace-nowrap">
               {numOctaves === 1 ? `C${baseOctave}` : `C${baseOctave} - C${baseOctave + numOctaves - 1}`}
             </span>
 
             <button
               onClick={() => setBaseOctave(prev => Math.min(7 - numOctaves, prev + 1))}
               disabled={baseOctave >= (7 - numOctaves)}
-              className="p-1 rounded text-gray-300 hover:text-white hover:bg-[#282832] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
+              className="p-1 rounded text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-[#282832] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
               title="Octave supérieure"
             >
               <ChevronRight className="w-3.5 h-3.5" />
@@ -422,25 +432,25 @@ export const MiniPianoPopup: React.FC = () => {
               }}
               className={`h-7 sm:h-8 inline-flex items-center gap-1.5 px-2 sm:px-2.5 rounded-lg border font-mono shadow-xs transition-all cursor-pointer ${
                 showKeyMenu || selectedRoot !== null
-                  ? 'bg-[#1C1C22] border-blue-500 text-white ring-1 ring-blue-500/40'
-                  : 'bg-[#141416] hover:bg-[#1A1A1E] border-[#242428] hover:border-blue-500/40 text-gray-300'
+                  ? 'bg-[#EDF1F5] dark:bg-[#1C1C22] border-blue-500 text-slate-900 dark:text-white ring-1 ring-blue-500/40'
+                  : 'bg-slate-50 dark:bg-[#141416] hover:bg-slate-200/70 dark:hover:bg-[#1A1A1E] border-slate-200 dark:border-[#242428] hover:border-blue-500/40 text-slate-700 dark:text-gray-300'
               }`}
               title="Choisir la tonalité du piano"
             >
-              <Music className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-              <span className="text-gray-400 font-sans text-xs hidden xs:inline">Tonalité :</span>
-              <span className="text-blue-400 font-bold font-mono text-xs">{currentKeyDisplay}</span>
-              <ChevronDown className={`w-3 h-3 text-blue-400/80 transition-transform ${showKeyMenu ? 'rotate-180' : ''}`} />
+              <Music className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+              <span className="text-slate-600 dark:text-gray-400 font-sans text-xs hidden xs:inline">Tonalité :</span>
+              <span className="text-blue-600 dark:text-blue-400 font-bold font-mono text-xs">{currentKeyDisplay}</span>
+              <ChevronDown className={`w-3 h-3 text-blue-600 dark:text-blue-400/80 transition-transform ${showKeyMenu ? 'rotate-180' : ''}`} />
             </button>
 
             {showKeyMenu && (
               <div 
-                className="absolute right-0 top-full mt-1.5 z-50 w-72 max-w-[calc(100vw-24px)] bg-[#16161A] border border-[#2E2E36] rounded-xl shadow-2xl p-2.5 backdrop-blur-md animate-in fade-in zoom-in-95 duration-100"
+                className="absolute right-0 top-full mt-1.5 z-50 w-72 max-w-[calc(100vw-24px)] bg-slate-50 dark:bg-[#16161A] border border-slate-300 dark:border-[#2E2E36] rounded-xl shadow-2xl p-2.5 backdrop-blur-md animate-in fade-in zoom-in-95 duration-100"
               >
-                <div className="text-[11px] font-semibold text-gray-400 pb-2 mb-2 border-b border-[#282830] flex items-center justify-between">
+                <div className="text-[11px] font-semibold text-slate-600 dark:text-gray-400 pb-2 mb-2 border-b border-slate-300 dark:border-[#282830] flex items-center justify-between">
                   <span>Choisir la tonalité</span>
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-blue-400 font-mono">
+                    <span className="text-[10px] text-blue-600 dark:text-blue-400 font-mono">
                       {selectedRoot === null ? 'Aucune' : currentKeyDisplay}
                     </span>
                     <button
@@ -452,7 +462,7 @@ export const MiniPianoPopup: React.FC = () => {
                       className={`text-[10px] px-2 py-0.5 rounded font-semibold cursor-pointer transition-colors ${
                         selectedRoot === null 
                           ? 'bg-blue-600 text-white' 
-                          : 'bg-[#22222A] text-gray-300 hover:text-white hover:bg-[#2A2A34]'
+                          : 'bg-[#EDF1F5] dark:bg-[#22222A] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-[#2A2A34]'
                       }`}
                     >
                       Aucune
@@ -463,7 +473,7 @@ export const MiniPianoPopup: React.FC = () => {
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   {/* Colonne Gauche : Majeur */}
                   <div>
-                    <div className="text-[10px] font-bold text-blue-400 uppercase tracking-wider px-1 pb-1 mb-1 border-b border-[#282830] text-center">
+                    <div className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider px-1 pb-1 mb-1 border-b border-slate-300 dark:border-[#282830] text-center">
                       Majeur
                     </div>
                     <div className="grid grid-cols-1 gap-1 max-h-56 overflow-y-auto pr-0.5 custom-scrollbar">
@@ -481,7 +491,7 @@ export const MiniPianoPopup: React.FC = () => {
                             className={`w-full py-1 px-2 rounded-md font-mono font-bold text-xs transition-colors flex items-center justify-between cursor-pointer ${
                               isSelected
                                 ? 'bg-blue-600 text-white shadow-xs'
-                                : 'text-gray-300 hover:bg-[#25252D] hover:text-white'
+                                : 'text-slate-700 dark:text-gray-300 hover:bg-slate-200 dark:hover:bg-[#25252D] hover:text-slate-900 dark:hover:text-white'
                             }`}
                           >
                             <span>{item.label}</span>
@@ -493,8 +503,8 @@ export const MiniPianoPopup: React.FC = () => {
                   </div>
 
                   {/* Colonne Droite : Mineur */}
-                  <div className="border-l border-[#282830] pl-2">
-                    <div className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider px-1 pb-1 mb-1 border-b border-[#282830] text-center">
+                  <div className="border-l border-slate-300 dark:border-[#282830] pl-2">
+                    <div className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider px-1 pb-1 mb-1 border-b border-slate-300 dark:border-[#282830] text-center">
                       Mineur
                     </div>
                     <div className="grid grid-cols-1 gap-1 max-h-56 overflow-y-auto pr-0.5 custom-scrollbar">
@@ -512,7 +522,7 @@ export const MiniPianoPopup: React.FC = () => {
                             className={`w-full py-1 px-2 rounded-md font-mono font-bold text-xs transition-colors flex items-center justify-between cursor-pointer ${
                               isSelected
                                 ? 'bg-indigo-600 text-white shadow-xs'
-                                : 'text-gray-300 hover:bg-[#25252D] hover:text-white'
+                                : 'text-slate-700 dark:text-gray-300 hover:bg-slate-200 dark:hover:bg-[#25252D] hover:text-slate-900 dark:hover:text-white'
                             }`}
                           >
                             <span>{item.label}</span>
@@ -538,8 +548,8 @@ export const MiniPianoPopup: React.FC = () => {
             }}
             className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer ${
               isSustainOn
-                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50 shadow-xs'
-                : 'bg-[#1C1C22] hover:bg-[#282832] text-gray-400 border border-[#2E2E38]'
+                ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/50 shadow-xs'
+                : 'bg-[#EDF1F5] dark:bg-[#1C1C22] hover:bg-slate-200 dark:hover:bg-[#282832] text-slate-600 dark:text-gray-400 border border-slate-300 dark:border-[#2E2E38]'
             }`}
             title="Pédale de sustain : maintenir la note"
           >
@@ -558,28 +568,28 @@ export const MiniPianoPopup: React.FC = () => {
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] sm:text-xs font-semibold transition-colors cursor-pointer ${
                 isSettingsOpen 
                   ? 'bg-blue-600 text-white border-blue-500 shadow-xs' 
-                  : 'bg-[#1C1C22] hover:bg-[#282832] text-gray-300 border-[#2E2E38]'
+                  : 'bg-[#EDF1F5] dark:bg-[#1C1C22] hover:bg-slate-200 dark:hover:bg-[#282832] text-slate-700 dark:text-gray-300 border-slate-300 dark:border-[#2E2E38]'
               }`}
               title="Réglages du piano"
               aria-expanded={isSettingsOpen}
               aria-haspopup="true"
             >
-              <Sliders className="w-3.5 h-3.5 text-blue-400" />
+              <Sliders className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
               <span>Réglages</span>
-              <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-150 ${isSettingsOpen ? 'rotate-180 text-white' : ''}`} />
+              <ChevronDown className={`w-3.5 h-3.5 text-slate-600 dark:text-gray-400 transition-transform duration-150 ${isSettingsOpen ? 'rotate-180 text-slate-900 dark:text-white' : ''}`} />
             </button>
 
             {isSettingsOpen && (
               <div 
-                className="absolute right-0 top-full mt-1.5 w-72 sm:w-80 max-h-[min(340px,65vh)] overflow-y-auto bg-[#141418] border border-[#2D2D36] rounded-2xl shadow-2xl p-3.5 z-50 animate-in fade-in zoom-in-95 duration-100 flex flex-col gap-3.5 custom-scrollbar"
+                className="absolute right-0 top-full mt-1.5 w-72 sm:w-80 max-h-[min(340px,65vh)] overflow-y-auto bg-slate-50 dark:bg-[#141418] border border-slate-300 dark:border-[#2D2D36] rounded-2xl shadow-2xl p-3.5 z-50 animate-in fade-in zoom-in-95 duration-100 flex flex-col gap-3.5 custom-scrollbar"
               >
                 {/* 1. Octaves count */}
                 <div>
-                  <div className="text-[11px] font-semibold text-gray-400 mb-1.5 flex items-center justify-between">
+                  <div className="text-[11px] font-semibold text-slate-600 dark:text-gray-400 mb-1.5 flex items-center justify-between">
                     <span>Nombre d'octaves</span>
-                    <span className="text-blue-400 font-mono text-xs">{numOctaves} {numOctaves > 1 ? 'octaves' : 'octave'}</span>
+                    <span className="text-blue-600 dark:text-blue-400 font-mono text-xs">{numOctaves} {numOctaves > 1 ? 'octaves' : 'octave'}</span>
                   </div>
-                  <div className="grid grid-cols-4 gap-1 bg-[#1A1A20] p-1 rounded-xl border border-[#2A2A34]">
+                  <div className="grid grid-cols-4 gap-1 bg-[#EDF1F5] dark:bg-[#1A1A20] p-1 rounded-xl border border-slate-300 dark:border-[#2A2A34]">
                     {[1, 2, 3, 4].map(n => (
                       <button
                         key={`set-oct-${n}`}
@@ -593,7 +603,7 @@ export const MiniPianoPopup: React.FC = () => {
                         className={`py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer text-center ${
                           numOctaves === n
                             ? 'bg-blue-600 text-white shadow-xs'
-                            : 'text-gray-400 hover:text-white hover:bg-[#252530]'
+                            : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-[#252530]'
                         }`}
                       >
                         {n}
@@ -604,7 +614,7 @@ export const MiniPianoPopup: React.FC = () => {
 
                 {/* 2. Son du clavier */}
                 <div>
-                  <label className="text-[11px] font-semibold text-gray-400 mb-1.5 block">
+                  <label className="text-[11px] font-semibold text-slate-600 dark:text-gray-400 mb-1.5 block">
                     Son du clavier
                   </label>
                   <div className="grid grid-cols-2 gap-1.5">
@@ -613,8 +623,8 @@ export const MiniPianoPopup: React.FC = () => {
                       onClick={() => setTimbre('acoustic')}
                       className={`py-1.5 px-2 rounded-xl text-xs font-semibold border transition-colors cursor-pointer text-center ${
                         timbre === 'acoustic'
-                          ? 'bg-blue-600/20 text-blue-300 border-blue-500/50'
-                          : 'bg-[#1A1A20] text-gray-400 border-[#2A2A34] hover:text-white'
+                          ? 'bg-blue-600/20 text-blue-700 dark:text-blue-300 border-blue-500/50'
+                          : 'bg-[#EDF1F5] dark:bg-[#1A1A20] text-slate-600 dark:text-gray-400 border-slate-300 dark:border-[#2A2A34] hover:text-slate-900 dark:hover:text-white'
                       }`}
                     >
                       Piano acoustique
@@ -624,8 +634,8 @@ export const MiniPianoPopup: React.FC = () => {
                       onClick={() => setTimbre('pure')}
                       className={`py-1.5 px-2 rounded-xl text-xs font-semibold border transition-colors cursor-pointer text-center ${
                         timbre === 'pure'
-                          ? 'bg-blue-600/20 text-blue-300 border-blue-500/50'
-                          : 'bg-[#1A1A20] text-gray-400 border-[#2A2A34] hover:text-white'
+                          ? 'bg-blue-600/20 text-blue-700 dark:text-blue-300 border-blue-500/50'
+                          : 'bg-[#EDF1F5] dark:bg-[#1A1A20] text-slate-600 dark:text-gray-400 border-slate-300 dark:border-[#2A2A34] hover:text-slate-900 dark:hover:text-white'
                       }`}
                     >
                       Diapason pur
@@ -635,17 +645,17 @@ export const MiniPianoPopup: React.FC = () => {
 
                 {/* 3. Notes sur les touches */}
                 <div>
-                  <div className="text-[11px] font-semibold text-gray-400 mb-1.5 flex items-center justify-between">
+                  <div className="text-[11px] font-semibold text-slate-600 dark:text-gray-400 mb-1.5 flex items-center justify-between">
                     <span>Notes sur les touches</span>
                   </div>
-                  <div className="grid grid-cols-3 gap-1 bg-[#1A1A20] p-1 rounded-xl border border-[#2A2A34]">
+                  <div className="grid grid-cols-3 gap-1 bg-[#EDF1F5] dark:bg-[#1A1A20] p-1 rounded-xl border border-slate-300 dark:border-[#2A2A34]">
                     <button
                       type="button"
                       onClick={() => setLabelMode('latin')}
                       className={`py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer text-center ${
                         labelMode === 'latin'
                           ? 'bg-blue-600 text-white shadow-xs'
-                          : 'text-gray-400 hover:text-white hover:bg-[#252530]'
+                          : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-[#252530]'
                       }`}
                     >
                       Do, Ré
@@ -656,7 +666,7 @@ export const MiniPianoPopup: React.FC = () => {
                       className={`py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer text-center ${
                         labelMode === 'anglo'
                           ? 'bg-blue-600 text-white shadow-xs'
-                          : 'text-gray-400 hover:text-white hover:bg-[#252530]'
+                          : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-[#252530]'
                       }`}
                     >
                       C, D
@@ -667,7 +677,7 @@ export const MiniPianoPopup: React.FC = () => {
                       className={`py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer text-center ${
                         labelMode === 'none'
                           ? 'bg-blue-600 text-white shadow-xs'
-                          : 'text-gray-400 hover:text-white hover:bg-[#252530]'
+                          : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-[#252530]'
                       }`}
                     >
                       Masqué
@@ -676,10 +686,10 @@ export const MiniPianoPopup: React.FC = () => {
                 </div>
 
                 {/* 4. Tonalité active */}
-                <div className="flex items-center justify-between pt-2 border-t border-[#262632]">
+                <div className="flex items-center justify-between pt-2 border-t border-slate-300 dark:border-[#262632]">
                   <div className="flex items-center gap-1.5">
-                    <Music className="w-3.5 h-3.5 text-blue-400" />
-                    <span className="text-xs font-medium text-gray-300">Tonalité</span>
+                    <Music className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                    <span className="text-xs font-medium text-slate-700 dark:text-gray-300">Tonalité</span>
                   </div>
                   <button
                     type="button"
@@ -687,21 +697,21 @@ export const MiniPianoPopup: React.FC = () => {
                       setIsSettingsOpen(false);
                       setShowKeyMenu(true);
                     }}
-                    className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-[#1A1A20] hover:bg-[#252530] text-blue-400 border border-[#2A2A34] cursor-pointer"
+                    className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-[#EDF1F5] dark:bg-[#1A1A20] hover:bg-slate-200 dark:hover:bg-[#252530] text-blue-600 dark:text-blue-400 border border-slate-300 dark:border-[#2A2A34] cursor-pointer"
                   >
                     {currentKeyDisplay}
                   </button>
                 </div>
 
                 {/* 5. Volume */}
-                <div className="flex items-center gap-2 pt-2 border-t border-[#262632]">
+                <div className="flex items-center gap-2 pt-2 border-t border-slate-300 dark:border-[#262632]">
                   <button
                     type="button"
                     onClick={() => setIsMuted(prev => !prev)}
-                    className="p-1.5 rounded-lg bg-[#1A1A20] hover:bg-[#252530] text-gray-300 border border-[#2A2A34] cursor-pointer"
+                    className="p-1.5 rounded-lg bg-[#EDF1F5] dark:bg-[#1A1A20] hover:bg-slate-200 dark:hover:bg-[#252530] text-slate-700 dark:text-gray-300 border border-slate-300 dark:border-[#2A2A34] cursor-pointer"
                     title={isMuted ? 'Rétablir le son' : 'Couper le son'}
                   >
-                    {isMuted ? <VolumeX className="w-3.5 h-3.5 text-rose-400" /> : <Volume2 className="w-3.5 h-3.5 text-blue-400" />}
+                    {isMuted ? <VolumeX className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" /> : <Volume2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />}
                   </button>
                   <input
                     type="range"
@@ -714,9 +724,9 @@ export const MiniPianoPopup: React.FC = () => {
                       setVolume(v);
                       if (isMuted && v > 0) setIsMuted(false);
                     }}
-                    className="flex-1 accent-blue-500 cursor-pointer h-1.5 bg-[#252530] rounded-lg"
+                    className="flex-1 accent-blue-500 cursor-pointer h-1.5 bg-[#EDF1F5] dark:bg-[#252530] rounded-lg"
                   />
-                  <span className="text-[11px] font-mono text-gray-400 w-8 text-right">
+                  <span className="text-[11px] font-mono text-slate-600 dark:text-gray-400 w-8 text-right">
                     {isMuted ? '0%' : `${Math.round(volume * 100)}%`}
                   </span>
                 </div>
@@ -727,7 +737,7 @@ export const MiniPianoPopup: React.FC = () => {
           {/* Close button */}
           <button
             onClick={() => setIsPianoOpen(false)}
-            className="p-1.5 rounded-lg bg-[#202028] hover:bg-rose-950/40 text-gray-400 hover:text-rose-300 border border-[#353542] hover:border-rose-500/50 transition-colors cursor-pointer ml-1"
+            className="p-1.5 rounded-lg bg-[#EDF1F5] dark:bg-[#202028] hover:bg-rose-100 dark:hover:bg-rose-950/40 text-slate-600 dark:text-gray-400 hover:text-rose-800 dark:hover:text-rose-300 border border-slate-300 dark:border-[#353542] hover:border-rose-500/50 transition-colors cursor-pointer ml-1"
             title="Fermer le piano"
           >
             <X className="w-4 h-4" />
@@ -736,19 +746,19 @@ export const MiniPianoPopup: React.FC = () => {
       </header>
 
       {/* 3. Readout & Info strip */}
-      <div className="shrink-0 px-4 py-1.5 bg-[#0F0F13] border-b border-[#1C1C24] flex items-center justify-between text-xs text-gray-300 font-mono">
+      <div className="shrink-0 px-4 py-1.5 bg-white dark:bg-[#0F0F13] border-b border-slate-200 dark:border-[#1C1C24] flex items-center justify-between text-xs text-slate-700 dark:text-gray-300 font-mono">
         <div className="flex items-center gap-2 truncate">
           <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
-          <span className="text-white font-medium truncate">{readoutText}</span>
+          <span className="text-slate-900 dark:text-white font-medium truncate">{readoutText}</span>
         </div>
 
         {selectedRoot !== null && (
-          <div className="hidden sm:flex items-center gap-3 text-[11px] text-gray-400">
-            <span className="flex items-center gap-1 text-amber-300 font-medium">
+          <div className="hidden sm:flex items-center gap-3 text-[11px] text-slate-600 dark:text-gray-400">
+            <span className="flex items-center gap-1 text-amber-700 dark:text-amber-300 font-medium">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" />
               Fondamentale
             </span>
-            <span className="flex items-center gap-1 text-blue-300 font-medium">
+            <span className="flex items-center gap-1 text-blue-700 dark:text-blue-300 font-medium">
               <span className="w-1.5 h-1.5 rounded-full bg-blue-400 inline-block" />
               Notes de la tonalité
             </span>
@@ -757,7 +767,7 @@ export const MiniPianoPopup: React.FC = () => {
       </div>
 
       {/* 4. Fullscreen Piano Keyboard Viewport */}
-      <div className="flex-1 w-full h-full min-h-0 relative flex flex-col items-stretch justify-stretch p-1 sm:p-2 bg-[#09090B] overflow-hidden rounded-b-2xl">
+      <div className="flex-1 w-full h-full min-h-0 relative flex flex-col items-stretch justify-stretch p-1 sm:p-2 bg-[#F4F6F9] dark:bg-[#09090B] overflow-hidden rounded-b-2xl">
         <div className="relative w-full h-full select-none flex items-stretch">
           {/* White Keys Row (fills 100% of height) */}
           <div className="w-full h-full flex items-stretch">
@@ -876,8 +886,8 @@ export const MiniPianoPopup: React.FC = () => {
                     : isInTonality
                       ? isRoot
                         ? 'bg-amber-600 text-white ring-2 ring-amber-300 font-bold'
-                        : 'bg-[#26283C] text-blue-200 ring-1 ring-blue-400'
-                      : 'bg-gradient-to-b from-[#101014] to-[#1E1E24] hover:to-[#2A2A32] text-gray-300 border-x border-b border-black'
+                        : 'bg-[#EDF1F5] dark:bg-[#26283C] text-blue-700 dark:text-blue-200 ring-1 ring-blue-400'
+                      : 'bg-gradient-to-b from-slate-100 dark:from-[#101014] to-white dark:to-[#1E1E24] hover:bg-slate-200 dark:hover:to-[#2A2A32] text-slate-700 dark:text-gray-300 border-x border-b border-black'
                 }`}
               >
                 {/* Tonality indicator for black key */}
@@ -898,7 +908,9 @@ export const MiniPianoPopup: React.FC = () => {
           })}
         </div>
       </div>
-    </div>
-  </div>
-);
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
 };

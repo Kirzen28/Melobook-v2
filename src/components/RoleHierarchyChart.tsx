@@ -113,17 +113,17 @@ export const RoleHierarchyChart: React.FC<RoleHierarchyChartProps> = ({
   }, [allUsers, currentGroup]);
 
   return (
-    <div className="bg-[#121217] border border-[#262634] rounded-2xl p-4 sm:p-6 shadow-sm space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#22222E]">
+    <div className="bg-white dark:bg-[#121217] border border-slate-300 dark:border-[#262634] rounded-2xl p-4 sm:p-6 shadow-sm space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200 dark:border-[#22222E]">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400 shrink-0">
+          <div className="w-8 h-8 rounded-xl bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
             <Layers className="w-4 h-4" />
           </div>
           <div>
-            <h3 className="text-sm sm:text-base font-bold text-white">
+            <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
               Guide des Accès Cumulables
             </h3>
-            <p className="text-xs text-gray-400 mt-0.5">
+            <p className="text-xs text-slate-600 dark:text-gray-400 mt-0.5">
               Chaque accès est combinable librement pour chaque membre et chaque bibliothèque.
             </p>
           </div>
@@ -133,25 +133,25 @@ export const RoleHierarchyChart: React.FC<RoleHierarchyChartProps> = ({
           <button
             type="button"
             onClick={onOpenMatrixModal}
-            className="px-3 py-1.5 rounded-lg bg-[#1A1A24] hover:bg-[#242432] text-blue-300 hover:text-white border border-blue-500/30 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer self-start sm:self-auto whitespace-nowrap"
+            className="px-3 py-1.5 rounded-lg bg-[#EDF1F5] dark:bg-[#1A1A24] hover:bg-slate-200 dark:hover:bg-[#242432] text-blue-700 dark:text-blue-300 hover:text-slate-900 dark:hover:text-white border border-blue-500/30 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer self-start sm:self-auto whitespace-nowrap"
           >
-            <Shield className="w-3.5 h-3.5 text-blue-400" />
+            <Shield className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
             <span>Tableau comparatif détaillé</span>
           </button>
         )}
       </div>
 
-      <div className="p-3.5 rounded-xl bg-[#161620] border border-[#252534] space-y-2.5">
+      <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-[#161620] border border-slate-300 dark:border-[#252534] space-y-2.5">
         <div className="flex items-center justify-between gap-2 flex-wrap">
-          <div className="flex items-center gap-2 text-xs font-semibold text-white">
-            <SlidersHorizontal className="w-3.5 h-3.5 text-blue-400" />
+          <div className="flex items-center gap-2 text-xs font-semibold text-slate-900 dark:text-white">
+            <SlidersHorizontal className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
             <span>Simulateur : Quel accès permet cette action ?</span>
           </div>
           {activeTestId && (
             <button
               type="button"
               onClick={() => setActiveTestId(null)}
-              className="text-[11px] text-gray-400 hover:text-white transition-colors cursor-pointer"
+              className="text-[11px] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
             >
               Réinitialiser
             </button>
@@ -169,7 +169,7 @@ export const RoleHierarchyChart: React.FC<RoleHierarchyChartProps> = ({
                 className={`px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-all cursor-pointer ${
                   isSelected
                     ? 'bg-blue-600 text-white font-semibold shadow-xs'
-                    : 'bg-[#1C1C26] hover:bg-[#252532] text-gray-300 border border-[#2B2B3C]'
+                    : 'bg-[#EDF1F5] dark:bg-[#1C1C26] hover:bg-slate-200 dark:hover:bg-[#252532] text-slate-700 dark:text-gray-300 border border-slate-300 dark:border-[#2B2B3C]'
                 }`}
               >
                 {t.name}
@@ -179,11 +179,11 @@ export const RoleHierarchyChart: React.FC<RoleHierarchyChartProps> = ({
         </div>
 
         {activeTest && (
-          <div className="p-2.5 rounded-lg bg-blue-950/40 border border-blue-500/30 text-xs flex items-start gap-2.5">
-            <Info className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+          <div className="p-2.5 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-500/30 text-xs flex items-start gap-2.5">
+            <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
             <div>
-              <span className="font-bold text-blue-200">{activeTest.name} : </span>
-              <span className="text-gray-300">{activeTest.explanation}</span>
+              <span className="font-bold text-blue-700 dark:text-blue-200">{activeTest.name} : </span>
+              <span className="text-slate-700 dark:text-gray-300">{activeTest.explanation}</span>
             </div>
           </div>
         )}
@@ -206,8 +206,8 @@ export const RoleHierarchyChart: React.FC<RoleHierarchyChartProps> = ({
                 onClick={() => setSelectedAccess(accKey)}
                 className={`p-3 sm:p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
                   isSelected
-                    ? 'bg-[#1A1A26] border-blue-500/60 ring-1 ring-blue-500/30'
-                    : 'bg-[#15151C] hover:bg-[#1A1A24] border-[#252532]'
+                    ? 'bg-[#EDF1F5] dark:bg-[#1A1A26] border-blue-500/60 ring-1 ring-blue-500/30'
+                    : 'bg-slate-50 dark:bg-[#15151C] hover:bg-slate-200/70 dark:hover:bg-[#1A1A24] border-slate-300 dark:border-[#252532]'
                 } ${activeTest && !isTestAllowed ? 'opacity-40 hover:opacity-70' : ''}`}
               >
                 <div className="flex items-center gap-3 min-w-0">
@@ -216,14 +216,14 @@ export const RoleHierarchyChart: React.FC<RoleHierarchyChartProps> = ({
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-bold text-white">{meta.label}</span>
+                      <span className="text-sm font-bold text-slate-900 dark:text-white">{meta.label}</span>
                       {isHeld && (
-                        <span className="text-[10px] font-semibold text-blue-300">
+                        <span className="text-[10px] font-semibold text-blue-700 dark:text-blue-300">
                           · Actif pour vous
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-gray-400 truncate mt-0.5 max-w-xs sm:max-w-md">
+                    <p className="text-xs text-slate-600 dark:text-gray-400 truncate mt-0.5 max-w-xs sm:max-w-md">
                       {meta.description}
                     </p>
                   </div>
@@ -234,66 +234,66 @@ export const RoleHierarchyChart: React.FC<RoleHierarchyChartProps> = ({
                     isTestAllowed ? (
                       <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold border flex items-center gap-1 ${
                         isTestPersonal
-                          ? 'bg-purple-500/20 text-purple-300 border-purple-500/40'
-                          : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                          ? 'bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/40'
+                          : 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/40'
                       }`}>
                         <CheckCircle2 className="w-3.5 h-3.5" />
                         <span>{isTestPersonal ? 'Perso' : 'Autorisé'}</span>
                       </span>
                     ) : (
-                      <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-rose-500/15 text-rose-300 border border-rose-500/30 flex items-center gap-1">
+                      <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30 flex items-center gap-1">
                         <XCircle className="w-3.5 h-3.5" />
                         <span>Non inclus</span>
                       </span>
                     )
                   ) : (
-                    <div className="flex items-center gap-1.5 text-xs text-gray-400 bg-[#1A1A24] px-2 py-1 rounded-lg border border-[#2B2B3A]">
-                      <Users className="w-3 h-3 text-gray-400" />
-                      <span className="font-semibold text-white">{userCount}</span>
+                    <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-gray-400 bg-[#EDF1F5] dark:bg-[#1A1A24] px-2 py-1 rounded-lg border border-slate-300 dark:border-[#2B2B3A]">
+                      <Users className="w-3 h-3 text-slate-600 dark:text-gray-400" />
+                      <span className="font-semibold text-slate-900 dark:text-white">{userCount}</span>
                     </div>
                   )}
-                  <ChevronRight className={`w-4 h-4 transition-transform ${isSelected ? 'rotate-90 text-white' : 'text-gray-500'}`} />
+                  <ChevronRight className={`w-4 h-4 transition-transform ${isSelected ? 'rotate-90 text-slate-900 dark:text-white' : 'text-gray-500'}`} />
                 </div>
               </div>
             );
           })}
         </div>
 
-        <div className="lg:col-span-5 bg-[#16161F] border border-[#2A2A3A] rounded-xl p-4 sm:p-5 space-y-4 shadow-sm">
-          <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#242434]">
+        <div className="lg:col-span-5 bg-slate-50 dark:bg-[#16161F] border border-slate-300 dark:border-[#2A2A3A] rounded-xl p-4 sm:p-5 space-y-4 shadow-sm">
+          <div className="flex items-start justify-between gap-3 pb-3 border-b border-slate-300 dark:border-[#242434]">
             <div>
-              <h4 className="text-base font-bold text-white flex items-center gap-2">
+              <h4 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <span>Accès {activeMeta.label}</span>
               </h4>
-              <span className="text-[11px] text-gray-400 font-mono">{activeMeta.key}</span>
+              <span className="text-[11px] text-slate-600 dark:text-gray-400 font-mono">{activeMeta.key}</span>
             </div>
             <div className="text-right">
-              <span className="text-xs text-gray-400 block">Membres</span>
-              <span className="text-sm font-bold text-white">
+              <span className="text-xs text-slate-600 dark:text-gray-400 block">Membres</span>
+              <span className="text-sm font-bold text-slate-900 dark:text-white">
                 {userCountsByAccess[activeMeta.key] || 0}
               </span>
             </div>
           </div>
 
-          <p className="text-xs text-gray-300 leading-relaxed">{activeMeta.description}</p>
+          <p className="text-xs text-slate-700 dark:text-gray-300 leading-relaxed">{activeMeta.description}</p>
 
           <div className="space-y-1.5">
-            <div className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+            <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
               <Check className="w-3.5 h-3.5 stroke-[3]" />
               <span>Ce que cet accès débloque :</span>
             </div>
-            <ul className="space-y-1 text-xs text-gray-300">
+            <ul className="space-y-1 text-xs text-slate-700 dark:text-gray-300">
               {activeMeta.permissions.map((item, idx) => (
                 <li key={idx} className="flex items-start gap-2">
-                  <span className="text-emerald-400 font-bold shrink-0">✓</span>
+                  <span className="text-emerald-600 dark:text-emerald-400 font-bold shrink-0">✓</span>
                   <span>{item}</span>
                 </li>
               ))}
             </ul>
           </div>
 
-          <div className="p-2.5 rounded-lg bg-[#13131A] border border-[#22222E] text-[11px] text-gray-400 flex items-start gap-2">
-            <Sparkles className="w-3.5 h-3.5 text-blue-400 shrink-0 mt-0.5" />
+          <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-[#13131A] border border-slate-200 dark:border-[#22222E] text-[11px] text-slate-600 dark:text-gray-400 flex items-start gap-2">
+            <Sparkles className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
             <div>
               <strong>Cumul flexible :</strong> Cochez autant d’accès que nécessaire pour chaque personne. Si seul <strong>Régie</strong> est actif, seul le module Projections reste accessible.
             </div>

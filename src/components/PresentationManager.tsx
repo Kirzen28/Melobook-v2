@@ -1999,12 +1999,12 @@ export const PresentationManager: React.FC = () => {
   const cdInfo = formatRemainingTime(cdRemaining);
 
   return (
-    <div className="max-w-7xl mx-auto px-3 sm:px-6 py-6 pb-12 text-[#E0E0E0] min-h-[calc(100vh-64px)]">
+    <div className="max-w-7xl mx-auto px-3 sm:px-6 py-6 pb-12 text-slate-900 dark:text-[#E0E0E0] min-h-[calc(100vh-64px)]">
       
       {/* 1. Barre d'en-tête de régie */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-wrap">
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-2 sm:gap-2.5">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2 sm:gap-2.5">
             <Tv className="w-5 h-5 sm:w-6 sm:h-6 text-blue-500 shrink-0" />
             <span>Mode Projection</span>
           </h1>
@@ -2029,25 +2029,25 @@ export const PresentationManager: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         {/* Module Actif : Pupitre (Chants) OU Bible OU Média (pleine largeur) */}
         <div className="col-span-1 lg:col-span-8 w-full flex flex-col gap-4">
-          <div className="bg-[#121215] border border-[#222226] rounded-2xl p-4 sm:p-5 shadow-md space-y-4 w-full">
+          <div className="bg-white dark:bg-[#121215] border border-slate-200 dark:border-[#222226] rounded-2xl p-4 sm:p-5 shadow-md space-y-4 w-full">
             {/* En-tête harmonisé avec sélecteur de modules et actions contextuelles */}
-            <div className="flex items-center justify-between flex-wrap gap-2.5 pb-2.5 border-b border-[#202028]">
+            <div className="flex items-center justify-between flex-wrap gap-2.5 pb-2.5 border-b border-slate-200 dark:border-[#202028]">
               <div className="flex items-center gap-3 flex-wrap">
                 {/* Onglets sélecteurs de modules (Pupitre, Bible, Média) */}
-                <div className="flex items-center gap-1 bg-[#16161D] p-1 border border-[#262632] rounded-xl shadow-inner">
+                <div className="flex items-center gap-1 bg-slate-50 dark:bg-[#16161D] p-1 border border-slate-300 dark:border-[#262632] rounded-xl shadow-inner">
                   <button
                     type="button"
                     onClick={() => setActivePupitreTab('songs')}
                     className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
                       activePupitreTab === 'songs'
                         ? 'bg-blue-600 text-white shadow-md shadow-blue-900/30 ring-1 ring-blue-400/40'
-                        : 'text-gray-400 hover:text-gray-200 hover:bg-[#20202A]'
+                        : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200 hover:bg-slate-200/70 dark:hover:bg-[#20202A]'
                     }`}
                   >
                     <Music className="w-3.5 h-3.5" />
                     <span>Pupitre</span>
                     {visibleQueueCount > 0 && (
-                      <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-black/40 text-blue-200">
+                      <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-black/40 text-blue-700 dark:text-blue-200">
                         {visibleQueueCount}
                       </span>
                     )}
@@ -2059,10 +2059,10 @@ export const PresentationManager: React.FC = () => {
                     className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
                       activePupitreTab === 'bible'
                         ? 'bg-amber-600 text-white shadow-md shadow-amber-900/30 ring-1 ring-amber-400/40'
-                        : 'text-gray-400 hover:text-gray-200 hover:bg-[#20202A]'
+                        : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200 hover:bg-slate-200/70 dark:hover:bg-[#20202A]'
                     }`}
                   >
-                    <BookOpen className="w-3.5 h-3.5 text-amber-400" />
+                    <BookOpen className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                     <span>Bible</span>
                     {liveDirectBible && (
                       <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded-full bg-amber-400 text-black uppercase animate-pulse">
@@ -2077,10 +2077,10 @@ export const PresentationManager: React.FC = () => {
                     className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
                       activePupitreTab === 'media'
                         ? 'bg-purple-600 text-white shadow-md shadow-purple-900/30 ring-1 ring-purple-400/40'
-                        : 'text-gray-400 hover:text-gray-200 hover:bg-[#20202A]'
+                        : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200 hover:bg-slate-200/70 dark:hover:bg-[#20202A]'
                     }`}
                   >
-                    <Film className="w-3.5 h-3.5 text-purple-400" />
+                    <Film className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
                     <span>Média</span>
                     {liveDirectMedia?.isActive && (
                       <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded-full bg-purple-400 text-black uppercase animate-pulse">
@@ -2092,18 +2092,18 @@ export const PresentationManager: React.FC = () => {
 
                 {/* Info contextuelle module Pupitre */}
                 {activePupitreTab === 'songs' && (
-                  <div className="hidden md:flex items-center gap-2 pl-2 border-l border-[#242430] text-xs text-gray-400 font-medium">
+                  <div className="hidden md:flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-[#242430] text-xs text-slate-600 dark:text-gray-400 font-medium">
                     {currentQueueItem?.type === 'bible' && currentQueueItem.bibleData ? (
-                      <span className="flex items-center gap-1.5 text-amber-300">
-                        <BookOpen className="w-3.5 h-3.5 text-amber-400" />
+                      <span className="flex items-center gap-1.5 text-amber-700 dark:text-amber-300">
+                        <BookOpen className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                         <span>Verset : {currentQueueItem.bibleData.referenceText} ({currentSlides.length})</span>
                       </span>
                     ) : (
-                      <span className="flex items-center gap-1.5 text-gray-300">
-                        <Music className="w-3.5 h-3.5 text-blue-400" />
+                      <span className="flex items-center gap-1.5 text-slate-700 dark:text-gray-300">
+                        <Music className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                         <span>Slides ({currentSlides.length})</span>
                         {isBilingualMode && secondarySong && (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-500/40">
                             Bilingue {getLanguageMeta(currentSong?.language).code} + {getLanguageMeta(secondarySong.language).code}
                           </span>
                         )}
@@ -2126,31 +2126,31 @@ export const PresentationManager: React.FC = () => {
                           onClick={() => setIsTranslationMenuOpen(prev => !prev)}
                           className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border shadow-xs ${
                             isBilingualMode || activeAiTranslation
-                              ? 'bg-indigo-600/25 hover:bg-indigo-600/35 text-indigo-200 border-indigo-500/50'
-                              : 'bg-[#181822] hover:bg-[#222230] text-gray-200 border-[#2D2D3A]'
+                              ? 'bg-indigo-600/25 hover:bg-indigo-600/35 text-indigo-700 dark:text-indigo-200 border-indigo-500/50'
+                              : 'bg-[#EDF1F5] dark:bg-[#181822] hover:bg-slate-200 dark:hover:bg-[#222230] text-slate-800 dark:text-gray-200 border-slate-300 dark:border-[#2D2D3A]'
                           }`}
                           title="Options de traduction et de projection bilingue"
                         >
-                          <Languages className={`w-4 h-4 ${isBilingualMode || activeAiTranslation ? 'text-indigo-400' : 'text-cyan-400'}`} />
+                          <Languages className={`w-4 h-4 ${isBilingualMode || activeAiTranslation ? 'text-indigo-600 dark:text-indigo-400' : 'text-cyan-700 dark:text-cyan-400'}`} />
                           <span>Traductions & Bilingue</span>
                           {isBilingualMode && (
-                            <span className="px-1.5 py-0.5 rounded-full bg-indigo-500/40 text-[10px] text-indigo-200 font-mono flex items-center gap-1">
-                              {isAligningLinked && <Loader2 className="w-2.5 h-2.5 animate-spin text-cyan-300" />}
+                            <span className="px-1.5 py-0.5 rounded-full bg-indigo-500/40 text-[10px] text-indigo-700 dark:text-indigo-200 font-mono flex items-center gap-1">
+                              {isAligningLinked && <Loader2 className="w-2.5 h-2.5 animate-spin text-cyan-700 dark:text-cyan-300" />}
                               <span>Bilingue ON</span>
                             </span>
                           )}
                           {activeAiTranslation && !isBilingualMode && (
-                            <span className="px-1.5 py-0.5 rounded-full bg-cyan-500/30 text-[10px] text-cyan-200 font-mono">
+                            <span className="px-1.5 py-0.5 rounded-full bg-cyan-500/30 text-[10px] text-cyan-700 dark:text-cyan-200 font-mono">
                               {getLanguageMeta(activeAiTranslation.targetLanguage).code}
                             </span>
                           )}
-                          <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
+                          <ChevronDown className="w-3.5 h-3.5 text-slate-600 dark:text-gray-400" />
                         </button>
 
                         {/* Menu déroulant unifié */}
                         {isTranslationMenuOpen && (
-                          <div className="absolute left-0 top-full mt-2 w-72 bg-[#16161E] border border-[#2B2B38] rounded-2xl shadow-2xl p-3 z-50 animate-in fade-in zoom-in-95 duration-150">
-                            <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2 px-1">
+                          <div className="absolute left-0 top-full mt-2 w-72 bg-slate-50 dark:bg-[#16161E] border border-slate-300 dark:border-[#2B2B38] rounded-2xl shadow-2xl p-3 z-50 animate-in fade-in zoom-in-95 duration-150">
+                            <div className="text-[11px] font-semibold text-slate-600 dark:text-gray-400 uppercase tracking-wider mb-2 px-1">
                               Traduction & Langue
                             </div>
 
@@ -2163,13 +2163,13 @@ export const PresentationManager: React.FC = () => {
                                   setAiTranslateInitialEdit(false);
                                   setIsAiTranslateModalOpen(true);
                                 }}
-                                className="w-full text-left px-3 py-2 rounded-xl bg-cyan-950/20 hover:bg-cyan-950/40 border border-cyan-500/30 text-cyan-200 text-xs font-semibold flex items-center justify-between cursor-pointer transition-colors"
+                                className="w-full text-left px-3 py-2 rounded-xl bg-cyan-50 dark:bg-cyan-950/20 hover:bg-cyan-100 dark:hover:bg-cyan-950/40 border border-cyan-500/30 text-cyan-700 dark:text-cyan-200 text-xs font-semibold flex items-center justify-between cursor-pointer transition-colors"
                               >
                                 <div className="flex items-center gap-2">
-                                  <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                                  <Sparkles className="w-3.5 h-3.5 text-cyan-700 dark:text-cyan-400" />
                                   <span>Traduire par IA</span>
                                 </div>
-                                <span className="text-[10px] text-cyan-400 font-mono">Gratuit</span>
+                                <span className="text-[10px] text-cyan-700 dark:text-cyan-400 font-mono">Gratuit</span>
                               </button>
 
                               {/* Éditer trad. */}
@@ -2181,20 +2181,20 @@ export const PresentationManager: React.FC = () => {
                                     setAiTranslateInitialEdit(true);
                                     setIsAiTranslateModalOpen(true);
                                   }}
-                                  className="w-full text-left px-3 py-2 rounded-xl bg-amber-950/20 hover:bg-amber-950/40 border border-amber-500/30 text-amber-200 text-xs font-semibold flex items-center gap-2 cursor-pointer transition-colors"
+                                  className="w-full text-left px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/20 hover:bg-amber-100 dark:hover:bg-amber-950/40 border border-amber-500/30 text-amber-700 dark:text-amber-200 text-xs font-semibold flex items-center gap-2 cursor-pointer transition-colors"
                                 >
-                                  <Edit3 className="w-3.5 h-3.5 text-amber-400" />
+                                  <Edit3 className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                                   <span>Éditer la traduction</span>
                                 </button>
                               )}
 
-                              <div className="my-2 border-t border-[#252530]" />
+                              <div className="my-2 border-t border-slate-300 dark:border-[#252530]" />
 
                               {/* Toggle Bilingue */}
                               <div className="flex items-center justify-between px-2 py-1.5">
                                 <div className="flex items-center gap-2">
-                                  <Columns className="w-3.5 h-3.5 text-indigo-400" />
-                                  <span className="text-xs font-bold text-white">Mode Bilingue</span>
+                                  <Columns className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                                  <span className="text-xs font-bold text-slate-900 dark:text-white">Mode Bilingue</span>
                                 </div>
                                 <button
                                   type="button"
@@ -2211,31 +2211,31 @@ export const PresentationManager: React.FC = () => {
 
                               {/* Options bilingues si bilingue actif */}
                               {isBilingualMode && (
-                                <div className="bg-[#1C1C28] rounded-xl p-2.5 space-y-2 mt-1 border border-indigo-500/30">
-                                  <div className="text-[10px] font-semibold text-indigo-300">Version secondaire :</div>
+                                <div className="bg-[#EDF1F5] dark:bg-[#1C1C28] rounded-xl p-2.5 space-y-2 mt-1 border border-indigo-500/30">
+                                  <div className="text-[10px] font-semibold text-indigo-700 dark:text-indigo-300">Version secondaire :</div>
                                   
                                   {(availableLinkedVersions.length > 0 || activeAiTranslation) ? (
                                     <div className="relative">
                                       <select
                                         value={secondarySong?.id || ''}
                                         onChange={(e) => setSelectedSecondarySongId(e.target.value)}
-                                        className="w-full bg-[#14141C] border border-indigo-500/40 rounded-lg px-2.5 py-1.5 text-xs text-indigo-200 cursor-pointer focus:outline-none focus:border-indigo-400 font-medium appearance-none pr-6"
+                                        className="w-full bg-slate-50 dark:bg-[#14141C] border border-indigo-500/40 rounded-lg px-2.5 py-1.5 text-xs text-indigo-700 dark:text-indigo-200 cursor-pointer focus:outline-none focus:border-indigo-400 font-medium appearance-none pr-6"
                                       >
                                         {availableLinkedVersions.map((lv) => {
                                           const lMeta = getLanguageMeta(lv.language);
                                           return (
-                                            <option key={lv.id} value={lv.id} className="bg-[#141418] text-white">
+                                            <option key={lv.id} value={lv.id} className="bg-slate-50 dark:bg-[#141418] text-slate-900 dark:text-white">
                                               {lMeta.code} • {lv.title}
                                             </option>
                                           );
                                         })}
                                         {activeAiTranslation && (
-                                          <option value={`ai_${currentSong.id}`} className="bg-[#141418] text-cyan-200">
+                                          <option value={`ai_${currentSong.id}`} className="bg-slate-50 dark:bg-[#141418] text-cyan-700 dark:text-cyan-200">
                                             IA ({getLanguageMeta(activeAiTranslation.targetLanguage).code}) • {activeAiTranslation.translatedTitle}
                                           </option>
                                         )}
                                       </select>
-                                      <ChevronDown className="w-3 h-3 text-indigo-400 pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2" />
+                                      <ChevronDown className="w-3 h-3 text-indigo-600 dark:text-indigo-400 pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2" />
                                     </div>
                                   ) : null}
 
@@ -2245,9 +2245,9 @@ export const PresentationManager: React.FC = () => {
                                       setIsTranslationMenuOpen(false);
                                       setShowBilingualModal(true);
                                     }}
-                                    className="w-full px-2.5 py-1.5 rounded-lg bg-indigo-950/40 hover:bg-indigo-900/50 border border-indigo-500/40 text-xs font-medium text-indigo-200 flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                                    className="w-full px-2.5 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 border border-indigo-500/40 text-xs font-medium text-indigo-700 dark:text-indigo-200 flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
                                   >
-                                    <Globe className="w-3.5 h-3.5 text-indigo-400" />
+                                    <Globe className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                                     <span>{secondarySong ? 'Changer / Lier un autre chant' : 'Lier une version...'}</span>
                                   </button>
 
@@ -2256,24 +2256,24 @@ export const PresentationManager: React.FC = () => {
                                       <div className="flex items-center justify-between gap-1.5">
                                         <div className="flex items-center gap-1.5 min-w-0">
                                           {isAligningLinked ? (
-                                            <Loader2 className="w-3 h-3 text-cyan-400 animate-spin shrink-0" />
+                                            <Loader2 className="w-3 h-3 text-cyan-700 dark:text-cyan-400 animate-spin shrink-0" />
                                           ) : (
                                             <Sparkles className={`w-3 h-3 shrink-0 ${
                                               linkedAlignmentMeta.alignment
-                                                ? 'text-emerald-400'
+                                                ? 'text-emerald-600 dark:text-emerald-400'
                                                 : !linkedAlignmentMeta.structuresMatch
-                                                ? 'text-amber-400'
-                                                : 'text-cyan-400'
+                                                ? 'text-amber-600 dark:text-amber-400'
+                                                : 'text-cyan-700 dark:text-cyan-400'
                                             }`} />
                                           )}
                                           <span className={`text-[10px] font-semibold truncate ${
                                             isAligningLinked
-                                              ? 'text-cyan-300'
+                                              ? 'text-cyan-700 dark:text-cyan-300'
                                               : linkedAlignmentMeta.alignment
-                                              ? 'text-emerald-300'
+                                              ? 'text-emerald-700 dark:text-emerald-300'
                                               : !linkedAlignmentMeta.structuresMatch
-                                              ? 'text-amber-300'
-                                              : 'text-gray-300'
+                                              ? 'text-amber-700 dark:text-amber-300'
+                                              : 'text-slate-700 dark:text-gray-300'
                                           }`}>
                                             {isAligningLinked
                                               ? 'Alignement IA en cours...'
@@ -2290,7 +2290,7 @@ export const PresentationManager: React.FC = () => {
                                             <button
                                               type="button"
                                               onClick={() => handleResetLinkedAlignment(linkedAlignmentMeta.pairKey)}
-                                              className="p-1 rounded-md text-gray-400 hover:text-white hover:bg-[#262636] transition-colors cursor-pointer"
+                                              className="p-1 rounded-md text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-[#262636] transition-colors cursor-pointer"
                                               title="Revenir au découpage brut du chant lié"
                                             >
                                               <RotateCcw className="w-3 h-3" />
@@ -2304,17 +2304,17 @@ export const PresentationManager: React.FC = () => {
                                                 void handleAlignLinkedLyrics(currentSong, rawSecondarySong, { force: true });
                                               }
                                             }}
-                                            className="px-2 py-1 rounded-md bg-cyan-600/20 hover:bg-cyan-600/35 disabled:opacity-50 border border-cyan-500/40 text-[10px] font-bold text-cyan-200 transition-colors cursor-pointer flex items-center gap-1"
+                                            className="px-2 py-1 rounded-md bg-cyan-600/20 hover:bg-cyan-600/35 disabled:opacity-50 border border-cyan-500/40 text-[10px] font-bold text-cyan-700 dark:text-cyan-200 transition-colors cursor-pointer flex items-center gap-1"
                                             title="Ajuster logiquement les paroles et traductions entre les deux chants liés"
                                           >
-                                            <Sparkles className="w-2.5 h-2.5 text-cyan-300" />
+                                            <Sparkles className="w-2.5 h-2.5 text-cyan-700 dark:text-cyan-300" />
                                             <span>{linkedAlignmentMeta.alignment ? 'Réajuster' : 'Ajuster par IA'}</span>
                                           </button>
                                         </div>
                                       </div>
 
                                       {alignLinkedError && (
-                                        <p className="text-[10px] text-red-300 bg-red-950/40 border border-red-500/30 rounded-lg px-2 py-1 leading-snug">
+                                        <p className="text-[10px] text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-950/40 border border-red-500/30 rounded-lg px-2 py-1 leading-snug">
                                           {alignLinkedError}
                                         </p>
                                       )}
@@ -2322,15 +2322,15 @@ export const PresentationManager: React.FC = () => {
                                   )}
 
                                   <div className="pt-1">
-                                    <div className="text-[10px] font-semibold text-gray-400 mb-1">Format d'affichage :</div>
-                                    <div className="grid grid-cols-2 gap-1 bg-[#141418] p-0.5 rounded-lg border border-[#2B2B38]">
+                                    <div className="text-[10px] font-semibold text-slate-600 dark:text-gray-400 mb-1">Format d'affichage :</div>
+                                    <div className="grid grid-cols-2 gap-1 bg-slate-50 dark:bg-[#141418] p-0.5 rounded-lg border border-slate-300 dark:border-[#2B2B38]">
                                       <button
                                         type="button"
                                         onClick={() => handleSetBilingualFormat('stacked')}
                                         className={`py-1 rounded-md text-[11px] font-semibold transition-colors cursor-pointer ${
                                           bilingualFormat === 'stacked'
                                             ? 'bg-indigo-600 text-white shadow-xs'
-                                            : 'text-gray-400 hover:text-white'
+                                            : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                                         }`}
                                       >
                                         Sous-titres
@@ -2341,7 +2341,7 @@ export const PresentationManager: React.FC = () => {
                                         className={`py-1 rounded-md text-[11px] font-semibold transition-colors cursor-pointer ${
                                           bilingualFormat === 'columns'
                                             ? 'bg-indigo-600 text-white shadow-xs'
-                                            : 'text-gray-400 hover:text-white'
+                                            : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                                         }`}
                                       >
                                         2 Colonnes
@@ -2361,8 +2361,8 @@ export const PresentationManager: React.FC = () => {
                         onClick={handleToggleAutoLayout}
                         className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${
                           autoLayout
-                            ? 'bg-emerald-600/25 border-emerald-500/50 text-emerald-200 shadow-xs'
-                            : 'bg-[#181822] hover:bg-[#222230] text-gray-300 border-[#2D2D3A]'
+                            ? 'bg-emerald-600/25 border-emerald-500/50 text-emerald-700 dark:text-emerald-200 shadow-xs'
+                            : 'bg-[#EDF1F5] dark:bg-[#181822] hover:bg-slate-200 dark:hover:bg-[#222230] text-slate-700 dark:text-gray-300 border-slate-300 dark:border-[#2D2D3A]'
                         }`}
                         title={
                           autoLayout
@@ -2370,7 +2370,7 @@ export const PresentationManager: React.FC = () => {
                             : 'Activer la mise en page automatique équilibrée'
                         }
                       >
-                        <LayoutGrid className={`w-3.5 h-3.5 ${autoLayout ? 'text-emerald-400' : 'text-gray-400'}`} />
+                        <LayoutGrid className={`w-3.5 h-3.5 ${autoLayout ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-600 dark:text-gray-400'}`} />
                         <span>Mise en page auto</span>
                       </button>
                     </div>
@@ -2378,14 +2378,14 @@ export const PresentationManager: React.FC = () => {
                 )}
 
                 {activePupitreTab === 'bible' && bibleBilingualState.enabled && (
-                  <div className="flex items-center gap-0.5 bg-[#101018] p-0.5 rounded-lg border border-[#2B2B3B] shrink-0">
+                  <div className="flex items-center gap-0.5 bg-white dark:bg-[#101018] p-0.5 rounded-lg border border-slate-300 dark:border-[#2B2B3B] shrink-0">
                     <button
                       type="button"
                       onClick={() => bibleModuleRef.current?.setBilingualFormat('stacked')}
                       className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer whitespace-nowrap ${
                         bibleBilingualState.format === 'stacked'
                           ? 'bg-indigo-600 text-white'
-                          : 'text-gray-400 hover:text-gray-200'
+                          : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200'
                       }`}
                       title="Affichage empilé (Version 1 au-dessus, Version 2 en dessous)"
                     >
@@ -2397,7 +2397,7 @@ export const PresentationManager: React.FC = () => {
                       className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer whitespace-nowrap ${
                         bibleBilingualState.format === 'columns'
                           ? 'bg-indigo-600 text-white'
-                          : 'text-gray-400 hover:text-gray-200'
+                          : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200'
                       }`}
                       title="Affichage en 2 colonnes côte-à-côte"
                     >
@@ -2491,7 +2491,7 @@ export const PresentationManager: React.FC = () => {
               />
             ) : (
               currentSlides.length === 0 ? (
-                <div className="text-center py-10 text-gray-600 text-xs">
+                <div className="text-center py-10 text-slate-500 dark:text-gray-600 text-xs">
                   Sélectionnez un élément dans la file pour afficher ses sections.
                 </div>
               ) : (
@@ -2515,9 +2515,9 @@ export const PresentationManager: React.FC = () => {
                         className={`text-left p-3.5 rounded-xl border flex flex-col justify-between transition-all cursor-pointer relative overflow-hidden group ${
                           isCurrent
                             ? isBibleSlide
-                              ? 'bg-amber-950/50 border-amber-400 ring-2 ring-amber-500/40 text-white shadow-lg shadow-amber-950/50'
-                              : 'bg-blue-950/50 border-blue-400 ring-2 ring-blue-500/40 text-white shadow-lg shadow-blue-950/50'
-                            : 'bg-[#16161B] hover:bg-[#1E1E24] border-[#2A2A33] text-gray-300 hover:text-white'
+                              ? 'bg-amber-50 dark:bg-amber-950/50 border-amber-400 ring-2 ring-amber-500/40 text-slate-900 dark:text-white shadow-lg shadow-amber-950/50'
+                              : 'bg-blue-50 dark:bg-blue-950/50 border-blue-400 ring-2 ring-blue-500/40 text-slate-900 dark:text-white shadow-lg shadow-blue-950/50'
+                            : 'bg-slate-50 dark:bg-[#16161B] hover:bg-slate-200/70 dark:hover:bg-[#1E1E24] border-slate-300 dark:border-[#2A2A33] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white'
                         }`}
                       >
                         {/* En-tête de la slide card */}
@@ -2525,7 +2525,7 @@ export const PresentationManager: React.FC = () => {
                           <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
                             isCurrent 
                               ? isBibleSlide ? 'bg-amber-500 text-black font-extrabold' : 'bg-blue-600 text-white' 
-                              : 'bg-[#22222A] text-gray-400 group-hover:text-blue-300'
+                              : 'bg-[#EDF1F5] dark:bg-[#22222A] text-slate-600 dark:text-gray-400 group-hover:text-blue-800 dark:group-hover:text-blue-300'
                           }`}>
                             {slide.sectionTitle || `Slide ${sIdx + 1}`}
                           </span>
@@ -2544,7 +2544,7 @@ export const PresentationManager: React.FC = () => {
                           {slide.isBilingual && slide.secondaryLines && slide.secondaryLines.length > 0 && (
                             <div className="pt-1 border-t border-indigo-500/20 mt-1 space-y-0.5">
                               {slide.secondaryLines.slice(0, 2).map((sLine, slIdx) => (
-                                <p key={slIdx} className="text-[11px] leading-snug line-clamp-1 text-cyan-300 italic opacity-85">
+                                <p key={slIdx} className="text-[11px] leading-snug line-clamp-1 text-cyan-700 dark:text-cyan-300 italic opacity-85">
                                   {sLine}
                                 </p>
                               ))}
@@ -2574,19 +2574,19 @@ export const PresentationManager: React.FC = () => {
 
         {/* Colonne 1/3 (4 cols) : Aperçu en direct & File de projection */}
         <div className="col-span-1 lg:col-span-4 flex flex-col gap-4">
-          <div className="bg-[#121215] border border-[#222226] rounded-2xl p-4 sm:p-5 shadow-md flex flex-col gap-4">
+          <div className="bg-white dark:bg-[#121215] border border-slate-200 dark:border-[#222226] rounded-2xl p-4 sm:p-5 shadow-md flex flex-col gap-4">
             
             {/* Barre de navigation et contrôles rapides */}
-            <div className="flex items-center justify-between gap-1.5 sm:gap-2 border-b border-[#202026] pb-3">
+            <div className="flex items-center justify-between gap-1.5 sm:gap-2 border-b border-slate-200 dark:border-[#202026] pb-3">
               {/* Outils d'affichage & projection (Blackout, Décompte, Police, Fond) */}
-              <div className="flex items-center gap-1 bg-[#16161D] p-1 rounded-xl border border-[#262632] shrink-0">
+              <div className="flex items-center gap-1 bg-slate-50 dark:bg-[#16161D] p-1 rounded-xl border border-slate-300 dark:border-[#262632] shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsBlackout(b => !b)}
                   className={`w-8 h-8 rounded-lg transition-all cursor-pointer flex items-center justify-center ${
                     isBlackout
                       ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-xs ring-1 ring-amber-400/50'
-                      : 'text-gray-400 hover:text-white hover:bg-[#22222A]'
+                      : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#22222A]'
                   }`}
                   title="Masquer ou afficher l'écran externe (Touche B)"
                 >
@@ -2600,39 +2600,39 @@ export const PresentationManager: React.FC = () => {
                     onClick={() => setIsCountdownMenuOpen(v => !v)}
                     className={`w-8 h-8 rounded-lg transition-all cursor-pointer flex items-center justify-center relative ${
                       countdownActive
-                        ? 'bg-blue-600/30 hover:bg-blue-600/40 text-blue-300 ring-1 ring-blue-500/50'
+                        ? 'bg-blue-600/30 hover:bg-blue-600/40 text-blue-700 dark:text-blue-300 ring-1 ring-blue-500/50'
                         : isCountdownMenuOpen
                         ? 'bg-blue-600 text-white'
-                        : 'text-gray-400 hover:text-white hover:bg-[#22222A]'
+                        : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#22222A]'
                     }`}
                     title={countdownActive ? `Décompte actif (${cdInfo.formatted}) - Cliquer pour gérer` : "Décompte avant événement"}
                   >
-                    <Timer className={`w-4 h-4 ${countdownActive ? 'text-blue-400 animate-pulse' : ''}`} />
+                    <Timer className={`w-4 h-4 ${countdownActive ? 'text-blue-600 dark:text-blue-400 animate-pulse' : ''}`} />
                     {countdownActive && (
                       <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-blue-500 ring-2 ring-[#121215] animate-ping" />
                     )}
                   </button>
 
                   {isCountdownMenuOpen && (
-                    <div className="absolute left-0 top-full mt-2 w-80 sm:w-96 bg-[#14141A] border border-[#2B2B38] rounded-2xl p-4 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-100 flex flex-col gap-3.5 text-xs text-gray-200">
+                    <div className="absolute left-0 top-full mt-2 w-80 sm:w-96 bg-slate-50 dark:bg-[#14141A] border border-slate-300 dark:border-[#2B2B38] rounded-2xl p-4 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-100 flex flex-col gap-3.5 text-xs text-slate-800 dark:text-gray-200">
                       {/* En-tête popover */}
-                      <div className="flex items-center justify-between pb-2 border-b border-[#22222E]">
+                      <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-[#22222E]">
                         <div className="flex items-center gap-2">
-                          <Timer className={`w-4 h-4 ${countdownActive ? 'text-blue-400 animate-pulse' : 'text-gray-400'}`} />
-                          <h2 className="text-xs font-bold text-gray-200 uppercase tracking-wider">
+                          <Timer className={`w-4 h-4 ${countdownActive ? 'text-blue-600 dark:text-blue-400 animate-pulse' : 'text-slate-600 dark:text-gray-400'}`} />
+                          <h2 className="text-xs font-bold text-slate-800 dark:text-gray-200 uppercase tracking-wider">
                             Décompte avant événement
                           </h2>
                         </div>
                         <div className="flex items-center gap-2">
                           {countdownActive && (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30 animate-pulse shrink-0">
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-700 dark:text-blue-300 border border-blue-500/30 animate-pulse shrink-0">
                               Diffusé
                             </span>
                           )}
                           <button
                             type="button"
                             onClick={() => setIsCountdownMenuOpen(false)}
-                            className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-[#202028] transition-colors cursor-pointer"
+                            className="p-1 rounded-lg text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#202028] transition-colors cursor-pointer"
                             title="Fermer"
                           >
                             <X className="w-4 h-4" />
@@ -2643,18 +2643,18 @@ export const PresentationManager: React.FC = () => {
                       {/* Statut & Grand bouton d'action */}
                       <div className={`p-3 rounded-xl border flex items-center justify-between gap-3 ${
                         countdownActive
-                          ? 'bg-blue-950/30 border-blue-500/40 shadow-inner'
-                          : 'bg-[#18181C] border-[#25252B]'
+                          ? 'bg-blue-50 dark:bg-blue-950/30 border-blue-500/40 shadow-inner'
+                          : 'bg-slate-50 dark:bg-[#18181C] border-slate-200 dark:border-[#25252B]'
                       }`}>
                         <div className="min-w-0">
-                          <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider block">
+                          <span className="text-[10px] font-semibold text-slate-600 dark:text-gray-400 uppercase tracking-wider block">
                             {countdownActive ? 'Diffusion en direct' : 'Prêt à diffuser'}
                           </span>
                           <div className="flex items-baseline gap-2 mt-0.5">
-                            <span className="font-mono font-black text-2xl text-white tracking-wider tabular-nums">
+                            <span className="font-mono font-black text-2xl text-slate-900 dark:text-white tracking-wider tabular-nums">
                               {cdInfo.formatted}
                             </span>
-                            <span className="text-[11px] text-gray-400 truncate">
+                            <span className="text-[11px] text-slate-600 dark:text-gray-400 truncate">
                               {cdInfo.isExpired ? '• Événement commencé' : `• Début prévu à ${countdownTime}`}
                             </span>
                           </div>
@@ -2686,9 +2686,9 @@ export const PresentationManager: React.FC = () => {
 
                       {/* Sélecteur d'heure de début */}
                       <div className="space-y-1.5">
-                        <div className="flex items-center justify-between text-gray-300">
-                          <label htmlFor="countdown-time-input" className="text-[11px] font-semibold text-gray-400 flex items-center gap-1.5">
-                            <Clock className="w-3.5 h-3.5 text-blue-400" />
+                        <div className="flex items-center justify-between text-slate-700 dark:text-gray-300">
+                          <label htmlFor="countdown-time-input" className="text-[11px] font-semibold text-slate-600 dark:text-gray-400 flex items-center gap-1.5">
+                            <Clock className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                             <span>Heure de début</span>
                           </label>
                           <span className="text-[10px] font-mono text-gray-500">HH:MM</span>
@@ -2700,7 +2700,7 @@ export const PresentationManager: React.FC = () => {
                             type="time"
                             value={countdownTime}
                             onChange={(e) => handleSetCountdownTime(e.target.value)}
-                            className="flex-1 bg-[#18181E] border border-[#2B2B38] rounded-xl px-3 py-2 text-white font-mono text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                            className="flex-1 bg-slate-50 dark:bg-[#18181E] border border-slate-300 dark:border-[#2B2B38] rounded-xl px-3 py-2 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-blue-500 transition-colors"
                           />
 
                           <div className="flex items-center gap-1 shrink-0">
@@ -2709,7 +2709,7 @@ export const PresentationManager: React.FC = () => {
                                 key={mins}
                                 type="button"
                                 onClick={() => handleAddMinutes(mins)}
-                                className="px-2 py-2 rounded-lg bg-[#1C1C24] hover:bg-[#252530] text-gray-300 hover:text-white border border-[#2D2D3A] text-[11px] font-medium transition-colors cursor-pointer"
+                                className="px-2 py-2 rounded-lg bg-[#EDF1F5] dark:bg-[#1C1C24] hover:bg-slate-200 dark:hover:bg-[#252530] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-[#2D2D3A] text-[11px] font-medium transition-colors cursor-pointer"
                                 title={`Régler l'heure à dans ${mins} minutes`}
                               >
                                 +{mins}m
@@ -2721,7 +2721,7 @@ export const PresentationManager: React.FC = () => {
 
                       {/* Intitulé / Message affiché */}
                       <div className="space-y-1.5">
-                        <label htmlFor="countdown-title-input" className="text-[11px] font-semibold text-gray-400 block">
+                        <label htmlFor="countdown-title-input" className="text-[11px] font-semibold text-slate-600 dark:text-gray-400 block">
                           Message / Intitulé affiché
                         </label>
                         <input
@@ -2730,7 +2730,7 @@ export const PresentationManager: React.FC = () => {
                           value={countdownTitle}
                           onChange={(e) => handleSetCountdownTitle(e.target.value)}
                           placeholder="Ex: Le culte commence dans"
-                          className="w-full bg-[#18181E] border border-[#2B2B38] rounded-xl px-3 py-2 text-white text-xs focus:outline-none focus:border-blue-500 transition-colors placeholder:text-gray-600"
+                          className="w-full bg-slate-50 dark:bg-[#18181E] border border-slate-300 dark:border-[#2B2B38] rounded-xl px-3 py-2 text-slate-900 dark:text-white text-xs focus:outline-none focus:border-blue-500 transition-colors placeholder:text-gray-600"
                         />
 
                         {/* Presets de messages rapides */}
@@ -2747,8 +2747,8 @@ export const PresentationManager: React.FC = () => {
                               onClick={() => handleSetCountdownTitle(preset)}
                               className={`text-[10px] px-2 py-1 rounded-md border transition-colors cursor-pointer ${
                                 countdownTitle === preset
-                                  ? 'bg-blue-600/20 border-blue-500/40 text-blue-300 font-semibold'
-                                  : 'bg-[#181820] border-[#262630] text-gray-400 hover:text-gray-200 hover:bg-[#202028]'
+                                  ? 'bg-blue-600/20 border-blue-500/40 text-blue-700 dark:text-blue-300 font-semibold'
+                                  : 'bg-[#EDF1F5] dark:bg-[#181820] border-slate-300 dark:border-[#262630] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200 hover:bg-slate-200/70 dark:hover:bg-[#202028]'
                               }`}
                             >
                               {preset}
@@ -2758,13 +2758,13 @@ export const PresentationManager: React.FC = () => {
                       </div>
 
                       {/* Bibliothèque de styles / thèmes */}
-                      <div className="space-y-2 pt-2 border-t border-[#22222B]">
-                        <div className="flex items-center justify-between text-gray-300">
-                          <label className="text-[11px] font-semibold text-gray-400 flex items-center gap-1.5">
-                            <Palette className="w-3.5 h-3.5 text-blue-400" />
+                      <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-[#22222B]">
+                        <div className="flex items-center justify-between text-slate-700 dark:text-gray-300">
+                          <label className="text-[11px] font-semibold text-slate-600 dark:text-gray-400 flex items-center gap-1.5">
+                            <Palette className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                             <span>Style & Lueur ({COUNTDOWN_THEMES.length} thèmes)</span>
                           </label>
-                          <span className="text-[10px] text-gray-400 font-medium">
+                          <span className="text-[10px] text-slate-600 dark:text-gray-400 font-medium">
                             {getCountdownTheme(countdownThemeId).name}
                           </span>
                         </div>
@@ -2779,8 +2779,8 @@ export const PresentationManager: React.FC = () => {
                                 onClick={() => handleSelectCountdownTheme(th.id)}
                                 className={`p-2 rounded-xl border text-left transition-all cursor-pointer flex items-center gap-2 ${
                                   isSelected
-                                    ? 'bg-blue-600/25 border-blue-400/80 ring-1 ring-blue-500/50 text-white shadow-xs'
-                                    : 'bg-[#181820] border-[#272733] text-gray-300 hover:bg-[#20202A] hover:border-gray-600'
+                                    ? 'bg-blue-600/25 border-blue-400/80 ring-1 ring-blue-500/50 text-slate-900 dark:text-white shadow-xs'
+                                    : 'bg-[#EDF1F5] dark:bg-[#181820] border-slate-300 dark:border-[#272733] text-slate-700 dark:text-gray-300 hover:bg-slate-200/70 dark:hover:bg-[#20202A] hover:border-gray-600'
                                 }`}
                               >
                                 <span
@@ -2815,7 +2815,7 @@ export const PresentationManager: React.FC = () => {
                     className={`w-8 h-8 rounded-lg transition-all cursor-pointer flex items-center justify-center relative ${
                       isFontScaleMenuOpen
                         ? 'bg-blue-600 text-white'
-                        : 'text-gray-400 hover:text-white hover:bg-[#22222A]'
+                        : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#22222A]'
                     }`}
                     title="Ajuster la taille de la police du texte projeté (paroles, mode bilingue, Bible)"
                   >
@@ -2826,19 +2826,19 @@ export const PresentationManager: React.FC = () => {
                   </button>
 
                   {isFontScaleMenuOpen && (
-                    <div className="absolute left-0 top-full mt-2 w-64 max-w-[calc(100vw-32px)] bg-[#16161E] border border-[#2B2B38] rounded-xl p-3 shadow-2xl z-50 animate-in fade-in duration-100 flex flex-col gap-2.5">
-                      <div className="flex items-center justify-between text-xs font-semibold text-gray-200">
+                    <div className="absolute left-0 top-full mt-2 w-64 max-w-[calc(100vw-32px)] bg-slate-50 dark:bg-[#16161E] border border-slate-300 dark:border-[#2B2B38] rounded-xl p-3 shadow-2xl z-50 animate-in fade-in duration-100 flex flex-col gap-2.5">
+                      <div className="flex items-center justify-between text-xs font-semibold text-slate-800 dark:text-gray-200">
                         <span className="flex items-center gap-1.5">
-                          <Type className="w-3.5 h-3.5 text-blue-400" />
+                          <Type className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                           <span>Taille du texte</span>
                         </span>
                         <div className="flex items-center gap-1.5">
-                          <span className="font-mono text-blue-400 font-bold">{Math.round(fontScale * 100)}%</span>
+                          <span className="font-mono text-blue-600 dark:text-blue-400 font-bold">{Math.round(fontScale * 100)}%</span>
                           {(Math.abs(fontScale - 1.0) > 0.02 || baseFontSize !== DEFAULT_BASE_FONT_SIZE_PX) && (
                             <button
                               type="button"
                               onClick={handleResetFontScale}
-                              className="text-[10px] text-gray-400 hover:text-white p-0.5 rounded cursor-pointer transition-colors"
+                              className="text-[10px] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white p-0.5 rounded cursor-pointer transition-colors"
                               title={`Réinitialiser (100% · ${DEFAULT_BASE_FONT_SIZE_PX}px)`}
                             >
                               <RotateCcw className="w-3 h-3" />
@@ -2847,7 +2847,7 @@ export const PresentationManager: React.FC = () => {
                         </div>
                       </div>
 
-                      <p className="text-[10px] text-gray-400 leading-tight">
+                      <p className="text-[10px] text-slate-600 dark:text-gray-400 leading-tight">
                         Taille uniforme pour paroles, mode bilingue et versets bibliques.
                       </p>
 
@@ -2865,7 +2865,7 @@ export const PresentationManager: React.FC = () => {
                             className={`py-1 text-[11px] font-semibold rounded-lg border transition-colors cursor-pointer text-center ${
                               Math.abs(fontScale - preset.val) < 0.06
                                 ? 'bg-blue-600 border-blue-500 text-white'
-                                : 'bg-[#1E1E28] border-[#2A2A38] text-gray-300 hover:text-white'
+                                : 'bg-[#EDF1F5] dark:bg-[#1E1E28] border-slate-300 dark:border-[#2A2A38] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white'
                             }`}
                           >
                             {preset.label}
@@ -2879,7 +2879,7 @@ export const PresentationManager: React.FC = () => {
                           type="button"
                           onClick={() => handleAdjustFontScale(-0.1)}
                           disabled={fontScale <= 0.5}
-                          className="w-7 h-7 rounded-lg bg-[#20202C] hover:bg-[#2A2A3A] disabled:opacity-30 text-gray-300 hover:text-white flex items-center justify-center border border-[#2D2D3E] cursor-pointer"
+                          className="w-7 h-7 rounded-lg bg-[#EDF1F5] dark:bg-[#20202C] hover:bg-slate-200 dark:hover:bg-[#2A2A3A] disabled:opacity-30 text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white flex items-center justify-center border border-slate-300 dark:border-[#2D2D3E] cursor-pointer"
                           title="Diminuer (-)"
                         >
                           <ZoomOut className="w-3.5 h-3.5" />
@@ -2896,14 +2896,14 @@ export const PresentationManager: React.FC = () => {
                             setFontScale(val);
                             saveFontScale(val);
                           }}
-                          className="flex-1 h-1.5 bg-[#252533] rounded-lg appearance-none cursor-pointer accent-blue-500"
+                          className="flex-1 h-1.5 bg-[#EDF1F5] dark:bg-[#252533] rounded-lg appearance-none cursor-pointer accent-blue-500"
                         />
 
                         <button
                           type="button"
                           onClick={() => handleAdjustFontScale(0.1)}
                           disabled={fontScale >= 2.2}
-                          className="w-7 h-7 rounded-lg bg-[#20202C] hover:bg-[#2A2A3A] disabled:opacity-30 text-gray-300 hover:text-white flex items-center justify-center border border-[#2D2D3E] cursor-pointer"
+                          className="w-7 h-7 rounded-lg bg-[#EDF1F5] dark:bg-[#20202C] hover:bg-slate-200 dark:hover:bg-[#2A2A3A] disabled:opacity-30 text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white flex items-center justify-center border border-slate-300 dark:border-[#2D2D3E] cursor-pointer"
                           title="Agrandir (+)"
                         >
                           <ZoomIn className="w-3.5 h-3.5" />
@@ -2911,17 +2911,17 @@ export const PresentationManager: React.FC = () => {
                       </div>
 
                       {/* Taille de base fixe configurable */}
-                      <div className="pt-2 border-t border-[#262634] flex flex-col gap-1.5">
-                        <div className="flex items-center justify-between text-[11px] text-gray-300">
+                      <div className="pt-2 border-t border-slate-300 dark:border-[#262634] flex flex-col gap-1.5">
+                        <div className="flex items-center justify-between text-[11px] text-slate-700 dark:text-gray-300">
                           <span className="font-medium">Taille de base</span>
-                          <span className="font-mono font-bold text-amber-300">{baseFontSize} px</span>
+                          <span className="font-mono font-bold text-amber-700 dark:text-amber-300">{baseFontSize} px</span>
                         </div>
                         <div className="flex items-center gap-1.5">
                           <button
                             type="button"
                             onClick={() => handleAdjustBaseFontSize(-2)}
                             disabled={baseFontSize <= MIN_BASE_FONT_SIZE_PX}
-                            className="w-6 h-6 rounded-md bg-[#20202C] hover:bg-[#2A2A3A] disabled:opacity-30 text-gray-300 hover:text-white flex items-center justify-center border border-[#2D2D3E] cursor-pointer text-xs font-bold"
+                            className="w-6 h-6 rounded-md bg-[#EDF1F5] dark:bg-[#20202C] hover:bg-slate-200 dark:hover:bg-[#2A2A3A] disabled:opacity-30 text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white flex items-center justify-center border border-slate-300 dark:border-[#2D2D3E] cursor-pointer text-xs font-bold"
                             title="Réduire la taille de base"
                           >
                             -
@@ -2934,8 +2934,8 @@ export const PresentationManager: React.FC = () => {
                                 onClick={() => handleSetBaseFontSize(px)}
                                 className={`py-0.5 text-[10px] font-mono font-semibold rounded-md border transition-colors cursor-pointer ${
                                   baseFontSize === px
-                                    ? 'bg-amber-500/25 border-amber-400/60 text-amber-200'
-                                    : 'bg-[#1E1E28] border-[#2A2A38] text-gray-400 hover:text-white'
+                                    ? 'bg-amber-500/25 border-amber-400/60 text-amber-700 dark:text-amber-200'
+                                    : 'bg-[#EDF1F5] dark:bg-[#1E1E28] border-slate-300 dark:border-[#2A2A38] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                                 }`}
                               >
                                 {px}px
@@ -2946,7 +2946,7 @@ export const PresentationManager: React.FC = () => {
                             type="button"
                             onClick={() => handleAdjustBaseFontSize(2)}
                             disabled={baseFontSize >= MAX_BASE_FONT_SIZE_PX}
-                            className="w-6 h-6 rounded-md bg-[#20202C] hover:bg-[#2A2A3A] disabled:opacity-30 text-gray-300 hover:text-white flex items-center justify-center border border-[#2D2D3E] cursor-pointer text-xs font-bold"
+                            className="w-6 h-6 rounded-md bg-[#EDF1F5] dark:bg-[#20202C] hover:bg-slate-200 dark:hover:bg-[#2A2A3A] disabled:opacity-30 text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white flex items-center justify-center border border-slate-300 dark:border-[#2D2D3E] cursor-pointer text-xs font-bold"
                             title="Augmenter la taille de base"
                           >
                             +
@@ -2963,8 +2963,8 @@ export const PresentationManager: React.FC = () => {
                   onClick={() => setIsBackgroundModalOpen(true)}
                   className={`w-8 h-8 rounded-lg transition-all cursor-pointer flex items-center justify-center ${
                     backgroundImage
-                      ? 'bg-purple-600/30 hover:bg-purple-600/40 text-purple-200 border border-purple-500/50'
-                      : 'text-gray-400 hover:text-white hover:bg-[#22222A]'
+                      ? 'bg-purple-600/30 hover:bg-purple-600/40 text-purple-700 dark:text-purple-200 border border-purple-500/50'
+                      : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#22222A]'
                   }`}
                   title="Changer l'arrière-plan de projection"
                 >
@@ -2975,7 +2975,7 @@ export const PresentationManager: React.FC = () => {
               {/* Titre au centre (si élément actif) */}
               {(currentSong || liveDirectBible || liveDirectMedia?.isActive || (currentQueueItem?.type === 'bible' && currentQueueItem.bibleData)) ? (
                 <div className="text-center min-w-0 flex-1 px-1 sm:px-2">
-                  <span className="text-[11px] font-bold text-white truncate block">
+                  <span className="text-[11px] font-bold text-slate-900 dark:text-white truncate block">
                     {liveDirectMedia?.isActive
                       ? liveDirectMedia.title
                       : liveDirectBible
@@ -2986,7 +2986,7 @@ export const PresentationManager: React.FC = () => {
                       ? stripParentheses(currentSong.title)
                       : ''}
                   </span>
-                  <span className="text-[9px] font-mono text-gray-400 truncate block">
+                  <span className="text-[9px] font-mono text-slate-600 dark:text-gray-400 truncate block">
                     {liveDirectBible
                       ? `Diapo ${liveDirectSlideIndex + 1}/${liveDirectSlides.length}`
                       : currentSlides.length > 0
@@ -3000,12 +3000,12 @@ export const PresentationManager: React.FC = () => {
 
               {/* Navigation & Statut à droite */}
               <div className="flex items-center gap-1.5 shrink-0">
-                <div className="flex items-center gap-1 bg-[#16161D] p-1 rounded-xl border border-[#262632]">
+                <div className="flex items-center gap-1 bg-slate-50 dark:bg-[#16161D] p-1 rounded-xl border border-slate-300 dark:border-[#262632]">
                   <button
                     type="button"
                     onClick={goToPrevSlide}
                     disabled={liveDirectBible ? liveDirectSlideIndex === 0 : (activeSongIndex === 0 && activeSlideIndex === 0)}
-                    className="w-8 h-8 rounded-lg text-gray-300 hover:text-white hover:bg-[#22222A] disabled:opacity-25 disabled:cursor-not-allowed transition-colors cursor-pointer flex items-center justify-center"
+                    className="w-8 h-8 rounded-lg text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#22222A] disabled:opacity-25 disabled:cursor-not-allowed transition-colors cursor-pointer flex items-center justify-center"
                     title="Précédent (Flèche Gauche)"
                   >
                     <ChevronLeft className="w-4 h-4" />
@@ -3305,7 +3305,7 @@ export const PresentationManager: React.FC = () => {
 
             {/* Barre de navigation rapide sous le moniteur pour les longs versets multi-slides */}
             {!countdownActive && !liveDirectMedia?.isActive && (liveDirectBible || activeSlide?.itemType === 'bible') && currentSlides.length > 1 && (
-              <div className="mt-2 flex flex-wrap items-center justify-between gap-1.5 bg-[#15151C] border border-amber-500/30 rounded-xl px-2.5 py-1.5">
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-1.5 bg-slate-50 dark:bg-[#15151C] border border-amber-500/30 rounded-xl px-2.5 py-1.5">
                 <div className="flex items-center gap-1 flex-wrap">
                   {currentSlides.map((sl, sIdx) => {
                     const isCurrent = sIdx === clampedSlideIndex;
@@ -3324,7 +3324,7 @@ export const PresentationManager: React.FC = () => {
                         className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-colors cursor-pointer ${
                           isCurrent
                             ? 'bg-amber-500 text-black'
-                            : 'bg-[#20202B] hover:bg-[#2B2B3A] text-amber-200'
+                            : 'bg-[#EDF1F5] dark:bg-[#20202B] hover:bg-slate-200 dark:hover:bg-[#2B2B3A] text-amber-700 dark:text-amber-200'
                         }`}
                       >
                         Slide {sIdx + 1}/{currentSlides.length}
@@ -3350,22 +3350,22 @@ export const PresentationManager: React.FC = () => {
 
 
 
-          <div className="bg-[#121215] border border-[#222226] rounded-2xl shadow-md transition-all duration-150 flex flex-col">
+          <div className="bg-white dark:bg-[#121215] border border-slate-200 dark:border-[#222226] rounded-2xl shadow-md transition-all duration-150 flex flex-col">
             {/* En-tête harmonisé avec bouton Dérouler/Enrouler */}
             <div
               onClick={toggleQueueCollapse}
               className="flex items-center justify-between p-3.5 sm:p-4 select-none cursor-pointer hover:bg-white/[0.02] transition-colors rounded-2xl shrink-0"
             >
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-6 h-6 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+                <div className="w-6 h-6 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
                   <Music className="w-3.5 h-3.5" />
                 </div>
                 <div className="flex items-center gap-1.5 min-w-0">
-                  <span className="text-xs font-bold text-gray-200 uppercase tracking-wide truncate">
+                  <span className="text-xs font-bold text-slate-800 dark:text-gray-200 uppercase tracking-wide truncate">
                     File de projection
                   </span>
                   {visibleQueueCount > 0 && (
-                    <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
                       {visibleQueueCount}
                     </span>
                   )}
@@ -3382,7 +3382,7 @@ export const PresentationManager: React.FC = () => {
                       setActiveSongIndex(0);
                       setActiveSlideIndex(0);
                     }}
-                    className="text-[10px] text-gray-500 hover:text-red-400 cursor-pointer px-1.5 py-0.5 rounded hover:bg-red-500/10 transition-colors"
+                    className="text-[10px] text-gray-500 hover:text-red-800 dark:hover:text-red-400 cursor-pointer px-1.5 py-0.5 rounded hover:bg-red-500/10 transition-colors"
                     title="Vider la file de projection"
                   >
                     Vider
@@ -3391,7 +3391,7 @@ export const PresentationManager: React.FC = () => {
                 <button
                   type="button"
                   aria-label={isQueueCollapsed ? "Dérouler" : "Enrouler"}
-                  className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-[#202028] transition-colors"
+                  className="p-1 rounded-lg text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#202028] transition-colors"
                 >
                   {isQueueCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
                 </button>
@@ -3399,7 +3399,7 @@ export const PresentationManager: React.FC = () => {
             </div>
 
             {/* Sélecteur d'ajout rapide à la file de projection */}
-            <div className="px-3.5 sm:px-4 py-2.5 border-t border-[#1E1E26] flex items-center gap-2 flex-wrap" ref={setlistDropdownRef}>
+            <div className="px-3.5 sm:px-4 py-2.5 border-t border-slate-200 dark:border-[#1E1E26] flex items-center gap-2 flex-wrap" ref={setlistDropdownRef}>
               <div className="relative flex-1 min-w-[155px]">
                 <button
                   type="button"
@@ -3408,22 +3408,22 @@ export const PresentationManager: React.FC = () => {
                   aria-haspopup="menu"
                   className={`w-full px-3 py-1.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all flex items-center justify-center gap-2 active:scale-95 shadow-xs ${
                     isSetlistDropdownOpen
-                      ? 'bg-blue-600/25 border-blue-400 ring-2 ring-blue-500/25 text-white'
-                      : 'bg-blue-600/15 hover:bg-blue-600/25 border-blue-500/40 hover:border-blue-500/60 text-blue-200 hover:text-white'
+                      ? 'bg-blue-600/25 border-blue-400 ring-2 ring-blue-500/25 text-slate-900 dark:text-white'
+                      : 'bg-blue-600/15 hover:bg-blue-600/25 border-blue-500/40 hover:border-blue-500/60 text-blue-700 dark:text-blue-200 hover:text-slate-900 dark:hover:text-white'
                   }`}
                   title="Ajouter les chants d'une setlist à la file de projection"
                 >
-                  <ListMusic className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                  <ListMusic className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
                   <span className="truncate">Ajouter une setlist</span>
-                  <ChevronDown className={`w-3.5 h-3.5 text-blue-300/80 transition-transform shrink-0 ${isSetlistDropdownOpen ? 'rotate-180 text-blue-300' : ''}`} />
+                  <ChevronDown className={`w-3.5 h-3.5 text-blue-700 dark:text-blue-300/80 transition-transform shrink-0 ${isSetlistDropdownOpen ? 'rotate-180 text-blue-700 dark:text-blue-300' : ''}`} />
                 </button>
 
                 {isSetlistDropdownOpen && (
                   <div
                     role="menu"
-                    className="absolute left-0 top-full mt-1.5 bg-[#131319] border border-[#2B2B38] rounded-xl shadow-2xl p-1.5 z-50 w-72 sm:w-80 max-w-[calc(100vw-2.5rem)] animate-in fade-in zoom-in-95 duration-100 flex flex-col gap-1"
+                    className="absolute left-0 top-full mt-1.5 bg-slate-50 dark:bg-[#131319] border border-slate-300 dark:border-[#2B2B38] rounded-xl shadow-2xl p-1.5 z-50 w-72 sm:w-80 max-w-[calc(100vw-2.5rem)] animate-in fade-in zoom-in-95 duration-100 flex flex-col gap-1"
                   >
-                    <div className="flex items-center justify-between px-2.5 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                    <div className="flex items-center justify-between px-2.5 py-1 text-[10px] font-bold text-slate-600 dark:text-gray-400 uppercase tracking-wider">
                       <span>Ajouter à la file</span>
                       {setlists.length > 0 && (
                         <span className="text-gray-500 font-normal normal-case">
@@ -3457,18 +3457,18 @@ export const PresentationManager: React.FC = () => {
                                 isEmpty
                                   ? 'opacity-45 cursor-not-allowed border-transparent text-gray-500'
                                   : isQueued
-                                  ? 'bg-emerald-500/5 hover:bg-blue-600/15 border-emerald-500/20 hover:border-blue-500/40 text-gray-100 cursor-pointer'
-                                  : 'border-transparent hover:bg-blue-600/15 hover:border-blue-500/35 text-gray-200 hover:text-white cursor-pointer'
+                                  ? 'bg-emerald-500/5 hover:bg-blue-600/15 border-emerald-500/20 hover:border-blue-500/40 text-slate-900 dark:text-gray-100 cursor-pointer'
+                                  : 'border-transparent hover:bg-blue-600/15 hover:border-blue-500/35 text-slate-800 dark:text-gray-200 hover:text-slate-900 dark:hover:text-white cursor-pointer'
                               }`}
                               title={isEmpty ? 'Setlist vide' : `Ajouter les ${validCount} chant${validCount > 1 ? 's' : ''} de « ${st.name} » à la file`}
                             >
                               <div className="flex items-center gap-2.5 min-w-0 flex-1">
                                 <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border transition-colors ${
                                   isEmpty
-                                    ? 'bg-[#1A1A22] border-[#262632] text-gray-500'
+                                    ? 'bg-[#EDF1F5] dark:bg-[#1A1A22] border-slate-300 dark:border-[#262632] text-gray-500'
                                     : isQueued
-                                    ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-400 group-hover:bg-blue-500/15 group-hover:border-blue-500/30 group-hover:text-blue-300'
-                                    : 'bg-[#1A1A24] border-[#282836] text-blue-400 group-hover:bg-blue-500/20 group-hover:border-blue-500/40 group-hover:text-blue-300'
+                                    ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-600 dark:text-emerald-400 group-hover:bg-blue-500/15 group-hover:border-blue-500/30 group-hover:text-blue-800 dark:group-hover:text-blue-300'
+                                    : 'bg-[#EDF1F5] dark:bg-[#1A1A24] border-slate-300 dark:border-[#282836] text-blue-600 dark:text-blue-400 group-hover:bg-blue-500/20 group-hover:border-blue-500/40 group-hover:text-blue-800 dark:group-hover:text-blue-300'
                                 }`}>
                                   <ListMusic className="w-3.5 h-3.5" />
                                 </div>
@@ -3476,13 +3476,13 @@ export const PresentationManager: React.FC = () => {
                                   <div className="font-semibold truncate leading-tight">
                                     {st.name}
                                   </div>
-                                  <div className="text-[10px] text-gray-400 mt-0.5 flex items-center gap-1.5">
+                                  <div className="text-[10px] text-slate-600 dark:text-gray-400 mt-0.5 flex items-center gap-1.5">
                                     <span>
                                       {validCount} chant{validCount > 1 ? 's' : ''}
                                     </span>
                                     {st.date && (
                                       <>
-                                        <span className="text-gray-600">•</span>
+                                        <span className="text-slate-500 dark:text-gray-600">•</span>
                                         <span>{st.date.split('-').reverse().join('/')}</span>
                                       </>
                                     )}
@@ -3494,14 +3494,14 @@ export const PresentationManager: React.FC = () => {
                                 {isEmpty ? (
                                   <span className="text-[10px] text-gray-500 px-1.5">Vide</span>
                                 ) : isQueued ? (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-400 group-hover:text-blue-300 px-1.5 py-0.5 rounded-md bg-emerald-500/10 group-hover:bg-blue-500/15 transition-colors">
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 group-hover:text-blue-800 dark:group-hover:text-blue-300 px-1.5 py-0.5 rounded-md bg-emerald-500/10 group-hover:bg-blue-500/15 transition-colors">
                                     <Check className="w-3 h-3 group-hover:hidden" />
                                     <Plus className="w-3 h-3 hidden group-hover:block" />
                                     <span className="group-hover:hidden">Ajoutée</span>
                                     <span className="hidden group-hover:inline">Réajouter</span>
                                   </span>
                                 ) : (
-                                  <Plus className="w-4 h-4 text-gray-500 group-hover:text-blue-400 group-hover:scale-110 transition-all" />
+                                  <Plus className="w-4 h-4 text-gray-500 group-hover:text-blue-800 dark:group-hover:text-blue-400 group-hover:scale-110 transition-all" />
                                 )}
                               </div>
                             </button>
@@ -3519,22 +3519,22 @@ export const PresentationManager: React.FC = () => {
                   setSongModalSearch('');
                   setIsAddSongModalOpen(true);
                 }}
-                className="px-3 py-1.5 rounded-xl bg-emerald-600/15 hover:bg-emerald-600/25 border border-emerald-500/40 hover:border-emerald-500/60 text-emerald-300 hover:text-emerald-200 text-xs font-semibold cursor-pointer transition-all flex items-center justify-center gap-1.5 shrink-0 active:scale-95 shadow-xs"
+                className="px-3 py-1.5 rounded-xl bg-emerald-600/15 hover:bg-emerald-600/25 border border-emerald-500/40 hover:border-emerald-500/60 text-emerald-700 dark:text-emerald-300 hover:text-emerald-800 dark:hover:text-emerald-200 text-xs font-semibold cursor-pointer transition-all flex items-center justify-center gap-1.5 shrink-0 active:scale-95 shadow-xs"
                 title="Ajouter un chant individuel (hors-liste) à la file de projection"
               >
-                <Plus className="w-3.5 h-3.5 text-emerald-400" />
+                <Plus className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                 <span>Chant libre</span>
               </button>
             </div>
 
             {/* Corps du bloc déroulable */}
             {!isQueueCollapsed && (
-              <div className="px-3.5 sm:px-4 pb-3.5 sm:pb-4 pt-2 space-y-3 border-t border-[#1E1E26] flex-1 min-h-0 flex flex-col">
+              <div className="px-3.5 sm:px-4 pb-3.5 sm:pb-4 pt-2 space-y-3 border-t border-slate-200 dark:border-[#1E1E26] flex-1 min-h-0 flex flex-col">
                 {visibleQueueCount === 0 ? (
                   <div className="text-center py-7 text-gray-500 text-xs flex-1 flex flex-col items-center justify-center">
-                    <Music className="w-8 h-8 mx-auto mb-2 opacity-30 text-emerald-400" />
+                    <Music className="w-8 h-8 mx-auto mb-2 opacity-30 text-emerald-600 dark:text-emerald-400" />
                     <span>Aucun chant ou passage dans la file.</span>
-                    <p className="text-[10px] mt-1 text-gray-600">Ajoutez une setlist ou un chant libre ci-dessus, ou un passage depuis l'onglet Bible.</p>
+                    <p className="text-[10px] mt-1 text-slate-500 dark:text-gray-600">Ajoutez une setlist ou un chant libre ci-dessus, ou un passage depuis l'onglet Bible.</p>
                   </div>
                 ) : (
                   <div className="space-y-1.5 overflow-y-auto pr-0.5 custom-scrollbar pt-1 flex-1 min-h-0 max-lg:max-h-[460px]">
@@ -3589,16 +3589,16 @@ export const PresentationManager: React.FC = () => {
                               onDragStart={(e) => handleSetlistDragStart(e, item.setlistName, item.setlistId)}
                               onDragOver={(e) => handleDragOver(e, idx)}
                               onDrop={(e) => handleDrop(e, idx)}
-                              className="flex items-center justify-between px-2.5 py-1.5 mt-2.5 first:mt-0 rounded-lg border text-xs font-bold bg-[#181820] hover:bg-[#1C1C26] border-[#2A2A38] text-blue-300 transition-colors shadow-xs group/setlist"
+                              className="flex items-center justify-between px-2.5 py-1.5 mt-2.5 first:mt-0 rounded-lg border text-xs font-bold bg-[#EDF1F5] dark:bg-[#181820] hover:bg-slate-200/70 dark:hover:bg-[#1C1C26] border-slate-300 dark:border-[#2A2A38] text-blue-700 dark:text-blue-300 transition-colors shadow-xs group/setlist"
                             >
                               <div className="flex items-center gap-1.5 min-w-0 pr-2">
                                 <div
-                                  className="cursor-grab active:cursor-grabbing text-blue-400/60 hover:text-blue-300 p-0.5 rounded shrink-0"
+                                  className="cursor-grab active:cursor-grabbing text-blue-600 dark:text-blue-400/60 hover:text-blue-800 dark:hover:text-blue-300 p-0.5 rounded shrink-0"
                                   title="Glisser-déposer pour déplacer toute la liste"
                                 >
                                   <GripVertical className="w-3.5 h-3.5" />
                                 </div>
-                                <ListMusic className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                                <ListMusic className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
                                 <span className="truncate">{item.setlistName}</span>
                               </div>
                               <div className="flex items-center gap-1 shrink-0">
@@ -3609,7 +3609,7 @@ export const PresentationManager: React.FC = () => {
                                     handleMoveSetlist(item.setlistName, item.setlistId, 'up');
                                   }}
                                   disabled={!canSetlistMoveUp}
-                                  className="p-1 rounded text-gray-400 hover:text-white disabled:opacity-20 cursor-pointer transition-colors"
+                                  className="p-1 rounded text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white disabled:opacity-20 cursor-pointer transition-colors"
                                   title="Déplacer toute la liste vers le haut"
                                 >
                                   <ArrowUp className="w-3.5 h-3.5" />
@@ -3621,7 +3621,7 @@ export const PresentationManager: React.FC = () => {
                                     handleMoveSetlist(item.setlistName, item.setlistId, 'down');
                                   }}
                                   disabled={!canSetlistMoveDown}
-                                  className="p-1 rounded text-gray-400 hover:text-white disabled:opacity-20 cursor-pointer transition-colors"
+                                  className="p-1 rounded text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white disabled:opacity-20 cursor-pointer transition-colors"
                                   title="Déplacer toute la liste vers le bas"
                                 >
                                   <ArrowDown className="w-3.5 h-3.5" />
@@ -3632,7 +3632,7 @@ export const PresentationManager: React.FC = () => {
                                     e.stopPropagation();
                                     handleRemoveSetlistFromQueue(item.setlistName, item.setlistId);
                                   }}
-                                  className="text-[10px] text-gray-500 hover:text-red-400 font-normal px-1.5 py-0.5 rounded hover:bg-red-500/10 transition-colors shrink-0 cursor-pointer ml-1"
+                                  className="text-[10px] text-gray-500 hover:text-red-800 dark:hover:text-red-400 font-normal px-1.5 py-0.5 rounded hover:bg-red-500/10 transition-colors shrink-0 cursor-pointer ml-1"
                                   title={`Retirer tous les chants de la setlist "${item.setlistName}"`}
                                 >
                                   Retirer
@@ -3661,17 +3661,17 @@ export const PresentationManager: React.FC = () => {
                             className={`flex items-center justify-between p-2.5 rounded-xl border transition-all cursor-pointer group select-none ${
                               isBeingDragged ? 'opacity-40 border-dashed border-gray-500' : ''
                             } ${
-                              isDraggedOver ? 'ring-2 ring-blue-500 bg-blue-950/40 border-blue-400' : ''
+                              isDraggedOver ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-950/40 border-blue-400' : ''
                             } ${
                               isActive
                                 ? isBible
-                                  ? 'bg-amber-950/40 border-amber-500/70 text-white shadow-md'
-                                  : 'bg-blue-950/40 border-blue-500/70 text-white shadow-md'
+                                  ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-500/70 text-slate-900 dark:text-white shadow-md'
+                                  : 'bg-blue-50 dark:bg-blue-950/40 border-blue-500/70 text-slate-900 dark:text-white shadow-md'
                                 : isBible
-                                ? 'bg-[#181824] hover:bg-[#202030] border-amber-500/30 hover:border-amber-500/60 text-gray-200'
+                                ? 'bg-[#EDF1F5] dark:bg-[#181824] hover:bg-slate-200/70 dark:hover:bg-[#202030] border-amber-500/30 hover:border-amber-500/60 text-slate-800 dark:text-gray-200'
                                 : isIndividualItem
-                                ? 'bg-[#181822] hover:bg-[#1E1E2C] border-emerald-500/25 hover:border-emerald-500/40 text-gray-200'
-                                : 'bg-[#18181D] hover:bg-[#202026] border-[#26262E] text-gray-300'
+                                ? 'bg-[#EDF1F5] dark:bg-[#181822] hover:bg-slate-200/70 dark:hover:bg-[#1E1E2C] border-emerald-500/25 hover:border-emerald-500/40 text-slate-800 dark:text-gray-200'
+                                : 'bg-slate-50 dark:bg-[#18181D] hover:bg-slate-200/70 dark:hover:bg-[#202026] border-slate-300 dark:border-[#26262E] text-slate-700 dark:text-gray-300'
                             }`}
                             title={
                               isBible 
@@ -3685,7 +3685,7 @@ export const PresentationManager: React.FC = () => {
                               {/* Poignée de déplacement drag & drop réservée aux éléments individuels */}
                               {isIndividualItem && (
                                 <div
-                                  className="cursor-grab active:cursor-grabbing text-gray-500 hover:text-gray-300 p-0.5 rounded shrink-0"
+                                  className="cursor-grab active:cursor-grabbing text-gray-500 hover:text-slate-900 dark:hover:text-gray-300 p-0.5 rounded shrink-0"
                                   title="Glisser-déposer pour réordonner cet élément"
                                 >
                                   <GripVertical className="w-3.5 h-3.5" />
@@ -3695,7 +3695,7 @@ export const PresentationManager: React.FC = () => {
                               <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold font-mono shrink-0 ${
                                 isActive 
                                   ? isBible ? 'bg-amber-500 text-black font-extrabold' : 'bg-blue-600 text-white' 
-                                  : isBible ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : isIndividualItem ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-[#25252D] text-gray-400'
+                                  : isBible ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30' : isIndividualItem ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30' : 'bg-[#EDF1F5] dark:bg-[#25252D] text-slate-600 dark:text-gray-400'
                               }`}>
                                 {visibleIdx + 1}
                               </span>
@@ -3703,18 +3703,18 @@ export const PresentationManager: React.FC = () => {
                                 {isBible ? (
                                   <>
                                     <div className="flex items-center gap-1.5 flex-wrap">
-                                      <span className="text-[9px] font-bold font-mono uppercase px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0">
+                                      <span className="text-[9px] font-bold font-mono uppercase px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 shrink-0">
                                         Verset
                                       </span>
-                                      <p className="font-bold text-xs truncate leading-snug text-amber-200 flex items-center gap-1">
-                                        <BookOpen className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                                      <p className="font-bold text-xs truncate leading-snug text-amber-700 dark:text-amber-200 flex items-center gap-1">
+                                        <BookOpen className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
                                         <span>{item.bibleData!.referenceText}</span>
-                                        <span className="text-[9px] font-mono px-1 py-0.2 bg-black/40 rounded border border-amber-500/30 text-amber-300">
+                                        <span className="text-[9px] font-mono px-1 py-0.2 bg-black/40 rounded border border-amber-500/30 text-amber-700 dark:text-amber-300">
                                           {item.bibleData!.version}
                                         </span>
                                       </p>
                                     </div>
-                                    <p className="text-[10px] text-gray-400 truncate italic mt-0.5">
+                                    <p className="text-[10px] text-slate-600 dark:text-gray-400 truncate italic mt-0.5">
                                       {item.bibleData!.verses[0]?.text || item.bibleData!.text}
                                     </p>
                                   </>
@@ -3722,7 +3722,7 @@ export const PresentationManager: React.FC = () => {
                                   <>
                                     <div className="flex items-center gap-1.5 min-w-0">
                                       {isIndividualItem && (
-                                        <span className="text-[9px] font-bold font-mono uppercase px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shrink-0">
+                                        <span className="text-[9px] font-bold font-mono uppercase px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 shrink-0">
                                           Séparé
                                         </span>
                                       )}
@@ -3745,7 +3745,7 @@ export const PresentationManager: React.FC = () => {
                                       handleMoveSong(idx, 'up');
                                     }}
                                     disabled={idx === 0}
-                                    className="p-1 rounded text-gray-400 hover:text-white disabled:opacity-20 cursor-pointer transition-colors"
+                                    className="p-1 rounded text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white disabled:opacity-20 cursor-pointer transition-colors"
                                     title="Déplacer vers le haut"
                                   >
                                     <ArrowUp className="w-3.5 h-3.5" />
@@ -3757,7 +3757,7 @@ export const PresentationManager: React.FC = () => {
                                       handleMoveSong(idx, 'down');
                                     }}
                                     disabled={idx === queueItems.length - 1}
-                                    className="p-1 rounded text-gray-400 hover:text-white disabled:opacity-20 cursor-pointer transition-colors"
+                                    className="p-1 rounded text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white disabled:opacity-20 cursor-pointer transition-colors"
                                     title="Déplacer vers le bas"
                                   >
                                     <ArrowDown className="w-3.5 h-3.5" />
@@ -3768,7 +3768,7 @@ export const PresentationManager: React.FC = () => {
                                       e.stopPropagation();
                                       handleRemoveSong(idx);
                                     }}
-                                    className="p-1 rounded text-gray-400 hover:text-red-400 cursor-pointer transition-colors"
+                                    className="p-1 rounded text-slate-600 dark:text-gray-400 hover:text-red-800 dark:hover:text-red-400 cursor-pointer transition-colors"
                                     title={isBible ? "Retirer ce verset de la file" : "Retirer ce chant de la file"}
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
@@ -3814,33 +3814,33 @@ export const PresentationManager: React.FC = () => {
           onClick={() => setShowBilingualModal(false)}
         >
           <div 
-            className="w-full max-w-lg bg-[#14141A] border border-[#2B2B38] rounded-2xl shadow-2xl p-5 flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-150"
+            className="w-full max-w-lg bg-slate-50 dark:bg-[#14141A] border border-slate-300 dark:border-[#2B2B38] rounded-2xl shadow-2xl p-5 flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between pb-3 border-b border-[#22222E]">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-[#22222E]">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+                <div className="w-8 h-8 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
                   <Columns className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-white">Projection Bilingue</h3>
-                  <p className="text-[11px] text-gray-400">
-                    Chant principal : <strong className="text-white">{currentSong.title}</strong> ({getLanguageMeta(currentSong.language).name})
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">Projection Bilingue</h3>
+                  <p className="text-[11px] text-slate-600 dark:text-gray-400">
+                    Chant principal : <strong className="text-slate-900 dark:text-white">{currentSong.title}</strong> ({getLanguageMeta(currentSong.language).name})
                   </p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setShowBilingualModal(false)}
-                className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-[#202028] transition-colors cursor-pointer"
+                className="p-1 rounded-lg text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#202028] transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             {/* Versions déjà liées */}
-            <div className="py-3 border-b border-[#22222E] space-y-2">
-              <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">
+            <div className="py-3 border-b border-slate-200 dark:border-[#22222E] space-y-2">
+              <span className="text-[10px] uppercase font-bold text-slate-600 dark:text-gray-400 tracking-wider">
                 Versions traduites liées
               </span>
               {availableLinkedVersions.length === 0 ? (
@@ -3853,9 +3853,9 @@ export const PresentationManager: React.FC = () => {
                       setAiTranslateInitialEdit(false);
                       setIsAiTranslateModalOpen(true);
                     }}
-                    className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-cyan-600/25 to-indigo-600/25 hover:from-cyan-600/40 hover:to-indigo-600/40 border border-cyan-500/40 text-cyan-200 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-all"
+                    className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-cyan-50 dark:from-cyan-600/25 to-indigo-600/25 hover:from-cyan-100 dark:hover:from-cyan-600/40 hover:to-indigo-600/40 border border-cyan-500/40 text-cyan-700 dark:text-cyan-200 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-all"
                   >
-                    <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                    <Sparkles className="w-3.5 h-3.5 text-cyan-700 dark:text-cyan-400" />
                     <span>Traduire automatiquement par IA</span>
                   </button>
                 </div>
@@ -3869,8 +3869,8 @@ export const PresentationManager: React.FC = () => {
                         key={lv.id}
                         className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 transition-all ${
                           isSelected
-                            ? 'bg-indigo-950/50 border-indigo-500 text-white shadow-xs'
-                            : 'bg-[#181822] border-[#2A2A38] text-gray-200 hover:border-indigo-500/40'
+                            ? 'bg-indigo-50 dark:bg-indigo-950/50 border-indigo-500 text-slate-900 dark:text-white shadow-xs'
+                            : 'bg-[#EDF1F5] dark:bg-[#181822] border-slate-300 dark:border-[#2A2A38] text-slate-800 dark:text-gray-200 hover:border-indigo-500/40'
                         }`}
                       >
                         <div className="flex items-center gap-2 min-w-0">
@@ -3879,7 +3879,7 @@ export const PresentationManager: React.FC = () => {
                           </span>
                           <div className="min-w-0">
                             <div className="text-xs font-semibold truncate">{lv.title}</div>
-                            <div className="text-[10px] text-gray-400">{lMeta.name}</div>
+                            <div className="text-[10px] text-slate-600 dark:text-gray-400">{lMeta.name}</div>
                           </div>
                         </div>
                         <button
@@ -3897,7 +3897,7 @@ export const PresentationManager: React.FC = () => {
                           className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
                             isSelected
                               ? 'bg-indigo-600 text-white'
-                              : 'bg-[#222232] hover:bg-indigo-600 text-indigo-300 hover:text-white border border-indigo-500/40'
+                              : 'bg-[#EDF1F5] dark:bg-[#222232] hover:bg-indigo-600 text-indigo-300 hover:text-white border border-indigo-500/40'
                           }`}
                         >
                           {isSelected ? 'Sélectionné' : 'Projeter'}
@@ -3911,17 +3911,17 @@ export const PresentationManager: React.FC = () => {
 
             {/* Rechercher et lier un autre chant du répertoire */}
             <div className="pt-3 flex-1 flex flex-col min-h-0 space-y-2">
-              <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">
+              <span className="text-[10px] uppercase font-bold text-slate-600 dark:text-gray-400 tracking-wider">
                 Ou choisir un chant du répertoire à projeter / lier
               </span>
               <div className="relative">
-                <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-3.5 h-3.5 text-slate-600 dark:text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   placeholder="Rechercher par titre ou langue..."
                   value={bilingualSearchQuery}
                   onChange={(e) => setBilingualSearchQuery(e.target.value)}
-                  className="w-full bg-[#181820] border border-[#2E2E3C] rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-[#EDF1F5] dark:bg-[#181820] border border-slate-300 dark:border-[#2E2E3C] rounded-xl pl-9 pr-3 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-indigo-500"
                 />
               </div>
 
@@ -3941,15 +3941,15 @@ export const PresentationManager: React.FC = () => {
                     return (
                       <div
                         key={songItem.id}
-                        className="p-2 rounded-xl bg-[#16161E] hover:bg-[#1E1E28] border border-[#252532] flex items-center justify-between gap-2 text-xs transition-colors"
+                        className="p-2 rounded-xl bg-slate-50 dark:bg-[#16161E] hover:bg-slate-200/70 dark:hover:bg-[#1E1E28] border border-slate-300 dark:border-[#252532] flex items-center justify-between gap-2 text-xs transition-colors"
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${lMeta.badgeClass}`}>
                             {lMeta.code}
                           </span>
                           <div className="min-w-0">
-                            <div className="font-semibold text-white truncate">{songItem.title}</div>
-                            <div className="text-[10px] text-gray-400">{lMeta.name}</div>
+                            <div className="font-semibold text-slate-900 dark:text-white truncate">{songItem.title}</div>
+                            <div className="text-[10px] text-slate-600 dark:text-gray-400">{lMeta.name}</div>
                           </div>
                         </div>
 
@@ -3990,17 +3990,17 @@ export const PresentationManager: React.FC = () => {
           onClick={() => setIsAddSongModalOpen(false)}
         >
           <div 
-            className="w-full max-w-lg bg-[#14141A] border border-[#2B2B38] rounded-2xl shadow-2xl p-5 flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-150"
+            className="w-full max-w-lg bg-slate-50 dark:bg-[#14141A] border border-slate-300 dark:border-[#2B2B38] rounded-2xl shadow-2xl p-5 flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between pb-3 border-b border-[#22222E]">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-[#22222E]">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                <div className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
                   <Music className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-white">Ajouter un chant séparé</h3>
-                  <p className="text-[11px] text-gray-400">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">Ajouter un chant séparé</h3>
+                  <p className="text-[11px] text-slate-600 dark:text-gray-400">
                     Chant individuel hors-liste (librement repositionnable et retirable)
                   </p>
                 </div>
@@ -4008,7 +4008,7 @@ export const PresentationManager: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsAddSongModalOpen(false)}
-                className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-[#202028] transition-colors cursor-pointer"
+                className="p-1 rounded-lg text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#202028] transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -4017,13 +4017,13 @@ export const PresentationManager: React.FC = () => {
             {/* Barre de recherche */}
             <div className="pt-3 pb-2">
               <div className="relative">
-                <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-4 h-4 text-slate-600 dark:text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   value={songModalSearch}
                   onChange={(e) => setSongModalSearch(e.target.value)}
                   placeholder="Rechercher par titre, artiste, paroles..."
-                  className="w-full bg-[#1A1A24] border border-[#303042] rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500"
+                  className="w-full bg-[#EDF1F5] dark:bg-[#1A1A24] border border-slate-300 dark:border-[#303042] rounded-xl pl-9 pr-3 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-emerald-500"
                   autoFocus
                 />
               </div>
@@ -4042,19 +4042,19 @@ export const PresentationManager: React.FC = () => {
                     <div
                       key={song.id}
                       onClick={() => handleAddIndividualSong(song)}
-                      className="p-2.5 rounded-xl border border-[#252532] hover:border-emerald-500/50 bg-[#16161F] hover:bg-[#1E1E2B] transition-all flex items-center justify-between gap-3 cursor-pointer group"
+                      className="p-2.5 rounded-xl border border-slate-300 dark:border-[#252532] hover:border-emerald-500/50 bg-slate-50 dark:bg-[#16161F] hover:bg-slate-200/70 dark:hover:bg-[#1E1E2B] transition-all flex items-center justify-between gap-3 cursor-pointer group"
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold border ${lMeta.badgeClass}`}>
                             {lMeta.code}
                           </span>
-                          <span className="text-xs font-semibold text-white group-hover:text-emerald-300 transition-colors truncate">
+                          <span className="text-xs font-semibold text-slate-900 dark:text-white group-hover:text-emerald-800 dark:group-hover:text-emerald-300 transition-colors truncate">
                             {song.title}
                           </span>
                         </div>
                         {song.artist && (
-                          <div className="text-[10px] text-gray-400 mt-0.5 truncate pl-7">
+                          <div className="text-[10px] text-slate-600 dark:text-gray-400 mt-0.5 truncate pl-7">
                             {song.artist}
                           </div>
                         )}

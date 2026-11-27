@@ -25,27 +25,27 @@ const ToastItem: React.FC<ToastItemProps> = ({ notification, onDismiss }) => {
   const config = {
     success: {
       icon: Check,
-      iconColor: 'text-emerald-400',
+      iconColor: 'text-emerald-600 dark:text-emerald-400',
       border: 'border-emerald-500/25',
-      bg: 'bg-[#18181B]/95',
+      bg: 'bg-slate-50/95 dark:bg-[#18181B]/95',
     },
     info: {
       icon: Info,
-      iconColor: 'text-cyan-400',
+      iconColor: 'text-cyan-700 dark:text-cyan-400',
       border: 'border-cyan-500/25',
-      bg: 'bg-[#18181B]/95',
+      bg: 'bg-slate-50/95 dark:bg-[#18181B]/95',
     },
     warning: {
       icon: AlertTriangle,
-      iconColor: 'text-amber-400',
+      iconColor: 'text-amber-600 dark:text-amber-400',
       border: 'border-amber-500/25',
-      bg: 'bg-[#18181B]/95',
+      bg: 'bg-slate-50/95 dark:bg-[#18181B]/95',
     },
     error: {
       icon: AlertCircle,
-      iconColor: 'text-rose-400',
+      iconColor: 'text-rose-600 dark:text-rose-400',
       border: 'border-rose-500/25',
-      bg: 'bg-[#18181B]/95',
+      bg: 'bg-slate-50/95 dark:bg-[#18181B]/95',
     },
   }[type];
 
@@ -58,7 +58,7 @@ const ToastItem: React.FC<ToastItemProps> = ({ notification, onDismiss }) => {
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: 6, scale: 0.95 }}
       transition={{ duration: 0.16, ease: 'easeOut' }}
-      className={`pointer-events-auto flex items-center gap-2 px-3 py-1.5 rounded-full ${config.bg} backdrop-blur-md border ${config.border} shadow-lg text-xs font-medium text-gray-200 select-none`}
+      className={`pointer-events-auto flex items-center gap-2 px-3 py-1.5 rounded-full ${config.bg} backdrop-blur-md border ${config.border} shadow-lg text-xs font-medium text-slate-800 dark:text-gray-200 select-none`}
       role="status"
     >
       <Icon className={`w-3.5 h-3.5 ${config.iconColor} shrink-0`} />

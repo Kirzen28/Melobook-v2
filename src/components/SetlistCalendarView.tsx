@@ -268,15 +268,15 @@ export const SetlistCalendarView: React.FC<SetlistCalendarViewProps> = ({
     <div className="animate-in fade-in duration-200">
       
       {/* Calendar Grid */}
-      <div className="bg-[#111113] border border-[#222226] rounded-2xl p-3 sm:p-5 shadow-sm space-y-4">
+      <div className="bg-white dark:bg-[#111113] border border-slate-200 dark:border-[#222226] rounded-2xl p-3 sm:p-5 shadow-sm space-y-4">
           
           {/* Calendar Header: Month & Year Navigator + Aujourd'hui */}
-          <div className="flex items-center justify-between gap-3 pb-3 border-b border-[#1F1F24] flex-wrap">
+          <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-[#1F1F24] flex-wrap">
             <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
               <div
                 ref={pickerContainerRef}
                 onClick={handleToggleMonthYearPicker}
-                className="relative flex items-center bg-[#17171C] border border-[#2A2A30] rounded-xl p-1 shadow-inner cursor-pointer"
+                className="relative flex items-center bg-slate-50 dark:bg-[#17171C] border border-slate-300 dark:border-[#2A2A30] rounded-xl p-1 shadow-inner cursor-pointer"
               >
                 <button
                   type="button"
@@ -284,7 +284,7 @@ export const SetlistCalendarView: React.FC<SetlistCalendarViewProps> = ({
                     e.stopPropagation();
                     handlePrevMonth();
                   }}
-                  className="p-1.5 rounded-lg text-gray-300 hover:text-white hover:bg-[#23232A] transition-colors"
+                  className="p-1.5 rounded-lg text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#23232A] transition-colors"
                   title="Mois précédent"
                   aria-label="Mois précédent"
                 >
@@ -292,13 +292,13 @@ export const SetlistCalendarView: React.FC<SetlistCalendarViewProps> = ({
                 </button>
 
                 <div
-                  className="px-3 py-1 text-center min-w-[140px] sm:min-w-[160px] rounded-lg hover:bg-[#23232A] transition-colors flex items-center justify-center gap-1.5"
+                  className="px-3 py-1 text-center min-w-[140px] sm:min-w-[160px] rounded-lg hover:bg-slate-200/70 dark:hover:bg-[#23232A] transition-colors flex items-center justify-center gap-1.5"
                   title="Choisir le mois et l'année"
                 >
-                  <span className="text-sm sm:text-base font-bold text-white capitalize">
+                  <span className="text-sm sm:text-base font-bold text-slate-900 dark:text-white capitalize">
                     {MONTH_NAMES_FR[currentMonth]} {currentYear}
                   </span>
-                  <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform ${isMonthYearPickerOpen ? 'rotate-180 text-blue-400' : ''}`} />
+                  <ChevronDown className={`w-3.5 h-3.5 text-slate-600 dark:text-gray-400 transition-transform ${isMonthYearPickerOpen ? 'rotate-180 text-blue-600 dark:text-blue-400' : ''}`} />
                 </div>
 
                 <button
@@ -307,7 +307,7 @@ export const SetlistCalendarView: React.FC<SetlistCalendarViewProps> = ({
                     e.stopPropagation();
                     handleNextMonth();
                   }}
-                  className="p-1.5 rounded-lg text-gray-300 hover:text-white hover:bg-[#23232A] transition-colors"
+                  className="p-1.5 rounded-lg text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#23232A] transition-colors"
                   title="Mois suivant"
                   aria-label="Mois suivant"
                 >
@@ -317,14 +317,14 @@ export const SetlistCalendarView: React.FC<SetlistCalendarViewProps> = ({
                 {isMonthYearPickerOpen && (
                   <div
                     onClick={(e) => e.stopPropagation()}
-                    className="absolute left-0 top-full mt-2 z-50 w-72 bg-[#141418] border border-[#2C2C34] rounded-2xl p-3.5 shadow-2xl animate-in fade-in zoom-in-95 duration-150 cursor-default"
+                    className="absolute left-0 top-full mt-2 z-50 w-72 bg-slate-50 dark:bg-[#141418] border border-slate-300 dark:border-[#2C2C34] rounded-2xl p-3.5 shadow-2xl animate-in fade-in zoom-in-95 duration-150 cursor-default"
                   >
                     {/* Sélecteur d'année */}
-                    <div className="flex items-center justify-between gap-2 pb-2.5 mb-2.5 border-b border-[#22222A]">
+                    <div className="flex items-center justify-between gap-2 pb-2.5 mb-2.5 border-b border-slate-200 dark:border-[#22222A]">
                       <button
                         type="button"
                         onClick={() => setPickerYear(y => y - 1)}
-                        className="p-1.5 rounded-lg bg-[#1C1C22] hover:bg-[#26262F] text-gray-300 hover:text-white border border-[#2D2D36] transition-colors cursor-pointer"
+                        className="p-1.5 rounded-lg bg-[#EDF1F5] dark:bg-[#1C1C22] hover:bg-slate-200 dark:hover:bg-[#26262F] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-[#2D2D36] transition-colors cursor-pointer"
                         title="Année précédente"
                         aria-label="Année précédente"
                       >
@@ -334,11 +334,11 @@ export const SetlistCalendarView: React.FC<SetlistCalendarViewProps> = ({
                       <select
                         value={pickerYear}
                         onChange={(e) => setPickerYear(Number(e.target.value))}
-                        className="bg-[#1C1C22] border border-[#2D2D36] hover:border-blue-500/50 rounded-lg px-3 py-1 text-sm font-bold text-white focus:outline-none focus:border-blue-500 cursor-pointer text-center"
+                        className="bg-[#EDF1F5] dark:bg-[#1C1C22] border border-slate-300 dark:border-[#2D2D36] hover:border-blue-500/50 rounded-lg px-3 py-1 text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 cursor-pointer text-center"
                         aria-label="Sélectionner l'année"
                       >
                         {yearOptions.map(y => (
-                          <option key={y} value={y} className="bg-[#141418] text-white">
+                          <option key={y} value={y} className="bg-slate-50 dark:bg-[#141418] text-slate-900 dark:text-white">
                             {y}
                           </option>
                         ))}
@@ -347,7 +347,7 @@ export const SetlistCalendarView: React.FC<SetlistCalendarViewProps> = ({
                       <button
                         type="button"
                         onClick={() => setPickerYear(y => y + 1)}
-                        className="p-1.5 rounded-lg bg-[#1C1C22] hover:bg-[#26262F] text-gray-300 hover:text-white border border-[#2D2D36] transition-colors cursor-pointer"
+                        className="p-1.5 rounded-lg bg-[#EDF1F5] dark:bg-[#1C1C22] hover:bg-slate-200 dark:hover:bg-[#26262F] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-[#2D2D36] transition-colors cursor-pointer"
                         title="Année suivante"
                         aria-label="Année suivante"
                       >
@@ -369,8 +369,8 @@ export const SetlistCalendarView: React.FC<SetlistCalendarViewProps> = ({
                               isActiveSelection
                                 ? 'bg-blue-600 text-white shadow-sm ring-1 ring-blue-400/50'
                                 : isThisMonth
-                                ? 'bg-blue-950/30 text-blue-300 border border-blue-500/40 hover:bg-blue-900/40'
-                                : 'bg-[#1A1A20] text-gray-300 hover:bg-[#24242D] hover:text-white border border-[#25252E]'
+                                ? 'bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border border-blue-500/40 hover:bg-blue-100 dark:hover:bg-blue-900/40'
+                                : 'bg-[#EDF1F5] dark:bg-[#1A1A20] text-slate-700 dark:text-gray-300 hover:bg-slate-200 dark:hover:bg-[#24242D] hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-[#25252E]'
                             }`}
                           >
                             {monthName}
@@ -385,7 +385,7 @@ export const SetlistCalendarView: React.FC<SetlistCalendarViewProps> = ({
               <button
                 type="button"
                 onClick={handleGoToday}
-                className="px-3 py-1.5 rounded-xl bg-[#18181D] hover:bg-[#22222A] border border-[#2C2C34] text-xs font-semibold text-blue-400 hover:text-blue-300 transition-colors shadow-xs"
+                className="px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-[#18181D] hover:bg-slate-200/70 dark:hover:bg-[#22222A] border border-slate-300 dark:border-[#2C2C34] text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors shadow-xs"
               >
                 Aujourd'hui
               </button>
@@ -398,7 +398,7 @@ export const SetlistCalendarView: React.FC<SetlistCalendarViewProps> = ({
               <div 
                 key={name}
                 className={`py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg ${
-                  i >= 5 ? 'text-blue-400 bg-blue-950/20' : 'text-gray-400'
+                  i >= 5 ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/20' : 'text-slate-600 dark:text-gray-400'
                 }`}
               >
                 {name}
@@ -420,12 +420,12 @@ export const SetlistCalendarView: React.FC<SetlistCalendarViewProps> = ({
                   onClick={() => setSelectedDate(cell.dateStr)}
                   className={`min-h-[78px] sm:min-h-[102px] p-1.5 sm:p-2 rounded-xl border flex flex-col justify-between transition-all cursor-pointer relative group select-none ${
                     isSelected
-                      ? 'bg-[#181820] border-blue-500 shadow-md shadow-blue-500/10 ring-1 ring-blue-500/60 z-10'
+                      ? 'bg-[#EDF1F5] dark:bg-[#181820] border-blue-500 shadow-md shadow-blue-500/10 ring-1 ring-blue-500/60 z-10'
                       : isToday
-                      ? 'bg-blue-950/15 border-blue-500/50 hover:border-blue-400 hover:bg-blue-950/25'
+                      ? 'bg-blue-50 dark:bg-blue-950/15 border-blue-500/50 hover:border-blue-400 hover:bg-blue-100 dark:hover:bg-blue-950/25'
                       : cell.isCurrentMonth
-                      ? 'bg-[#141417] border-[#222226] hover:border-[#33333D] hover:bg-[#18181C]'
-                      : 'bg-[#0E0E10]/70 border-[#1C1C20] opacity-40 hover:opacity-75'
+                      ? 'bg-slate-50 dark:bg-[#141417] border-slate-200 dark:border-[#222226] hover:border-slate-400 dark:hover:border-[#33333D] hover:bg-slate-200/70 dark:hover:bg-[#18181C]'
+                      : 'bg-white/70 dark:bg-[#0E0E10]/70 border-slate-200 dark:border-[#1C1C20] opacity-40 hover:opacity-75'
                   }`}
                 >
                   {/* Top: Day Number + Quick Add */}
@@ -435,9 +435,9 @@ export const SetlistCalendarView: React.FC<SetlistCalendarViewProps> = ({
                         isToday
                           ? 'bg-blue-600 text-white shadow-xs'
                           : isSelected
-                          ? 'text-blue-300 font-extrabold'
+                          ? 'text-blue-700 dark:text-blue-300 font-extrabold'
                           : cell.isCurrentMonth
-                          ? 'text-gray-200 group-hover:text-white'
+                          ? 'text-slate-800 dark:text-gray-200 group-hover:text-slate-900 dark:group-hover:text-white'
                           : 'text-gray-500'
                       }`}
                     >
@@ -453,11 +453,11 @@ export const SetlistCalendarView: React.FC<SetlistCalendarViewProps> = ({
                           setSelectedDate(cell.dateStr);
                           onCreateForDate(cell.dateStr);
                         }}
-                        className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-gray-400 hover:text-white hover:bg-blue-600/30 transition-all"
+                        className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-blue-600/30 transition-all"
                         title={`Planifier une setlist pour le ${cell.dayNumber}`}
                         aria-label={`Planifier une setlist pour le ${cell.dayNumber}`}
                       >
-                        <Plus className="w-3 h-3 text-blue-400" />
+                        <Plus className="w-3 h-3 text-blue-600 dark:text-blue-400" />
                       </button>
                     )}
                   </div>
@@ -474,7 +474,7 @@ export const SetlistCalendarView: React.FC<SetlistCalendarViewProps> = ({
                             e.stopPropagation();
                             setSelectedDate(cell.dateStr);
                           }}
-                          className="px-1.5 py-0.5 sm:py-1 rounded-md bg-[#1D1D24] hover:bg-[#252530] border border-[#2E2E38] hover:border-blue-500/50 text-[10px] sm:text-[11px] font-medium text-gray-200 truncate flex items-center justify-between gap-1 shadow-xs transition-colors group/chip"
+                          className="px-1.5 py-0.5 sm:py-1 rounded-md bg-[#EDF1F5] dark:bg-[#1D1D24] hover:bg-slate-200 dark:hover:bg-[#252530] border border-slate-300 dark:border-[#2E2E38] hover:border-blue-500/50 text-[10px] sm:text-[11px] font-medium text-slate-800 dark:text-gray-200 truncate flex items-center justify-between gap-1 shadow-xs transition-colors group/chip"
                           title={`${st.name} (${validSongCount} chants, ${formatSetlistDuration(totalSecs)})`}
                         >
                           <div className="flex items-center gap-1 min-w-0 flex-1 truncate">
@@ -490,7 +490,7 @@ export const SetlistCalendarView: React.FC<SetlistCalendarViewProps> = ({
                                 e.stopPropagation();
                                 onLaunchLive(st, 0);
                               }}
-                              className="opacity-0 group-hover/chip:opacity-100 p-0.5 text-blue-400 hover:text-blue-300 hover:scale-110 transition-all shrink-0"
+                              className="opacity-0 group-hover/chip:opacity-100 p-0.5 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:scale-110 transition-all shrink-0"
                               title="Lancer en Live"
                             >
                               <Play className="w-2.5 h-2.5 fill-current" />
@@ -501,7 +501,7 @@ export const SetlistCalendarView: React.FC<SetlistCalendarViewProps> = ({
                     })}
 
                     {daySetlists.length > 2 && (
-                      <div className="text-[10px] font-semibold text-blue-400 pl-1">
+                      <div className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 pl-1">
                         +{daySetlists.length - 2} autre{daySetlists.length - 2 > 1 ? 's' : ''}
                       </div>
                     )}

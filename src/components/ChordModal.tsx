@@ -142,22 +142,22 @@ export const ChordModal: React.FC<ChordModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/75 backdrop-blur-xs select-none animate-fade-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/75 backdrop-blur-xs select-none animate-in fade-in duration-150">
       <div 
         className="fixed inset-0" 
         onClick={onClose} 
       />
 
-      <div className="relative w-full max-w-sm flex flex-col bg-[#121215] border border-[#26262B] rounded-2xl shadow-2xl overflow-hidden z-10 text-gray-200">
+      <div className="relative w-full max-w-sm flex flex-col bg-white dark:bg-[#121215] border border-slate-200 dark:border-[#26262B] rounded-2xl shadow-2xl overflow-hidden z-10 text-slate-800 dark:text-gray-200 animate-in zoom-in-95 duration-150">
         
         {/* Minimalist Top Header: Chord Name, Sound & Close Button */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[#202025] bg-[#17171B]">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-[#202025] bg-slate-50 dark:bg-[#17171B]">
           <div className="flex items-center gap-2 flex-wrap min-w-0">
-            <span className="text-xl font-black font-mono text-white tracking-tight">
+            <span className="text-xl font-black font-mono text-slate-900 dark:text-white tracking-tight">
               {chordData.formattedName}
             </span>
             {notation === 'latin' && chordData.latinName && (
-              <span className="text-xs font-semibold text-blue-400">
+              <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">
                 {chordData.latinName}
               </span>
             )}
@@ -165,11 +165,11 @@ export const ChordModal: React.FC<ChordModalProps> = ({
             {/* Capo Real Sound Badge */}
             {capo > 0 && soundedChord && (
               <span 
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-500/15 border border-purple-500/30 text-[11px] font-mono font-bold text-purple-300 shadow-xs"
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-500/15 border border-purple-500/30 text-[11px] font-mono font-bold text-purple-700 dark:text-purple-300 shadow-xs"
                 title={`Accord joué : ${chordData.formattedName} • Capo ${capo} • Son réel : ${soundedChord}`}
               >
-                <span className="text-purple-400/80 font-sans font-normal text-[10px]">Sonne :</span>
-                <span className="text-white underline decoration-purple-400/50">{soundedChord}</span>
+                <span className="text-purple-600 dark:text-purple-400/80 font-sans font-normal text-[10px]">Sonne :</span>
+                <span className="text-slate-900 dark:text-white underline decoration-purple-400/50">{soundedChord}</span>
               </span>
             )}
 
@@ -177,7 +177,7 @@ export const ChordModal: React.FC<ChordModalProps> = ({
               type="button"
               onClick={handlePlaySound}
               className={`p-1.5 rounded-lg text-emerald-400 hover:text-emerald-300 hover:bg-emerald-950/40 transition-all cursor-pointer ${
-                isPlayingAudio ? 'scale-110 text-emerald-300 bg-emerald-950/60' : ''
+                isPlayingAudio ? 'scale-110 text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60' : ''
               }`}
               title={capo > 0 && soundedChord
                 ? `Écouter l'accord (Capo ${capo} : sonne ${soundedChord})`
@@ -190,7 +190,7 @@ export const ChordModal: React.FC<ChordModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="w-7 h-7 rounded-lg bg-[#202025] hover:bg-[#2C2C33] text-gray-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+            className="w-7 h-7 rounded-lg bg-[#EDF1F5] dark:bg-[#202025] hover:bg-slate-200 dark:hover:bg-[#2C2C33] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition-colors cursor-pointer"
             title="Fermer"
           >
             <X className="w-4 h-4" />
@@ -199,14 +199,14 @@ export const ChordModal: React.FC<ChordModalProps> = ({
 
         {/* Minimalist Instrument Switcher directly on top of the diagram */}
         <div className="px-4 pt-3 pb-1 flex items-center justify-center">
-          <div className="inline-flex items-center p-1 rounded-xl bg-[#0B0B0D] border border-[#222227] shadow-inner">
+          <div className="inline-flex items-center p-1 rounded-xl bg-[#F4F6F9] dark:bg-[#0B0B0D] border border-slate-200 dark:border-[#222227] shadow-inner">
             <button
               type="button"
               onClick={() => setInstrument('guitar')}
               className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                 instrument === 'guitar'
                   ? 'bg-amber-600 text-white shadow-xs'
-                  : 'text-gray-400 hover:text-gray-200'
+                  : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200'
               }`}
             >
               <span>🎸 Guitare</span>
@@ -217,7 +217,7 @@ export const ChordModal: React.FC<ChordModalProps> = ({
               className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                 instrument === 'piano'
                   ? 'bg-cyan-600 text-white shadow-xs'
-                  : 'text-gray-400 hover:text-gray-200'
+                  : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200'
               }`}
             >
               <span>🎹 Piano</span>
@@ -232,7 +232,7 @@ export const ChordModal: React.FC<ChordModalProps> = ({
               {/* Position selector if multiple positions exist */}
               {chordData.guitarVoicings.length > 1 && (
                 <div className="flex items-center justify-between w-full px-2 mb-2">
-                  <span className="text-[11px] font-mono text-gray-400">
+                  <span className="text-[11px] font-mono text-slate-600 dark:text-gray-400">
                     Position {guitarVoicingIndex + 1} / {chordData.guitarVoicings.length}
                   </span>
                   <div className="flex items-center gap-1">
@@ -240,7 +240,7 @@ export const ChordModal: React.FC<ChordModalProps> = ({
                       type="button"
                       disabled={guitarVoicingIndex === 0}
                       onClick={() => setGuitarVoicingIndex(prev => Math.max(0, prev - 1))}
-                      className="p-1 rounded bg-[#1C1C22] hover:bg-[#2A2A32] text-gray-300 disabled:opacity-25 transition-colors cursor-pointer"
+                      className="p-1 rounded bg-[#EDF1F5] dark:bg-[#1C1C22] hover:bg-slate-200 dark:hover:bg-[#2A2A32] text-slate-700 dark:text-gray-300 disabled:opacity-25 transition-colors cursor-pointer"
                       title="Position précédente"
                     >
                       <ChevronLeft className="w-3.5 h-3.5" />
@@ -249,7 +249,7 @@ export const ChordModal: React.FC<ChordModalProps> = ({
                       type="button"
                       disabled={guitarVoicingIndex === chordData.guitarVoicings.length - 1}
                       onClick={() => setGuitarVoicingIndex(prev => Math.min(chordData.guitarVoicings.length - 1, prev + 1))}
-                      className="p-1 rounded bg-[#1C1C22] hover:bg-[#2A2A32] text-gray-300 disabled:opacity-25 transition-colors cursor-pointer"
+                      className="p-1 rounded bg-[#EDF1F5] dark:bg-[#1C1C22] hover:bg-slate-200 dark:hover:bg-[#2A2A32] text-slate-700 dark:text-gray-300 disabled:opacity-25 transition-colors cursor-pointer"
                       title="Position suivante"
                     >
                       <ChevronRight className="w-3.5 h-3.5" />
@@ -259,7 +259,7 @@ export const ChordModal: React.FC<ChordModalProps> = ({
               )}
 
               {/* Guitar SVG Diagram */}
-              <div className="p-3 bg-[#0A0A0C] border border-[#1E1E23] rounded-xl flex items-center justify-center shadow-inner">
+              <div className="p-3 bg-[#F4F6F9] dark:bg-[#0A0A0C] border border-slate-200 dark:border-[#1E1E23] rounded-xl flex items-center justify-center shadow-inner">
                 <GuitarDiagram voicing={activeGuitarVoicing} rootNote={chordData.root} />
               </div>
             </div>
@@ -276,7 +276,7 @@ export const ChordModal: React.FC<ChordModalProps> = ({
                       className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-all cursor-pointer ${
                         pianoVoicingIndex === idx
                           ? 'bg-cyan-600 text-white'
-                          : 'bg-[#1C1C22] text-gray-400 hover:text-white'
+                          : 'bg-[#EDF1F5] dark:bg-[#1C1C22] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                       }`}
                     >
                       {idx === 0 ? 'Fondamentale' : `Renv. ${idx}`}
@@ -286,7 +286,7 @@ export const ChordModal: React.FC<ChordModalProps> = ({
               )}
 
               {/* Piano SVG Keyboard */}
-              <div className="p-3 bg-[#0A0A0C] border border-[#1E1E23] rounded-xl flex items-center justify-center w-full shadow-inner">
+              <div className="p-3 bg-[#F4F6F9] dark:bg-[#0A0A0C] border border-slate-200 dark:border-[#1E1E23] rounded-xl flex items-center justify-center w-full shadow-inner">
                 <PianoDiagram voicing={activePianoVoicing} notation={notation} />
               </div>
             </div>

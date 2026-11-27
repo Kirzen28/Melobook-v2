@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
+import { MODAL_BACKDROP_MOTION, MODAL_PANEL_MOTION, NAV_SPRING } from '../utils/motionPresets';
 import { useApp } from '../context/AppContext';
 import {
   auth,
@@ -46,7 +48,7 @@ export const AuthModal: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
-  if (!isAuthModalOpen) return null;
+  // Render via AnimatePresence below so exit animates cleanly
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -123,60 +125,91 @@ export const AuthModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-[#111112] border border-[#222224] rounded-xl w-full max-w-md p-6 shadow-2xl relative text-[#E0E0E0] max-h-[92vh] overflow-y-auto">
+    <AnimatePresence>
+      {isAuthModalOpen && (
+        <motion.div
+          initial={MODAL_BACKDROP_MOTION.initial}
+          animate={MODAL_BACKDROP_MOTION.animate}
+          exit={MODAL_BACKDROP_MOTION.exit}
+          transition={MODAL_BACKDROP_MOTION.transition}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsAuthModalOpen(false);
+          }}
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+        >
+          <motion.div
+            initial={MODAL_PANEL_MOTION.initial}
+            animate={MODAL_PANEL_MOTION.animate}
+            exit={MODAL_PANEL_MOTION.exit}
+            transition={MODAL_PANEL_MOTION.transition}
+            className="bg-white dark:bg-[#111112] border border-slate-200 dark:border-[#222224] rounded-xl w-full max-w-md p-6 shadow-2xl relative text-slate-900 dark:text-[#E0E0E0] max-h-[92vh] overflow-y-auto"
+          >
         <button
           onClick={() => setIsAuthModalOpen(false)}
-          className="absolute right-4 top-4 text-gray-400 hover:text-white p-1 rounded-md hover:bg-[#1C1C1E] transition-colors cursor-pointer"
+          className="absolute right-4 top-4 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white p-1 rounded-md hover:bg-slate-200/70 dark:hover:bg-[#1C1C1E] transition-colors cursor-pointer"
         >
           <X className="w-4 h-4" />
         </button>
 
         <div className="text-center mb-5">
-          <div className="w-10 h-10 rounded-md bg-[#1C1C1E] border border-[#333] flex items-center justify-center mx-auto mb-3 shadow-sm">
-            <UserIcon className="w-5 h-5 text-blue-400" />
+          <div className="w-10 h-10 rounded-md bg-[#EDF1F5] dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] flex items-center justify-center mx-auto mb-3 shadow-sm">
+            <UserIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
           </div>
-          <h2 className="text-base font-bold text-white">
+          <h2 className="text-base font-bold text-slate-900 dark:text-white">
             {mode === 'signin' && 'Changer de compte'}
             {mode === 'signup' && 'Créer un Nouveau Compte'}
             {mode === 'reset' && 'Mot de passe oublié'}
           </h2>
-          <p className="text-xs text-gray-400 mt-1">
+          <p className="text-xs text-slate-600 dark:text-gray-400 mt-1">
             {mode === 'signin' && 'Connectez-vous avec un autre compte Melobook'}
             {mode === 'signup' && 'Créez ou rejoignez une bibliothèque avec sa propre base de données'}
             {mode === 'reset' && 'Entrez votre e-mail pour recevoir le lien de réinitialisation'}
           </p>
         </div>
 
-        <div className="flex bg-[#0A0A0B] p-1 rounded-md border border-[#222224] mb-4 text-xs font-semibold">
+        <div className="relative flex bg-[#F4F6F9] dark:bg-[#0A0A0B] p-1 rounded-md border border-slate-200 dark:border-[#222224] mb-4 text-xs font-semibold">
           <button
             type="button"
             onClick={() => { setMode('signin'); setErrorMsg(''); setSuccessMsg(''); }}
-            className={`flex-1 py-1.5 rounded transition-colors cursor-pointer ${
-              mode === 'signin' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-400 hover:text-white'
+            className={`relative z-10 flex-1 py-1.5 rounded transition-colors cursor-pointer ${
+              mode === 'signin' ? 'text-white' : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
+            {mode === 'signin' && (
+              <motion.span
+                layoutId="auth-mode-pill"
+                className="absolute inset-0 bg-blue-600 rounded shadow-sm -z-10"
+                transition={NAV_SPRING}
+              />
+            )}
             Connexion
           </button>
           <button
             type="button"
             onClick={() => { setMode('signup'); setErrorMsg(''); setSuccessMsg(''); }}
-            className={`flex-1 py-1.5 rounded transition-colors cursor-pointer ${
-              mode === 'signup' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-400 hover:text-white'
+            className={`relative z-10 flex-1 py-1.5 rounded transition-colors cursor-pointer ${
+              mode === 'signup' ? 'text-white' : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
+            {mode === 'signup' && (
+              <motion.span
+                layoutId="auth-mode-pill"
+                className="absolute inset-0 bg-blue-600 rounded shadow-sm -z-10"
+                transition={NAV_SPRING}
+              />
+            )}
             Inscription
           </button>
         </div>
 
         {errorMsg && (
-          <div className="mb-4 p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-start gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-400" />
+          <div className="mb-4 p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-600 dark:text-rose-400" />
             <span className="leading-relaxed">{errorMsg}</span>
           </div>
         )}
         {successMsg && (
-          <div className="mb-4 p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs flex items-center gap-2">
+          <div className="mb-4 p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 shrink-0" />
             <span>{successMsg}</span>
           </div>
@@ -185,7 +218,7 @@ export const AuthModal: React.FC = () => {
         <form onSubmit={handleSubmit} className="space-y-3">
           {mode === 'signup' && (
             <div>
-              <label className="block text-xs font-medium text-gray-300 mb-1">
+              <label className="block text-xs font-medium text-slate-700 dark:text-gray-300 mb-1">
                 Nom complet / Prénom
               </label>
               <div className="relative">
@@ -195,7 +228,7 @@ export const AuthModal: React.FC = () => {
                   placeholder="ex: David - Pianiste"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
-                  className="w-full bg-[#1C1C1E] border border-[#333] rounded-md pl-9 pr-3 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                  className="w-full bg-[#EDF1F5] dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] rounded-md pl-9 pr-3 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
                   required
                 />
               </div>
@@ -203,7 +236,7 @@ export const AuthModal: React.FC = () => {
           )}
 
           <div>
-            <label className="block text-xs font-medium text-gray-300 mb-1">
+            <label className="block text-xs font-medium text-slate-700 dark:text-gray-300 mb-1">
               Adresse e-mail
             </label>
             <div className="relative">
@@ -213,7 +246,7 @@ export const AuthModal: React.FC = () => {
                 placeholder="votre.nom@musique.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-[#1C1C1E] border border-[#333] rounded-md pl-9 pr-3 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                className="w-full bg-[#EDF1F5] dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] rounded-md pl-9 pr-3 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
                 required
               />
             </div>
@@ -222,12 +255,12 @@ export const AuthModal: React.FC = () => {
           {mode !== 'reset' && (
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-medium text-gray-300">Mot de passe</label>
+                <label className="text-xs font-medium text-slate-700 dark:text-gray-300">Mot de passe</label>
                 {mode === 'signin' && (
                   <button
                     type="button"
                     onClick={() => { setMode('reset'); setErrorMsg(''); setSuccessMsg(''); }}
-                    className="text-[11px] text-blue-400 hover:underline cursor-pointer"
+                    className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
                   >
                     Mot de passe oublié ?
                   </button>
@@ -240,14 +273,14 @@ export const AuthModal: React.FC = () => {
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-[#1C1C1E] border border-[#333] rounded-md pl-9 pr-9 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                  className="w-full bg-[#EDF1F5] dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] rounded-md pl-9 pr-9 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
                   required
                   minLength={6}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(prev => !prev)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-white transition-colors cursor-pointer"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
                   aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
                 >
                   {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
@@ -264,12 +297,12 @@ export const AuthModal: React.FC = () => {
                   onClick={() => setLibraryChoice('create')}
                   className={`p-2 rounded-lg border text-left text-xs cursor-pointer transition-colors ${
                     libraryChoice === 'create'
-                      ? 'bg-blue-600/15 border-blue-500 text-white'
-                      : 'bg-[#18181D] border-[#2C2C34] text-gray-400 hover:text-white'
+                      ? 'bg-blue-600/15 border-blue-500 text-slate-900 dark:text-white'
+                      : 'bg-slate-50 dark:bg-[#18181D] border-slate-300 dark:border-[#2C2C34] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
                   <div className="flex items-center gap-1.5 font-semibold">
-                    <Plus className="w-3.5 h-3.5 text-blue-400" />
+                    <Plus className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                     <span>Créer</span>
                   </div>
                 </button>
@@ -278,12 +311,12 @@ export const AuthModal: React.FC = () => {
                   onClick={() => setLibraryChoice('join')}
                   className={`p-2 rounded-lg border text-left text-xs cursor-pointer transition-colors ${
                     libraryChoice === 'join'
-                      ? 'bg-blue-600/15 border-blue-500 text-white'
-                      : 'bg-[#18181D] border-[#2C2C34] text-gray-400 hover:text-white'
+                      ? 'bg-blue-600/15 border-blue-500 text-slate-900 dark:text-white'
+                      : 'bg-slate-50 dark:bg-[#18181D] border-slate-300 dark:border-[#2C2C34] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
                   <div className="flex items-center gap-1.5 font-semibold">
-                    <KeyRound className="w-3.5 h-3.5 text-blue-400" />
+                    <KeyRound className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                     <span>Rejoindre</span>
                   </div>
                 </button>
@@ -297,7 +330,7 @@ export const AuthModal: React.FC = () => {
                     placeholder="Nom de la nouvelle bibliothèque"
                     value={libraryName}
                     onChange={(e) => setLibraryName(e.target.value)}
-                    className="w-full bg-[#1C1C1E] border border-[#333] rounded-md pl-9 pr-3 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                    className="w-full bg-[#EDF1F5] dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] rounded-md pl-9 pr-3 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
                     required
                   />
                 </div>
@@ -309,7 +342,7 @@ export const AuthModal: React.FC = () => {
                     placeholder="Identifiant de la bibliothèque"
                     value={libraryIdentifier}
                     onChange={(e) => setLibraryIdentifier(e.target.value.toUpperCase())}
-                    className="w-full bg-[#1C1C1E] border border-[#333] rounded-md pl-9 pr-3 py-1.5 text-xs font-mono font-bold text-blue-300 focus:outline-none focus:border-blue-500"
+                    className="w-full bg-[#EDF1F5] dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] rounded-md pl-9 pr-3 py-1.5 text-xs font-mono font-bold text-blue-700 dark:text-blue-300 focus:outline-none focus:border-blue-500"
                     required
                   />
                 </div>
@@ -329,21 +362,23 @@ export const AuthModal: React.FC = () => {
         </form>
 
         {currentUser && (
-          <div className="mt-4 pt-3 border-t border-[#222224]">
+          <div className="mt-4 pt-3 border-t border-slate-200 dark:border-[#222224]">
             <button
               type="button"
               onClick={() => {
                 setIsAuthModalOpen(false);
                 handleSignOut();
               }}
-              className="w-full py-1.5 px-3 rounded-md bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              className="w-full py-1.5 px-3 rounded-md bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/30 font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
             >
               <LogOut className="w-3.5 h-3.5" />
               <span>Se déconnecter ({currentUser.email || currentUser.displayName})</span>
             </button>
           </div>
         )}
-      </div>
-    </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 };

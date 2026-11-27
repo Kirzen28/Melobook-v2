@@ -279,7 +279,7 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
                 {tokens.map((tok, tIdx) => {
                   if (!tok) return null;
                   if (tok === '|:' || tok === ':|' || tok === '||' || tok === '|') {
-                    return <span key={tIdx} className="text-amber-400 font-bold">{tok}</span>;
+                    return <span key={tIdx} className="text-amber-600 dark:text-amber-400 font-bold">{tok}</span>;
                   }
                   if (isChordGridToken(tok)) {
                     return <span key={tIdx} style={{ color: chordColor }} className="font-bold">{tok}</span>;
@@ -287,7 +287,7 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
                   if (tok === '.' || tok === '%' || tok === '/') {
                     return <span key={tIdx} className="text-gray-500">{tok}</span>;
                   }
-                  return <span key={tIdx} className="text-gray-300">{tok}</span>;
+                  return <span key={tIdx} className="text-slate-700 dark:text-gray-300">{tok}</span>;
                 })}
                 {!isLast && '\n'}
               </React.Fragment>
@@ -305,7 +305,7 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
             const isLast = idx === lines.length - 1;
             return (
               <React.Fragment key={idx}>
-                <span className="text-sky-200">{line || '\u00A0'}</span>
+                <span className="text-sky-700 dark:text-sky-200">{line || '\u00A0'}</span>
                 {!isLast && '\n'}
               </React.Fragment>
             );
@@ -328,17 +328,17 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
           } else if (lineInfo.type === 'hash_comment') {
             renderedLine = <span className="text-gray-500 italic">{line}</span>;
           } else if (lineInfo.type === 'comment') {
-            renderedLine = <span className="text-sky-300/90 font-medium">{line}</span>;
+            renderedLine = <span className="text-sky-700 dark:text-sky-300/90 font-medium">{line}</span>;
           } else if (lineInfo.type === 'comment_italic') {
-            renderedLine = <span className="text-cyan-300/90 italic">{line}</span>;
+            renderedLine = <span className="text-cyan-700 dark:text-cyan-300/90 italic">{line}</span>;
           } else if (lineInfo.type === 'comment_box') {
-            renderedLine = <span className="text-amber-300 font-semibold">{line}</span>;
+            renderedLine = <span className="text-amber-700 dark:text-amber-300 font-semibold">{line}</span>;
           } else if (lineInfo.type === 'chordpro_line') {
             const parts = line.split(/(\[[^\]]+\])/g);
             renderedLine = parts.map((part, pIdx) => {
               if (part.startsWith('[*') && part.endsWith(']')) {
                 return (
-                  <span key={pIdx} className="text-amber-300 italic font-medium">
+                  <span key={pIdx} className="text-amber-700 dark:text-amber-300 italic font-medium">
                     {part}
                   </span>
                 );
@@ -350,7 +350,7 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
                   </span>
                 );
               }
-              return <span key={pIdx} className="text-[#E0E0E0]">{part}</span>;
+              return <span key={pIdx} className="text-slate-900 dark:text-[#E0E0E0]">{part}</span>;
             });
           } else if (lineInfo.type === 'chord_line') {
             const parts = line.split(/(\s+)/g);
@@ -374,7 +374,7 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
             });
           } else {
             // Lyrics line
-            renderedLine = <span className="text-[#E0E0E0] font-normal">{line}</span>;
+            renderedLine = <span className="text-slate-900 dark:text-[#E0E0E0] font-normal">{line}</span>;
           }
 
           return (
@@ -1091,7 +1091,7 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
           <div className="flex items-center gap-2 min-w-0 flex-wrap">
             {/* Drag Handle */}
             <div 
-              className="cursor-grab active:cursor-grabbing p-1 rounded hover:bg-[#252528] text-gray-400 hover:text-white transition-colors"
+              className="cursor-grab active:cursor-grabbing p-1 rounded hover:bg-slate-200/70 dark:hover:bg-[#252528] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-colors"
               title="Glisser-déposer pour réordonner la section"
             >
               <GripVertical className="w-4 h-4" />
@@ -1099,7 +1099,7 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
 
             {/* Section Type Selector or Custom Type Creator */}
             {isCreatingCustomType ? (
-              <div className="flex items-center gap-1 bg-[#141416] border border-blue-500 rounded px-1.5 py-0.5 animate-in fade-in">
+              <div className="flex items-center gap-1 bg-slate-50 dark:bg-[#141416] border border-blue-500 rounded px-1.5 py-0.5 animate-in fade-in">
                 <input
                   type="text"
                   value={newCustomTypeName}
@@ -1114,7 +1114,7 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
                     }
                   }}
                   placeholder="Nom ex: Vamp..."
-                  className="bg-transparent text-xs text-white placeholder-gray-500 focus:outline-none w-32 font-semibold"
+                  className="bg-transparent text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none w-32 font-semibold"
                   autoFocus
                 />
                 <button
@@ -1131,7 +1131,7 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
                     setIsCreatingCustomType(false);
                     setNewCustomTypeName('');
                   }}
-                  className="p-1 rounded bg-[#2A2A2E] text-gray-400 hover:text-white transition-colors"
+                  className="p-1 rounded bg-[#EDF1F5] dark:bg-[#2A2A2E] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-colors"
                   title="Annuler"
                 >
                   <X className="w-3 h-3" />
@@ -1150,60 +1150,60 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
                 className="min-w-0 max-w-full pl-2.5 pr-6 py-1 rounded-md text-xs font-bold uppercase tracking-wider border cursor-pointer focus:outline-none transition-all shadow-xs"
               >
                 <optgroup label="Sections standards">
-                  <option value="verse" className="bg-[#141416] text-blue-300">
+                  <option value="verse" className="bg-slate-50 dark:bg-[#141416] text-blue-700 dark:text-blue-300">
                     {section.type === 'verse' ? selectedDisplayLabel : 'Couplet'}
                   </option>
-                  <option value="chorus" className="bg-[#141416] text-amber-300">
+                  <option value="chorus" className="bg-slate-50 dark:bg-[#141416] text-amber-700 dark:text-amber-300">
                     {section.type === 'chorus' ? selectedDisplayLabel : 'Refrain'}
                   </option>
-                  <option value="pre_chorus" className="bg-[#141416] text-pink-300">
+                  <option value="pre_chorus" className="bg-slate-50 dark:bg-[#141416] text-pink-700 dark:text-pink-300">
                     {section.type === 'pre_chorus' ? selectedDisplayLabel : 'Pré refrain'}
                   </option>
-                  <option value="bridge" className="bg-[#141416] text-purple-300">
+                  <option value="bridge" className="bg-slate-50 dark:bg-[#141416] text-purple-700 dark:text-purple-300">
                     {section.type === 'bridge' ? selectedDisplayLabel : 'Pont'}
                   </option>
-                  <option value="intro" className="bg-[#141416] text-cyan-300">
+                  <option value="intro" className="bg-slate-50 dark:bg-[#141416] text-cyan-700 dark:text-cyan-300">
                     {section.type === 'intro' ? selectedDisplayLabel : 'Intro'}
                   </option>
-                  <option value="outro" className="bg-[#141416] text-rose-300">
+                  <option value="outro" className="bg-slate-50 dark:bg-[#141416] text-rose-700 dark:text-rose-300">
                     {section.type === 'outro' ? selectedDisplayLabel : 'Outro'}
                   </option>
-                  <option value="solo" className="bg-[#141416] text-orange-300">
+                  <option value="solo" className="bg-slate-50 dark:bg-[#141416] text-orange-700 dark:text-orange-300">
                     {section.type === 'solo' ? selectedDisplayLabel : 'Solo'}
                   </option>
-                  <option value="interlude" className="bg-[#141416] text-indigo-300">
+                  <option value="interlude" className="bg-slate-50 dark:bg-[#141416] text-indigo-700 dark:text-indigo-300">
                     {section.type === 'interlude' ? selectedDisplayLabel : 'Interlude'}
                   </option>
-                  <option value="instrumental" className="bg-[#141416] text-emerald-300">
+                  <option value="instrumental" className="bg-slate-50 dark:bg-[#141416] text-emerald-700 dark:text-emerald-300">
                     {section.type === 'instrumental' ? selectedDisplayLabel : 'Instrumental'}
                   </option>
-                  <option value="tag" className="bg-[#141416] text-fuchsia-300">
+                  <option value="tag" className="bg-slate-50 dark:bg-[#141416] text-fuchsia-300">
                     {section.type === 'tag' ? selectedDisplayLabel : 'Tag'}
                   </option>
-                  <option value="finale" className="bg-[#141416] text-red-300">
+                  <option value="finale" className="bg-slate-50 dark:bg-[#141416] text-red-700 dark:text-red-300">
                     {section.type === 'finale' ? selectedDisplayLabel : 'Finale'}
                   </option>
-                  <option value="grid" className="bg-[#141416] text-amber-300">
+                  <option value="grid" className="bg-slate-50 dark:bg-[#141416] text-amber-700 dark:text-amber-300">
                     {section.type === 'grid' ? selectedDisplayLabel : 'Grille'}
                   </option>
-                  <option value="tab" className="bg-[#141416] text-sky-300">
+                  <option value="tab" className="bg-slate-50 dark:bg-[#141416] text-sky-700 dark:text-sky-300">
                     {section.type === 'tab' ? selectedDisplayLabel : 'Tablature'}
                   </option>
-                  <option value="general" className="bg-[#141416] text-gray-300">
+                  <option value="general" className="bg-slate-50 dark:bg-[#141416] text-slate-700 dark:text-gray-300">
                     {section.type === 'general' ? selectedDisplayLabel : 'Autre'}
                   </option>
                 </optgroup>
                 {mergedCustomTypes.length > 0 && (
                   <optgroup label="Sections personnalisées">
                     {mergedCustomTypes.map((ct) => (
-                      <option key={ct} value={ct} className="bg-[#141416] text-teal-300">
+                      <option key={ct} value={ct} className="bg-slate-50 dark:bg-[#141416] text-teal-700 dark:text-teal-300">
                         {section.type === ct ? selectedDisplayLabel : ct}
                       </option>
                     ))}
                   </optgroup>
                 )}
                 <optgroup label="Personnaliser">
-                  <option value="__custom__" className="bg-[#141416] text-amber-400 font-bold">
+                  <option value="__custom__" className="bg-slate-50 dark:bg-[#141416] text-amber-600 dark:text-amber-400 font-bold">
                     + Section personnalisée...
                   </option>
                 </optgroup>
@@ -1214,26 +1214,26 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
             <select
               value={effectiveBlockKind}
               onChange={(e) => handleBlockKindChange(e.target.value as 'lyrics' | 'grid' | 'tab' | 'chorus_recall')}
-              className="px-2 py-1 rounded-md border border-white/10 bg-[#18181C] hover:bg-[#202026] text-[11px] font-semibold text-gray-300 focus:outline-none cursor-pointer"
+              className="px-2 py-1 rounded-md border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-[#18181C] hover:bg-slate-200/70 dark:hover:bg-[#202026] text-[11px] font-semibold text-slate-700 dark:text-gray-300 focus:outline-none cursor-pointer"
               title="Format du bloc ChordPro"
               aria-label="Format du bloc ChordPro"
             >
-              <option value="lyrics" className="bg-[#141416]">Paroles</option>
-              <option value="grid" className="bg-[#141416]">Grille</option>
-              <option value="tab" className="bg-[#141416]">Tablature</option>
-              <option value="chorus_recall" className="bg-[#141416]">Rappel {'{chorus}'}</option>
+              <option value="lyrics" className="bg-slate-50 dark:bg-[#141416]">Paroles</option>
+              <option value="grid" className="bg-slate-50 dark:bg-[#141416]">Grille</option>
+              <option value="tab" className="bg-slate-50 dark:bg-[#141416]">Tablature</option>
+              <option value="chorus_recall" className="bg-slate-50 dark:bg-[#141416]">Rappel {'{chorus}'}</option>
             </select>
 
             {/* Section Repeat Selector (x1, x2, x3... avec boutons - et +) */}
             <div 
               className={`inline-flex items-center gap-1 px-2 py-1 rounded-md border text-xs font-bold font-mono uppercase tracking-wider transition-all select-none shadow-xs ${
                 (section.repeat || 1) > 1 
-                  ? 'bg-emerald-950/50 border-emerald-500/50 text-emerald-300' 
-                  : 'bg-[#18181C] hover:bg-[#202026] border-white/10 text-gray-400 hover:text-gray-200'
+                  ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-500/50 text-emerald-700 dark:text-emerald-300' 
+                  : 'bg-slate-50 dark:bg-[#18181C] hover:bg-slate-200/70 dark:hover:bg-[#202026] border-slate-200 dark:border-white/10 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200'
               }`}
               title={`Répétition de la section : x${section.repeat || 1}`}
             >
-              <Repeat className={`w-3.5 h-3.5 shrink-0 ${(section.repeat || 1) > 1 ? 'text-emerald-400' : 'text-gray-400'}`} />
+              <Repeat className={`w-3.5 h-3.5 shrink-0 ${(section.repeat || 1) > 1 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-600 dark:text-gray-400'}`} />
               <button
                 type="button"
                 onClick={() => {
@@ -1245,7 +1245,7 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
                   });
                 }}
                 disabled={(section.repeat || 1) <= 1}
-                className="p-0.5 rounded hover:bg-white/10 disabled:opacity-20 text-gray-400 hover:text-white transition-colors cursor-pointer disabled:cursor-not-allowed flex items-center justify-center"
+                className="p-0.5 rounded hover:bg-white/10 disabled:opacity-20 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer disabled:cursor-not-allowed flex items-center justify-center"
                 title="Diminuer les répétitions"
                 aria-label="Diminuer les répétitions"
               >
@@ -1266,7 +1266,7 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
                     repeat: nextRepeat
                   });
                 }}
-                className="p-0.5 rounded hover:bg-white/10 text-gray-400 hover:text-white transition-colors cursor-pointer flex items-center justify-center"
+                className="p-0.5 rounded hover:bg-white/10 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer flex items-center justify-center"
                 title="Augmenter les répétitions"
                 aria-label="Augmenter les répétitions"
               >
@@ -1282,8 +1282,8 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
                   onClick={() => setShowModulationBar(prev => !prev)}
                   className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md border text-[11px] font-semibold transition-all cursor-pointer ${
                     showModulationBar || hasSectionModulation
-                      ? 'bg-indigo-950/50 border-indigo-500/40 text-indigo-300'
-                      : 'bg-[#18181C] hover:bg-[#202026] border-white/10 text-gray-400 hover:text-gray-200'
+                      ? 'bg-indigo-50 dark:bg-indigo-950/50 border-indigo-500/40 text-indigo-700 dark:text-indigo-300'
+                      : 'bg-slate-50 dark:bg-[#18181C] hover:bg-slate-200/70 dark:hover:bg-[#202026] border-slate-200 dark:border-white/10 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200'
                   }`}
                   title="Modulation & paramètres musicaux propres à cette section"
                 >
@@ -1303,7 +1303,7 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
                   <button
                     type="button"
                     onClick={handleClearModulation}
-                    className="inline-flex items-center justify-center p-1 rounded-md border border-rose-500/30 bg-rose-950/30 hover:bg-rose-900/50 text-rose-300 hover:text-rose-200 transition-colors cursor-pointer"
+                    className="inline-flex items-center justify-center p-1 rounded-md border border-rose-500/30 bg-rose-50 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 hover:text-rose-800 dark:hover:text-rose-200 transition-colors cursor-pointer"
                     title="Annuler toutes les modulations de cette section"
                     aria-label="Annuler toutes les modulations de cette section"
                   >
@@ -1331,19 +1331,19 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
 
         {/* Collapsible Scoped Modulation Controls */}
         {(showModulationBar || hasSectionModulation) && effectiveBlockKind !== 'chorus_recall' && !isSectionCollapsed && (
-          <div className="pt-2 border-t border-white/5 flex flex-wrap items-center gap-2 text-[11px]">
-            <label className="inline-flex items-center gap-1.5 text-gray-400">
+          <div className="pt-2 border-t border-slate-200 dark:border-white/5 flex flex-wrap items-center gap-2 text-[11px]">
+            <label className="inline-flex items-center gap-1.5 text-slate-600 dark:text-gray-400">
               <span>Ton :</span>
               <input
                 type="text"
                 value={section.key || ''}
                 onChange={(e) => onUpdateSection({ ...section, key: e.target.value.trim() || undefined })}
                 placeholder="ex: D"
-                className="w-14 px-2 py-0.5 rounded bg-[#141418] border border-white/10 text-blue-300 font-mono font-bold focus:outline-none focus:border-blue-500"
+                className="w-14 px-2 py-0.5 rounded bg-slate-50 dark:bg-[#141418] border border-slate-200 dark:border-white/10 text-blue-700 dark:text-blue-300 font-mono font-bold focus:outline-none focus:border-blue-500"
               />
             </label>
 
-            <div className="inline-flex items-center gap-1 text-gray-400 bg-[#141418] border border-white/10 rounded px-1.5 py-0.5">
+            <div className="inline-flex items-center gap-1 text-slate-600 dark:text-gray-400 bg-slate-50 dark:bg-[#141418] border border-slate-200 dark:border-white/10 rounded px-1.5 py-0.5">
               <span>Transpose :</span>
               <button
                 type="button"
@@ -1351,12 +1351,12 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
                   const next = Math.max(-11, (section.transposeOffset || 0) - 1);
                   onUpdateSection({ ...section, transposeOffset: next === 0 ? undefined : next });
                 }}
-                className="px-1 text-gray-300 hover:text-white cursor-pointer"
+                className="px-1 text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white cursor-pointer"
                 title="Baisser d'un demi-ton"
               >
                 -
               </button>
-              <span className="font-mono font-bold text-indigo-300 min-w-[3ch] text-center">
+              <span className="font-mono font-bold text-indigo-700 dark:text-indigo-300 min-w-[3ch] text-center">
                 {section.transposeOffset ? `${section.transposeOffset > 0 ? '+' : ''}${section.transposeOffset}` : '0'}
               </span>
               <button
@@ -1365,14 +1365,14 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
                   const next = Math.min(11, (section.transposeOffset || 0) + 1);
                   onUpdateSection({ ...section, transposeOffset: next === 0 ? undefined : next });
                 }}
-                className="px-1 text-gray-300 hover:text-white cursor-pointer"
+                className="px-1 text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white cursor-pointer"
                 title="Monter d'un demi-ton"
               >
                 +
               </button>
             </div>
 
-            <label className="inline-flex items-center gap-1.5 text-gray-400">
+            <label className="inline-flex items-center gap-1.5 text-slate-600 dark:text-gray-400">
               <span>BPM :</span>
               <input
                 type="number"
@@ -1384,16 +1384,16 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
                   onUpdateSection({ ...section, tempo: !isNaN(val) && val > 0 ? val : undefined });
                 }}
                 placeholder="—"
-                className="w-16 px-2 py-0.5 rounded bg-[#141418] border border-white/10 text-emerald-300 font-mono font-bold focus:outline-none focus:border-emerald-500"
+                className="w-16 px-2 py-0.5 rounded bg-slate-50 dark:bg-[#141418] border border-slate-200 dark:border-white/10 text-emerald-700 dark:text-emerald-300 font-mono font-bold focus:outline-none focus:border-emerald-500"
               />
             </label>
 
-            <label className="inline-flex items-center gap-1.5 text-gray-400">
+            <label className="inline-flex items-center gap-1.5 text-slate-600 dark:text-gray-400">
               <span>Mesure :</span>
               <select
                 value={section.timeSignature || ''}
                 onChange={(e) => onUpdateSection({ ...section, timeSignature: e.target.value || undefined })}
-                className="px-2 py-0.5 rounded bg-[#141418] border border-white/10 text-emerald-300 font-bold focus:outline-none"
+                className="px-2 py-0.5 rounded bg-slate-50 dark:bg-[#141418] border border-slate-200 dark:border-white/10 text-emerald-700 dark:text-emerald-300 font-bold focus:outline-none"
               >
                 <option value="">Défaut</option>
                 {['4/4', '3/4', '6/8', '2/4', '12/8', '5/4'].map(ts => (
@@ -1406,7 +1406,7 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
               <button
                 type="button"
                 onClick={handleClearModulation}
-                className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-950/30 hover:bg-rose-900/50 border border-rose-500/30 text-rose-300 hover:text-rose-200 font-semibold transition-colors cursor-pointer"
+                className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-50 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-900/50 border border-rose-500/30 text-rose-700 dark:text-rose-300 hover:text-rose-800 dark:hover:text-rose-200 font-semibold transition-colors cursor-pointer"
                 title="Annuler toutes les modulations de cette section"
                 aria-label="Annuler toutes les modulations de cette section"
               >
@@ -1422,10 +1422,10 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
       {!isSectionCollapsed && (
         <div className="p-3 sm:p-4">
         {effectiveBlockKind === 'chorus_recall' ? (
-          <div className="rounded-lg border border-amber-500/30 bg-amber-950/15 p-3 space-y-2.5">
+          <div className="rounded-lg border border-amber-500/30 bg-amber-50 dark:bg-amber-950/15 p-3 space-y-2.5">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2 text-xs text-amber-200 font-semibold">
-                <span className="font-mono text-[11px] px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/40 text-amber-300">
+              <div className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-200 font-semibold">
+                <span className="font-mono text-[11px] px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/40 text-amber-700 dark:text-amber-300">
                   {'{chorus}'}
                 </span>
                 <span>Rappel automatique du refrain</span>
@@ -1438,7 +1438,7 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
                     recallLabel: e.target.value,
                     title: e.target.value
                   })}
-                  className="px-2 py-1 rounded-md bg-[#141418] border border-amber-500/30 text-xs text-amber-200 focus:outline-none"
+                  className="px-2 py-1 rounded-md bg-slate-50 dark:bg-[#141418] border border-amber-500/30 text-xs text-amber-700 dark:text-amber-200 focus:outline-none"
                 >
                   {availableChoruses.map(ch => (
                     <option key={ch.id} value={ch.title}>{ch.title}</option>
@@ -1447,11 +1447,11 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
               )}
             </div>
             {matchedRecallChorus ? (
-              <pre className="text-xs text-gray-300 whitespace-pre-wrap font-chord bg-[#121216]/80 rounded-md p-2.5 border border-white/5 max-h-40 overflow-y-auto">
+              <pre className="text-xs text-slate-700 dark:text-gray-300 whitespace-pre-wrap font-chord bg-white/80 dark:bg-[#121216]/80 rounded-md p-2.5 border border-slate-200 dark:border-white/5 max-h-40 overflow-y-auto">
                 {getLinesAsRawText(matchedRecallChorus) || 'Refrain vide'}
               </pre>
             ) : (
-              <p className="text-xs text-amber-300/75 italic">
+              <p className="text-xs text-amber-700 dark:text-amber-300/75 italic">
                 Définissez un bloc Refrain plus haut pour prévisualiser ses paroles et accords ici.
               </p>
             )}
@@ -1459,7 +1459,7 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
         ) : (
           <>
             {/* Quick-insert helpers bar tailored to blockKind */}
-            <div className="mb-2.5 rounded-xl bg-[#141418]/90 border border-white/10 p-1.5 shadow-inner">
+            <div className="mb-2.5 rounded-xl bg-slate-50/90 dark:bg-[#141418]/90 border border-slate-200 dark:border-white/10 p-1.5 shadow-inner">
               {effectiveBlockKind === 'lyrics' && (() => {
                 const noteOptions: {
                   kind: QuickNoteKind;
@@ -1477,9 +1477,9 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
                     placeholder: 'Écrire une note musicale (ex: Guitare seule, Monter)...',
                     hint: 'Note affichée dans la section {c:}',
                     icon: <MessageSquare className="w-3.5 h-3.5" />,
-                    idleClass: 'bg-sky-500/8 hover:bg-sky-500/18 border-sky-500/20 text-sky-300',
-                    activeClass: 'bg-sky-500/25 border-sky-400 text-white ring-1 ring-sky-400/40',
-                    badgeClass: 'text-sky-300 bg-sky-500/15 border-sky-500/30',
+                    idleClass: 'bg-sky-500/8 hover:bg-sky-500/18 border-sky-500/20 text-sky-700 dark:text-sky-300',
+                    activeClass: 'bg-sky-500/25 border-sky-400 text-slate-900 dark:text-white ring-1 ring-sky-400/40',
+                    badgeClass: 'text-sky-700 dark:text-sky-300 bg-sky-500/15 border-sky-500/30',
                   },
                   {
                     kind: 'comment_italic',
@@ -1487,9 +1487,9 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
                     placeholder: 'Indication en italique (ex: En doux, Chœur seul)...',
                     hint: 'Indication discrète en italique {ci:}',
                     icon: <Italic className="w-3.5 h-3.5" />,
-                    idleClass: 'bg-cyan-500/8 hover:bg-cyan-500/18 border-cyan-500/20 text-cyan-300',
-                    activeClass: 'bg-cyan-500/25 border-cyan-400 text-white ring-1 ring-cyan-400/40',
-                    badgeClass: 'text-cyan-300 bg-cyan-500/15 border-cyan-500/30',
+                    idleClass: 'bg-cyan-500/8 hover:bg-cyan-500/18 border-cyan-500/20 text-cyan-700 dark:text-cyan-300',
+                    activeClass: 'bg-cyan-500/25 border-cyan-400 text-slate-900 dark:text-white ring-1 ring-cyan-400/40',
+                    badgeClass: 'text-cyan-700 dark:text-cyan-300 bg-cyan-500/15 border-cyan-500/30',
                   },
                   {
                     kind: 'comment_box',
@@ -1497,9 +1497,9 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
                     placeholder: 'Alerte encadrée (ex: Attention reprise, +1 ton)...',
                     hint: 'Bloc encadré bien visible sur scène {cb:}',
                     icon: <Square className="w-3.5 h-3.5" />,
-                    idleClass: 'bg-amber-500/8 hover:bg-amber-500/18 border-amber-500/25 text-amber-300',
-                    activeClass: 'bg-amber-500/25 border-amber-400 text-white ring-1 ring-amber-400/40',
-                    badgeClass: 'text-amber-300 bg-amber-500/15 border-amber-500/30',
+                    idleClass: 'bg-amber-500/8 hover:bg-amber-500/18 border-amber-500/25 text-amber-700 dark:text-amber-300',
+                    activeClass: 'bg-amber-500/25 border-amber-400 text-slate-900 dark:text-white ring-1 ring-amber-400/40',
+                    badgeClass: 'text-amber-700 dark:text-amber-300 bg-amber-500/15 border-amber-500/30',
                   },
                   {
                     kind: 'annotation',
@@ -1507,9 +1507,9 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
                     placeholder: 'Annotation au fil des paroles (ex: Crescendo, Pause)...',
                     hint: 'Annotation placée directement sur le passage [*texte]',
                     icon: <Highlighter className="w-3.5 h-3.5" />,
-                    idleClass: 'bg-yellow-500/8 hover:bg-yellow-500/18 border-yellow-500/20 text-yellow-200',
-                    activeClass: 'bg-yellow-500/25 border-yellow-400 text-white ring-1 ring-yellow-400/40',
-                    badgeClass: 'text-yellow-200 bg-yellow-500/15 border-yellow-500/30',
+                    idleClass: 'bg-yellow-500/8 hover:bg-yellow-500/18 border-yellow-500/20 text-amber-700 dark:text-yellow-200',
+                    activeClass: 'bg-yellow-500/25 border-yellow-400 text-slate-900 dark:text-white ring-1 ring-yellow-400/40',
+                    badgeClass: 'text-amber-700 dark:text-yellow-200 bg-yellow-500/15 border-yellow-500/30',
                   },
                   {
                     kind: 'hash_comment',
@@ -1517,9 +1517,9 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
                     placeholder: 'Note technique privée (masquée en lecture et projection)...',
                     hint: 'Commentaire interne masqué (#)',
                     icon: <EyeOff className="w-3.5 h-3.5" />,
-                    idleClass: 'bg-white/5 hover:bg-white/10 border-white/10 text-gray-300',
-                    activeClass: 'bg-white/15 border-gray-400 text-white ring-1 ring-white/30',
-                    badgeClass: 'text-gray-300 bg-white/10 border-white/20',
+                    idleClass: 'bg-white/5 hover:bg-white/10 border-slate-200 dark:border-white/10 text-slate-700 dark:text-gray-300',
+                    activeClass: 'bg-white/15 border-gray-400 text-slate-900 dark:text-white ring-1 ring-white/30',
+                    badgeClass: 'text-slate-700 dark:text-gray-300 bg-white/10 border-slate-200 dark:border-white/20',
                   },
                 ];
 
@@ -1549,13 +1549,13 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
                           </button>
                         );
                       })}
-                      <div className="ml-auto pl-1.5 border-l border-white/10">
+                      <div className="ml-auto pl-1.5 border-l border-slate-200 dark:border-white/10">
                         <button
                           type="button"
                           onMouseDown={(e) => e.preventDefault()}
                           onClick={handlePerformSplitSection}
                           disabled={!rawText.trim()}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-blue-500/25 bg-blue-500/10 hover:bg-blue-500/20 disabled:opacity-35 text-blue-300 font-medium transition-all cursor-pointer disabled:cursor-not-allowed active:scale-95"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-blue-500/25 bg-blue-500/10 hover:bg-blue-500/20 disabled:opacity-35 text-blue-700 dark:text-blue-300 font-medium transition-all cursor-pointer disabled:cursor-not-allowed active:scale-95"
                           title={`Couper la section « ${selectedDisplayLabel} » à la position du curseur`}
                           aria-label={`Découper la section « ${selectedDisplayLabel} »`}
                         >
@@ -1566,7 +1566,7 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
                     </div>
 
                     {activeOption && (
-                      <div className="flex items-center gap-1.5 pt-1.5 border-t border-white/10 animate-in fade-in duration-100">
+                      <div className="flex items-center gap-1.5 pt-1.5 border-t border-slate-200 dark:border-white/10 animate-in fade-in duration-100">
                         <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[11px] font-semibold shrink-0 ${activeOption.badgeClass}`}>
                           {activeOption.icon}
                           <span className="hidden xs:inline">{activeOption.label}</span>
@@ -1586,7 +1586,7 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
                             }
                           }}
                           placeholder={activeOption.placeholder}
-                          className="flex-1 min-w-0 bg-[#1B1B22] border border-white/15 focus:border-blue-500 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500/30"
+                          className="flex-1 min-w-0 bg-[#EDF1F5] dark:bg-[#1B1B22] border border-slate-200 dark:border-white/15 focus:border-blue-500 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500/30"
                           autoFocus
                         />
                         <button
@@ -1602,7 +1602,7 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
                         <button
                           type="button"
                           onClick={() => setActiveNoteType(null)}
-                          className="p-1.5 rounded-lg bg-[#1E1E26] hover:bg-[#2A2A35] text-gray-400 hover:text-white transition-colors cursor-pointer shrink-0"
+                          className="p-1.5 rounded-lg bg-[#EDF1F5] dark:bg-[#1E1E26] hover:bg-slate-200 dark:hover:bg-[#2A2A35] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer shrink-0"
                           title="Fermer (Échap)"
                           aria-label="Fermer"
                         >
@@ -1622,7 +1622,7 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
                       type="button"
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => handleInsertSnippet(`${sym} `, false)}
-                      className="px-2 py-0.5 rounded-lg bg-[#1A1A20] hover:bg-[#24242C] border border-amber-500/30 text-amber-300 font-mono font-bold cursor-pointer"
+                      className="px-2 py-0.5 rounded-lg bg-[#EDF1F5] dark:bg-[#1A1A20] hover:bg-slate-200 dark:hover:bg-[#24242C] border border-amber-500/30 text-amber-700 dark:text-amber-300 font-mono font-bold cursor-pointer"
                     >
                       {sym}
                     </button>
@@ -1631,7 +1631,7 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => handleInsertSnippet('|: C . G . | Am . F . :|', true)}
-                    className="px-2.5 py-0.5 rounded-lg bg-[#1A1A20] hover:bg-[#24242C] border border-white/10 text-gray-300 cursor-pointer"
+                    className="px-2.5 py-0.5 rounded-lg bg-[#EDF1F5] dark:bg-[#1A1A20] hover:bg-slate-200 dark:hover:bg-[#24242C] border border-slate-200 dark:border-white/10 text-slate-700 dark:text-gray-300 cursor-pointer"
                   >
                     + Ligne de grille
                   </button>
@@ -1644,7 +1644,7 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => handleInsertSnippet(DEFAULT_TAB_LINES.join('\n'), true)}
-                    className="px-2.5 py-0.5 rounded-lg bg-[#1A1A20] hover:bg-[#24242C] border border-sky-500/30 text-sky-300 font-mono cursor-pointer"
+                    className="px-2.5 py-0.5 rounded-lg bg-[#EDF1F5] dark:bg-[#1A1A20] hover:bg-slate-200 dark:hover:bg-[#24242C] border border-sky-500/30 text-sky-700 dark:text-sky-300 font-mono cursor-pointer"
                   >
                     + Portée 6 cordes
                   </button>
@@ -1653,12 +1653,12 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
             </div>
 
             {section.lines.length === 0 && !rawText.trim() ? (
-              <div className="py-6 text-center text-gray-500 text-xs border border-dashed border-white/10 rounded-lg">
+              <div className="py-6 text-center text-gray-500 text-xs border border-dashed border-slate-200 dark:border-white/10 rounded-lg">
                 <span>Cette section est vide.</span>
                 <button
                   type="button"
                   onClick={handleAddLine}
-                  className="block mx-auto mt-2 text-blue-400 font-semibold hover:underline cursor-pointer"
+                  className="block mx-auto mt-2 text-blue-600 dark:text-blue-400 font-semibold hover:underline cursor-pointer"
                 >
                   + Commencer à écrire dans le champ de texte
                 </button>
@@ -1721,7 +1721,7 @@ export const VisualSectionCard: React.FC<VisualSectionCardProps> = ({
             className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
               confirmDelete
                 ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-md shadow-rose-950/60 ring-2 ring-rose-500/50 scale-105'
-                : 'bg-[#18181C]/75 hover:bg-rose-500/20 text-gray-500 hover:text-rose-400 border border-white/5 hover:border-rose-500/30'
+                : 'bg-slate-50/75 dark:bg-[#18181C]/75 hover:bg-rose-500/20 text-gray-500 hover:text-rose-800 dark:hover:text-rose-400 border border-slate-200 dark:border-white/5 hover:border-rose-500/30'
             }`}
             title={confirmDelete ? "Cliquer à nouveau pour confirmer la suppression" : "Supprimer la section (double-cliquer)"}
             aria-label={confirmDelete ? "Confirmer la suppression de la section" : "Supprimer la section"}

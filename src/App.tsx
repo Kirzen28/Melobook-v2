@@ -1,6 +1,7 @@
 import React from 'react';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, MotionConfig, motion } from 'motion/react';
 import { AppProvider, useApp } from './context/AppContext';
+import { VIEW_VARIANTS } from './utils/motionPresets';
 import { MidiProvider } from './context/MidiContext';
 import { Navbar } from './components/Navbar';
 import { SongList } from './components/SongList';
@@ -23,32 +24,9 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { MelobookLogo } from './components/MelobookLogo';
 import { UpdateBanner } from './components/UpdateBanner';
 import { RoadmapView } from './components/RoadmapView';
+import { PlanningManager } from './components/PlanningManager';
 
-const viewVariants = {
-  initial: {
-    opacity: 0,
-    y: 8,
-    scale: 0.996,
-  },
-  animate: {
-    opacity: 1,
-    y: 0,
-    scale: 1,
-    transition: {
-      duration: 0.22,
-      ease: [0.22, 1, 0.36, 1],
-    },
-  },
-  exit: {
-    opacity: 0,
-    y: -6,
-    scale: 0.996,
-    transition: {
-      duration: 0.16,
-      ease: [0.36, 0, 0.66, -0.04],
-    },
-  },
-};
+const viewVariants = VIEW_VARIANTS;
 
 const AppContent: React.FC = () => {
   const {
@@ -57,6 +35,7 @@ const AppContent: React.FC = () => {
     isRegieOnly,
     canAccessRepertoire,
     canAccessSetlistsView,
+    canAccessPlanning,
     canAccessStage,
     canAccessProjection,
     canAccessTools,
@@ -68,10 +47,11 @@ const AppContent: React.FC = () => {
   const renderMainView = () => {
     if (activeTab === 'roadmap') return <RoadmapView />;
     if (!isGuest && isRegieOnly) {
-      return <PresentationManager />;
+      return activeTab === 'planning' ? <PlanningManager /> : <PresentationManager />;
     }
     if (activeTab === 'repertoire' && canAccessRepertoire) return <SongList />;
     if (activeTab === 'setlists' && canAccessSetlistsView) return <SetlistManager />;
+    if (activeTab === 'planning' && canAccessPlanning) return <PlanningManager />;
     if (activeTab === 'stage' && canAccessStage) return <SongReader />;
     if (activeTab === 'presentation' && canAccessProjection) return <PresentationManager />;
     if (!isGuest && activeTab === 'editor' && canManageSongs) return <SongEditor />;
@@ -83,7 +63,7 @@ const AppContent: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0A0B] text-[#E0E0E0] flex flex-col font-sans selection:bg-blue-600/30 selection:text-blue-200">
+    <div className="min-h-screen bg-[#F4F6F9] dark:bg-[#0A0A0B] text-slate-900 dark:text-[#E0E0E0] flex flex-col font-sans selection:bg-blue-600/20 dark:selection:bg-blue-600/30 selection:text-blue-900 dark:selection:text-blue-200 transition-colors duration-150">
       <div className="sticky top-0 z-40 no-print">
         <UpdateBanner />
         <Navbar />
@@ -92,7 +72,7 @@ const AppContent: React.FC = () => {
       <main className="flex-1 relative overflow-x-hidden">
         <AnimatePresence mode="wait">
           <motion.div
-            key={activeTab === 'roadmap' ? 'roadmap' : (!isGuest && isRegieOnly ? 'presentation' : activeTab)}
+            key={activeTab === 'roadmap' ? 'roadmap' : (!isGuest && isRegieOnly ? (activeTab === 'planning' ? 'planning' : 'presentation') : activeTab)}
             variants={viewVariants}
             initial="initial"
             animate="animate"
@@ -125,27 +105,40 @@ const AppRoot: React.FC = () => {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen w-full bg-[#09090B] text-[#E0E0E0] flex flex-col items-center justify-center gap-4">
-        <div className="p-3 rounded-2xl bg-[#141417] border border-[#222225] shadow-xl">
+      <div className="min-h-screen w-full bg-[#F4F6F9] dark:bg-[#09090B] text-slate-900 dark:text-[#E0E0E0] flex flex-col items-center justify-center gap-4 transition-colors">
+        <div className="p-3 rounded-2xl bg-white dark:bg-[#141417] border border-slate-200 dark:border-[#222225] shadow-xl animate-in fade-in zoom-in-95 duration-200">
           <MelobookLogo className="w-11 h-11 animate-pulse" />
         </div>
-        <div className="text-xs text-gray-400">Chargement de votre espace...</div>
+        <div className="text-xs text-slate-600 dark:text-gray-400">Chargement de votre espace...</div>
       </div>
     );
   }
 
   if (!isGuest && (!currentUser || needsLibraryOnboarding)) {
     return (
-      <>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.18 }}
+      >
         <div className="sticky top-0 z-40 no-print">
           <UpdateBanner />
         </div>
         <LoginPage />
-      </>
+      </motion.div>
     );
   }
 
   return <AppContent />;
+};
+
+const MotionAppShell: React.FC<{ isPresentation: boolean }> = ({ isPresentation }) => {
+  const { stageSettings } = useApp();
+  return (
+    <MotionConfig reducedMotion={stageSettings.reduceMotion ? 'always' : 'user'}>
+      {isPresentation ? <PresentationDisplay /> : <AppRoot />}
+    </MotionConfig>
+  );
 };
 
 export default function App() {
@@ -158,7 +151,7 @@ export default function App() {
     <ErrorBoundary>
       <AppProvider>
         <MidiProvider>
-          {isPresentation ? <PresentationDisplay /> : <AppRoot />}
+          <MotionAppShell isPresentation={isPresentation} />
         </MidiProvider>
       </AppProvider>
     </ErrorBoundary>

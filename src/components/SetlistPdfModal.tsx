@@ -325,26 +325,26 @@ export const SetlistPdfModal: React.FC<SetlistPdfModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+      className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-150"
       onClick={onClose}
     >
       <div
-        className="bg-[#121215] border border-[#282832] rounded-2xl w-full max-w-md shadow-2xl text-[#E0E0E0] my-auto overflow-hidden"
+        className="bg-white dark:bg-[#121215] border border-slate-300 dark:border-[#282832] rounded-2xl w-full max-w-md shadow-2xl text-slate-900 dark:text-[#E0E0E0] my-auto overflow-hidden animate-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-4 py-3.5 border-b border-[#22222A] bg-[#16161B] flex items-center justify-between gap-2">
+        <div className="px-4 py-3.5 border-b border-slate-200 dark:border-[#22222A] bg-slate-50 dark:bg-[#16161B] flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5 min-w-0">
-            <Share2 className="w-4 h-4 text-blue-400 shrink-0" />
+            <Share2 className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
             <div className="min-w-0">
-              <h3 className="text-sm font-bold text-white truncate">{title}</h3>
-              <p className="text-[11px] text-gray-400 truncate">{subtitle}</p>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white truncate">{title}</h3>
+              <p className="text-[11px] text-slate-600 dark:text-gray-400 truncate">{subtitle}</p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#22222A] transition-colors cursor-pointer shrink-0"
+            className="p-1.5 rounded-lg text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#22222A] transition-colors cursor-pointer shrink-0"
             aria-label="Fermer"
           >
             <X className="w-4 h-4" />
@@ -353,17 +353,17 @@ export const SetlistPdfModal: React.FC<SetlistPdfModalProps> = ({
 
         {/* 2 Tabs */}
         <div className="px-4 pt-3.5">
-          <div className="flex bg-[#0A0A0C] p-1 rounded-xl border border-[#1E1E24]">
+          <div className="flex bg-[#F4F6F9] dark:bg-[#0A0A0C] p-1 rounded-xl border border-slate-200 dark:border-[#1E1E24]">
             <button
               type="button"
               onClick={() => setActiveTab('qr')}
               className={`flex-1 py-2 px-2.5 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                 activeTab === 'qr'
-                  ? 'bg-[#1E1E24] text-white shadow-sm border border-[#2F2F38]'
-                  : 'text-gray-400 hover:text-white'
+                  ? 'bg-[#EDF1F5] dark:bg-[#1E1E24] text-slate-900 dark:text-white shadow-sm border border-slate-300 dark:border-[#2F2F38]'
+                  : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
-              <QrCode className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+              <QrCode className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
               <span className="truncate">Partage via QR code ou lien</span>
             </button>
             <button
@@ -371,11 +371,11 @@ export const SetlistPdfModal: React.FC<SetlistPdfModalProps> = ({
               onClick={() => setActiveTab('pdf')}
               className={`flex-1 py-2 px-2.5 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                 activeTab === 'pdf'
-                  ? 'bg-[#1E1E24] text-white shadow-sm border border-[#2F2F38]'
-                  : 'text-gray-400 hover:text-white'
+                  ? 'bg-[#EDF1F5] dark:bg-[#1E1E24] text-slate-900 dark:text-white shadow-sm border border-slate-300 dark:border-[#2F2F38]'
+                  : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
-              <FileDown className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <FileDown className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
               <span>Export PDF</span>
             </button>
           </div>
@@ -400,15 +400,15 @@ export const SetlistPdfModal: React.FC<SetlistPdfModalProps> = ({
                   )}
                 </div>
 
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#0B0B0E] border border-[#2A2A35]">
-                  <KeyRound className="w-3.5 h-3.5 shrink-0 text-blue-400" />
-                  <span className="text-[11px] text-gray-400">Code bibliothèque :</span>
-                  <span className="font-mono font-bold text-xs tracking-wider select-all text-blue-300">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#F4F6F9] dark:bg-[#0B0B0E] border border-slate-300 dark:border-[#2A2A35]">
+                  <KeyRound className="w-3.5 h-3.5 shrink-0 text-blue-600 dark:text-blue-400" />
+                  <span className="text-[11px] text-slate-600 dark:text-gray-400">Code bibliothèque :</span>
+                  <span className="font-mono font-bold text-xs tracking-wider select-all text-blue-700 dark:text-blue-300">
                     {libraryCode}
                   </span>
                 </div>
 
-                <p className="text-[11px] text-gray-400 leading-relaxed">
+                <p className="text-[11px] text-slate-600 dark:text-gray-400 leading-relaxed">
                   {isGuestEnabled
                     ? isSongMode && setlistSongs.length === 1
                       ? `Scannez ce QR code ou ouvrez le lien pour consulter « ${setlist.name} » directement en lecture seule (sans compte), ou connectez-vous.`
@@ -418,8 +418,8 @@ export const SetlistPdfModal: React.FC<SetlistPdfModalProps> = ({
 
                 {!isGuestEnabled && (
                   <div className="w-full p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-left space-y-2">
-                    <div className="flex items-start gap-2 text-[11px] text-amber-200 leading-relaxed">
-                      <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                    <div className="flex items-start gap-2 text-[11px] text-amber-700 dark:text-amber-200 leading-relaxed">
+                      <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                       <span>
                         L'accès visiteur sans compte est désactivé sur « {currentGroup?.name} ». Les personnes sans compte ne pourront pas consulter le lien tant qu'il reste désactivé.
                       </span>
@@ -429,7 +429,7 @@ export const SetlistPdfModal: React.FC<SetlistPdfModalProps> = ({
                         type="button"
                         onClick={handleEnableVisitorAccess}
                         disabled={isEnablingGuest}
-                        className="w-full py-1.5 px-3 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-200 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                        className="w-full py-1.5 px-3 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-700 dark:text-amber-200 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
                       >
                         {isEnablingGuest && <Loader2 className="w-3 h-3 animate-spin" />}
                         <span>Activer l'accès visiteur (lecture seule)</span>
@@ -442,9 +442,9 @@ export const SetlistPdfModal: React.FC<SetlistPdfModalProps> = ({
                   <button
                     type="button"
                     onClick={handleCopyLink}
-                    className="py-2 px-3 rounded-xl bg-[#1C1C22] hover:bg-[#26262F] text-gray-200 border border-[#32323D] text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    className="py-2 px-3 rounded-xl bg-[#EDF1F5] dark:bg-[#1C1C22] hover:bg-slate-200 dark:hover:bg-[#26262F] text-slate-800 dark:text-gray-200 border border-slate-300 dark:border-[#32323D] text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                   >
-                    {isLinkCopied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    {isLinkCopied ? <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                     <span>{isLinkCopied ? 'Lien copié' : 'Copier le lien'}</span>
                   </button>
 
@@ -452,7 +452,7 @@ export const SetlistPdfModal: React.FC<SetlistPdfModalProps> = ({
                     <a
                       href={qrDataUrl}
                       download={`qr-${safeFileSlug || 'melobook'}.png`}
-                      className="py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors border bg-blue-500/15 hover:bg-blue-500/25 text-blue-300 border-blue-500/30"
+                      className="py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors border bg-blue-500/15 hover:bg-blue-500/25 text-blue-700 dark:text-blue-300 border-blue-500/30"
                     >
                       <Download className="w-3.5 h-3.5" />
                       <span>Télécharger</span>
@@ -461,7 +461,7 @@ export const SetlistPdfModal: React.FC<SetlistPdfModalProps> = ({
                 </div>
               </>
             ) : (
-              <div className="py-6 text-xs text-gray-400">
+              <div className="py-6 text-xs text-slate-600 dark:text-gray-400">
                 Aucun code bibliothèque disponible pour générer le lien de partage.
               </div>
             )}
@@ -471,35 +471,35 @@ export const SetlistPdfModal: React.FC<SetlistPdfModalProps> = ({
           <div className="px-5 pb-5">
             {/* PDF Options */}
             <div className="py-4 space-y-2 text-xs">
-              <div className="flex items-center justify-between p-2.5 rounded-lg bg-[#141416] border border-[#242428]">
-                <span className="font-semibold text-white">Contenu des partitions</span>
-                <div className="flex items-center bg-[#1C1C1E] p-0.5 rounded-md border border-[#333]">
-                  <button type="button" onClick={() => setOptions(prev => ({ ...prev, showChords: true }))} className={`px-2.5 py-1 rounded text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer ${options.showChords ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>
+              <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 dark:bg-[#141416] border border-slate-200 dark:border-[#242428]">
+                <span className="font-semibold text-slate-900 dark:text-white">Contenu des partitions</span>
+                <div className="flex items-center bg-[#EDF1F5] dark:bg-[#1C1C1E] p-0.5 rounded-md border border-slate-300 dark:border-[#333]">
+                  <button type="button" onClick={() => setOptions(prev => ({ ...prev, showChords: true }))} className={`px-2.5 py-1 rounded text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer ${options.showChords ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'}`}>
                     <Music className="w-3 h-3" /><span>Accords</span>
                   </button>
-                  <button type="button" onClick={() => setOptions(prev => ({ ...prev, showChords: false }))} className={`px-2.5 py-1 rounded text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer ${!options.showChords ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>
+                  <button type="button" onClick={() => setOptions(prev => ({ ...prev, showChords: false }))} className={`px-2.5 py-1 rounded text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer ${!options.showChords ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'}`}>
                     <FileText className="w-3 h-3" /><span>Paroles</span>
                   </button>
                 </div>
               </div>
 
               {options.showChords && (
-                <div className="flex items-center justify-between p-2.5 rounded-lg bg-[#141416] border border-[#242428]">
-                  <span className="font-semibold text-white">Systeme de notation</span>
-                  <div className="flex items-center bg-[#1C1C1E] p-0.5 rounded-md border border-[#333]">
-                    <button type="button" onClick={() => setOptions(prev => ({ ...prev, notation: 'standard' }))} className={`px-2.5 py-1 rounded text-xs font-semibold transition-all cursor-pointer ${options.notation === 'standard' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>ABC</button>
-                    <button type="button" onClick={() => setOptions(prev => ({ ...prev, notation: 'latin' }))} className={`px-2.5 py-1 rounded text-xs font-semibold transition-all cursor-pointer ${options.notation === 'latin' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>Do Re Mi</button>
+                <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 dark:bg-[#141416] border border-slate-200 dark:border-[#242428]">
+                  <span className="font-semibold text-slate-900 dark:text-white">Systeme de notation</span>
+                  <div className="flex items-center bg-[#EDF1F5] dark:bg-[#1C1C1E] p-0.5 rounded-md border border-slate-300 dark:border-[#333]">
+                    <button type="button" onClick={() => setOptions(prev => ({ ...prev, notation: 'standard' }))} className={`px-2.5 py-1 rounded text-xs font-semibold transition-all cursor-pointer ${options.notation === 'standard' ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'}`}>ABC</button>
+                    <button type="button" onClick={() => setOptions(prev => ({ ...prev, notation: 'latin' }))} className={`px-2.5 py-1 rounded text-xs font-semibold transition-all cursor-pointer ${options.notation === 'latin' ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'}`}>Do Re Mi</button>
                   </div>
                 </div>
               )}
 
-              <div className="flex items-center justify-between p-2.5 rounded-lg bg-[#141416] border border-[#242428]">
-                <span className="font-semibold text-white">Theme de rendu</span>
-                <div className="flex items-center bg-[#1C1C1E] p-0.5 rounded-md border border-[#333]">
-                  <button type="button" onClick={() => setOptions(prev => ({ ...prev, theme: 'light' }))} className={`px-2.5 py-1 rounded text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer ${options.theme === 'light' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>
+              <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 dark:bg-[#141416] border border-slate-200 dark:border-[#242428]">
+                <span className="font-semibold text-slate-900 dark:text-white">Theme de rendu</span>
+                <div className="flex items-center bg-[#EDF1F5] dark:bg-[#1C1C1E] p-0.5 rounded-md border border-slate-300 dark:border-[#333]">
+                  <button type="button" onClick={() => setOptions(prev => ({ ...prev, theme: 'light' }))} className={`px-2.5 py-1 rounded text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer ${options.theme === 'light' ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'}`}>
                     <Sun className="w-3 h-3" /><span>Clair / Print</span>
                   </button>
-                  <button type="button" onClick={() => setOptions(prev => ({ ...prev, theme: 'dark' }))} className={`px-2.5 py-1 rounded text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer ${options.theme === 'dark' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>
+                  <button type="button" onClick={() => setOptions(prev => ({ ...prev, theme: 'dark' }))} className={`px-2.5 py-1 rounded text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer ${options.theme === 'dark' ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'}`}>
                     <Moon className="w-3 h-3" /><span>Sombre</span>
                   </button>
                 </div>
@@ -510,15 +510,15 @@ export const SetlistPdfModal: React.FC<SetlistPdfModalProps> = ({
                   <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500 px-0.5 mb-1.5">Autres formats</p>
                   <div className="grid grid-cols-2 gap-2">
                     {onExportChordPro && (
-                      <button type="button" onClick={() => { onExportChordPro(); onClose(); }} className="p-2.5 rounded-lg bg-[#141416] hover:bg-[#1A1A20] border border-[#242428] hover:border-blue-500/40 transition-all text-left flex items-start gap-2 cursor-pointer group">
+                      <button type="button" onClick={() => { onExportChordPro(); onClose(); }} className="p-2.5 rounded-lg bg-slate-50 dark:bg-[#141416] hover:bg-slate-200/70 dark:hover:bg-[#1A1A20] border border-slate-200 dark:border-[#242428] hover:border-blue-500/40 transition-all text-left flex items-start gap-2 cursor-pointer group">
                         <div className="p-1.5 rounded-md bg-blue-500/10 text-blue-400 group-hover:bg-blue-500 group-hover:text-white transition-all shrink-0"><FileCode className="w-3.5 h-3.5" /></div>
-                        <div><div className="text-[11px] font-semibold text-white">ChordPro</div><div className="text-[10px] text-gray-400 mt-0.5 leading-tight">Texte brut .txt</div></div>
+                        <div><div className="text-[11px] font-semibold text-slate-900 dark:text-white">ChordPro</div><div className="text-[10px] text-slate-600 dark:text-gray-400 mt-0.5 leading-tight">Texte brut .txt</div></div>
                       </button>
                     )}
                     {onExportJson && (
-                      <button type="button" onClick={() => { onExportJson(); onClose(); }} className="p-2.5 rounded-lg bg-[#141416] hover:bg-[#1A1A20] border border-[#242428] hover:border-amber-500/40 transition-all text-left flex items-start gap-2 cursor-pointer group">
+                      <button type="button" onClick={() => { onExportJson(); onClose(); }} className="p-2.5 rounded-lg bg-slate-50 dark:bg-[#141416] hover:bg-slate-200/70 dark:hover:bg-[#1A1A20] border border-slate-200 dark:border-[#242428] hover:border-amber-500/40 transition-all text-left flex items-start gap-2 cursor-pointer group">
                         <div className="p-1.5 rounded-md bg-amber-500/10 text-amber-400 group-hover:bg-amber-500 group-hover:text-white transition-all shrink-0"><Download className="w-3.5 h-3.5" /></div>
-                        <div><div className="text-[11px] font-semibold text-white">JSON</div><div className="text-[10px] text-gray-400 mt-0.5 leading-tight">Sauvegarde complete</div></div>
+                        <div><div className="text-[11px] font-semibold text-slate-900 dark:text-white">JSON</div><div className="text-[10px] text-slate-600 dark:text-gray-400 mt-0.5 leading-tight">Sauvegarde complete</div></div>
                       </button>
                     )}
                   </div>
@@ -527,21 +527,21 @@ export const SetlistPdfModal: React.FC<SetlistPdfModalProps> = ({
             </div>
 
             {statusMessage && (
-              <div className="mb-4 p-2.5 rounded-lg bg-blue-950/40 border border-blue-500/40 text-blue-300 text-xs flex items-center gap-2">
-                <Sparkles className="w-3.5 h-3.5 shrink-0 text-blue-400" />
+              <div className="mb-4 p-2.5 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-500/40 text-blue-700 dark:text-blue-300 text-xs flex items-center gap-2">
+                <Sparkles className="w-3.5 h-3.5 shrink-0 text-blue-600 dark:text-blue-400" />
                 <span>{statusMessage}</span>
               </div>
             )}
 
             {/* Action Buttons */}
-            <div className="pt-3 border-t border-[#222224] space-y-2">
+            <div className="pt-3 border-t border-slate-200 dark:border-[#222224] space-y-2">
               <div className="grid grid-cols-2 gap-2">
                 <button type="button" onClick={handleDownload} disabled={isGenerating || isSharing || songCount === 0} className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer">
                   {isGenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileDown className="w-3.5 h-3.5" />}
                   <span>Telecharger PDF</span>
                 </button>
-                <button type="button" onClick={handleExportChordPro} disabled={isGenerating || isSharing || songCount === 0} className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-lg bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-200 hover:text-white border border-[#333] font-semibold text-xs transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer">
-                  <FileCode className="w-3.5 h-3.5 text-blue-400" />
+                <button type="button" onClick={handleExportChordPro} disabled={isGenerating || isSharing || songCount === 0} className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-lg bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-slate-200 dark:hover:bg-[#2A2A2D] text-slate-800 dark:text-gray-200 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-[#333] font-semibold text-xs transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer">
+                  <FileCode className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                   <span>Exporter ChordPro</span>
                 </button>
               </div>
@@ -551,7 +551,7 @@ export const SetlistPdfModal: React.FC<SetlistPdfModalProps> = ({
                   type="button"
                   onClick={handleShareMessaging}
                   disabled={isGenerating || isSharing || songCount === 0}
-                  className="w-full flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-lg bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-300 hover:text-emerald-200 border border-emerald-500/35 font-semibold text-xs transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer"
+                  className="w-full flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-lg bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-700 dark:text-emerald-300 hover:text-emerald-800 dark:hover:text-emerald-200 border border-emerald-500/35 font-semibold text-xs transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer"
                   title="Partager le PDF ou le texte via vos applications de messagerie"
                 >
                   {isSharing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Share2 className="w-3.5 h-3.5" />}

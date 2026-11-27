@@ -111,21 +111,21 @@ export const ChordPickerModal: React.FC<ChordPickerModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/75 backdrop-blur-xs">
-      <div className="bg-[#141416] border border-[#2A2A2D] rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/75 backdrop-blur-xs animate-in fade-in duration-150">
+      <div className="bg-slate-50 dark:bg-[#141416] border border-slate-300 dark:border-[#2A2A2D] rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-4 py-3 bg-[#0E0E10] border-b border-[#222224]">
+        <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-[#0E0E10] border-b border-slate-200 dark:border-[#222224]">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400">
+            <div className="w-7 h-7 rounded-lg bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-600 dark:text-blue-400">
               <Music className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-white">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">
                 {currentChord ? 'Modifier l\'accord' : 'Placer un accord'}
               </h3>
               {anchorContext?.lyricsSnippet && (
-                <p className="text-[11px] text-gray-400 truncate max-w-[220px]">
+                <p className="text-[11px] text-slate-600 dark:text-gray-400 truncate max-w-[220px]">
                   Sur &quot;{anchorContext.lyricsSnippet}&quot;
                 </p>
               )}
@@ -134,7 +134,7 @@ export const ChordPickerModal: React.FC<ChordPickerModalProps> = ({
 
           <button
             onClick={onClose}
-            className="p-1 rounded-md text-gray-400 hover:text-white hover:bg-[#222226] transition-colors"
+            className="p-1 rounded-md text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#222226] transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -146,13 +146,13 @@ export const ChordPickerModal: React.FC<ChordPickerModalProps> = ({
           {availableSongChords.length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[11px] font-semibold text-gray-300 uppercase tracking-wider flex items-center gap-1">
-                  <Sparkles className="w-3 h-3 text-amber-400" />
+                <span className="text-[11px] font-semibold text-slate-700 dark:text-gray-300 uppercase tracking-wider flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-amber-600 dark:text-amber-400" />
                   <span>Accords déjà dans ce chant</span>
                 </span>
                 <span className="text-[10px] text-gray-500">1 clic</span>
               </div>
-              <div className="flex flex-wrap gap-1.5 p-2 rounded-lg bg-[#0A0A0C] border border-[#222224]">
+              <div className="flex flex-wrap gap-1.5 p-2 rounded-lg bg-[#F4F6F9] dark:bg-[#0A0A0C] border border-slate-200 dark:border-[#222224]">
                 {availableSongChords.map(ch => (
                   <button
                     key={ch}
@@ -161,7 +161,7 @@ export const ChordPickerModal: React.FC<ChordPickerModalProps> = ({
                     className={`px-2.5 py-1 rounded font-mono font-bold text-xs transition-all active:scale-95 cursor-pointer ${
                       (manualInput || currentChord) === ch
                         ? 'bg-blue-600 text-white shadow-sm border border-blue-400'
-                        : 'bg-[#1C1C1F] hover:bg-blue-600/30 text-blue-400 hover:text-blue-200 border border-[#333]'
+                        : 'bg-[#EDF1F5] dark:bg-[#1C1C1F] hover:bg-blue-600/30 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 border border-slate-300 dark:border-[#333]'
                     }`}
                   >
                     {ch}
@@ -172,8 +172,8 @@ export const ChordPickerModal: React.FC<ChordPickerModalProps> = ({
           )}
 
           {/* Direct Input & Live Preview Box */}
-          <div className="p-3 rounded-lg bg-[#0E0E10] border border-[#2A2A2D]">
-            <label className="block text-[11px] font-semibold text-gray-300 mb-1.5">
+          <div className="p-3 rounded-lg bg-white dark:bg-[#0E0E10] border border-slate-300 dark:border-[#2A2A2D]">
+            <label className="block text-[11px] font-semibold text-slate-700 dark:text-gray-300 mb-1.5">
               Accord sélectionné
             </label>
             <div className="flex items-center gap-2">
@@ -182,13 +182,13 @@ export const ChordPickerModal: React.FC<ChordPickerModalProps> = ({
                 value={manualInput}
                 onChange={(e) => setManualInput(e.target.value)}
                 placeholder="ex: G, Am7, Dsus4, C/E..."
-                className="flex-1 bg-[#1C1C1E] border border-[#333] focus:border-blue-500 rounded-md px-3 py-1.5 text-base font-bold font-mono text-blue-400 focus:outline-none"
+                className="flex-1 bg-[#EDF1F5] dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] focus:border-blue-500 rounded-md px-3 py-1.5 text-base font-bold font-mono text-blue-600 dark:text-blue-400 focus:outline-none"
                 autoFocus
               />
               <button
                 type="button"
                 onClick={() => setManualInput(builtChord)}
-                className="px-2.5 py-1.5 rounded bg-[#222226] hover:bg-[#2C2C30] text-gray-300 text-xs font-semibold border border-[#333]"
+                className="px-2.5 py-1.5 rounded bg-[#EDF1F5] dark:bg-[#222226] hover:bg-slate-200 dark:hover:bg-[#2C2C30] text-slate-700 dark:text-gray-300 text-xs font-semibold border border-slate-300 dark:border-[#333]"
                 title="Insérer la sélection visuelle ci-dessous"
               >
                 Générer
@@ -201,7 +201,7 @@ export const ChordPickerModal: React.FC<ChordPickerModalProps> = ({
             
             {/* Root Note & Accidental */}
             <div>
-              <span className="block text-[11px] font-semibold text-gray-400 mb-1">
+              <span className="block text-[11px] font-semibold text-slate-600 dark:text-gray-400 mb-1">
                 Fondamentale
               </span>
               <div className="grid grid-cols-7 gap-1">
@@ -217,7 +217,7 @@ export const ChordPickerModal: React.FC<ChordPickerModalProps> = ({
                     className={`py-1.5 rounded font-mono font-bold text-xs transition-colors ${
                       selectedRoot === note
                         ? 'bg-blue-600 text-white border border-blue-400'
-                        : 'bg-[#1C1C1E] hover:bg-[#252528] text-gray-300 border border-[#333]'
+                        : 'bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-slate-200/70 dark:hover:bg-[#252528] text-slate-700 dark:text-gray-300 border border-slate-300 dark:border-[#333]'
                     }`}
                   >
                     {note}
@@ -243,7 +243,7 @@ export const ChordPickerModal: React.FC<ChordPickerModalProps> = ({
                     className={`py-1 rounded text-xs font-mono font-semibold transition-colors ${
                       selectedAccidental === acc.val
                         ? 'bg-purple-600 text-white border border-purple-400'
-                        : 'bg-[#1C1C1E] hover:bg-[#252528] text-gray-300 border border-[#333]'
+                        : 'bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-slate-200/70 dark:hover:bg-[#252528] text-slate-700 dark:text-gray-300 border border-slate-300 dark:border-[#333]'
                     }`}
                   >
                     {acc.label}
@@ -254,7 +254,7 @@ export const ChordPickerModal: React.FC<ChordPickerModalProps> = ({
 
             {/* Quality */}
             <div>
-              <span className="block text-[11px] font-semibold text-gray-400 mb-1">
+              <span className="block text-[11px] font-semibold text-slate-600 dark:text-gray-400 mb-1">
                 Type d&apos;accord
               </span>
               <div className="grid grid-cols-5 gap-1">
@@ -270,7 +270,7 @@ export const ChordPickerModal: React.FC<ChordPickerModalProps> = ({
                     className={`py-1 px-1 rounded font-mono text-xs transition-colors truncate ${
                       selectedQuality === q.value
                         ? 'bg-emerald-600 text-white font-bold border border-emerald-400'
-                        : 'bg-[#1C1C1E] hover:bg-[#252528] text-gray-300 border border-[#333]'
+                        : 'bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-slate-200/70 dark:hover:bg-[#252528] text-slate-700 dark:text-gray-300 border border-slate-300 dark:border-[#333]'
                     }`}
                   >
                     {q.value || 'maj'}
@@ -282,7 +282,7 @@ export const ChordPickerModal: React.FC<ChordPickerModalProps> = ({
             {/* Bass Note for Slash Chords */}
             <div>
               <div className="flex items-center justify-between mb-1">
-                <span className="text-[11px] font-semibold text-gray-400">
+                <span className="text-[11px] font-semibold text-slate-600 dark:text-gray-400">
                   Basse renversée
                 </span>
                 {selectedBass && (
@@ -293,7 +293,7 @@ export const ChordPickerModal: React.FC<ChordPickerModalProps> = ({
                       const chord = `${selectedRoot}${selectedAccidental}${selectedQuality}`;
                       setManualInput(chord);
                     }}
-                    className="text-[10px] text-rose-400 hover:underline"
+                    className="text-[10px] text-rose-600 dark:text-rose-400 hover:underline"
                   >
                     Retirer la basse
                   </button>
@@ -312,7 +312,7 @@ export const ChordPickerModal: React.FC<ChordPickerModalProps> = ({
                     className={`px-2 py-0.5 rounded font-mono text-[11px] transition-colors ${
                       selectedBass === b
                         ? 'bg-amber-600 text-white font-bold border border-amber-400'
-                        : 'bg-[#1C1C1E] hover:bg-[#252528] text-gray-400 border border-[#333]'
+                        : 'bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-slate-200/70 dark:hover:bg-[#252528] text-slate-600 dark:text-gray-400 border border-slate-300 dark:border-[#333]'
                     }`}
                   >
                     {b ? `/${b}` : 'Sans'}
@@ -325,13 +325,13 @@ export const ChordPickerModal: React.FC<ChordPickerModalProps> = ({
 
           {/* Position adjustments (Shift Left / Shift Right) */}
           {(onMoveLeft || onMoveRight || onDeleteChord) && (
-            <div className="flex items-center justify-between pt-3 border-t border-[#222224]">
+            <div className="flex items-center justify-between pt-3 border-t border-slate-200 dark:border-[#222224]">
               <div className="flex items-center gap-1.5">
                 {onMoveLeft && (
                   <button
                     type="button"
                     onClick={onMoveLeft}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 text-xs border border-[#333]"
+                    className="flex items-center gap-1 px-2.5 py-1 rounded bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-slate-200 dark:hover:bg-[#2A2A2D] text-slate-700 dark:text-gray-300 text-xs border border-slate-300 dark:border-[#333]"
                     title="Déplacer l'accord vers la gauche"
                   >
                     <ArrowLeft className="w-3 h-3" />
@@ -342,7 +342,7 @@ export const ChordPickerModal: React.FC<ChordPickerModalProps> = ({
                   <button
                     type="button"
                     onClick={onMoveRight}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 text-xs border border-[#333]"
+                    className="flex items-center gap-1 px-2.5 py-1 rounded bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-slate-200 dark:hover:bg-[#2A2A2D] text-slate-700 dark:text-gray-300 text-xs border border-slate-300 dark:border-[#333]"
                     title="Déplacer l'accord vers la droite"
                   >
                     <span>Droite</span>
@@ -358,7 +358,7 @@ export const ChordPickerModal: React.FC<ChordPickerModalProps> = ({
                     onDeleteChord();
                     onClose();
                   }}
-                  className="flex items-center gap-1 px-2.5 py-1 rounded bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 text-xs font-semibold border border-rose-500/40 transition-colors"
+                  className="flex items-center gap-1 px-2.5 py-1 rounded bg-rose-600/20 hover:bg-rose-600/30 text-rose-600 dark:text-rose-400 text-xs font-semibold border border-rose-500/40 transition-colors"
                 >
                   <Trash2 className="w-3 h-3" />
                   <span>Supprimer</span>
@@ -370,11 +370,11 @@ export const ChordPickerModal: React.FC<ChordPickerModalProps> = ({
         </div>
 
         {/* Footer actions */}
-        <div className="flex items-center justify-between px-4 py-3 bg-[#0E0E10] border-t border-[#222224]">
+        <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-[#0E0E10] border-t border-slate-200 dark:border-[#222224]">
           <button
             type="button"
             onClick={onClose}
-            className="px-3 py-1.5 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 text-xs font-medium border border-[#333]"
+            className="px-3 py-1.5 rounded-md bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-slate-200 dark:hover:bg-[#2A2A2D] text-slate-700 dark:text-gray-300 text-xs font-medium border border-slate-300 dark:border-[#333]"
           >
             Annuler
           </button>

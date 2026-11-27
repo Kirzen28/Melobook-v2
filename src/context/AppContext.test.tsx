@@ -97,7 +97,8 @@ const DEFAULT_STAGE_SETTINGS: StageSettings = {
   theme: 'dark',
   capo: 0,
   showMetronome: false,
-  soundMetronome: false
+  soundMetronome: false,
+  reduceMotion: false
 };
 
 interface AppContextType {
@@ -999,34 +1000,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showNotification('Enregistré');
   }, [showNotification]);
 
-  // Sync theme mode (dark, light, system) with document root
+  // Sync manual theme mode (dark, light) with document root
   useEffect(() => {
-    const applyTheme = () => {
-      const currentTheme = stageSettings.theme || 'dark';
-      let isLight = false;
-
-      if (currentTheme === 'light') {
-        isLight = true;
-      } else if (currentTheme === 'system') {
-        isLight = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
-      }
-
-      if (isLight) {
-        document.documentElement.classList.add('light-theme');
-        document.documentElement.classList.remove('dark-theme');
-      } else {
-        document.documentElement.classList.remove('light-theme');
-        document.documentElement.classList.add('dark-theme');
-      }
-    };
-
-    applyTheme();
-
-    if (stageSettings.theme === 'system' && typeof window !== 'undefined' && window.matchMedia) {
-      const mediaQuery = window.matchMedia('(prefers-color-scheme: light)');
-      const handleChange = () => applyTheme();
-      mediaQuery.addEventListener('change', handleChange);
-      return () => mediaQuery.removeEventListener('change', handleChange);
+    const isLight = stageSettings.theme === 'light';
+    if (isLight) {
+      document.documentElement.classList.remove('dark', 'dark-theme');
+      document.documentElement.classList.add('light-theme');
+    } else {
+      document.documentElement.classList.remove('light-theme');
+      document.documentElement.classList.add('dark', 'dark-theme');
     }
   }, [stageSettings.theme]);
 

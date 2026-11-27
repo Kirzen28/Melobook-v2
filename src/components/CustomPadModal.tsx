@@ -198,28 +198,28 @@ export const CustomPadModal: React.FC<CustomPadModalProps> = ({
   const isCustomMode = padAudio.getActiveMode() === 'custom';
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-150">
       <div 
-        className="w-full max-w-2xl bg-[#11141B] border border-[#232938] rounded-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+        className="w-full max-w-2xl bg-slate-50 dark:bg-[#11141B] border border-slate-300 dark:border-[#232938] rounded-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden animate-in fade-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-5 py-4 border-b border-[#1E2536] flex items-center justify-between shrink-0 bg-[#141822]">
+        <div className="px-5 py-4 border-b border-slate-300 dark:border-[#1E2536] flex items-center justify-between shrink-0 bg-slate-50 dark:bg-[#141822]">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-sky-500/15 border border-sky-400/30 flex items-center justify-center text-sky-400">
+            <div className="w-9 h-9 rounded-xl bg-sky-500/15 border border-sky-400/30 flex items-center justify-center text-sky-700 dark:text-sky-400">
               <Radio className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white tracking-tight">Pads d'Accompagnement Audio</h2>
-              <p className="text-xs text-gray-400">
-                Bibliothèque <span className="text-gray-200 font-medium">{currentGroup?.name || 'Principale'}</span>
+              <h2 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">Pads d'Accompagnement Audio</h2>
+              <p className="text-xs text-slate-600 dark:text-gray-400">
+                Bibliothèque <span className="text-slate-800 dark:text-gray-200 font-medium">{currentGroup?.name || 'Principale'}</span>
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-lg bg-[#181D29] hover:bg-[#22283A] text-gray-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-lg bg-[#EDF1F5] dark:bg-[#181D29] hover:bg-slate-200 dark:hover:bg-[#22283A] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition-colors cursor-pointer"
             aria-label="Fermer"
           >
             <X className="w-4 h-4" />
@@ -230,23 +230,23 @@ export const CustomPadModal: React.FC<CustomPadModalProps> = ({
         <div className="p-5 space-y-6 overflow-y-auto">
           
           {/* Pitch-Shift Info Banner */}
-          <div className="p-3.5 rounded-xl bg-sky-950/30 border border-sky-500/20 text-xs text-sky-300/90 leading-relaxed flex items-start gap-3">
-            <Sparkles className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
+          <div className="p-3.5 rounded-xl bg-sky-50 dark:bg-sky-950/30 border border-sky-500/20 text-xs text-sky-700 dark:text-sky-300/90 leading-relaxed flex items-start gap-3">
+            <Sparkles className="w-4 h-4 text-sky-700 dark:text-sky-400 shrink-0 mt-0.5" />
             <div>
-              <strong className="text-sky-200">Transposition automatique activée :</strong> Vous n'avez besoin que d'<strong>un seul fichier audio par nappe</strong> (ex. enregistré en Do). Le moteur Web Audio transpose automatiquement la nappe vers les 12 tonalités chromatiques en direct sans latence.
+              <strong className="text-sky-700 dark:text-sky-200">Transposition automatique activée :</strong> Vous n'avez besoin que d'<strong>un seul fichier audio par nappe</strong> (ex. enregistré en Do). Le moteur Web Audio transpose automatiquement la nappe vers les 12 tonalités chromatiques en direct sans latence.
             </div>
           </div>
 
           {/* Section 1: Formulaire d'importation */}
           {canCreatePad && (
-            <form onSubmit={handleSubmit} className="bg-[#151923] border border-[#242C3D] rounded-xl p-4 space-y-4">
+            <form onSubmit={handleSubmit} className="bg-[#EDF1F5] dark:bg-[#151923] border border-slate-300 dark:border-[#242C3D] rounded-xl p-4 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-gray-300 flex items-center gap-1.5">
-                <Upload className="w-3.5 h-3.5 text-sky-400" />
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-gray-300 flex items-center gap-1.5">
+                <Upload className="w-3.5 h-3.5 text-sky-700 dark:text-sky-400" />
                 Importer un nouveau Pad MP3 / WAV
               </h3>
               {selectedFile && (
-                <span className="text-[11px] font-mono text-gray-400">
+                <span className="text-[11px] font-mono text-slate-600 dark:text-gray-400">
                   {(selectedFile.size / (1024 * 1024)).toFixed(2)} Mo
                 </span>
               )}
@@ -262,8 +262,8 @@ export const CustomPadModal: React.FC<CustomPadModalProps> = ({
                 dragOver 
                   ? 'border-sky-400 bg-sky-500/10' 
                   : selectedFile 
-                    ? 'border-emerald-500/40 bg-emerald-950/10' 
-                    : 'border-[#2D374D] hover:border-gray-500 bg-[#12151D]'
+                    ? 'border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/10' 
+                    : 'border-slate-300 dark:border-[#2D374D] hover:border-gray-500 bg-slate-50 dark:bg-[#12151D]'
               }`}
             >
               <input
@@ -281,19 +281,19 @@ export const CustomPadModal: React.FC<CustomPadModalProps> = ({
               <div className="flex flex-col items-center justify-center gap-1.5 py-1">
                 {selectedFile ? (
                   <>
-                    <FileAudio className="w-7 h-7 text-emerald-400" />
-                    <span className="text-xs font-semibold text-emerald-300 truncate max-w-sm">
+                    <FileAudio className="w-7 h-7 text-emerald-600 dark:text-emerald-400" />
+                    <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 truncate max-w-sm">
                       {selectedFile.name}
                     </span>
-                    <span className="text-[10px] text-gray-400">
+                    <span className="text-[10px] text-slate-600 dark:text-gray-400">
                       Cliquer pour remplacer le fichier
                     </span>
                   </>
                 ) : (
                   <>
-                    <Upload className="w-6 h-6 text-gray-400" />
-                    <span className="text-xs font-medium text-gray-200">
-                      Glissez votre fichier audio ici, ou <span className="text-sky-400 underline">parcourir</span>
+                    <Upload className="w-6 h-6 text-slate-600 dark:text-gray-400" />
+                    <span className="text-xs font-medium text-slate-800 dark:text-gray-200">
+                      Glissez votre fichier audio ici, ou <span className="text-sky-700 dark:text-sky-400 underline">parcourir</span>
                     </span>
                     <span className="text-[10px] text-gray-500">
                       MP3, WAV ou M4A (1 seule note de référence, ex. nappe de drone en C)
@@ -316,7 +316,7 @@ export const CustomPadModal: React.FC<CustomPadModalProps> = ({
               
               {/* Pad Name */}
               <div>
-                <label className="block text-[11px] font-semibold text-gray-300 mb-1">
+                <label className="block text-[11px] font-semibold text-slate-700 dark:text-gray-300 mb-1">
                   Nom du Pad
                 </label>
                 <input
@@ -324,19 +324,19 @@ export const CustomPadModal: React.FC<CustomPadModalProps> = ({
                   value={padName}
                   onChange={(e) => setPadName(e.target.value)}
                   placeholder="ex. Ambient Warmth, Cello Drone..."
-                  className="w-full bg-[#10131B] border border-[#273042] rounded-lg px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-sky-400 transition-colors"
+                  className="w-full bg-slate-50 dark:bg-[#10131B] border border-slate-300 dark:border-[#273042] rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-sky-400 transition-colors"
                 />
               </div>
 
               {/* Root Key Selector */}
               <div>
-                <label className="block text-[11px] font-semibold text-gray-300 mb-1">
+                <label className="block text-[11px] font-semibold text-slate-700 dark:text-gray-300 mb-1">
                   Tonalité d'origine du fichier (Note de base)
                 </label>
                 <select
                   value={rootSemitone}
                   onChange={(e) => setRootSemitone(Number(e.target.value))}
-                  className="w-full bg-[#10131B] border border-[#273042] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-400 transition-colors cursor-pointer"
+                  className="w-full bg-slate-50 dark:bg-[#10131B] border border-slate-300 dark:border-[#273042] rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-sky-400 transition-colors cursor-pointer"
                 >
                   {CHROMATIC_NOTES.map(n => (
                     <option key={n.semitone} value={n.semitone}>
@@ -349,47 +349,47 @@ export const CustomPadModal: React.FC<CustomPadModalProps> = ({
             </div>
 
             {/* Optimization specs badge */}
-            <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] text-gray-400">
-              <span className="px-2 py-0.5 rounded-md bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 font-mono flex items-center gap-1 font-semibold">
-                <Zap className="w-3 h-3 text-emerald-400" />
+            <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] text-slate-600 dark:text-gray-400">
+              <span className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-500/40 text-emerald-700 dark:text-emerald-300 font-mono flex items-center gap-1 font-semibold">
+                <Zap className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                 FFmpeg.wasm Client-Side
               </span>
-              <span className="px-2 py-0.5 rounded-md bg-purple-950/60 border border-purple-500/40 text-purple-300 font-mono flex items-center gap-1 font-semibold">
-                <Database className="w-3 h-3 text-purple-400" />
+              <span className="px-2 py-0.5 rounded-md bg-purple-50 dark:bg-purple-950/60 border border-purple-500/40 text-purple-700 dark:text-purple-300 font-mono flex items-center gap-1 font-semibold">
+                <Database className="w-3 h-3 text-purple-600 dark:text-purple-400" />
                 Cache IndexedDB actif
               </span>
-              <span className="px-2 py-0.5 rounded-md bg-[#1B2232] border border-[#27324B] text-sky-300 font-mono">
+              <span className="px-2 py-0.5 rounded-md bg-[#EDF1F5] dark:bg-[#1B2232] border border-slate-300 dark:border-[#27324B] text-sky-700 dark:text-sky-300 font-mono">
                 {selectedFile 
                   ? `Bitrate dynamique : ${resolveDynamicBitrate(selectedFile.size)} kbps` 
                   : 'Bitrate dynamique (64 / 96 / 128 kbps)'}
               </span>
-              <span className="px-2 py-0.5 rounded-md bg-[#1B2232] border border-[#27324B] text-sky-300 font-mono">
+              <span className="px-2 py-0.5 rounded-md bg-[#EDF1F5] dark:bg-[#1B2232] border border-slate-300 dark:border-[#27324B] text-sky-700 dark:text-sky-300 font-mono">
                 Max 1 min (boucle worship)
               </span>
-              <span className="px-2 py-0.5 rounded-md bg-[#1B2232] border border-[#27324B] text-sky-300 font-mono">
+              <span className="px-2 py-0.5 rounded-md bg-[#EDF1F5] dark:bg-[#1B2232] border border-slate-300 dark:border-[#27324B] text-sky-700 dark:text-sky-300 font-mono">
                 Max 5 Mo
               </span>
-              <span className="px-2 py-0.5 rounded-md bg-amber-950/60 border border-amber-500/40 text-amber-300 font-mono flex items-center gap-1 font-semibold">
-                <Volume2 className="w-3 h-3 text-amber-400" />
+              <span className="px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/60 border border-amber-500/40 text-amber-700 dark:text-amber-300 font-mono flex items-center gap-1 font-semibold">
+                <Volume2 className="w-3 h-3 text-amber-600 dark:text-amber-400" />
                 Auto-normalisation (-0.7 dB)
               </span>
             </div>
 
             {/* Warning & Tip for heavy files with dynamic bitrate indication */}
             {selectedFile && selectedFile.size > 8 * 1024 * 1024 && (
-              <div className="p-2.5 rounded-lg bg-amber-950/40 border border-amber-500/30 text-amber-200/90 text-[11px] flex items-start gap-2 animate-in fade-in">
-                <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+              <div className="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-500/30 text-amber-700 dark:text-amber-200/90 text-[11px] flex items-start gap-2 animate-in fade-in">
+                <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                 <div className="space-y-0.5">
-                  <div className="font-semibold text-amber-300 flex items-center gap-2">
+                  <div className="font-semibold text-amber-700 dark:text-amber-300 flex items-center gap-2">
                     <span>Fichier volumineux ({(selectedFile.size / (1024 * 1024)).toFixed(1)} Mo) détecté</span>
-                    <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-200 font-mono text-[10px]">
+                    <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-200 font-mono text-[10px]">
                       Sélection automatique : {resolveDynamicBitrate(selectedFile.size)} kbps
                     </span>
                   </div>
-                  <p className="text-amber-200/80 leading-normal">
+                  <p className="text-amber-700 dark:text-amber-200/80 leading-normal">
                     Pour maximiser la vitesse de compression dans le navigateur tout en préservant l'amplitude des nappes d'ambiance, FFmpeg.wasm encode automatiquement à <strong>{resolveDynamicBitrate(selectedFile.size)} kbps</strong> avec découpage à 1 min.
                   </p>
-                  <p className="text-amber-300 font-medium">
+                  <p className="text-amber-700 dark:text-amber-300 font-medium">
                     ⚡ Vitesse multipliée par ~2 et réduction de plus de 95% de la bande passante vers Firebase Storage.
                   </p>
                 </div>
@@ -398,27 +398,27 @@ export const CustomPadModal: React.FC<CustomPadModalProps> = ({
 
             {/* Detailed Progress Bar when optimizing & uploading */}
             {isUploading && uploadProgress && (
-              <div className="p-3.5 rounded-xl bg-[#0F131D] border border-sky-500/40 space-y-2.5 animate-in fade-in shadow-lg">
+              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-[#0F131D] border border-sky-500/40 space-y-2.5 animate-in fade-in shadow-lg">
                 <div className="flex items-center justify-between text-xs">
                   <div className="flex items-center gap-2 truncate">
                     <span className="relative flex h-2 w-2 shrink-0">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-sky-500"></span>
                     </span>
-                    <span className="text-sky-200 font-semibold truncate text-[11px]">
+                    <span className="text-sky-700 dark:text-sky-200 font-semibold truncate text-[11px]">
                       {uploadProgress.message}
                     </span>
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0 font-mono text-[11px]">
-                    <span className="px-1.5 py-0.5 rounded bg-sky-500/15 border border-sky-400/30 text-sky-300 font-bold">
+                    <span className="px-1.5 py-0.5 rounded bg-sky-500/15 border border-sky-400/30 text-sky-700 dark:text-sky-300 font-bold">
                       {uploadProgress.percent}%
                     </span>
                   </div>
                 </div>
 
                 {/* Progress bar line */}
-                <div className="w-full bg-[#1A2234] h-2 rounded-full overflow-hidden p-[1px]">
+                <div className="w-full bg-[#EDF1F5] dark:bg-[#1A2234] h-2 rounded-full overflow-hidden p-[1px]">
                   <div 
                     className="h-full rounded-full bg-gradient-to-r from-sky-500 via-cyan-400 to-indigo-500 transition-all duration-200 shadow-sm shadow-sky-400/50"
                     style={{ width: `${Math.max(4, uploadProgress.percent)}%` }}
@@ -426,20 +426,20 @@ export const CustomPadModal: React.FC<CustomPadModalProps> = ({
                 </div>
 
                 {/* Time & ETA Metrics */}
-                <div className="flex items-center justify-between text-[10px] text-gray-400 font-mono pt-0.5 border-t border-[#1C2538]">
+                <div className="flex items-center justify-between text-[10px] text-slate-600 dark:text-gray-400 font-mono pt-0.5 border-t border-slate-300 dark:border-[#1C2538]">
                   <div className="flex items-center gap-1.5">
-                    <Clock className="w-3 h-3 text-gray-400" />
+                    <Clock className="w-3 h-3 text-slate-600 dark:text-gray-400" />
                     <span>
-                      Écoulé : <strong className="text-gray-200">{uploadProgress.elapsedSeconds !== undefined ? `${uploadProgress.elapsedSeconds}s` : 'En cours...'}</strong>
+                      Écoulé : <strong className="text-slate-800 dark:text-gray-200">{uploadProgress.elapsedSeconds !== undefined ? `${uploadProgress.elapsedSeconds}s` : 'En cours...'}</strong>
                     </span>
                   </div>
 
                   {uploadProgress.etaSeconds !== undefined && uploadProgress.etaSeconds > 0 ? (
-                    <span className="text-sky-300 font-medium">
-                      Temps restant : <strong className="text-white">~{uploadProgress.etaSeconds}s</strong>
+                    <span className="text-sky-700 dark:text-sky-300 font-medium">
+                      Temps restant : <strong className="text-slate-900 dark:text-white">~{uploadProgress.etaSeconds}s</strong>
                     </span>
                   ) : uploadProgress.percent >= 95 ? (
-                    <span className="text-emerald-400 font-medium">Finalisation imminente...</span>
+                    <span className="text-emerald-600 dark:text-emerald-400 font-medium">Finalisation imminente...</span>
                   ) : (
                     <span className="text-gray-500">Calcul estimation...</span>
                   )}
@@ -473,8 +473,8 @@ export const CustomPadModal: React.FC<CustomPadModalProps> = ({
           {/* Section 2: Liste des Pads Audio de l'équipe */}
           <div className="space-y-2.5">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-gray-300 flex items-center gap-1.5">
-                <Music className="w-3.5 h-3.5 text-sky-400" />
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-gray-300 flex items-center gap-1.5">
+                <Music className="w-3.5 h-3.5 text-sky-700 dark:text-sky-400" />
                 Pads de votre équipe ({customPads.length})
               </h3>
               <span className="text-[11px] text-gray-500">
@@ -483,7 +483,7 @@ export const CustomPadModal: React.FC<CustomPadModalProps> = ({
             </div>
 
             {customPads.length === 0 ? (
-              <div className="p-6 rounded-xl bg-[#141822] border border-[#202735] text-center text-gray-400 text-xs">
+              <div className="p-6 rounded-xl bg-slate-50 dark:bg-[#141822] border border-slate-300 dark:border-[#202735] text-center text-slate-600 dark:text-gray-400 text-xs">
                 Aucun pad audio personnalisé pour le moment.
                 <p className="text-[11px] text-gray-500 mt-1">
                   Importez un fichier MP3 ci-dessus pour l'utiliser lors de vos louanges et répétitions.
@@ -500,8 +500,8 @@ export const CustomPadModal: React.FC<CustomPadModalProps> = ({
                       key={pad.id}
                       className={`p-3 rounded-xl border transition-all flex items-center justify-between gap-3 ${
                         isCurrentActive 
-                          ? 'bg-sky-950/20 border-sky-400/40 ring-1 ring-sky-400/30' 
-                          : 'bg-[#151923] border-[#222A3A] hover:border-[#2C374B]'
+                          ? 'bg-sky-50 dark:bg-sky-950/20 border-sky-400/40 ring-1 ring-sky-400/30' 
+                          : 'bg-[#EDF1F5] dark:bg-[#151923] border-slate-300 dark:border-[#222A3A] hover:border-slate-400 dark:hover:border-[#2C374B]'
                       }`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
@@ -512,7 +512,7 @@ export const CustomPadModal: React.FC<CustomPadModalProps> = ({
                           className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors cursor-pointer shrink-0 ${
                             isPreviewing
                               ? 'bg-sky-400 text-black shadow-xs'
-                              : 'bg-[#1B212E] hover:bg-[#252E40] text-gray-300 border border-[#2B3547]'
+                              : 'bg-[#EDF1F5] dark:bg-[#1B212E] hover:bg-slate-200 dark:hover:bg-[#252E40] text-slate-700 dark:text-gray-300 border border-slate-300 dark:border-[#2B3547]'
                           }`}
                           title={isPreviewing ? "Arrêter l'écoute" : "Pré-écouter"}
                         >
@@ -521,15 +521,15 @@ export const CustomPadModal: React.FC<CustomPadModalProps> = ({
 
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className="font-bold text-xs text-white truncate">{pad.name}</span>
+                            <span className="font-bold text-xs text-slate-900 dark:text-white truncate">{pad.name}</span>
                             {isCurrentActive && (
-                              <span className="text-[9px] font-bold text-sky-300 bg-sky-950/60 border border-sky-400/40 px-1.5 py-0.2 rounded">
+                              <span className="text-[9px] font-bold text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/60 border border-sky-400/40 px-1.5 py-0.2 rounded">
                                 Actif
                               </span>
                             )}
                           </div>
-                          <div className="text-[10px] text-gray-400 flex items-center gap-2 mt-0.5">
-                            <span>Base : <strong className="text-sky-300">{pad.rootKey}</strong></span>
+                          <div className="text-[10px] text-slate-600 dark:text-gray-400 flex items-center gap-2 mt-0.5">
+                            <span>Base : <strong className="text-sky-700 dark:text-sky-300">{pad.rootKey}</strong></span>
                             <span>•</span>
                             <span>{pad.fileSize ? `${(pad.fileSize / (1024 * 1024)).toFixed(1)} Mo` : 'MP3 Cloud'}</span>
                           </div>
@@ -544,7 +544,7 @@ export const CustomPadModal: React.FC<CustomPadModalProps> = ({
                           className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                             isCurrentActive
                               ? 'bg-sky-400 text-black shadow-sky-400/20'
-                              : 'bg-[#1E2535] hover:bg-[#293247] text-gray-200 border border-[#2F3A4E]'
+                              : 'bg-[#EDF1F5] dark:bg-[#1E2535] hover:bg-slate-200 dark:hover:bg-[#293247] text-slate-800 dark:text-gray-200 border border-slate-300 dark:border-[#2F3A4E]'
                           }`}
                         >
                           {isCurrentActive ? 'Sélectionné' : 'Activer'}
@@ -563,7 +563,7 @@ export const CustomPadModal: React.FC<CustomPadModalProps> = ({
                                 showNotification(`Pad "${pad.name}" supprimé`, 'info');
                               }
                             }}
-                            className="w-8 h-8 rounded-lg bg-[#1B212E] hover:bg-rose-950/40 text-gray-400 hover:text-rose-400 border border-[#283143] flex items-center justify-center transition-colors cursor-pointer"
+                            className="w-8 h-8 rounded-lg bg-[#EDF1F5] dark:bg-[#1B212E] hover:bg-rose-100 dark:hover:bg-rose-950/40 text-slate-600 dark:text-gray-400 hover:text-rose-800 dark:hover:text-rose-400 border border-slate-300 dark:border-[#283143] flex items-center justify-center transition-colors cursor-pointer"
                             title="Supprimer ce pad"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -578,9 +578,9 @@ export const CustomPadModal: React.FC<CustomPadModalProps> = ({
           </div>
 
           {/* Section 3: Presets de Synthèse Intégrés */}
-          <div className="pt-2 border-t border-[#1C2230]">
-            <div className="text-[11px] font-semibold text-gray-400 mb-2 flex items-center gap-1.5">
-              <Layers className="w-3.5 h-3.5 text-gray-400" />
+          <div className="pt-2 border-t border-slate-200 dark:border-[#1C2230]">
+            <div className="text-[11px] font-semibold text-slate-600 dark:text-gray-400 mb-2 flex items-center gap-1.5">
+              <Layers className="w-3.5 h-3.5 text-slate-600 dark:text-gray-400" />
               <span>Synthétiseurs intégrés permanents ({PAD_PRESETS.length}) :</span>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
@@ -596,8 +596,8 @@ export const CustomPadModal: React.FC<CustomPadModalProps> = ({
                     }}
                     className={`text-left p-2 rounded-lg text-xs transition-colors cursor-pointer border ${
                       isPresetActive
-                        ? 'bg-sky-500/15 border-sky-400/40 text-sky-300 font-semibold'
-                        : 'bg-[#13161F] hover:bg-[#1A1F2B] border-[#202735] text-gray-400 hover:text-gray-200'
+                        ? 'bg-sky-500/15 border-sky-400/40 text-sky-700 dark:text-sky-300 font-semibold'
+                        : 'bg-slate-50 dark:bg-[#13161F] hover:bg-slate-200/70 dark:hover:bg-[#1A1F2B] border-slate-300 dark:border-[#202735] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200'
                     }`}
                   >
                     <div className="truncate font-medium">{p.name}</div>
@@ -611,12 +611,12 @@ export const CustomPadModal: React.FC<CustomPadModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-3 border-t border-[#1E2536] bg-[#141822] flex items-center justify-between text-xs text-gray-400">
+        <div className="px-5 py-3 border-t border-slate-300 dark:border-[#1E2536] bg-slate-50 dark:bg-[#141822] flex items-center justify-between text-xs text-slate-600 dark:text-gray-400">
           <span>{customPads.length} pad(s) personnalisés</span>
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-1.5 bg-[#1C2230] hover:bg-[#252E40] text-white rounded-lg transition-colors cursor-pointer font-medium"
+            className="px-4 py-1.5 bg-[#EDF1F5] dark:bg-[#1C2230] hover:bg-slate-200 dark:hover:bg-[#252E40] text-slate-900 dark:text-white rounded-lg transition-colors cursor-pointer font-medium"
           >
             Fermer
           </button>

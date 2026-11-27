@@ -59,7 +59,7 @@ export const SVG_AVATAR_COLORS: SvgAvatarColorMeta[] = [
     id: 'blue',
     label: 'Bleu',
     bgClass: 'bg-blue-600/25',
-    textClass: 'text-blue-300',
+    textClass: 'text-blue-700 dark:text-blue-300',
     borderClass: 'border-blue-500/45',
     swatchClass: 'bg-blue-500'
   },
@@ -67,7 +67,7 @@ export const SVG_AVATAR_COLORS: SvgAvatarColorMeta[] = [
     id: 'indigo',
     label: 'Indigo',
     bgClass: 'bg-indigo-600/25',
-    textClass: 'text-indigo-300',
+    textClass: 'text-indigo-700 dark:text-indigo-300',
     borderClass: 'border-indigo-500/45',
     swatchClass: 'bg-indigo-500'
   },
@@ -75,7 +75,7 @@ export const SVG_AVATAR_COLORS: SvgAvatarColorMeta[] = [
     id: 'purple',
     label: 'Violet',
     bgClass: 'bg-purple-600/25',
-    textClass: 'text-purple-300',
+    textClass: 'text-purple-700 dark:text-purple-300',
     borderClass: 'border-purple-500/45',
     swatchClass: 'bg-purple-500'
   },
@@ -83,7 +83,7 @@ export const SVG_AVATAR_COLORS: SvgAvatarColorMeta[] = [
     id: 'emerald',
     label: 'Émeraude',
     bgClass: 'bg-emerald-600/25',
-    textClass: 'text-emerald-300',
+    textClass: 'text-emerald-700 dark:text-emerald-300',
     borderClass: 'border-emerald-500/45',
     swatchClass: 'bg-emerald-500'
   },
@@ -91,7 +91,7 @@ export const SVG_AVATAR_COLORS: SvgAvatarColorMeta[] = [
     id: 'cyan',
     label: 'Cyan',
     bgClass: 'bg-cyan-600/25',
-    textClass: 'text-cyan-300',
+    textClass: 'text-cyan-700 dark:text-cyan-300',
     borderClass: 'border-cyan-500/45',
     swatchClass: 'bg-cyan-500'
   },
@@ -99,7 +99,7 @@ export const SVG_AVATAR_COLORS: SvgAvatarColorMeta[] = [
     id: 'amber',
     label: 'Or',
     bgClass: 'bg-amber-500/25',
-    textClass: 'text-amber-300',
+    textClass: 'text-amber-700 dark:text-amber-300',
     borderClass: 'border-amber-400/45',
     swatchClass: 'bg-amber-400'
   },
@@ -107,16 +107,16 @@ export const SVG_AVATAR_COLORS: SvgAvatarColorMeta[] = [
     id: 'rose',
     label: 'Rose',
     bgClass: 'bg-rose-600/25',
-    textClass: 'text-rose-300',
+    textClass: 'text-rose-700 dark:text-rose-300',
     borderClass: 'border-rose-500/45',
     swatchClass: 'bg-rose-500'
   },
   {
     id: 'slate',
     label: 'Ardoise',
-    bgClass: 'bg-[#22222B]',
-    textClass: 'text-gray-200',
-    borderClass: 'border-[#3A3A48]',
+    bgClass: 'bg-[#EDF1F5] dark:bg-[#22222B]',
+    textClass: 'text-slate-800 dark:text-gray-200',
+    borderClass: 'border-slate-300 dark:border-[#3A3A48]',
     swatchClass: 'bg-slate-400'
   }
 ];
@@ -300,7 +300,7 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
   displayName,
   sizeClass = 'w-7 h-7',
   iconClass = 'w-4 h-4',
-  fallbackClassName = 'bg-[#1C1C1E] text-white border border-[#333]'
+  fallbackClassName = 'bg-[#EDF1F5] dark:bg-[#1C1C1E] text-slate-900 dark:text-white border border-slate-300 dark:border-[#333]'
 }) => {
   const parsed = parseSvgAvatar(photoURL);
 

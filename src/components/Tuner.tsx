@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
+import { MODAL_BACKDROP_MOTION, SHEET_PANEL_MOTION } from '../utils/motionPresets';
 import { 
   Gauge, 
   Mic, 
@@ -627,36 +629,44 @@ export const Tuner: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isTunerOpen, setIsTunerOpen]);
 
-  if (!isTunerOpen) return null;
-
   return (
-    <div 
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs select-none animate-in fade-in duration-200"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          setIsTunerOpen(false);
-        }
-      }}
-    >
-      <div 
-        id="tuner-main-card"
-        className="w-full sm:max-w-lg bg-[#141416] border border-[#2B2B30] rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden text-[#E0E0E0] animate-in slide-in-from-bottom-6 sm:fade-in duration-200 max-h-[92vh] sm:max-h-[88vh]"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Accordeur"
-      >
+    <AnimatePresence>
+      {isTunerOpen && (
+        <motion.div
+          initial={MODAL_BACKDROP_MOTION.initial}
+          animate={MODAL_BACKDROP_MOTION.animate}
+          exit={MODAL_BACKDROP_MOTION.exit}
+          transition={MODAL_BACKDROP_MOTION.transition}
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs select-none"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setIsTunerOpen(false);
+            }
+          }}
+        >
+          <motion.div
+            initial={SHEET_PANEL_MOTION.initial}
+            animate={SHEET_PANEL_MOTION.animate}
+            exit={SHEET_PANEL_MOTION.exit}
+            transition={SHEET_PANEL_MOTION.transition}
+            id="tuner-main-card"
+            className="w-full sm:max-w-lg bg-slate-50 dark:bg-[#141416] border border-slate-300 dark:border-[#2B2B30] rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden text-slate-900 dark:text-[#E0E0E0] max-h-[92vh] sm:max-h-[88vh]"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Accordeur"
+          >
         {/* Header Bar */}
-        <div className="px-4 py-2.5 bg-[#18181B] border-b border-[#26262B] flex items-center justify-between gap-2 shrink-0">
+        <div className="px-4 py-2.5 bg-slate-50 dark:bg-[#18181B] border-b border-slate-200 dark:border-[#26262B] flex items-center justify-between gap-2 shrink-0">
           <div className="flex items-center gap-2">
-            <div className={`p-1.5 rounded-md ${isListening ? 'bg-blue-600/20 text-blue-400' : 'bg-[#222] text-gray-400'}`}>
+            <div className={`p-1.5 rounded-md ${isListening ? 'bg-blue-600/20 text-blue-600 dark:text-blue-400' : 'bg-[#EDF1F5] dark:bg-[#222] text-slate-600 dark:text-gray-400'}`}>
               <Gauge className="w-4 h-4" />
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-sm font-bold text-white tracking-wide">Accordeur</span>
-              <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-[#222226] text-blue-300 border border-[#333]">
+              <span className="text-sm font-bold text-slate-900 dark:text-white tracking-wide">Accordeur</span>
+              <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-[#EDF1F5] dark:bg-[#222226] text-blue-700 dark:text-blue-300 border border-slate-300 dark:border-[#333]">
                 {currentInstrument.name}
               </span>
-              <span className="hidden sm:inline-block text-[10px] font-mono text-gray-400 bg-[#16161A] px-1.5 py-0.5 rounded border border-[#24242C]">
+              <span className="hidden sm:inline-block text-[10px] font-mono text-slate-600 dark:text-gray-400 bg-slate-50 dark:bg-[#16161A] px-1.5 py-0.5 rounded border border-slate-200 dark:border-[#24242C]">
                 440 Hz
               </span>
             </div>
@@ -666,7 +676,7 @@ export const Tuner: React.FC = () => {
             <button
               type="button"
               onClick={() => setIsTunerOpen(false)}
-              className="p-1.5 rounded-md bg-[#1F1F24] hover:bg-rose-900/30 text-gray-400 hover:text-rose-300 border border-[#333] hover:border-rose-500/40 transition-colors cursor-pointer"
+              className="p-1.5 rounded-md bg-[#EDF1F5] dark:bg-[#1F1F24] hover:bg-rose-100 dark:hover:bg-rose-900/30 text-slate-600 dark:text-gray-400 hover:text-rose-800 dark:hover:text-rose-300 border border-slate-300 dark:border-[#333] hover:border-rose-500/40 transition-colors cursor-pointer"
               title="Fermer l'accordeur"
             >
               <X className="w-4 h-4" />
@@ -677,29 +687,29 @@ export const Tuner: React.FC = () => {
         {/* Scrollable Tuner Body */}
         <div className="overflow-y-auto p-4 sm:p-5 space-y-3.5 custom-scrollbar">
           {/* Top Control Bar */}
-          <div className="flex items-center justify-between gap-2 pb-3 border-b border-[#1E1E24]">
+          <div className="flex items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-[#1E1E24]">
             {/* Instrument Selector */}
             <div className="flex items-center gap-2 min-w-0">
               <div className="relative">
                 <select
                   value={selectedInstrumentId}
                   onChange={(e) => setSelectedInstrumentId(e.target.value)}
-                  className="appearance-none bg-[#18181D] border border-[#2A2A32] hover:border-[#383844] text-white text-xs font-semibold rounded-lg pl-2.5 pr-7 py-1.5 focus:outline-none focus:border-blue-500 cursor-pointer transition-colors"
+                  className="appearance-none bg-slate-50 dark:bg-[#18181D] border border-slate-300 dark:border-[#2A2A32] hover:border-slate-400 dark:hover:border-[#383844] text-slate-900 dark:text-white text-xs font-semibold rounded-lg pl-2.5 pr-7 py-1.5 focus:outline-none focus:border-blue-500 cursor-pointer transition-colors"
                 >
                   {TUNER_INSTRUMENTS.map((inst) => (
-                    <option key={inst.id} value={inst.id} className="bg-[#141417]">
+                    <option key={inst.id} value={inst.id} className="bg-slate-50 dark:bg-[#141417]">
                       {inst.name}
                     </option>
                   ))}
                 </select>
-                <ChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <ChevronDown className="w-3.5 h-3.5 text-slate-600 dark:text-gray-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
 
               {selectedStringId && (
                 <button
                   type="button"
                   onClick={() => setSelectedStringId(null)}
-                  className="px-2 py-1 rounded-md bg-[#1C1C22] hover:bg-[#25252D] text-gray-300 hover:text-white border border-[#2E2E38] text-[11px] font-medium transition-colors cursor-pointer"
+                  className="px-2 py-1 rounded-md bg-[#EDF1F5] dark:bg-[#1C1C22] hover:bg-slate-200 dark:hover:bg-[#25252D] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-[#2E2E38] text-[11px] font-medium transition-colors cursor-pointer"
                   title="Détection automatique"
                 >
                   Auto
@@ -744,25 +754,25 @@ export const Tuner: React.FC = () => {
         {/* Central Display: Compact and Minimalist */}
         {errorDetails ? (
           <div className="py-2">
-            <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/25 text-rose-200">
+            <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/25 text-rose-700 dark:text-rose-200">
               <div className="flex items-start gap-2.5 mb-2.5">
-                <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-xs font-bold text-white tracking-tight">
+                  <h3 className="text-xs font-bold text-slate-900 dark:text-white tracking-tight">
                     {errorDetails.title}
                   </h3>
-                  <p className="text-[11px] text-rose-200/90 mt-0.5 leading-normal">
+                  <p className="text-[11px] text-rose-700 dark:text-rose-200/90 mt-0.5 leading-normal">
                     {errorDetails.description}
                   </p>
                 </div>
               </div>
 
               {/* Steps (compact) */}
-              <div className="bg-[#0E0E12]/80 rounded-lg p-2.5 border border-rose-500/15 mb-3">
-                <ol className="space-y-1.5 text-[11px] text-gray-300">
+              <div className="bg-white/80 dark:bg-[#0E0E12]/80 rounded-lg p-2.5 border border-rose-500/15 mb-3">
+                <ol className="space-y-1.5 text-[11px] text-slate-700 dark:text-gray-300">
                   {errorDetails.steps.map((step, idx) => (
                     <li key={idx} className="flex items-start gap-2">
-                      <span className="w-4 h-4 rounded-full bg-rose-500/20 text-rose-400 font-bold text-[10px] flex items-center justify-center shrink-0 border border-rose-500/30">
+                      <span className="w-4 h-4 rounded-full bg-rose-500/20 text-rose-600 dark:text-rose-400 font-bold text-[10px] flex items-center justify-center shrink-0 border border-rose-500/30">
                         {idx + 1}
                       </span>
                       <span className="leading-snug">{step}</span>
@@ -787,9 +797,9 @@ export const Tuner: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => window.open(window.location.href, '_blank')}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1C1C24] hover:bg-[#252530] text-white border border-[#30303E] text-xs font-medium transition-all cursor-pointer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#EDF1F5] dark:bg-[#1C1C24] hover:bg-slate-200 dark:hover:bg-[#252530] text-slate-900 dark:text-white border border-slate-300 dark:border-[#30303E] text-xs font-medium transition-all cursor-pointer"
                   >
-                    <ExternalLink className="w-3 h-3 text-blue-400" />
+                    <ExternalLink className="w-3 h-3 text-blue-600 dark:text-blue-400" />
                     <span>Plein écran</span>
                   </button>
                 )}
@@ -797,7 +807,7 @@ export const Tuner: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setErrorDetails(null)}
-                  className="px-2.5 py-1.5 text-gray-400 hover:text-white text-xs transition-colors cursor-pointer"
+                  className="px-2.5 py-1.5 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white text-xs transition-colors cursor-pointer"
                 >
                   Ignorer
                 </button>
@@ -813,24 +823,24 @@ export const Tuner: React.FC = () => {
                   <div className="flex items-baseline justify-center gap-1.5">
                     <span className={`text-5xl sm:text-6xl font-extrabold tracking-tight font-mono transition-colors ${
                       tuningAnalysis.isInTune
-                        ? 'text-emerald-400 drop-shadow-[0_0_12px_rgba(52,211,153,0.3)]'
+                        ? 'text-emerald-600 dark:text-emerald-400 drop-shadow-[0_0_12px_rgba(52,211,153,0.3)]'
                         : tuningAnalysis.isFlat
-                        ? 'text-cyan-400'
-                        : 'text-amber-400'
+                        ? 'text-cyan-700 dark:text-cyan-400'
+                        : 'text-amber-600 dark:text-amber-400'
                     }`}>
                       {tuningAnalysis.noteName}
                     </span>
-                    <span className="text-2xl font-bold text-gray-400 font-mono">
+                    <span className="text-2xl font-bold text-slate-600 dark:text-gray-400 font-mono">
                       {tuningAnalysis.octave}
                     </span>
                   </div>
 
                   <div className="mt-0.5 flex items-center gap-2 text-xs">
-                    <span className="font-semibold text-gray-200">
+                    <span className="font-semibold text-slate-800 dark:text-gray-200">
                       {tuningAnalysis.frenchName}
                     </span>
-                    <span className="text-gray-600">•</span>
-                    <span className="font-mono text-gray-400">
+                    <span className="text-slate-500 dark:text-gray-600">•</span>
+                    <span className="font-mono text-slate-600 dark:text-gray-400">
                       {tuningAnalysis.frequency.toFixed(1)} Hz
                     </span>
                   </div>
@@ -838,7 +848,7 @@ export const Tuner: React.FC = () => {
               ) : (
                 <div className="flex flex-col items-center justify-center text-gray-500 py-3">
                   <div className="w-8 h-8 rounded-full border-2 border-dashed border-blue-500/40 animate-spin mb-2" />
-                  <p className="text-xs font-medium text-gray-300">
+                  <p className="text-xs font-medium text-slate-700 dark:text-gray-300">
                     Jouez une note...
                   </p>
                   <p className="text-[10px] text-gray-500 mt-0.5">
@@ -853,13 +863,13 @@ export const Tuner: React.FC = () => {
               <div className="flex justify-between text-[10px] font-mono text-gray-500 px-1 mb-1">
                 <span>-50</span>
                 <span>-25</span>
-                <span className="text-gray-300 font-bold">0</span>
+                <span className="text-slate-700 dark:text-gray-300 font-bold">0</span>
                 <span>+25</span>
                 <span>+50</span>
               </div>
 
               {/* Gauge Track */}
-              <div className="relative h-2.5 bg-[#18181E] rounded-full border border-[#272730] overflow-hidden">
+              <div className="relative h-2.5 bg-slate-50 dark:bg-[#18181E] rounded-full border border-slate-300 dark:border-[#272730] overflow-hidden">
                 {/* Center target mark */}
                 <div className="absolute top-0 bottom-0 left-[49%] right-[49%] bg-emerald-500/40 z-0" />
 
@@ -885,21 +895,21 @@ export const Tuner: React.FC = () => {
                 <div>
                   {tuningAnalysis ? (
                     tuningAnalysis.isInTune ? (
-                      <span className="inline-flex items-center gap-1 text-emerald-400 font-bold text-[11px] bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                      <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-bold text-[11px] bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
                         <Check className="w-3 h-3" />
                         <span>Accordé</span>
                       </span>
                     ) : tuningAnalysis.isFlat ? (
-                      <span className="text-cyan-400 font-semibold text-[11px] bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">
+                      <span className="text-cyan-700 dark:text-cyan-400 font-semibold text-[11px] bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">
                         Trop bas : tendez
                       </span>
                     ) : (
-                      <span className="text-amber-400 font-semibold text-[11px] bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                      <span className="text-amber-600 dark:text-amber-400 font-semibold text-[11px] bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
                         Trop haut : détendez
                       </span>
                     )
                   ) : (
-                    <span className="text-gray-400 text-[11px] flex items-center gap-1.5">
+                    <span className="text-slate-600 dark:text-gray-400 text-[11px] flex items-center gap-1.5">
                       <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
                       <span>Écoute en cours</span>
                     </span>
@@ -907,7 +917,7 @@ export const Tuner: React.FC = () => {
                 </div>
 
                 {tuningAnalysis && (
-                  <span className="font-mono text-[11px] font-bold text-gray-300 bg-[#17171D] px-1.5 py-0.5 rounded border border-[#292934]">
+                  <span className="font-mono text-[11px] font-bold text-slate-700 dark:text-gray-300 bg-slate-50 dark:bg-[#17171D] px-1.5 py-0.5 rounded border border-slate-300 dark:border-[#292934]">
                     {tuningAnalysis.rawCents > 0 ? `+${tuningAnalysis.rawCents}` : tuningAnalysis.rawCents} c
                   </span>
                 )}
@@ -917,14 +927,14 @@ export const Tuner: React.FC = () => {
         ) : (
           /* Minimalist Idle State */
           <div className="py-5 flex flex-col items-center justify-center text-center">
-            <div className="w-12 h-12 rounded-xl bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-blue-400 mb-2.5">
+            <div className="w-12 h-12 rounded-xl bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400 mb-2.5">
               <Mic className="w-5 h-5" />
             </div>
 
-            <p className="text-xs font-semibold text-gray-200">
+            <p className="text-xs font-semibold text-slate-800 dark:text-gray-200">
               Prêt pour l'accordage
             </p>
-            <p className="text-[11px] text-gray-400 mt-0.5 max-w-xs leading-normal">
+            <p className="text-[11px] text-slate-600 dark:text-gray-400 mt-0.5 max-w-xs leading-normal">
               Activez le micro ou sélectionnez une corde ci-dessous pour jouer sa note
             </p>
 
@@ -952,9 +962,9 @@ export const Tuner: React.FC = () => {
         )}
 
         {/* Compact Strings Row directly integrated into the card */}
-        <div className="mt-3 pt-3 border-t border-[#1E1E24]">
+        <div className="mt-3 pt-3 border-t border-slate-200 dark:border-[#1E1E24]">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] font-semibold text-gray-400">
+            <span className="text-[11px] font-semibold text-slate-600 dark:text-gray-400">
               Cordes de {currentInstrument.name}
             </span>
 
@@ -962,7 +972,7 @@ export const Tuner: React.FC = () => {
               <button
                 type="button"
                 onClick={stopReferenceTone}
-                className="flex items-center gap-1 px-2 py-0.5 rounded bg-rose-600/20 text-rose-400 border border-rose-500/30 text-[10px] font-semibold hover:bg-rose-600/30 transition-colors"
+                className="flex items-center gap-1 px-2 py-0.5 rounded bg-rose-600/20 text-rose-600 dark:text-rose-400 border border-rose-500/30 text-[10px] font-semibold hover:bg-rose-600/30 transition-colors"
               >
                 <VolumeX className="w-3 h-3" />
                 <span>Arrêter le son</span>
@@ -985,13 +995,13 @@ export const Tuner: React.FC = () => {
                   }}
                   className={`p-2 rounded-lg border text-center cursor-pointer transition-all ${
                     isSelected
-                      ? 'bg-blue-600/20 border-blue-500 text-white shadow-sm ring-1 ring-blue-500/30'
+                      ? 'bg-blue-600/20 border-blue-500 text-slate-900 dark:text-white shadow-sm ring-1 ring-blue-500/30'
                       : isMatched
-                      ? 'bg-[#18181E] border-blue-500/40 text-gray-200'
-                      : 'bg-[#141417] border-[#222228] hover:border-[#32323C] text-gray-300'
+                      ? 'bg-slate-50 dark:bg-[#18181E] border-blue-500/40 text-slate-800 dark:text-gray-200'
+                      : 'bg-slate-50 dark:bg-[#141417] border-slate-200 dark:border-[#222228] hover:border-slate-400 dark:hover:border-[#32323C] text-slate-700 dark:text-gray-300'
                   }`}
                 >
-                  <div className="flex items-center justify-between text-[10px] text-gray-400 mb-0.5">
+                  <div className="flex items-center justify-between text-[10px] text-slate-600 dark:text-gray-400 mb-0.5">
                     <span>{str.stringNumber}</span>
                     <button
                       type="button"
@@ -1002,7 +1012,7 @@ export const Tuner: React.FC = () => {
                       className={`p-0.5 rounded transition-colors ${
                         isPlaying
                           ? 'bg-emerald-600 text-white animate-pulse'
-                          : 'hover:bg-blue-600 text-gray-400 hover:text-white'
+                          : 'hover:bg-blue-600 text-slate-600 dark:text-gray-400 hover:text-white'
                       }`}
                       title="Jouer la note"
                     >
@@ -1014,10 +1024,10 @@ export const Tuner: React.FC = () => {
                     </button>
                   </div>
 
-                  <div className="font-mono font-bold text-sm text-white">
+                  <div className="font-mono font-bold text-sm text-slate-900 dark:text-white">
                     {str.noteName}{str.octave}
                   </div>
-                  <div className="text-[10px] text-blue-400 font-medium leading-none mt-0.5">
+                  <div className="text-[10px] text-blue-600 dark:text-blue-400 font-medium leading-none mt-0.5">
                     {str.frenchName}
                   </div>
                 </div>
@@ -1026,8 +1036,10 @@ export const Tuner: React.FC = () => {
           </div>
         </div>
       </div>
-    </div>
-  </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 };
 

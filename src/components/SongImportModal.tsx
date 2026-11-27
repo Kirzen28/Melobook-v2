@@ -41,12 +41,12 @@ const SOURCE_OPTIONS: Array<{
   color: string;
   icon: any;
 }> = [
-  { id: 'all', label: 'Tous les sites', badge: 'Multi-sources', color: 'bg-blue-600/20 text-blue-300 border-blue-500/30', icon: Globe },
-  { id: 'Shir.fr', label: 'Shir.fr', badge: 'Louange FR', color: 'bg-emerald-600/20 text-emerald-300 border-emerald-500/30', icon: BookOpen },
-  { id: 'WorshipTogether', label: 'WorshipTogether', badge: 'Worship EN', color: 'bg-purple-600/20 text-purple-300 border-purple-500/30', icon: Music },
-  { id: 'JEM / Recueils', label: 'JEM / Recueils', badge: 'Cantiques', color: 'bg-amber-600/20 text-amber-300 border-amber-500/30', icon: BookOpen },
-  { id: 'Ultimate Guitar', label: 'Ultimate Guitar', badge: 'Tablatures', color: 'bg-rose-600/20 text-rose-300 border-rose-500/30', icon: Music },
-  { id: 'LaCuerda', label: 'LaCuerda', badge: 'Alabanza ES', color: 'bg-orange-600/20 text-orange-300 border-orange-500/30', icon: Globe },
+  { id: 'all', label: 'Tous les sites', badge: 'Multi-sources', color: 'bg-blue-600/20 text-blue-700 dark:text-blue-300 border-blue-500/30', icon: Globe },
+  { id: 'Shir.fr', label: 'Shir.fr', badge: 'Louange FR', color: 'bg-emerald-600/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/30', icon: BookOpen },
+  { id: 'WorshipTogether', label: 'WorshipTogether', badge: 'Worship EN', color: 'bg-purple-600/20 text-purple-700 dark:text-purple-300 border-purple-500/30', icon: Music },
+  { id: 'JEM / Recueils', label: 'JEM / Recueils', badge: 'Cantiques', color: 'bg-amber-600/20 text-amber-700 dark:text-amber-300 border-amber-500/30', icon: BookOpen },
+  { id: 'Ultimate Guitar', label: 'Ultimate Guitar', badge: 'Tablatures', color: 'bg-rose-600/20 text-rose-700 dark:text-rose-300 border-rose-500/30', icon: Music },
+  { id: 'LaCuerda', label: 'LaCuerda', badge: 'Alabanza ES', color: 'bg-orange-600/20 text-orange-700 dark:text-orange-300 border-orange-500/30', icon: Globe },
   { id: 'Cifra Club', label: 'Cifra Club', badge: 'Cifras PT/ES/EN', color: 'bg-lime-600/20 text-lime-300 border-lime-500/30', icon: Music },
 ];
 
@@ -536,37 +536,37 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-150">
-      <div className="bg-[#111112] border border-[#2A2A2D] rounded-xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
+      <div className="bg-white dark:bg-[#111112] border border-slate-300 dark:border-[#2A2A2D] rounded-xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
         
         {/* Header Bar */}
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-[#222224] bg-[#141416]">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-slate-200 dark:border-[#222224] bg-slate-50 dark:bg-[#141416]">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-lg bg-blue-600/20 text-blue-400 border border-blue-500/30">
+            <div className="p-2 rounded-lg bg-blue-600/20 text-blue-600 dark:text-blue-400 border border-blue-500/30">
               <FileUp className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white">
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">
                 Importer des Chants
               </h2>
             </div>
           </div>
           <button 
             onClick={onClose}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#1C1C1E] transition-colors"
+            className="p-1.5 rounded-lg text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#1C1C1E] transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Main Mode Tabs Switcher */}
-        <div className="flex items-center justify-center border-b border-[#222224] bg-[#0A0A0B] px-3 sm:px-6 overflow-x-auto scrollbar-none">
+        <div className="flex items-center justify-center border-b border-slate-200 dark:border-[#222224] bg-[#F4F6F9] dark:bg-[#0A0A0B] px-3 sm:px-6 overflow-x-auto scrollbar-none">
           <button
             id="tab-search-online"
             onClick={() => setActiveTab('search')}
             className={`flex items-center justify-center gap-2 py-3 px-3 sm:px-5 text-xs sm:text-sm font-semibold border-b-2 transition-all whitespace-nowrap shrink-0 ${
               activeTab === 'search'
-                ? 'border-blue-500 text-blue-400 bg-blue-950/10'
-                : 'border-transparent text-gray-400 hover:text-gray-200'
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/10'
+                : 'border-transparent text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200'
             }`}
           >
             <Search className="w-4 h-4" />
@@ -578,8 +578,8 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
             onClick={() => setActiveTab('file')}
             className={`flex items-center justify-center gap-2 py-3 px-3 sm:px-5 text-xs sm:text-sm font-semibold border-b-2 transition-all whitespace-nowrap shrink-0 ${
               activeTab === 'file'
-                ? 'border-blue-500 text-blue-400 bg-blue-950/10'
-                : 'border-transparent text-gray-400 hover:text-gray-200'
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/10'
+                : 'border-transparent text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200'
             }`}
           >
             <Upload className="w-4 h-4" />
@@ -591,8 +591,8 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
             onClick={() => setActiveTab('chordpro')}
             className={`flex items-center justify-center gap-2 py-3 px-3 sm:px-5 text-xs sm:text-sm font-semibold border-b-2 transition-all whitespace-nowrap shrink-0 ${
               activeTab === 'chordpro'
-                ? 'border-blue-500 text-blue-400 bg-blue-950/10'
-                : 'border-transparent text-gray-400 hover:text-gray-200'
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/10'
+                : 'border-transparent text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200'
             }`}
           >
             <FileCode className="w-4 h-4" />
@@ -616,9 +616,9 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
                   }}
                   className="flex gap-2"
                 >
-                  <div className="relative flex-1 flex items-stretch bg-[#18181A] border border-[#333] hover:border-[#444] focus-within:border-blue-500 rounded-lg shadow-inner transition-colors">
+                  <div className="relative flex-1 flex items-stretch bg-slate-50 dark:bg-[#18181A] border border-slate-300 dark:border-[#333] hover:border-slate-400 dark:hover:border-[#444] focus-within:border-blue-500 rounded-lg shadow-inner transition-colors">
                     {/* Source Sites Dropdown at the left */}
-                    <div className="relative flex items-center shrink-0 border-r border-[#2E2E33] bg-[#141416] rounded-l-lg hover:bg-[#1C1C20] transition-colors">
+                    <div className="relative flex items-center shrink-0 border-r border-slate-300 dark:border-[#2E2E33] bg-slate-50 dark:bg-[#141416] rounded-l-lg hover:bg-slate-200/70 dark:hover:bg-[#1C1C20] transition-colors">
                       <select
                         id="song-import-source-select"
                         value={selectedSource}
@@ -629,29 +629,29 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
                             handlePerformOnlineSearch(searchQuery.trim(), newSource);
                           }
                         }}
-                        className="appearance-none bg-transparent pl-3 pr-7 py-2.5 text-xs sm:text-sm font-medium text-gray-200 cursor-pointer focus:outline-none max-w-[130px] sm:max-w-[170px] truncate"
+                        className="appearance-none bg-transparent pl-3 pr-7 py-2.5 text-xs sm:text-sm font-medium text-slate-800 dark:text-gray-200 cursor-pointer focus:outline-none max-w-[130px] sm:max-w-[170px] truncate"
                         title="Sélectionner le site source"
                         aria-label="Sélectionner le site source"
                       >
                         {SOURCE_OPTIONS.map((src) => (
-                          <option key={src.id} value={src.id} className="bg-[#1C1C20] text-gray-200 py-1">
+                          <option key={src.id} value={src.id} className="bg-[#EDF1F5] dark:bg-[#1C1C20] text-slate-800 dark:text-gray-200 py-1">
                             {src.label}
                           </option>
                         ))}
                       </select>
-                      <ChevronDown className="w-3.5 h-3.5 text-gray-400 pointer-events-none absolute right-2 top-1/2 -translate-y-1/2" />
+                      <ChevronDown className="w-3.5 h-3.5 text-slate-600 dark:text-gray-400 pointer-events-none absolute right-2 top-1/2 -translate-y-1/2" />
                     </div>
 
                     {/* Search Input */}
                     <div className="relative flex-1 flex items-center">
-                      <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <Search className="w-4 h-4 text-slate-600 dark:text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                       <input
                         id="song-import-search-input"
                         type="text"
                         placeholder="Rechercher par titre, artiste, paroles..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full bg-transparent pl-9 pr-9 py-2.5 text-xs sm:text-sm text-white placeholder-gray-500 focus:outline-none"
+                        className="w-full bg-transparent pl-9 pr-9 py-2.5 text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none"
                         autoFocus
                       />
                       {searchQuery && (
@@ -662,7 +662,7 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
                             setOnlineResults([]);
                             setSearchError(null);
                           }}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
                           title="Effacer la recherche"
                         >
                           <X className="w-3.5 h-3.5" />
@@ -693,9 +693,9 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
 
               {/* Error warning if online search had an issue */}
               {searchError && (
-                <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center justify-between">
+                <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-xs flex items-center justify-between">
                   <span>{searchError}</span>
-                  <button onClick={() => setSearchError(null)} className="text-gray-400 hover:text-white ml-2">
+                  <button onClick={() => setSearchError(null)} className="text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white ml-2">
                     <X className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -704,22 +704,22 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
               {/* Results List */}
               <div className="space-y-2.5">
                 {!searchQuery.trim() && onlineResults.length === 0 ? (
-                  <div className="text-center py-12 bg-[#0A0A0B] border border-[#222224] rounded-xl p-6">
-                    <Search className="w-10 h-10 text-gray-600 mx-auto mb-3 opacity-60" />
-                    <h3 className="text-sm font-bold text-white mb-1">
+                  <div className="text-center py-12 bg-[#F4F6F9] dark:bg-[#0A0A0B] border border-slate-200 dark:border-[#222224] rounded-xl p-6">
+                    <Search className="w-10 h-10 text-slate-500 dark:text-gray-600 mx-auto mb-3 opacity-60" />
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-1">
                       Recherchez un chant parmi nos sources
                     </h3>
-                    <p className="text-xs text-gray-400 max-w-md mx-auto">
+                    <p className="text-xs text-slate-600 dark:text-gray-400 max-w-md mx-auto">
                       Saisissez un titre, un artiste ou des paroles dans la barre de recherche ci-dessus pour afficher des partitions.
                     </p>
                   </div>
                 ) : allResults.length === 0 ? (
-                  <div className="text-center py-12 bg-[#0A0A0B] border border-[#222224] rounded-xl p-6">
-                    <Search className="w-10 h-10 text-gray-600 mx-auto mb-3 opacity-60" />
-                    <h3 className="text-sm font-bold text-white mb-1">
+                  <div className="text-center py-12 bg-[#F4F6F9] dark:bg-[#0A0A0B] border border-slate-200 dark:border-[#222224] rounded-xl p-6">
+                    <Search className="w-10 h-10 text-slate-500 dark:text-gray-600 mx-auto mb-3 opacity-60" />
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-1">
                       Aucun résultat direct pour &quot;{searchQuery}&quot;
                     </h3>
-                    <p className="text-xs text-gray-400 max-w-md mx-auto mb-4">
+                    <p className="text-xs text-slate-600 dark:text-gray-400 max-w-md mx-auto mb-4">
                       Vérifiez l&apos;orthographe ou essayez avec un autre mot-clé ou une autre source.
                     </p>
                     <button
@@ -734,7 +734,7 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
                   </div>
                 ) : (
                   <>
-                    <div className="flex items-center justify-between text-xs text-gray-400 px-1">
+                    <div className="flex items-center justify-between text-xs text-slate-600 dark:text-gray-400 px-1">
                       <span>
                         Chants trouvés : {allResults.length}
                       </span>
@@ -752,34 +752,34 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
                       return (
                         <div
                           key={song.id}
-                          className="p-3.5 rounded-lg bg-[#141416] border border-[#222224] hover:border-[#38383C] transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 group shadow-sm"
+                          className="p-3.5 rounded-lg bg-slate-50 dark:bg-[#141416] border border-slate-200 dark:border-[#222224] hover:border-slate-400 dark:hover:border-[#38383C] transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 group shadow-sm"
                         >
                           {/* Song Info */}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap mb-1">
-                              <h4 className="text-sm font-bold text-white group-hover:text-blue-400 transition-colors truncate">
+                              <h4 className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-blue-800 dark:group-hover:text-blue-400 transition-colors truncate">
                                 {song.title}
                               </h4>
                               
                               {/* Source Badge */}
-                              <span className="text-[10px] font-semibold px-2 py-0.2 rounded-full bg-blue-600/20 text-blue-300 border border-blue-500/30">
+                              <span className="text-[10px] font-semibold px-2 py-0.2 rounded-full bg-blue-600/20 text-blue-700 dark:text-blue-300 border border-blue-500/30">
                                 {song.source}
                               </span>
 
                               {/* Key & BPM */}
                               {song.key && (
-                                <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-[#1C1C1E] text-blue-400 border border-[#333]">
+                                <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-[#EDF1F5] dark:bg-[#1C1C1E] text-blue-600 dark:text-blue-400 border border-slate-300 dark:border-[#333]">
                                   Tonalité : {song.key}
                                 </span>
                               )}
                               {song.tempo > 0 && (
-                                <span className="text-[10px] text-gray-400 bg-[#1C1C1E] px-1.5 py-0.2 rounded border border-[#2A2A2D]">
+                                <span className="text-[10px] text-slate-600 dark:text-gray-400 bg-[#EDF1F5] dark:bg-[#1C1C1E] px-1.5 py-0.2 rounded border border-slate-300 dark:border-[#2A2A2D]">
                                   {song.tempo} BPM
                                 </span>
                               )}
                             </div>
 
-                            <p className="text-xs text-gray-400 mb-1.5">
+                            <p className="text-xs text-slate-600 dark:text-gray-400 mb-1.5">
                               {song.artist || 'Auteur inconnu'}
                             </p>
 
@@ -794,7 +794,7 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
                             {song.tags && song.tags.length > 0 && (
                               <div className="flex flex-wrap gap-1 mt-2">
                                 {song.tags.map((t, idx) => (
-                                  <span key={idx} className="text-[9px] px-1.5 py-0.2 rounded bg-[#0A0A0B] text-gray-400 border border-[#222224]">
+                                  <span key={idx} className="text-[9px] px-1.5 py-0.2 rounded bg-[#F4F6F9] dark:bg-[#0A0A0B] text-slate-600 dark:text-gray-400 border border-slate-200 dark:border-[#222224]">
                                     #{t}
                                   </span>
                                 ))}
@@ -803,19 +803,19 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
                           </div>
 
                           {/* Action Buttons */}
-                          <div className="flex items-center gap-2 w-full sm:w-auto justify-end shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-[#222224]">
+                          <div className="flex items-center gap-2 w-full sm:w-auto justify-end shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-200 dark:border-[#222224]">
                             {/* Preview Button */}
                             <button
                               type="button"
                               onClick={() => handleOpenPreview(song)}
                               disabled={isLoadingDetails}
-                              className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 text-xs font-medium border border-[#333] transition-colors disabled:opacity-50"
+                              className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-slate-200 dark:hover:bg-[#2A2A2D] text-slate-700 dark:text-gray-300 text-xs font-medium border border-slate-300 dark:border-[#333] transition-colors disabled:opacity-50"
                               title="Aperçu des accords et paroles"
                             >
                               {isLoadingDetails ? (
-                                <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-400" />
+                                <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600 dark:text-blue-400" />
                               ) : (
-                                <Eye className="w-3.5 h-3.5 text-blue-400" />
+                                <Eye className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                               )}
                               <span>Aperçu</span>
                             </button>
@@ -825,10 +825,10 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
                               type="button"
                               onClick={() => handleImportAndEditSong(song)}
                               disabled={isImporting || isLoadingDetails}
-                              className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-[#1C1C1E] hover:bg-amber-500/15 text-gray-200 hover:text-amber-300 text-xs font-medium border border-[#333] hover:border-amber-500/50 transition-colors disabled:opacity-50 cursor-pointer group"
+                              className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-amber-500/15 text-slate-800 dark:text-gray-200 hover:text-amber-800 dark:hover:text-amber-300 text-xs font-medium border border-slate-300 dark:border-[#333] hover:border-amber-500/50 transition-colors disabled:opacity-50 cursor-pointer group"
                               title="Importer et ouvrir l'éditeur"
                             >
-                              <Edit3 className="w-3.5 h-3.5 text-amber-400 group-hover:scale-110 transition-transform" />
+                              <Edit3 className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 group-hover:scale-110 transition-transform" />
                               <span className="hidden sm:inline">Éditer</span>
                             </button>
 
@@ -839,7 +839,7 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
                               disabled={isImporting || isImported || isLoadingDetails}
                               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all shadow-sm ${
                                 isImported
-                                  ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/40'
+                                  ? 'bg-emerald-600/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40'
                                   : 'bg-blue-600 hover:bg-blue-500 text-white'
                               }`}
                             >
@@ -877,29 +877,29 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
             <div className="space-y-4">
               {/* Barre de progression d'importation en temps réel */}
               {importProgress && (
-                <div className="p-4 sm:p-5 rounded-2xl bg-[#141418] border border-[#2B2B32] shadow-xl space-y-3.5 animate-in fade-in zoom-in-95 duration-150">
+                <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 dark:bg-[#141418] border border-slate-300 dark:border-[#2B2B32] shadow-xl space-y-3.5 animate-in fade-in zoom-in-95 duration-150">
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
                         importProgress.current === importProgress.total 
-                          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
-                          : 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
+                          ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30' 
+                          : 'bg-blue-600/20 text-blue-600 dark:text-blue-400 border border-blue-500/30'
                       }`}>
                         {importProgress.current === importProgress.total ? (
-                          <Check className="w-4 h-4 text-emerald-400" />
+                          <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                         ) : (
-                          <Upload className="w-4 h-4 text-blue-400 animate-pulse" />
+                          <Upload className="w-4 h-4 text-blue-600 dark:text-blue-400 animate-pulse" />
                         )}
                       </div>
                       <div className="min-w-0">
-                        <p className="text-xs font-bold text-white flex items-center gap-1.5">
+                        <p className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                           <span>
                             {importProgress.current === importProgress.total 
                               ? 'Importation terminée avec succès !' 
                               : 'Importation des chants en cours...'}
                           </span>
                         </p>
-                        <p className="text-[11px] text-gray-400 truncate">
+                        <p className="text-[11px] text-slate-600 dark:text-gray-400 truncate">
                           {importProgress.current === importProgress.total
                             ? `${importProgress.total} chant${importProgress.total > 1 ? 's ont été ajoutés' : ' a été ajouté'} au répertoire`
                             : `Traitement de : ${importProgress.currentFileName}`}
@@ -910,8 +910,8 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
                     <div className="text-right shrink-0">
                       <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold font-mono border ${
                         importProgress.current === importProgress.total
-                          ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
-                          : 'bg-blue-600/15 border-blue-500/40 text-blue-300'
+                          ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-700 dark:text-emerald-300'
+                          : 'bg-blue-600/15 border-blue-500/40 text-blue-700 dark:text-blue-300'
                       }`}>
                         {importProgress.current} / {importProgress.total}
                       </span>
@@ -920,7 +920,7 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
 
                   {/* Jauge / Barre de progression visuelle */}
                   <div className="space-y-1.5">
-                    <div className="w-full h-3 rounded-full bg-[#1C1C22] border border-[#2E2E38] overflow-hidden p-0.5 relative">
+                    <div className="w-full h-3 rounded-full bg-[#EDF1F5] dark:bg-[#1C1C22] border border-slate-300 dark:border-[#2E2E38] overflow-hidden p-0.5 relative">
                       <div
                         className={`h-full rounded-full transition-all duration-300 ease-out shadow-sm ${
                           importProgress.current === importProgress.total
@@ -931,13 +931,13 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
                       />
                     </div>
 
-                    <div className="flex items-center justify-between text-[11px] text-gray-400 px-0.5">
+                    <div className="flex items-center justify-between text-[11px] text-slate-600 dark:text-gray-400 px-0.5">
                       <span className="font-medium">
                         {importProgress.current === importProgress.total
                           ? `Tous les ${importProgress.total} chants sont prêts !`
                           : `${importProgress.current} sur ${importProgress.total} chant${importProgress.total > 1 ? 's' : ''} importé${importProgress.current > 1 ? 's' : ''}`}
                       </span>
-                      <span className="font-mono font-bold text-gray-300">
+                      <span className="font-mono font-bold text-slate-700 dark:text-gray-300">
                         {Math.round((importProgress.current / importProgress.total) * 100)}%
                       </span>
                     </div>
@@ -967,10 +967,10 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
                 }}
                 className={`p-8 sm:p-12 border-2 border-dashed rounded-2xl text-center transition-all ${
                   importProgress?.isProcessing
-                    ? 'border-[#2A2A2E] bg-[#0A0A0B]/50 opacity-60 cursor-not-allowed'
+                    ? 'border-slate-300 dark:border-[#2A2A2E] bg-[#F4F6F9]/50 dark:bg-[#0A0A0B]/50 opacity-60 cursor-not-allowed'
                     : isDragging
                     ? 'border-blue-500 bg-blue-600/10 ring-2 ring-blue-500/30 cursor-pointer'
-                    : 'border-[#333] hover:border-blue-500/60 bg-[#0A0A0B] hover:bg-[#101013] cursor-pointer'
+                    : 'border-slate-300 dark:border-[#333] hover:border-blue-500/60 bg-[#F4F6F9] dark:bg-[#0A0A0B] hover:bg-slate-100 dark:hover:bg-[#101013] cursor-pointer'
                 }`}
               >
                 <input
@@ -982,13 +982,13 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
                   className="hidden"
                   disabled={importProgress?.isProcessing}
                 />
-                <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-[#1C1C20] border border-[#2E2E33] flex items-center justify-center text-blue-400">
+                <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-[#EDF1F5] dark:bg-[#1C1C20] border border-slate-300 dark:border-[#2E2E33] flex items-center justify-center text-blue-600 dark:text-blue-400">
                   <Upload className="w-8 h-8" />
                 </div>
-                <h3 className="text-base sm:text-lg font-bold text-white mb-1">
+                <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white mb-1">
                   Glissez-déposez vos fichiers ici
                 </h3>
-                <p className="text-xs text-gray-400 max-w-md mx-auto mb-5 leading-relaxed">
+                <p className="text-xs text-slate-600 dark:text-gray-400 max-w-md mx-auto mb-5 leading-relaxed">
                   Glissez directement vos fichiers ou cliquez pour sélectionner un ou plusieurs fichiers depuis votre ordinateur, tablette ou smartphone.
                 </p>
 
@@ -997,12 +997,12 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
                   <span>Choisir un ou plusieurs fichiers...</span>
                 </div>
 
-                <div className="mt-6 flex flex-wrap items-center justify-center gap-1.5 pt-4 border-t border-[#1C1C1F]">
+                <div className="mt-6 flex flex-wrap items-center justify-center gap-1.5 pt-4 border-t border-slate-200 dark:border-[#1C1C1F]">
                   <span className="text-[11px] text-gray-500 mr-1">Formats compatibles :</span>
                   {['.cho', '.pro', '.chopro', '.txt', '.crd'].map((ext) => (
                     <span
                       key={ext}
-                      className="text-[11px] font-mono px-2.5 py-0.5 rounded bg-[#161618] text-gray-300 border border-[#2A2A2E]"
+                      className="text-[11px] font-mono px-2.5 py-0.5 rounded bg-slate-50 dark:bg-[#161618] text-slate-700 dark:text-gray-300 border border-slate-300 dark:border-[#2A2A2E]"
                     >
                       {ext}
                     </span>
@@ -1011,8 +1011,8 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
               </div>
 
               {!importProgress && importedFileCount > 0 && (
-                <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-medium flex items-center gap-2.5 animate-in fade-in">
-                  <Check className="w-5 h-5 shrink-0 text-emerald-400" />
+                <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-medium flex items-center gap-2.5 animate-in fade-in">
+                  <Check className="w-5 h-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
                   <span>{importedFileCount} fichier(s) importé(s) avec succès dans votre répertoire !</span>
                 </div>
               )}
@@ -1023,17 +1023,17 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
           {activeTab === 'chordpro' && (
             <div className="space-y-4">
               {/* Informative Header / Guide */}
-              <div className="p-3 bg-blue-950/20 border border-blue-500/20 rounded-xl flex items-start gap-2.5 text-xs text-blue-200">
-                <FileCode className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+              <div className="p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-500/20 rounded-xl flex items-start gap-2.5 text-xs text-blue-700 dark:text-blue-200">
+                <FileCode className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
                 <p className="leading-relaxed">
-                  Collez ou écrivez directement vos paroles et accords. Les accords placés entre crochets <span className="font-mono text-blue-300 font-bold">[C] [G] [Am]</span> ou situés sur la ligne au-dessus des paroles sont automatiquement détectés et convertis.
+                  Collez ou écrivez directement vos paroles et accords. Les accords placés entre crochets <span className="font-mono text-blue-700 dark:text-blue-300 font-bold">[C] [G] [Am]</span> ou situés sur la ligne au-dessus des paroles sont automatiquement détectés et convertis.
                 </p>
               </div>
 
               {/* Metadata fields */}
-              <div className="p-3.5 bg-[#0D0D0F] border border-[#222225] rounded-xl space-y-2.5">
+              <div className="p-3.5 bg-[#F4F6F9] dark:bg-[#0D0D0F] border border-slate-200 dark:border-[#222225] rounded-xl space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-gray-200">
+                  <span className="text-xs font-bold text-slate-800 dark:text-gray-200">
                     Informations du chant
                   </span>
                   <span className="text-[11px] text-gray-500">
@@ -1043,49 +1043,49 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                   <div>
-                    <label className="block text-[11px] font-medium text-gray-400 mb-1">Titre</label>
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-gray-400 mb-1">Titre</label>
                     <input
                       type="text"
                       placeholder="ex: Dieu Tout-Puissant"
                       value={manualTitle}
                       onChange={(e) => setManualTitle(e.target.value)}
-                      className="w-full bg-[#18181A] border border-[#333] hover:border-[#444] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                      className="w-full bg-slate-50 dark:bg-[#18181A] border border-slate-300 dark:border-[#333] hover:border-slate-400 dark:hover:border-[#444] rounded-lg px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-medium text-gray-400 mb-1">Artiste / Auteur</label>
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-gray-400 mb-1">Artiste / Auteur</label>
                     <input
                       type="text"
                       placeholder="ex: Dan Luiten / Hillsong"
                       value={manualArtist}
                       onChange={(e) => setManualArtist(e.target.value)}
-                      className="w-full bg-[#18181A] border border-[#333] hover:border-[#444] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                      className="w-full bg-slate-50 dark:bg-[#18181A] border border-slate-300 dark:border-[#333] hover:border-slate-400 dark:hover:border-[#444] rounded-lg px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-medium text-gray-400 mb-1">Tonalité</label>
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-gray-400 mb-1">Tonalité</label>
                     <select
                       value={manualKey}
                       onChange={(e) => setManualKey(e.target.value)}
-                      className="w-full bg-[#18181A] border border-[#333] hover:border-[#444] rounded-lg px-2.5 py-1.5 text-xs text-blue-400 font-bold focus:outline-none focus:border-blue-500"
+                      className="w-full bg-slate-50 dark:bg-[#18181A] border border-slate-300 dark:border-[#333] hover:border-slate-400 dark:hover:border-[#444] rounded-lg px-2.5 py-1.5 text-xs text-blue-600 dark:text-blue-400 font-bold focus:outline-none focus:border-blue-500"
                     >
                       {['C', 'C#', 'Db', 'D', 'D#', 'Eb', 'E', 'F', 'F#', 'Gb', 'G', 'G#', 'Ab', 'A', 'A#', 'Bb', 'B', 'Am', 'Em', 'Dm', 'Bm'].map(k => (
-                        <option key={k} value={k} className="bg-[#111112] text-gray-200">{k}</option>
+                        <option key={k} value={k} className="bg-white dark:bg-[#111112] text-slate-800 dark:text-gray-200">{k}</option>
                       ))}
                     </select>
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-medium text-gray-400 mb-1">Tempo (BPM)</label>
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-gray-400 mb-1">Tempo (BPM)</label>
                     <input
                       type="number"
                       min={40}
                       max={240}
                       value={manualTempo}
                       onChange={(e) => setManualTempo(parseInt(e.target.value, 10) || 100)}
-                      className="w-full bg-[#18181A] border border-[#333] hover:border-[#444] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                      className="w-full bg-slate-50 dark:bg-[#18181A] border border-slate-300 dark:border-[#333] hover:border-slate-400 dark:hover:border-[#444] rounded-lg px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
                     />
                   </div>
                 </div>
@@ -1094,7 +1094,7 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
               {/* ChordPro Editor / Paste Area */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between px-1">
-                  <label className="text-xs font-bold text-gray-200">
+                  <label className="text-xs font-bold text-slate-800 dark:text-gray-200">
                     Paroles &amp; Accords (ChordPro)
                   </label>
                   <div className="flex items-center gap-2.5">
@@ -1107,7 +1107,7 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
                         setManualKey('G');
                         setManualTempo(105);
                       }}
-                      className="text-[11px] text-blue-400 hover:text-blue-300 font-medium transition-colors"
+                      className="text-[11px] text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium transition-colors"
                     >
                       Insérer un exemple
                     </button>
@@ -1115,7 +1115,7 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
                       <button
                         type="button"
                         onClick={() => setManualText('')}
-                        className="text-[11px] text-gray-500 hover:text-gray-300 transition-colors"
+                        className="text-[11px] text-gray-500 hover:text-slate-900 dark:hover:text-gray-300 transition-colors"
                       >
                         Effacer
                       </button>
@@ -1128,7 +1128,7 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
                   value={manualText}
                   onChange={(e) => setManualText(e.target.value)}
                   placeholder={`Collez ou écrivez ici vos paroles et accords...\n\nExemple ChordPro :\n[G]Voici les paroles avec [C]accords entre crochets\n\nNote : les paroles avec accords situés sur la ligne au-dessus sont également converties automatiquement.`}
-                  className="w-full bg-[#0A0A0B] font-mono text-xs text-gray-100 border border-[#333] hover:border-[#444] focus:border-blue-500 rounded-xl p-3.5 focus:outline-none leading-relaxed shadow-inner"
+                  className="w-full bg-[#F4F6F9] dark:bg-[#0A0A0B] font-mono text-xs text-slate-900 dark:text-gray-100 border border-slate-300 dark:border-[#333] hover:border-slate-400 dark:hover:border-[#444] focus:border-blue-500 rounded-xl p-3.5 focus:outline-none leading-relaxed shadow-inner"
                 />
               </div>
 
@@ -1157,38 +1157,38 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
       {/* Interactive Song Preview Modal (if a song preview is active) */}
       {previewSong && (
         <div className="fixed inset-0 z-60 bg-black/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-in fade-in zoom-in-95 duration-100">
-          <div className="bg-[#141416] border border-[#333] rounded-xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+          <div className="bg-slate-50 dark:bg-[#141416] border border-slate-300 dark:border-[#333] rounded-xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
             
             {/* Preview Header */}
-            <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#222224] bg-[#18181A]">
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 dark:border-[#222224] bg-slate-50 dark:bg-[#18181A]">
               <div>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-600/20 text-blue-300 border border-blue-500/30">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-600/20 text-blue-700 dark:text-blue-300 border border-blue-500/30">
                   {previewSong.source}
                 </span>
-                <h3 className="text-base font-bold text-white mt-1">{previewSong.title}</h3>
-                <p className="text-xs text-gray-400">{previewSong.artist} • Tonalité : <strong className="text-blue-400">{previewSong.key}</strong> • {previewSong.tempo} BPM</p>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white mt-1">{previewSong.title}</h3>
+                <p className="text-xs text-slate-600 dark:text-gray-400">{previewSong.artist} • Tonalité : <strong className="text-blue-600 dark:text-blue-400">{previewSong.key}</strong> • {previewSong.tempo} BPM</p>
               </div>
               <button
                 onClick={() => setPreviewSong(null)}
-                className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-[#222]"
+                className="p-1 rounded-lg text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#222]"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Preview Body */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#0A0A0B]">
-              <pre className="font-mono text-xs text-gray-200 whitespace-pre-wrap leading-relaxed">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#F4F6F9] dark:bg-[#0A0A0B]">
+              <pre className="font-mono text-xs text-slate-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">
                 {previewSong.contentChordPro}
               </pre>
             </div>
 
             {/* Preview Footer Actions */}
-            <div className="flex items-center justify-between px-5 py-3 border-t border-[#222224] bg-[#18181A]">
+            <div className="flex items-center justify-between px-5 py-3 border-t border-slate-200 dark:border-[#222224] bg-slate-50 dark:bg-[#18181A]">
               <button
                 type="button"
                 onClick={() => setPreviewSong(null)}
-                className="px-3.5 py-1.5 rounded-lg text-xs text-gray-400 hover:bg-[#222]"
+                className="px-3.5 py-1.5 rounded-lg text-xs text-slate-600 dark:text-gray-400 hover:bg-slate-200/70 dark:hover:bg-[#222]"
               >
                 Retour
               </button>
@@ -1199,9 +1199,9 @@ export const SongImportModal: React.FC<SongImportModalProps> = ({
                     handleImportAndEditSong(previewSong);
                     setPreviewSong(null);
                   }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-200 text-xs font-semibold border border-[#333] transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-slate-200 dark:hover:bg-[#2A2A2D] text-slate-800 dark:text-gray-200 text-xs font-semibold border border-slate-300 dark:border-[#333] transition-colors"
                 >
-                  <Edit3 className="w-3.5 h-3.5 text-amber-400" />
+                  <Edit3 className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                   <span>Importer et Éditer</span>
                 </button>
                 <button

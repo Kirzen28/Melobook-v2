@@ -22,6 +22,32 @@
           e.preventDefault();
         }
       });
+      // Apply saved theme immediately before paint (projection mode always stays dark)
+      (function() {
+        try {
+          var isPresentation = window.location.search.indexOf('mode=presentation') !== -1 || window.location.hash === '#presentation';
+          var raw = localStorage.getItem('songbook_stage_settings');
+          var parsedSettings = raw ? JSON.parse(raw) : null;
+          if (parsedSettings && parsedSettings.reduceMotion === true) {
+            document.documentElement.classList.add('reduce-motion');
+          }
+          if (isPresentation) {
+            document.documentElement.classList.add('dark');
+            return;
+          }
+          var theme = parsedSettings ? parsedSettings.theme : 'dark';
+          var metaTheme = document.querySelector('meta[name="theme-color"]');
+          if (theme === 'light') {
+            document.documentElement.classList.remove('dark');
+            if (metaTheme) metaTheme.setAttribute('content', '#F4F6F9');
+          } else {
+            document.documentElement.classList.add('dark');
+            if (metaTheme) metaTheme.setAttribute('content', '#090d16');
+          }
+        } catch (err) {
+          document.documentElement.classList.add('dark');
+        }
+      })();
     </script>
 
     <!-- PWA & Mobile Web App Meta -->
@@ -44,7 +70,7 @@
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:image" content="https://bolt.new/static/og_default.png">
 </head>
-  <body class="bg-slate-950 text-slate-100 antialiased selection:bg-indigo-500/30 selection:text-indigo-200 overflow-x-hidden min-h-screen">
+  <body class="bg-[#F4F6F9] text-slate-900 dark:bg-[#0A0A0B] dark:text-[#E0E0E0] antialiased selection:bg-blue-600/20 dark:selection:bg-indigo-500/30 selection:text-blue-900 dark:selection:text-indigo-200 overflow-x-hidden min-h-screen transition-colors duration-150">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

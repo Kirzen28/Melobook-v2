@@ -54,8 +54,8 @@ export const MidiStatusIndicator: React.FC<MidiStatusIndicatorProps> = ({
           isFlashing
             ? 'bg-blue-600 text-white border-blue-400 ring-2 ring-blue-500/40'
             : isEnabled && hasConnectedDevices
-              ? 'bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-200 border-[#333] hover:border-blue-500/40'
-              : 'bg-[#18181A] hover:bg-[#222226] text-gray-400 border-[#2A2A2E]'
+              ? 'bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-slate-200 dark:hover:bg-[#2A2A2D] text-slate-800 dark:text-gray-200 border-slate-300 dark:border-[#333] hover:border-blue-500/40'
+              : 'bg-slate-50 dark:bg-[#18181A] hover:bg-slate-200/70 dark:hover:bg-[#222226] text-slate-600 dark:text-gray-400 border-slate-300 dark:border-[#2A2A2E]'
         } ${className}`}
         title={
           !isSupported 
@@ -67,7 +67,7 @@ export const MidiStatusIndicator: React.FC<MidiStatusIndicatorProps> = ({
                 : 'Aucun périphérique MIDI - Cliquer pour configurer vos pédales'
         }
       >
-        <Radio className={`w-3.5 h-3.5 ${isFlashing ? 'text-white' : hasConnectedDevices && isEnabled ? 'text-blue-400' : 'text-gray-500'}`} />
+        <Radio className={`w-3.5 h-3.5 ${isFlashing ? 'text-slate-900 dark:text-white' : hasConnectedDevices && isEnabled ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500'}`} />
         
         {/* Connected LED status dot */}
         <span className={`w-1.5 h-1.5 rounded-full ${
@@ -88,8 +88,8 @@ export const MidiStatusIndicator: React.FC<MidiStatusIndicatorProps> = ({
       {/* Discreet Live Action Toast (Musician feedback on stage) */}
       {toastMessage && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none animate-in fade-in slide-in-from-bottom-3 duration-200">
-          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-600/90 text-white font-semibold text-xs shadow-2xl backdrop-blur-md border border-blue-400/40">
-            <Zap className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-600/90 text-slate-900 dark:text-white font-semibold text-xs shadow-2xl backdrop-blur-md border border-blue-400/40">
+            <Zap className="w-3.5 h-3.5 text-amber-700 dark:text-amber-300 animate-pulse" />
             <span>MIDI : {toastMessage}</span>
           </div>
         </div>

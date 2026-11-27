@@ -273,24 +273,24 @@ export const AudioPads: React.FC<AudioPadsProps> = ({
   const selectedPresetObj = PAD_PRESETS.find(p => p.id === currentPreset) || PAD_PRESETS[0];
 
   return (
-    <div className={`w-full bg-[#11141B] border border-[#212735] rounded-2xl p-4 text-white shadow-2xl select-none ${className}`}>
+    <div className={`w-full bg-slate-50 dark:bg-[#11141B] border border-slate-300 dark:border-[#212735] rounded-2xl p-4 text-slate-900 dark:text-white shadow-2xl select-none ${className}`}>
       
       {/* Header bar: Title & Track selector */}
-      <div className="flex items-center justify-between gap-3 pb-3 border-b border-[#1E2536]">
+      <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-300 dark:border-[#1E2536]">
         <div className="flex items-center gap-2.5 min-w-0">
           <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border transition-all ${
             isPlaying 
               ? 'bg-sky-400 text-black border-sky-300 shadow-md shadow-sky-400/30' 
-              : 'bg-[#181D29] text-gray-400 border-[#283144]'
+              : 'bg-[#EDF1F5] dark:bg-[#181D29] text-slate-600 dark:text-gray-400 border-slate-300 dark:border-[#283144]'
           }`}>
             <Radio className="w-5 h-5" />
           </div>
           <div className="min-w-0">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400">Atmospheric Audio Pads</h3>
-            <div className="text-sm font-bold text-white truncate flex items-center gap-1.5">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-gray-400">Atmospheric Audio Pads</h3>
+            <div className="text-sm font-bold text-slate-900 dark:text-white truncate flex items-center gap-1.5">
               <span>{activeMode === 'custom' && activeCustomPad ? activeCustomPad.name : selectedPresetObj.name}</span>
               {activeMode === 'custom' && activeCustomPad && (
-                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-sky-950/60 text-sky-400 border border-sky-500/30">
+                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-400 border border-sky-500/30">
                   Base: {activeCustomPad.rootKey}
                 </span>
               )}
@@ -305,7 +305,7 @@ export const AudioPads: React.FC<AudioPadsProps> = ({
             <button
               type="button"
               onClick={() => setShowTrackDropdown(!showTrackDropdown)}
-              className="px-3 py-1.5 rounded-xl bg-[#171C26] hover:bg-[#202736] border border-[#2A3344] text-xs font-semibold text-gray-200 flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="px-3 py-1.5 rounded-xl bg-[#EDF1F5] dark:bg-[#171C26] hover:bg-slate-200 dark:hover:bg-[#202736] border border-slate-300 dark:border-[#2A3344] text-xs font-semibold text-slate-800 dark:text-gray-200 flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <span>Changer de nappe</span>
               <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showTrackDropdown ? 'rotate-180' : ''}`} />
@@ -314,7 +314,7 @@ export const AudioPads: React.FC<AudioPadsProps> = ({
             {showTrackDropdown && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowTrackDropdown(false)} />
-                <div className="absolute right-0 top-full mt-1.5 z-50 w-72 bg-[#141822] border border-[#2B3547] rounded-xl shadow-2xl p-2 space-y-2 animate-in fade-in zoom-in-95 duration-100 max-h-80 overflow-y-auto">
+                <div className="absolute right-0 top-full mt-1.5 z-50 w-72 bg-slate-50 dark:bg-[#141822] border border-slate-300 dark:border-[#2B3547] rounded-xl shadow-2xl p-2 space-y-2 animate-in fade-in zoom-in-95 duration-100 max-h-80 overflow-y-auto">
                   
                   {/* Upload button inside dropdown */}
                   {canEditPads && (
@@ -324,9 +324,9 @@ export const AudioPads: React.FC<AudioPadsProps> = ({
                         setShowTrackDropdown(false);
                         setShowUploadForm(true);
                       }}
-                      className="w-full text-left px-2.5 py-2 rounded-lg text-xs font-bold bg-sky-500/15 hover:bg-sky-500/25 text-sky-300 border border-sky-500/30 flex items-center gap-2 cursor-pointer"
+                      className="w-full text-left px-2.5 py-2 rounded-lg text-xs font-bold bg-sky-500/15 hover:bg-sky-500/25 text-sky-700 dark:text-sky-300 border border-sky-500/30 flex items-center gap-2 cursor-pointer"
                     >
-                      <Upload className="w-3.5 h-3.5 text-sky-400" />
+                      <Upload className="w-3.5 h-3.5 text-sky-700 dark:text-sky-400" />
                       <span>Téléverser un nouveau Pad (MP3/WAV)</span>
                     </button>
                   )}
@@ -334,7 +334,7 @@ export const AudioPads: React.FC<AudioPadsProps> = ({
                   {/* Team audio pads */}
                   {customPads.length > 0 && (
                     <div className="space-y-1">
-                      <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-2 pt-1">
+                      <div className="text-[10px] font-bold text-slate-600 dark:text-gray-400 uppercase tracking-wider px-2 pt-1">
                         Pads de l'équipe ({customPads.length})
                       </div>
                       {customPads.map(pad => (
@@ -342,8 +342,8 @@ export const AudioPads: React.FC<AudioPadsProps> = ({
                           key={pad.id}
                           className={`flex items-center justify-between p-1.5 rounded-lg text-xs cursor-pointer ${
                             activeMode === 'custom' && activeCustomPad?.id === pad.id
-                              ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40 font-semibold'
-                              : 'hover:bg-[#1C2333] text-gray-300'
+                              ? 'bg-sky-500/20 text-sky-700 dark:text-sky-300 border border-sky-500/40 font-semibold'
+                              : 'hover:bg-slate-200/70 dark:hover:bg-[#1C2333] text-slate-700 dark:text-gray-300'
                           }`}
                           onClick={() => {
                             padAudio.selectCustomPad(pad);
@@ -354,7 +354,7 @@ export const AudioPads: React.FC<AudioPadsProps> = ({
                             <div className="truncate font-semibold">{pad.name}</div>
                             <div className="text-[10px] text-gray-500">Note de référence : {pad.rootKey}</div>
                           </div>
-                          <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-[#10141C] text-sky-400 border border-[#232B3C]">
+                          <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-50 dark:bg-[#10141C] text-sky-700 dark:text-sky-400 border border-slate-300 dark:border-[#232B3C]">
                             {pad.rootKey}
                           </span>
                         </div>
@@ -363,8 +363,8 @@ export const AudioPads: React.FC<AudioPadsProps> = ({
                   )}
 
                   {/* Synth Presets */}
-                  <div className="space-y-1 border-t border-[#1F2636] pt-1">
-                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-2">
+                  <div className="space-y-1 border-t border-slate-300 dark:border-[#1F2636] pt-1">
+                    <div className="text-[10px] font-bold text-slate-600 dark:text-gray-400 uppercase tracking-wider px-2">
                       Synthétiseurs intégrés
                     </div>
                     {PAD_PRESETS.map(preset => (
@@ -372,8 +372,8 @@ export const AudioPads: React.FC<AudioPadsProps> = ({
                         key={preset.id}
                         className={`flex items-center justify-between p-1.5 rounded-lg text-xs cursor-pointer ${
                           activeMode === 'synth' && currentPreset === preset.id
-                            ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40 font-semibold'
-                            : 'hover:bg-[#1C2333] text-gray-300'
+                            ? 'bg-sky-500/20 text-sky-700 dark:text-sky-300 border border-sky-500/40 font-semibold'
+                            : 'hover:bg-slate-200/70 dark:hover:bg-[#1C2333] text-slate-700 dark:text-gray-300'
                         }`}
                         onClick={() => {
                           padAudio.selectSynthPreset(preset.id);
@@ -384,7 +384,7 @@ export const AudioPads: React.FC<AudioPadsProps> = ({
                           <div className="truncate font-semibold">{preset.name}</div>
                           <div className="text-[10px] text-gray-500">{preset.description}</div>
                         </div>
-                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#10141C] text-gray-400 border border-[#202735]">
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-50 dark:bg-[#10141C] text-slate-600 dark:text-gray-400 border border-slate-300 dark:border-[#202735]">
                           {preset.category}
                         </span>
                       </div>
@@ -403,12 +403,12 @@ export const AudioPads: React.FC<AudioPadsProps> = ({
               onClick={() => setShowUploadForm(!showUploadForm)}
               className={`px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
                 showUploadForm 
-                  ? 'bg-sky-500/20 text-sky-300 border-sky-400/50' 
-                  : 'bg-[#171C26] hover:bg-[#202736] border-[#2A3344] text-gray-300 hover:text-white'
+                  ? 'bg-sky-500/20 text-sky-700 dark:text-sky-300 border-sky-400/50' 
+                  : 'bg-[#EDF1F5] dark:bg-[#171C26] hover:bg-slate-200 dark:hover:bg-[#202736] border-slate-300 dark:border-[#2A3344] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white'
               }`}
               title="Téléverser un pad audio MP3 ou WAV"
             >
-              <Upload className="w-3.5 h-3.5 text-sky-400" />
+              <Upload className="w-3.5 h-3.5 text-sky-700 dark:text-sky-400" />
               <span>Importer</span>
             </button>
           )}
@@ -417,7 +417,7 @@ export const AudioPads: React.FC<AudioPadsProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="w-8 h-8 rounded-xl bg-[#171C26] hover:bg-[#222A3B] text-gray-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+              className="w-8 h-8 rounded-xl bg-[#EDF1F5] dark:bg-[#171C26] hover:bg-slate-200 dark:hover:bg-[#222A3B] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition-colors cursor-pointer"
               aria-label="Fermer"
             >
               <X className="w-4 h-4" />
@@ -428,16 +428,16 @@ export const AudioPads: React.FC<AudioPadsProps> = ({
 
       {/* Upload Form Drawer (if opened) */}
       {canEditPads && showUploadForm && (
-        <form onSubmit={handleSubmitUpload} className="mt-3 p-3.5 rounded-xl bg-[#151923] border border-[#232B3C] space-y-3 animate-in fade-in slide-in-from-top-2 duration-150">
-          <div className="flex items-center justify-between text-xs font-bold text-gray-300">
+        <form onSubmit={handleSubmitUpload} className="mt-3 p-3.5 rounded-xl bg-[#EDF1F5] dark:bg-[#151923] border border-slate-300 dark:border-[#232B3C] space-y-3 animate-in fade-in slide-in-from-top-2 duration-150">
+          <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-gray-300">
             <span className="flex items-center gap-1.5">
-              <FileAudio className="w-4 h-4 text-sky-400" />
+              <FileAudio className="w-4 h-4 text-sky-700 dark:text-sky-400" />
               Téléverser une nappe atmosphérique
             </span>
             <button
               type="button"
               onClick={() => setShowUploadForm(false)}
-              className="text-gray-500 hover:text-gray-300 text-xs"
+              className="text-gray-500 hover:text-slate-900 dark:hover:text-gray-300 text-xs"
             >
               Annuler
             </button>
@@ -449,7 +449,7 @@ export const AudioPads: React.FC<AudioPadsProps> = ({
             onDrop={handleFileDrop}
             onClick={() => fileInputRef.current?.click()}
             className={`border-2 border-dashed rounded-xl p-3 text-center cursor-pointer transition-all ${
-              dragOver ? 'border-sky-400 bg-sky-500/10' : 'border-[#2D374D] hover:border-gray-500 bg-[#10131B]'
+              dragOver ? 'border-sky-400 bg-sky-500/10' : 'border-slate-300 dark:border-[#2D374D] hover:border-gray-500 bg-slate-50 dark:bg-[#10131B]'
             }`}
           >
             <input
@@ -462,34 +462,34 @@ export const AudioPads: React.FC<AudioPadsProps> = ({
               }}
             />
             {selectedFile ? (
-              <div className="text-xs text-emerald-400 font-semibold truncate">
+              <div className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold truncate">
                 {selectedFile.name} ({(selectedFile.size / (1024 * 1024)).toFixed(1)} Mo)
               </div>
             ) : (
-              <div className="text-xs text-gray-400">
-                Glissez votre fichier MP3/WAV ici ou <span className="text-sky-400 underline">parcourir</span>
+              <div className="text-xs text-slate-600 dark:text-gray-400">
+                Glissez votre fichier MP3/WAV ici ou <span className="text-sky-700 dark:text-sky-400 underline">parcourir</span>
               </div>
             )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             <div>
-              <label className="block text-[11px] font-semibold text-gray-400 mb-1">Nom du Pad</label>
+              <label className="block text-[11px] font-semibold text-slate-600 dark:text-gray-400 mb-1">Nom du Pad</label>
               <input
                 type="text"
                 value={padName}
                 onChange={(e) => setPadName(e.target.value)}
                 placeholder="ex: Deep Cosmic Ambient"
-                className="w-full bg-[#10131B] border border-[#273042] rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-sky-400"
+                className="w-full bg-slate-50 dark:bg-[#10131B] border border-slate-300 dark:border-[#273042] rounded-lg px-2.5 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-sky-400"
               />
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold text-gray-400 mb-1">Tonalité d'origine du fichier</label>
+              <label className="block text-[11px] font-semibold text-slate-600 dark:text-gray-400 mb-1">Tonalité d'origine du fichier</label>
               <select
                 value={rootSemitone}
                 onChange={(e) => setRootSemitone(Number(e.target.value))}
-                className="w-full bg-[#10131B] border border-[#273042] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-400 cursor-pointer"
+                className="w-full bg-slate-50 dark:bg-[#10131B] border border-slate-300 dark:border-[#273042] rounded-lg px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-sky-400 cursor-pointer"
               >
                 {CHROMATIC_NOTES.map(n => (
                   <option key={n.semitone} value={n.semitone}>
@@ -500,30 +500,30 @@ export const AudioPads: React.FC<AudioPadsProps> = ({
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[10px] text-gray-400">
-            <span className="px-2 py-0.5 rounded bg-[#10141D] border border-[#27324B] text-sky-300 font-mono">
+          <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[10px] text-slate-600 dark:text-gray-400">
+            <span className="px-2 py-0.5 rounded bg-slate-50 dark:bg-[#10141D] border border-slate-300 dark:border-[#27324B] text-sky-700 dark:text-sky-300 font-mono">
               MP3 256 kbps
             </span>
-            <span className="px-2 py-0.5 rounded bg-[#10141D] border border-[#27324B] text-sky-300 font-mono">
+            <span className="px-2 py-0.5 rounded bg-slate-50 dark:bg-[#10141D] border border-slate-300 dark:border-[#27324B] text-sky-700 dark:text-sky-300 font-mono">
               Max 1 min (boucle worship)
             </span>
-            <span className="px-2 py-0.5 rounded bg-[#10141D] border border-[#27324B] text-sky-300 font-mono">
+            <span className="px-2 py-0.5 rounded bg-slate-50 dark:bg-[#10141D] border border-slate-300 dark:border-[#27324B] text-sky-700 dark:text-sky-300 font-mono">
               ≤ 5 Mo
             </span>
           </div>
 
           {isUploading && uploadProgress && (
-            <div className="p-2.5 rounded-lg bg-[#10141D] border border-sky-500/30 space-y-1 animate-in fade-in">
+            <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-[#10141D] border border-sky-500/30 space-y-1 animate-in fade-in">
               <div className="flex items-center justify-between text-xs">
-                <span className="text-sky-300 text-[11px] font-medium flex items-center gap-1.5">
+                <span className="text-sky-700 dark:text-sky-300 text-[11px] font-medium flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-ping" />
                   {uploadProgress.message}
                 </span>
-                <span className="font-mono text-sky-400 text-[10px] font-bold">
+                <span className="font-mono text-sky-700 dark:text-sky-400 text-[10px] font-bold">
                   {uploadProgress.percent}%
                 </span>
               </div>
-              <div className="w-full bg-[#1A202C] h-1.5 rounded-full overflow-hidden">
+              <div className="w-full bg-[#EDF1F5] dark:bg-[#1A202C] h-1.5 rounded-full overflow-hidden">
                 <div 
                   className="h-full bg-gradient-to-r from-sky-500 to-indigo-500 transition-all duration-150"
                   style={{ width: `${uploadProgress.percent}%` }}
@@ -556,15 +556,15 @@ export const AudioPads: React.FC<AudioPadsProps> = ({
         
         {/* Row 1: Chromatic Notes Grid (12 keys) */}
         <div>
-          <div className="flex items-center justify-between text-[11px] text-gray-400 mb-1.5">
-            <span className="font-semibold uppercase tracking-wider text-gray-300">
-              Tonalité du Pad : <strong className="text-white text-xs">{currentKeyObj.label} ({currentKeyObj.alt})</strong>
+          <div className="flex items-center justify-between text-[11px] text-slate-600 dark:text-gray-400 mb-1.5">
+            <span className="font-semibold uppercase tracking-wider text-slate-700 dark:text-gray-300">
+              Tonalité du Pad : <strong className="text-slate-900 dark:text-white text-xs">{currentKeyObj.label} ({currentKeyObj.alt})</strong>
             </span>
             {activeSemitone !== songTargetSemitone && (
               <button
                 type="button"
                 onClick={() => handleSelectKey(songTargetSemitone)}
-                className="text-sky-400 hover:text-sky-300 font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                className="text-sky-700 dark:text-sky-400 hover:text-sky-800 dark:hover:text-sky-300 font-semibold flex items-center gap-1 transition-colors cursor-pointer"
                 title={`Recaler sur la tonalité du chant (${songKeyObj.label})`}
               >
                 <RotateCcw className="w-3 h-3" />
@@ -586,7 +586,7 @@ export const AudioPads: React.FC<AudioPadsProps> = ({
                   className={`h-11 sm:h-12 rounded-xl flex flex-col items-center justify-center font-bold transition-all cursor-pointer relative shadow-xs active:scale-95 ${
                     isActive
                       ? 'bg-sky-400 text-black shadow-sky-400/30 scale-102 ring-2 ring-sky-300 z-10'
-                      : 'bg-[#181D27] hover:bg-[#222836] text-gray-200 border border-[#273041]'
+                      : 'bg-[#EDF1F5] dark:bg-[#181D27] hover:bg-slate-200 dark:hover:bg-[#222836] text-slate-800 dark:text-gray-200 border border-slate-300 dark:border-[#273041]'
                   }`}
                 >
                   <span className={`text-sm sm:text-base tracking-tight ${isActive ? 'font-black' : 'font-bold'}`}>
@@ -610,10 +610,10 @@ export const AudioPads: React.FC<AudioPadsProps> = ({
         </div>
 
         {/* Row 2: Playback & Web Audio Controls Strip */}
-        <div className="space-y-2.5 p-3 rounded-xl bg-[#141822] border border-[#222A3A]">
+        <div className="space-y-2.5 p-3 rounded-xl bg-slate-50 dark:bg-[#141822] border border-slate-300 dark:border-[#222A3A]">
           
           {/* Tier 1: Main Transport (Play/Stop), Boucle, Octave */}
-          <div className="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 border-b border-[#1E2536]">
+          <div className="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 border-b border-slate-300 dark:border-[#1E2536]">
             {/* Play/Stop Main Button */}
             <button
               type="button"
@@ -635,23 +635,23 @@ export const AudioPads: React.FC<AudioPadsProps> = ({
                 onClick={handleToggleLoop}
                 className={`h-10 px-3 rounded-xl border flex items-center gap-1.5 text-xs font-semibold transition-colors cursor-pointer ${
                   isLooping 
-                    ? 'bg-sky-500/20 text-sky-300 border-sky-400/50 font-bold' 
-                    : 'bg-[#181D29] text-gray-400 border-[#263042] hover:text-gray-200'
+                    ? 'bg-sky-500/20 text-sky-700 dark:text-sky-300 border-sky-400/50 font-bold' 
+                    : 'bg-[#EDF1F5] dark:bg-[#181D29] text-slate-600 dark:text-gray-400 border-slate-300 dark:border-[#263042] hover:text-slate-900 dark:hover:text-gray-200'
                 }`}
                 title={isLooping ? 'Boucle active (lecture infinie)' : 'Boucle inactive'}
               >
-                <Repeat className={`w-3.5 h-3.5 ${isLooping ? 'text-sky-400' : ''}`} />
+                <Repeat className={`w-3.5 h-3.5 ${isLooping ? 'text-sky-700 dark:text-sky-400' : ''}`} />
                 <span>Boucle</span>
               </button>
 
               {/* Octave Shift Control */}
-              <div className="flex items-center bg-[#181D29] border border-[#263042] rounded-xl p-0.5 text-xs font-mono font-bold">
-                <span className="text-[10px] text-gray-400 font-sans px-1.5 hidden sm:inline">Octave</span>
+              <div className="flex items-center bg-[#EDF1F5] dark:bg-[#181D29] border border-slate-300 dark:border-[#263042] rounded-xl p-0.5 text-xs font-mono font-bold">
+                <span className="text-[10px] text-slate-600 dark:text-gray-400 font-sans px-1.5 hidden sm:inline">Octave</span>
                 <button
                   type="button"
                   onClick={() => handleOctaveChange(Math.max(-1, octaveShift - 1))}
                   className={`w-7 h-9 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
-                    octaveShift === -1 ? 'bg-sky-500/30 text-sky-300' : 'text-gray-400 hover:text-white'
+                    octaveShift === -1 ? 'bg-sky-500/30 text-sky-700 dark:text-sky-300' : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                   title="Descendre d'une octave (-12 demi-tons)"
                 >
@@ -661,7 +661,7 @@ export const AudioPads: React.FC<AudioPadsProps> = ({
                   type="button"
                   onClick={() => handleOctaveChange(0)}
                   className={`w-7 h-9 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
-                    octaveShift === 0 ? 'bg-sky-500/30 text-sky-300' : 'text-gray-400 hover:text-white'
+                    octaveShift === 0 ? 'bg-sky-500/30 text-sky-700 dark:text-sky-300' : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                   title="Octave normale"
                 >
@@ -671,7 +671,7 @@ export const AudioPads: React.FC<AudioPadsProps> = ({
                   type="button"
                   onClick={() => handleOctaveChange(Math.min(1, octaveShift + 1))}
                   className={`w-7 h-9 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
-                    octaveShift === 1 ? 'bg-sky-500/30 text-sky-300' : 'text-gray-400 hover:text-white'
+                    octaveShift === 1 ? 'bg-sky-500/30 text-sky-700 dark:text-sky-300' : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                   title="Monter d'une octave (+12 demi-tons)"
                 >
@@ -685,13 +685,13 @@ export const AudioPads: React.FC<AudioPadsProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
             
             {/* Card A: Crossfade duration controls */}
-            <div className="bg-[#10131B] border border-[#1E2536] rounded-xl p-2.5 space-y-1.5">
-              <div className="flex items-center justify-between text-[11px] text-gray-400">
-                <span className="flex items-center gap-1 font-semibold text-gray-300">
-                  <Sliders className="w-3 h-3 text-sky-400" />
+            <div className="bg-slate-50 dark:bg-[#10131B] border border-slate-300 dark:border-[#1E2536] rounded-xl p-2.5 space-y-1.5">
+              <div className="flex items-center justify-between text-[11px] text-slate-600 dark:text-gray-400">
+                <span className="flex items-center gap-1 font-semibold text-slate-700 dark:text-gray-300">
+                  <Sliders className="w-3 h-3 text-sky-700 dark:text-sky-400" />
                   Fondu enchaîné (Crossfade)
                 </span>
-                <span className="font-mono text-sky-300 tabular-nums font-bold">
+                <span className="font-mono text-sky-700 dark:text-sky-300 tabular-nums font-bold">
                   {crossfadeDuration.toFixed(1)} s
                 </span>
               </div>
@@ -705,7 +705,7 @@ export const AudioPads: React.FC<AudioPadsProps> = ({
                     className={`flex-1 py-1 rounded-lg text-[10px] font-mono font-bold transition-colors cursor-pointer border ${
                       Math.abs(crossfadeDuration - sec) < 0.05
                         ? 'bg-sky-400 text-black border-sky-300 shadow-xs'
-                        : 'bg-[#181D29] hover:bg-[#222938] text-gray-400 border-[#252E3E]'
+                        : 'bg-[#EDF1F5] dark:bg-[#181D29] hover:bg-slate-200 dark:hover:bg-[#222938] text-slate-600 dark:text-gray-400 border-slate-300 dark:border-[#252E3E]'
                     }`}
                   >
                     {sec}s
@@ -715,14 +715,14 @@ export const AudioPads: React.FC<AudioPadsProps> = ({
             </div>
 
             {/* Card B: Master Volume & Mute */}
-            <div className="bg-[#10131B] border border-[#1E2536] rounded-xl p-2.5 flex items-center gap-2.5">
+            <div className="bg-slate-50 dark:bg-[#10131B] border border-slate-300 dark:border-[#1E2536] rounded-xl p-2.5 flex items-center gap-2.5">
               <button
                 type="button"
                 onClick={handleToggleMute}
                 className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors cursor-pointer shrink-0 border ${
                   isMuted 
                     ? 'bg-rose-600 border-rose-500 text-white' 
-                    : 'bg-[#181D29] hover:bg-[#222938] border-[#263042] text-gray-300'
+                    : 'bg-[#EDF1F5] dark:bg-[#181D29] hover:bg-slate-200 dark:hover:bg-[#222938] border-slate-300 dark:border-[#263042] text-slate-700 dark:text-gray-300'
                 }`}
                 title={isMuted ? "Rétablir le son" : "Muter"}
               >
@@ -730,9 +730,9 @@ export const AudioPads: React.FC<AudioPadsProps> = ({
               </button>
 
               <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between text-[11px] text-gray-400 mb-1">
-                  <span className="font-semibold text-gray-300">Volume</span>
-                  <span className="font-mono text-sky-300 tabular-nums font-bold">{isMuted ? 'MUTE' : `${volume}%`}</span>
+                <div className="flex items-center justify-between text-[11px] text-slate-600 dark:text-gray-400 mb-1">
+                  <span className="font-semibold text-slate-700 dark:text-gray-300">Volume</span>
+                  <span className="font-mono text-sky-700 dark:text-sky-300 tabular-nums font-bold">{isMuted ? 'MUTE' : `${volume}%`}</span>
                 </div>
                 <input
                   type="range"
@@ -740,7 +740,7 @@ export const AudioPads: React.FC<AudioPadsProps> = ({
                   max="100"
                   value={isMuted ? 0 : volume}
                   onChange={(e) => handleVolumeChange(Number(e.target.value))}
-                  className="w-full accent-sky-400 h-1.5 bg-[#1E2535] rounded-lg cursor-pointer"
+                  className="w-full accent-sky-400 h-1.5 bg-[#EDF1F5] dark:bg-[#1E2535] rounded-lg cursor-pointer"
                 />
               </div>
             </div>
@@ -750,20 +750,20 @@ export const AudioPads: React.FC<AudioPadsProps> = ({
         </div>
 
         {/* Real-time Pitch-Shift Status Banner */}
-        <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-[#131620] border border-[#1E2536] text-[11px] text-gray-400">
+        <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-50 dark:bg-[#131620] border border-slate-300 dark:border-[#1E2536] text-[11px] text-slate-600 dark:text-gray-400">
           <div className="flex items-center gap-2 truncate">
-            <Sparkles className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+            <Sparkles className="w-3.5 h-3.5 text-sky-700 dark:text-sky-400 shrink-0" />
             <span className="truncate">
               {activeMode === 'custom' && activeCustomPad ? (
                 <>
-                  Pitch-Shift Web Audio : <strong className="text-sky-300">{activeCustomPad.rootKey} → {currentKeyObj.label}</strong>
+                  Pitch-Shift Web Audio : <strong className="text-sky-700 dark:text-sky-300">{activeCustomPad.rootKey} → {currentKeyObj.label}</strong>
                   <span className="text-gray-500 ml-1.5 font-mono">
                     ({semitonesShifted >= 0 ? `+${semitonesShifted}` : semitonesShifted} demi-tons • Ratio: {pitchShiftRatio.toFixed(3)}x)
                   </span>
                 </>
               ) : (
                 <>
-                  Synthèse harmonique active en <strong className="text-sky-300">{currentKeyObj.label}</strong> ({selectedPresetObj.name})
+                  Synthèse harmonique active en <strong className="text-sky-700 dark:text-sky-300">{currentKeyObj.label}</strong> ({selectedPresetObj.name})
                 </>
               )}
             </span>

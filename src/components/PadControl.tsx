@@ -168,7 +168,7 @@ export const PadControl: React.FC<PadControlProps> = ({
   };
 
   return (
-    <div className={`w-full bg-[#11141C] border border-[#222A3A] rounded-2xl p-3 sm:p-4 text-white shadow-xl select-none box-border space-y-3 ${className}`}>
+    <div className={`w-full bg-slate-50 dark:bg-[#11141C] border border-slate-300 dark:border-[#222A3A] rounded-2xl p-3 sm:p-4 text-slate-900 dark:text-white shadow-xl select-none box-border space-y-3 ${className}`}>
       
       {/* Ligne 1 : Bouton d'activation / Arrêt (Stop quand actif) + Bouton note + Bouton paramètres */}
       <div className="flex items-center gap-2 sm:gap-2.5">
@@ -186,7 +186,7 @@ export const PadControl: React.FC<PadControlProps> = ({
           aria-label={isPlaying ? "Arrêter le pad" : "Démarrer le pad"}
         >
           {isPlaying ? (
-            <Square className="w-4 h-4 fill-current text-white animate-pulse" />
+            <Square className="w-4 h-4 fill-current text-slate-900 dark:text-white animate-pulse" />
           ) : (
             <Power className="w-5 h-5 text-black stroke-[2.5]" />
           )}
@@ -202,24 +202,24 @@ export const PadControl: React.FC<PadControlProps> = ({
             }}
             className={`h-11 px-2.5 sm:px-3 rounded-xl border flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 ${
               isManualOverride
-                ? 'bg-amber-500/15 hover:bg-amber-500/25 border-amber-500/40 text-amber-300'
-                : 'bg-[#181D29] hover:bg-[#202738] border-[#2B3547] text-gray-200'
+                ? 'bg-amber-500/15 hover:bg-amber-500/25 border-amber-500/40 text-amber-700 dark:text-amber-300'
+                : 'bg-[#EDF1F5] dark:bg-[#181D29] hover:bg-slate-200 dark:hover:bg-[#202738] border-slate-300 dark:border-[#2B3547] text-slate-800 dark:text-gray-200'
             }`}
             title="Modifier la note du pad"
           >
-            <span className="text-xs sm:text-sm font-extrabold text-white">
+            <span className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white">
               {activeNoteObj.label}
             </span>
-            <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform shrink-0 ${showNotePicker ? 'rotate-180' : ''}`} />
+            <ChevronDown className={`w-3.5 h-3.5 text-slate-600 dark:text-gray-400 transition-transform shrink-0 ${showNotePicker ? 'rotate-180' : ''}`} />
           </button>
 
           {/* Menu popover de sélection de note */}
           {showNotePicker && (
-            <div className="absolute left-0 top-full mt-2 z-50 w-64 bg-[#141822] border border-[#2B3547] rounded-xl shadow-2xl p-2.5 space-y-2 animate-in fade-in zoom-in-95 duration-100 box-border">
+            <div className="absolute left-0 top-full mt-2 z-50 w-64 bg-slate-50 dark:bg-[#141822] border border-slate-300 dark:border-[#2B3547] rounded-xl shadow-2xl p-2.5 space-y-2 animate-in fade-in zoom-in-95 duration-100 box-border">
               
-              <div className="flex items-center justify-between text-[11px] font-bold text-gray-400 pb-1.5 border-b border-[#202738]">
+              <div className="flex items-center justify-between text-[11px] font-bold text-slate-600 dark:text-gray-400 pb-1.5 border-b border-slate-300 dark:border-[#202738]">
                 <span>Changer la note du pad</span>
-                <span className="text-sky-400 font-mono text-[10px]">
+                <span className="text-sky-700 dark:text-sky-400 font-mono text-[10px]">
                   Chant : {songKeyObj.label}
                 </span>
               </div>
@@ -229,9 +229,9 @@ export const PadControl: React.FC<PadControlProps> = ({
                 <button
                   type="button"
                   onClick={handleResetToSongKey}
-                  className="w-full py-1.5 px-2 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 border border-sky-500/30 text-sky-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  className="w-full py-1.5 px-2 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 border border-sky-500/30 text-sky-700 dark:text-sky-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                 >
-                  <RotateCcw className="w-3 h-3 text-sky-400" />
+                  <RotateCcw className="w-3 h-3 text-sky-700 dark:text-sky-400" />
                   <span>Suivre la tonalité du chant ({songKeyObj.label} / {songKeyObj.alt})</span>
                 </button>
               )}
@@ -251,12 +251,12 @@ export const PadControl: React.FC<PadControlProps> = ({
                         isSelected
                           ? 'bg-sky-400 text-black font-bold border-sky-300 shadow-xs'
                           : isSongKey
-                          ? 'bg-sky-950/40 border-sky-500/40 text-sky-300 hover:bg-sky-900/40 font-semibold'
-                          : 'bg-[#181D29] hover:bg-[#222A3B] border-[#252E3E] text-gray-300'
+                          ? 'bg-sky-50 dark:bg-sky-950/40 border-sky-500/40 text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-900/40 font-semibold'
+                          : 'bg-[#EDF1F5] dark:bg-[#181D29] hover:bg-slate-200 dark:hover:bg-[#222A3B] border-slate-300 dark:border-[#252E3E] text-slate-700 dark:text-gray-300'
                       }`}
                     >
                       <span className="font-bold leading-none">{note.label}</span>
-                      <span className={`text-[8px] mt-0.5 leading-none ${isSelected ? 'text-black/70' : 'text-gray-400'}`}>
+                      <span className={`text-[8px] mt-0.5 leading-none ${isSelected ? 'text-black/70' : 'text-slate-600 dark:text-gray-400'}`}>
                         {note.alt}
                       </span>
                     </button>
@@ -277,33 +277,33 @@ export const PadControl: React.FC<PadControlProps> = ({
             }}
             className={`w-full h-11 px-3 rounded-xl border flex items-center justify-between gap-2 transition-colors cursor-pointer min-w-0 ${
               showSettings
-                ? 'bg-sky-500/20 border-sky-400 text-sky-300'
-                : 'bg-[#181D29] hover:bg-[#202738] border-[#2B3547] text-gray-200'
+                ? 'bg-sky-500/20 border-sky-400 text-sky-700 dark:text-sky-300'
+                : 'bg-[#EDF1F5] dark:bg-[#181D29] hover:bg-slate-200 dark:hover:bg-[#202738] border-slate-300 dark:border-[#2B3547] text-slate-800 dark:text-gray-200'
             }`}
             title={`Paramètres du pad : ${activePresetObj.name} (Fondu : ${crossfadeDuration.toFixed(1)}s)`}
             aria-label="Paramètres du pad"
           >
             <div className="flex items-center gap-2 min-w-0 overflow-hidden">
-              <SlidersHorizontal className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-              <span className="text-xs sm:text-sm font-semibold text-white truncate text-left">
+              <SlidersHorizontal className="w-3.5 h-3.5 text-sky-700 dark:text-sky-400 shrink-0" />
+              <span className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-white truncate text-left">
                 {activePresetObj.name}
               </span>
             </div>
-            <ChevronDown className={`w-3.5 h-3.5 text-gray-400 shrink-0 transition-transform ${showSettings ? 'rotate-180' : ''}`} />
+            <ChevronDown className={`w-3.5 h-3.5 text-slate-600 dark:text-gray-400 shrink-0 transition-transform ${showSettings ? 'rotate-180' : ''}`} />
           </button>
 
           {/* Menu popover des paramètres du pad */}
           {showSettings && (
-            <div className="absolute right-0 top-full mt-2 z-50 w-76 sm:w-80 bg-[#141822] border border-[#2B3547] rounded-xl shadow-2xl p-3 space-y-3 animate-in fade-in zoom-in-95 duration-100 box-border text-left">
+            <div className="absolute right-0 top-full mt-2 z-50 w-76 sm:w-80 bg-slate-50 dark:bg-[#141822] border border-slate-300 dark:border-[#2B3547] rounded-xl shadow-2xl p-3 space-y-3 animate-in fade-in zoom-in-95 duration-100 box-border text-left">
               
               {/* Section 1 : Choix de la nappe sonore */}
               <div className="space-y-1.5">
-                <div className="flex items-center justify-between pb-1.5 border-b border-[#202738]">
-                  <span className="flex items-center gap-1.5 text-xs font-bold text-gray-200">
-                    <Sparkles className="w-3.5 h-3.5 text-sky-400" />
+                <div className="flex items-center justify-between pb-1.5 border-b border-slate-300 dark:border-[#202738]">
+                  <span className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-gray-200">
+                    <Sparkles className="w-3.5 h-3.5 text-sky-700 dark:text-sky-400" />
                     <span>Nappe d'accompagnement</span>
                   </span>
-                  <span className="text-[10px] text-sky-400 font-mono">
+                  <span className="text-[10px] text-sky-700 dark:text-sky-400 font-mono">
                     {PAD_PRESETS.length} sons
                   </span>
                 </div>
@@ -318,24 +318,24 @@ export const PadControl: React.FC<PadControlProps> = ({
                         onClick={() => handleSelectPreset(p.id)}
                         className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between transition-colors cursor-pointer border ${
                           isSel
-                            ? 'bg-sky-500/20 text-sky-300 border-sky-500/40 font-semibold'
-                            : 'bg-[#181D29] hover:bg-[#202738] text-gray-300 border-[#252E3E]'
+                            ? 'bg-sky-500/20 text-sky-700 dark:text-sky-300 border-sky-500/40 font-semibold'
+                            : 'bg-[#EDF1F5] dark:bg-[#181D29] hover:bg-slate-200 dark:hover:bg-[#202738] text-slate-700 dark:text-gray-300 border-slate-300 dark:border-[#252E3E]'
                         }`}
                       >
                         <div className="min-w-0 pr-1.5">
                           <div className="truncate font-semibold flex items-center gap-1.5">
                             <span>{p.name}</span>
                             {p.audioUrl ? (
-                              <span className="text-[9px] px-1 py-0.2 rounded bg-sky-950/80 text-sky-300 border border-sky-500/40 font-mono font-bold">
+                              <span className="text-[9px] px-1 py-0.2 rounded bg-sky-50 dark:bg-sky-950/80 text-sky-700 dark:text-sky-300 border border-sky-500/40 font-mono font-bold">
                                 Boucle 1 min
                               </span>
                             ) : null}
                           </div>
-                          <div className="text-[9px] text-gray-400 truncate leading-tight">
+                          <div className="text-[9px] text-slate-600 dark:text-gray-400 truncate leading-tight">
                             {p.description}
                           </div>
                         </div>
-                        {isSel && <Check className="w-3.5 h-3.5 text-sky-400 shrink-0" />}
+                        {isSel && <Check className="w-3.5 h-3.5 text-sky-700 dark:text-sky-400 shrink-0" />}
                       </button>
                     );
                   })}
@@ -343,18 +343,18 @@ export const PadControl: React.FC<PadControlProps> = ({
               </div>
 
               {/* Section 2 : Durée du fondu (Crossfade) */}
-              <div className="pt-2 border-t border-[#202738] space-y-2">
+              <div className="pt-2 border-t border-slate-300 dark:border-[#202738] space-y-2">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-gray-200">
-                    <SlidersHorizontal className="w-3.5 h-3.5 text-sky-400" />
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-gray-200">
+                    <SlidersHorizontal className="w-3.5 h-3.5 text-sky-700 dark:text-sky-400" />
                     <span>Fondu (Crossfade)</span>
                   </div>
-                  <span className="text-xs font-mono font-bold text-sky-400 bg-sky-950/60 border border-sky-500/30 px-1.5 py-0.5 rounded">
+                  <span className="text-xs font-mono font-bold text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/60 border border-sky-500/30 px-1.5 py-0.5 rounded">
                     {crossfadeDuration.toFixed(1)} s
                   </span>
                 </div>
 
-                <div className="text-[10px] text-gray-400 leading-tight">
+                <div className="text-[10px] text-slate-600 dark:text-gray-400 leading-tight">
                   Transition lors du slide ou changement de morceau :
                 </div>
 
@@ -374,11 +374,11 @@ export const PadControl: React.FC<PadControlProps> = ({
                         className={`p-1.5 rounded-lg border text-center transition-all cursor-pointer flex flex-col items-center justify-center ${
                           isSelected
                             ? 'bg-sky-400 text-black border-sky-300 font-bold shadow-xs'
-                            : 'bg-[#181D29] hover:bg-[#202738] text-gray-300 border-[#2A3345]'
+                            : 'bg-[#EDF1F5] dark:bg-[#181D29] hover:bg-slate-200 dark:hover:bg-[#202738] text-slate-700 dark:text-gray-300 border-slate-300 dark:border-[#2A3345]'
                         }`}
                       >
                         <span className="text-xs font-bold leading-none">{preset.label}</span>
-                        <span className={`text-[9px] mt-1 font-mono ${isSelected ? 'text-black/80 font-semibold' : 'text-gray-400'}`}>
+                        <span className={`text-[9px] mt-1 font-mono ${isSelected ? 'text-black/80 font-semibold' : 'text-slate-600 dark:text-gray-400'}`}>
                           {preset.sec}s
                         </span>
                       </button>
@@ -388,7 +388,7 @@ export const PadControl: React.FC<PadControlProps> = ({
 
                 {/* Curseur continu */}
                 <div className="pt-0.5 space-y-1">
-                  <div className="flex items-center justify-between text-[10px] text-gray-400 font-mono">
+                  <div className="flex items-center justify-between text-[10px] text-slate-600 dark:text-gray-400 font-mono">
                     <span>Court (0.4s)</span>
                     <span>Long (6.0s)</span>
                   </div>
@@ -399,7 +399,7 @@ export const PadControl: React.FC<PadControlProps> = ({
                     step="0.1"
                     value={crossfadeDuration}
                     onChange={(e) => handleCrossfadeChange(parseFloat(e.target.value))}
-                    className="w-full accent-sky-400 h-1.5 bg-[#10131B] rounded-lg cursor-pointer"
+                    className="w-full accent-sky-400 h-1.5 bg-slate-50 dark:bg-[#10131B] rounded-lg cursor-pointer"
                   />
                 </div>
               </div>
@@ -411,7 +411,7 @@ export const PadControl: React.FC<PadControlProps> = ({
       </div>
 
       {/* Ligne 2 : Gestion du volume du pad d'accompagnement */}
-      <div className="bg-[#161B26] border border-[#232B3B] rounded-xl px-3 py-2 flex items-center gap-3">
+      <div className="bg-[#EDF1F5] dark:bg-[#161B26] border border-slate-300 dark:border-[#232B3B] rounded-xl px-3 py-2 flex items-center gap-3">
         {/* Bouton Mute */}
         <button
           type="button"
@@ -419,11 +419,11 @@ export const PadControl: React.FC<PadControlProps> = ({
           className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer shrink-0 border ${
             isMuted
               ? 'bg-rose-600 border-rose-500 text-white'
-              : 'bg-[#1D2332] hover:bg-[#262E40] border-[#2C364A] text-gray-300 hover:text-white'
+              : 'bg-[#EDF1F5] dark:bg-[#1D2332] hover:bg-slate-200 dark:hover:bg-[#262E40] border-slate-300 dark:border-[#2C364A] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white'
           }`}
           title={isMuted ? "Rétablir le son" : "Couper le son (Mute)"}
         >
-          {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4 text-sky-400" />}
+          {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4 text-sky-700 dark:text-sky-400" />}
         </button>
 
         {/* Curseur curseur horizontal */}
@@ -434,13 +434,13 @@ export const PadControl: React.FC<PadControlProps> = ({
             max="100"
             value={isMuted ? 0 : volume}
             onChange={(e) => handleVolumeChange(Number(e.target.value))}
-            className="w-full accent-sky-400 h-1.5 bg-[#10131B] rounded-lg cursor-pointer"
+            className="w-full accent-sky-400 h-1.5 bg-slate-50 dark:bg-[#10131B] rounded-lg cursor-pointer"
             title={`Volume du Pad : ${volume}%`}
           />
         </div>
 
         {/* Affichage du pourcentage */}
-        <span className="text-[11px] font-mono font-bold text-gray-300 tabular-nums shrink-0 w-9 text-right">
+        <span className="text-[11px] font-mono font-bold text-slate-700 dark:text-gray-300 tabular-nums shrink-0 w-9 text-right">
           {isMuted ? 'MUTE' : `${volume}%`}
         </span>
       </div>

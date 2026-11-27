@@ -29,13 +29,13 @@ export class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-[#0A0A0B] text-[#E0E0E0] flex flex-col items-center justify-center p-6 text-center">
+        <div className="min-h-screen bg-[#F4F6F9] dark:bg-[#0A0A0B] text-slate-900 dark:text-[#E0E0E0] flex flex-col items-center justify-center p-6 text-center">
           <h1 className="text-2xl font-bold mb-3">Une erreur est survenue</h1>
-          <p className="text-gray-400 mb-1 max-w-md text-sm">
+          <p className="text-slate-600 dark:text-gray-400 mb-1 max-w-md text-sm">
             L'application a rencontré un problème lors du chargement. Cela peut être dû à un cache navigateur obsolète ou à une ancienne version stockée hors-ligne.
           </p>
           {this.state.error && (
-            <p className="text-gray-600 mb-4 max-w-md text-xs font-mono break-all">
+            <p className="text-slate-500 dark:text-gray-600 mb-4 max-w-md text-xs font-mono break-all">
               {this.state.error.message}
             </p>
           )}

@@ -209,18 +209,18 @@ export const AudioPreviewPlayer: React.FC<AudioPreviewPlayerProps> = ({
   const currentBarIndex = Math.floor(progressFraction * (waveformPeaks.length || 54));
 
   return (
-    <div className="bg-[#0E121B] border border-[#222B3D] rounded-xl p-3.5 space-y-3 animate-in fade-in">
+    <div className="bg-white dark:bg-[#0E121B] border border-slate-300 dark:border-[#222B3D] rounded-xl p-3.5 space-y-3 animate-in fade-in">
       {/* Header Info */}
       <div className="flex items-center justify-between text-xs">
         <div className="flex items-center gap-2 truncate">
-          <div className="w-6 h-6 rounded-md bg-sky-500/20 border border-sky-400/40 flex items-center justify-center text-sky-400 shrink-0">
+          <div className="w-6 h-6 rounded-md bg-sky-500/20 border border-sky-400/40 flex items-center justify-center text-sky-700 dark:text-sky-400 shrink-0">
             <Music className="w-3.5 h-3.5" />
           </div>
           <div className="truncate">
-            <span className="font-semibold text-gray-200 truncate block text-[11px]">
+            <span className="font-semibold text-slate-800 dark:text-gray-200 truncate block text-[11px]">
               Aperçu audio avant import
             </span>
-            <span className="text-[10px] text-gray-400 flex items-center gap-1.5 font-mono">
+            <span className="text-[10px] text-slate-600 dark:text-gray-400 flex items-center gap-1.5 font-mono">
               <span>{(file.size / (1024 * 1024)).toFixed(2)} Mo</span>
               <span>•</span>
               <span>{duration > 0 ? `${duration.toFixed(1)}s` : 'Calcul...'}</span>
@@ -233,7 +233,7 @@ export const AudioPreviewPlayer: React.FC<AudioPreviewPlayerProps> = ({
               {rootKeyName && (
                 <>
                   <span>•</span>
-                  <span className="text-sky-300 font-bold">Réf: {rootKeyName}</span>
+                  <span className="text-sky-700 dark:text-sky-300 font-bold">Réf: {rootKeyName}</span>
                 </>
               )}
             </span>
@@ -242,7 +242,7 @@ export const AudioPreviewPlayer: React.FC<AudioPreviewPlayerProps> = ({
 
         {/* Loop & Mute Controls */}
         <div className="flex items-center gap-1.5 shrink-0">
-          <span className="hidden sm:inline-block px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-400/30 text-amber-300 font-mono text-[9px] font-semibold">
+          <span className="hidden sm:inline-block px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-400/30 text-amber-700 dark:text-amber-300 font-mono text-[9px] font-semibold">
             Gain calibré auto (-0.7 dB)
           </span>
           <button
@@ -250,8 +250,8 @@ export const AudioPreviewPlayer: React.FC<AudioPreviewPlayerProps> = ({
             onClick={toggleLoop}
             className={`px-2 py-1 rounded text-[10px] font-bold font-mono flex items-center gap-1 transition-colors cursor-pointer border ${
               isLooping 
-                ? 'bg-sky-500/20 border-sky-400/50 text-sky-300' 
-                : 'bg-[#151922] border-transparent text-gray-400 hover:text-gray-300'
+                ? 'bg-sky-500/20 border-sky-400/50 text-sky-700 dark:text-sky-300' 
+                : 'bg-[#EDF1F5] dark:bg-[#151922] border-transparent text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-300'
             }`}
             title={isLooping ? 'Boucle active (recommandé pour nappes worship)' : 'Boucle inactive'}
           >
@@ -264,7 +264,7 @@ export const AudioPreviewPlayer: React.FC<AudioPreviewPlayerProps> = ({
       {/* Interactive Waveform Visualizer */}
       <div 
         onClick={handleWaveformClick}
-        className="relative h-12 w-full bg-[#080B10] border border-[#1A2130] rounded-lg px-2 flex items-center justify-between gap-[2px] cursor-pointer group select-none overflow-hidden"
+        className="relative h-12 w-full bg-[#F4F6F9] dark:bg-[#080B10] border border-slate-200 dark:border-[#1A2130] rounded-lg px-2 flex items-center justify-between gap-[2px] cursor-pointer group select-none overflow-hidden"
         title="Cliquer pour naviguer dans l'extrait"
       >
         {/* Background hover guide */}
@@ -288,7 +288,7 @@ export const AudioPreviewPlayer: React.FC<AudioPreviewPlayerProps> = ({
                   className={`w-full rounded-full transition-all duration-75 ${
                     isPlayed 
                       ? 'bg-gradient-to-t from-sky-500 to-cyan-300 shadow-sm shadow-sky-400/30' 
-                      : 'bg-[#21293B] group-hover:bg-[#2A344C]'
+                      : 'bg-[#EDF1F5] dark:bg-[#21293B] hover:group-bg-slate-200 dark:group-hover:bg-[#2A344C]'
                   }`}
                   style={{ height: `${barHeightPct}%` }}
                 />
@@ -327,17 +327,17 @@ export const AudioPreviewPlayer: React.FC<AudioPreviewPlayerProps> = ({
           <button
             type="button"
             onClick={() => handleSeek(0)}
-            className="w-7 h-7 rounded-lg bg-[#141924] hover:bg-[#1E2638] text-gray-400 hover:text-gray-200 flex items-center justify-center transition-colors cursor-pointer"
+            className="w-7 h-7 rounded-lg bg-[#EDF1F5] dark:bg-[#141924] hover:bg-slate-200 dark:hover:bg-[#1E2638] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200 flex items-center justify-center transition-colors cursor-pointer"
             title="Revenir au début"
           >
             <RotateCcw className="w-3.5 h-3.5" />
           </button>
 
           {/* Time Display */}
-          <div className="font-mono text-[11px] text-gray-300">
-            <span className="text-white font-bold">{formatTime(currentTime)}</span>
+          <div className="font-mono text-[11px] text-slate-700 dark:text-gray-300">
+            <span className="text-slate-900 dark:text-white font-bold">{formatTime(currentTime)}</span>
             <span className="text-gray-500 mx-1">/</span>
-            <span className="text-gray-400">{formatTime(duration)}</span>
+            <span className="text-slate-600 dark:text-gray-400">{formatTime(duration)}</span>
           </div>
         </div>
 
@@ -346,10 +346,10 @@ export const AudioPreviewPlayer: React.FC<AudioPreviewPlayerProps> = ({
           <button
             type="button"
             onClick={toggleMute}
-            className="text-gray-400 hover:text-white transition-colors cursor-pointer"
+            className="text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
           >
             {isMuted || volume === 0 ? (
-              <VolumeX className="w-3.5 h-3.5 text-rose-400" />
+              <VolumeX className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
             ) : (
               <Volume2 className="w-3.5 h-3.5" />
             )}
@@ -361,7 +361,7 @@ export const AudioPreviewPlayer: React.FC<AudioPreviewPlayerProps> = ({
             step="0.05"
             value={isMuted ? 0 : volume}
             onChange={handleVolumeChange}
-            className="w-16 h-1 bg-[#1E2638] rounded-lg appearance-none cursor-pointer accent-sky-400"
+            className="w-16 h-1 bg-[#EDF1F5] dark:bg-[#1E2638] rounded-lg appearance-none cursor-pointer accent-sky-400"
           />
         </div>
       </div>

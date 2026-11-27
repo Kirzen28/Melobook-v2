@@ -1,6 +1,8 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import { useApp } from '../context/AppContext';
 import { Song, Setlist } from '../types';
+import { POPOVER_MOTION, SHEET_PANEL_MOTION } from '../utils/motionPresets';
 import {
   parseDurationToSeconds,
   formatSetlistDuration,
@@ -1591,10 +1593,10 @@ export const SongList: React.FC = () => {
         onMouseUp={cancelLongPress}
         onMouseLeave={cancelLongPress}
         onClick={(e) => handleCardClick(song, e)}
-        className={`group relative border rounded-lg p-2.5 sm:p-3 transition-all flex items-center gap-2.5 sm:gap-3 cursor-pointer shadow-xs hover:shadow-md select-none w-full ${
+        className={`group relative border rounded-lg p-2.5 sm:p-3 transition-all duration-150 flex items-center gap-2.5 sm:gap-3 cursor-pointer shadow-xs hover:shadow-md hover:-translate-y-0.5 select-none w-full ${
           isSelected
-            ? 'bg-blue-950/30 border-blue-500 ring-2 ring-blue-500/40 shadow-blue-900/20'
-            : 'bg-[#111112] hover:bg-[#151518] border-[#222224] hover:border-blue-500/40'
+            ? 'bg-blue-50 dark:bg-blue-950/30 border-blue-500 ring-2 ring-blue-500/40 shadow-blue-900/20'
+            : 'bg-white dark:bg-[#111112] hover:bg-slate-100 dark:hover:bg-[#151518] border-slate-200 dark:border-[#222224] hover:border-blue-500/40'
         }`}
       >
         {/* Checkbox permanently visible on laptop, tablet and mobile */}
@@ -1604,15 +1606,15 @@ export const SongList: React.FC = () => {
             e.stopPropagation();
             toggleSongSelection(song.id);
           }}
-          className={`w-5 h-5 rounded flex items-center justify-center border transition-all cursor-pointer shrink-0 ${
+          className={`w-5 h-5 rounded flex items-center justify-center border transition-all duration-150 cursor-pointer shrink-0 ${
             isSelected
               ? 'bg-blue-600 border-blue-500 text-white shadow-xs ring-2 ring-blue-500/30'
-              : 'bg-[#1C1C1E] border-[#444] text-transparent hover:border-blue-400 hover:bg-[#252528]'
+              : 'bg-[#EDF1F5] dark:bg-[#1C1C1E] border-slate-300 dark:border-[#444] text-transparent hover:border-blue-400 hover:bg-slate-200/70 dark:hover:bg-[#252528]'
           }`}
           title={isSelected ? "Désélectionner ce chant" : "Sélectionner ce chant"}
           aria-label={isSelected ? "Désélectionner ce chant" : "Sélectionner ce chant"}
         >
-          <Check className={`w-3.5 h-3.5 stroke-[2.5] ${isSelected ? 'opacity-100' : 'opacity-0 hover:opacity-40 text-blue-400'}`} />
+          <Check className={`w-3.5 h-3.5 stroke-[2.5] transition-all duration-150 ${isSelected ? 'opacity-100 scale-100' : 'opacity-0 scale-75 hover:opacity-40 text-blue-600 dark:text-blue-400'}`} />
         </button>
 
         {/* Div unique alignant le titre, l'artiste, les badges et les boutons */}
@@ -1621,39 +1623,39 @@ export const SongList: React.FC = () => {
           <div className="min-w-0 flex-1 flex flex-col gap-0.5">
             <div className="min-w-0 flex items-center gap-1.5">
               <h3 
-                className="text-xs sm:text-sm font-bold text-white group-hover:text-blue-400 transition-colors truncate leading-snug"
+                className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white group-hover:text-blue-800 dark:group-hover:text-blue-400 transition-colors truncate leading-snug"
                 title={stripParentheses(song.title)}
               >
                 {stripParentheses(song.title)}
               </h3>
               <span
-                className="text-[11px] sm:text-xs font-normal text-gray-400 truncate"
+                className="text-[11px] sm:text-xs font-normal text-slate-600 dark:text-gray-400 truncate"
                 title={song.artist || 'Auteur inconnu'}
               >
                 — {song.artist || 'Auteur inconnu'}
               </span>
             </div>
 
-            <p className="text-[11px] text-gray-400 truncate flex items-center gap-1.5 flex-wrap">
-              <span>Tonalité : <strong className="text-blue-400">{song.key || '—'}</strong></span>
+            <p className="text-[11px] text-slate-600 dark:text-gray-400 truncate flex items-center gap-1.5 flex-wrap">
+              <span>Tonalité : <strong className="text-blue-600 dark:text-blue-400">{song.key || '—'}</strong></span>
               {(song.tempo || song.bpm) ? (
                 <>
-                  <span className="text-gray-600">•</span>
+                  <span className="text-slate-500 dark:text-gray-600">•</span>
                   <span>{song.tempo || song.bpm} BPM</span>
                 </>
               ) : null}
               {getSongDuration(song) ? (
                 <>
-                  <span className="text-gray-600">•</span>
-                  <span className="inline-flex items-center gap-1 text-cyan-400 font-mono font-medium">
-                    <Clock className="w-2.5 h-2.5 text-cyan-400" />
+                  <span className="text-slate-500 dark:text-gray-600">•</span>
+                  <span className="inline-flex items-center gap-1 text-cyan-700 dark:text-cyan-400 font-mono font-medium">
+                    <Clock className="w-2.5 h-2.5 text-cyan-700 dark:text-cyan-400" />
                     {getSongDuration(song)}
                   </span>
                 </>
               ) : null}
               {songCardMetadata.showAlbum !== false && song.album ? (
                 <>
-                  <span className="text-gray-600">•</span>
+                  <span className="text-slate-500 dark:text-gray-600">•</span>
                   <span className="truncate" title={`Album : ${song.album}`}>
                     {song.album}
                   </span>
@@ -1677,10 +1679,10 @@ export const SongList: React.FC = () => {
                   e.stopPropagation();
                   handleOpenQuickMediaPopup(song);
                 }}
-                className={`p-1 sm:p-1.5 rounded bg-[#1C1C1E] border border-[#333] transition-colors flex items-center justify-center cursor-pointer group ${
+                className={`p-1 sm:p-1.5 rounded bg-[#EDF1F5] dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] transition-colors flex items-center justify-center cursor-pointer group ${
                   (song.youtubeUrl || song.spotifyUrl)
-                    ? 'hover:bg-blue-500/15 text-gray-300 hover:text-blue-300 hover:border-blue-500/50'
-                    : 'hover:bg-[#28282C] text-gray-400 hover:text-gray-200 hover:border-gray-500'
+                    ? 'hover:bg-blue-500/15 text-slate-700 dark:text-gray-300 hover:text-blue-800 dark:hover:text-blue-300 hover:border-blue-500/50'
+                    : 'hover:bg-slate-200 dark:hover:bg-[#28282C] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200 hover:border-slate-400 dark:hover:border-gray-500'
                 }`}
                 title={
                   song.youtubeUrl || song.spotifyUrl
@@ -1691,8 +1693,8 @@ export const SongList: React.FC = () => {
               >
                 <Play className={`w-3.5 h-3.5 group-hover:scale-110 transition-transform ${
                   (song.youtubeUrl || song.spotifyUrl)
-                    ? 'text-blue-400 fill-blue-400/20'
-                    : 'text-gray-400'
+                    ? 'text-blue-600 dark:text-blue-400 fill-blue-400/20'
+                    : 'text-slate-600 dark:text-gray-400'
                 }`} />
               </button>
 
@@ -1704,11 +1706,11 @@ export const SongList: React.FC = () => {
                   e.stopPropagation();
                   setSongToExportPdf(song);
                 }}
-                className="p-1 sm:p-1.5 rounded bg-[#1C1C1E] hover:bg-blue-500/15 text-gray-300 hover:text-blue-300 border border-[#333] hover:border-blue-500/50 transition-colors flex items-center justify-center cursor-pointer group"
+                className="p-1 sm:p-1.5 rounded bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-blue-500/15 text-slate-700 dark:text-gray-300 hover:text-blue-800 dark:hover:text-blue-300 border border-slate-300 dark:border-[#333] hover:border-blue-500/50 transition-colors flex items-center justify-center cursor-pointer group"
                 title={isMultiSelectMode ? undefined : "Partager (QR code, lien ou PDF)"}
                 aria-label="Partager"
               >
-                <Share2 className="w-3.5 h-3.5 text-blue-400 group-hover:scale-110 transition-transform" />
+                <Share2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform" />
               </button>
 
               {canManageSongs && (
@@ -1719,11 +1721,11 @@ export const SongList: React.FC = () => {
                     e.stopPropagation();
                     handleEditSong(song);
                   }}
-                  className="p-1 sm:p-1.5 rounded bg-[#1C1C1E] hover:bg-amber-500/15 text-gray-300 hover:text-amber-300 border border-[#333] hover:border-amber-500/50 transition-colors flex items-center justify-center cursor-pointer group"
+                  className="p-1 sm:p-1.5 rounded bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-amber-500/15 text-slate-700 dark:text-gray-300 hover:text-amber-800 dark:hover:text-amber-300 border border-slate-300 dark:border-[#333] hover:border-amber-500/50 transition-colors flex items-center justify-center cursor-pointer group"
                   title={isMultiSelectMode ? undefined : "Éditer le chant"}
                   aria-label="Éditer le chant"
                 >
-                  <FileEdit className="w-3.5 h-3.5 text-amber-400 group-hover:scale-110 transition-transform" />
+                  <FileEdit className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 group-hover:scale-110 transition-transform" />
                 </button>
               )}
             </div>
@@ -1741,12 +1743,12 @@ export const SongList: React.FC = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-3 sm:px-6 py-6 pb-12 text-[#E0E0E0]">
+    <div className="max-w-4xl mx-auto px-3 sm:px-6 py-6 pb-12 text-slate-900 dark:text-[#E0E0E0]">
       
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-wrap">
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-2 sm:gap-2.5">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2 sm:gap-2.5">
             <Music2 className="w-5 h-5 sm:w-6 sm:h-6 text-blue-500 shrink-0" />
             <span>Répertoire de Chants</span>
           </h1>
@@ -1770,12 +1772,14 @@ export const SongList: React.FC = () => {
               </button>
 
               {/* Nouveau Chant Dropdown Menu */}
-              {isImportDropdownOpen && (
-                <div
-                  role="menu"
-                  className="absolute left-0 sm:left-auto sm:right-0 mt-1.5 w-80 max-w-[calc(100vw-2rem)] bg-[#111112] border border-[#333] rounded-lg shadow-2xl z-30 py-1.5 text-xs animate-in fade-in zoom-in-95 duration-100"
-                >
-                  <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400 border-b border-[#222224]">
+              <AnimatePresence>
+                {isImportDropdownOpen && (
+                  <motion.div
+                    {...POPOVER_MOTION}
+                    role="menu"
+                    className="absolute left-0 sm:left-auto sm:right-0 mt-1.5 w-80 max-w-[calc(100vw-2rem)] bg-white dark:bg-[#111112] border border-slate-300 dark:border-[#333] rounded-lg shadow-2xl z-30 py-1.5 text-xs origin-top-right"
+                  >
+                  <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-gray-400 border-b border-slate-200 dark:border-[#222224]">
                     Ajouter un chant
                   </div>
 
@@ -1787,16 +1791,16 @@ export const SongList: React.FC = () => {
                       setIsImportDropdownOpen(false);
                       handleCreateNewSong();
                     }}
-                    className="w-full text-left px-3.5 py-2.5 hover:bg-[#1C1C1E] flex items-start gap-2.5 transition-colors group bg-blue-950/20 border-b border-[#222224] cursor-pointer"
+                    className="w-full text-left px-3.5 py-2.5 hover:bg-slate-200/70 dark:hover:bg-[#1C1C1E] flex items-start gap-2.5 transition-colors group bg-blue-50 dark:bg-blue-950/20 border-b border-slate-200 dark:border-[#222224] cursor-pointer"
                   >
                     <div className="p-1.5 rounded bg-blue-600/20 border border-blue-500/30 text-blue-400 mt-0.5 group-hover:bg-blue-600 group-hover:text-white transition-colors">
                       <Pen className="w-4 h-4" />
                     </div>
                     <div>
-                      <div className="font-semibold text-white group-hover:text-blue-400">
+                      <div className="font-semibold text-slate-900 dark:text-white group-hover:text-blue-800 dark:group-hover:text-blue-400">
                         Créer à partir de zéro
                       </div>
-                      <p className="text-[11px] text-gray-400 mt-0.5">
+                      <p className="text-[11px] text-slate-600 dark:text-gray-400 mt-0.5">
                         Composer un nouveau chant directement dans l'éditeur de l'app
                       </p>
                     </div>
@@ -1807,17 +1811,17 @@ export const SongList: React.FC = () => {
                     type="button"
                     role="menuitem"
                     onClick={() => handleOpenImport('search')}
-                    className="w-full text-left px-3.5 py-2.5 hover:bg-[#1C1C1E] flex items-start gap-2.5 transition-colors group border-b border-[#222224] cursor-pointer"
+                    className="w-full text-left px-3.5 py-2.5 hover:bg-slate-200/70 dark:hover:bg-[#1C1C1E] flex items-start gap-2.5 transition-colors group border-b border-slate-200 dark:border-[#222224] cursor-pointer"
                   >
-                    <div className="p-1.5 rounded bg-[#1C1C1E] border border-[#333] text-blue-400 mt-0.5 group-hover:border-blue-500">
+                    <div className="p-1.5 rounded bg-[#EDF1F5] dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] text-blue-600 dark:text-blue-400 mt-0.5 group-hover:border-blue-500">
                       <Search className="w-4 h-4" />
                     </div>
                     <div>
-                      <div className="font-semibold text-white group-hover:text-blue-400 flex items-center gap-1.5">
+                      <div className="font-semibold text-slate-900 dark:text-white group-hover:text-blue-800 dark:group-hover:text-blue-400 flex items-center gap-1.5">
                         <span>Recherche en ligne</span>
-                        <span className="px-1.5 py-0.2 text-[9px] font-bold uppercase rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">Nouveau</span>
+                        <span className="px-1.5 py-0.2 text-[9px] font-bold uppercase rounded bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30">Nouveau</span>
                       </div>
-                      <p className="text-[11px] text-gray-400 mt-0.5">
+                      <p className="text-[11px] text-slate-600 dark:text-gray-400 mt-0.5">
                         Cherchez parmi des milliers de chants chrétiens comme Shir.fr ou WorshipTogether et importez en 1 clic
                       </p>
                     </div>
@@ -1828,16 +1832,16 @@ export const SongList: React.FC = () => {
                     type="button"
                     role="menuitem"
                     onClick={() => handleOpenImport('file')}
-                    className="w-full text-left px-3.5 py-2.5 hover:bg-[#1C1C1E] flex items-start gap-2.5 transition-colors group border-b border-[#222224] cursor-pointer"
+                    className="w-full text-left px-3.5 py-2.5 hover:bg-slate-200/70 dark:hover:bg-[#1C1C1E] flex items-start gap-2.5 transition-colors group border-b border-slate-200 dark:border-[#222224] cursor-pointer"
                   >
-                    <div className="p-1.5 rounded bg-[#1C1C1E] border border-[#333] text-blue-400 mt-0.5 group-hover:border-blue-500">
+                    <div className="p-1.5 rounded bg-[#EDF1F5] dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] text-blue-600 dark:text-blue-400 mt-0.5 group-hover:border-blue-500">
                       <Upload className="w-4 h-4" />
                     </div>
                     <div>
-                      <div className="font-semibold text-white group-hover:text-blue-400">
+                      <div className="font-semibold text-slate-900 dark:text-white group-hover:text-blue-800 dark:group-hover:text-blue-400">
                         Importer un fichier
                       </div>
-                      <p className="text-[11px] text-gray-400 mt-0.5">
+                      <p className="text-[11px] text-slate-600 dark:text-gray-400 mt-0.5">
                         Fichiers locaux (.cho, .pro, .txt, .crd) par glisser-déposer
                       </p>
                     </div>
@@ -1848,22 +1852,23 @@ export const SongList: React.FC = () => {
                     type="button"
                     role="menuitem"
                     onClick={() => handleOpenImport('chordpro')}
-                    className="w-full text-left px-3.5 py-2.5 hover:bg-[#1C1C1E] flex items-start gap-2.5 transition-colors group cursor-pointer"
+                    className="w-full text-left px-3.5 py-2.5 hover:bg-slate-200/70 dark:hover:bg-[#1C1C1E] flex items-start gap-2.5 transition-colors group cursor-pointer"
                   >
-                    <div className="p-1.5 rounded bg-[#1C1C1E] border border-[#333] text-blue-400 mt-0.5 group-hover:border-blue-500">
+                    <div className="p-1.5 rounded bg-[#EDF1F5] dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] text-blue-600 dark:text-blue-400 mt-0.5 group-hover:border-blue-500">
                       <FileCode className="w-4 h-4" />
                     </div>
                     <div>
-                      <div className="font-semibold text-white group-hover:text-blue-400">
+                      <div className="font-semibold text-slate-900 dark:text-white group-hover:text-blue-800 dark:group-hover:text-blue-400">
                         Écrire / Coller ChordPro
                       </div>
-                      <p className="text-[11px] text-gray-400 mt-0.5">
+                      <p className="text-[11px] text-slate-600 dark:text-gray-400 mt-0.5">
                         Saisie directe de paroles et accords ou texte brut
                       </p>
                     </div>
                   </button>
-                </div>
-              )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
         )}
@@ -1872,24 +1877,24 @@ export const SongList: React.FC = () => {
 
 
       {/* Search & Filter Controls Bar */}
-      <div className="bg-[#111112] border border-[#222224] rounded-lg p-2.5 mb-3 flex flex-col md:flex-row items-center gap-2.5">
+      <div className="bg-white dark:bg-[#111112] border border-slate-200 dark:border-[#222224] rounded-lg p-2.5 mb-3 flex flex-col md:flex-row items-center gap-2.5">
         
         {/* Search Bar */}
         <div className="relative flex-1 w-full">
-          <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <Search className="w-3.5 h-3.5 text-slate-600 dark:text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             placeholder="Rechercher par titre, artiste, paroles ou catégorie..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-[#1C1C1E] border border-[#333] rounded-md pl-9 pr-16 py-1.5 text-xs text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-all"
+            className="w-full bg-[#EDF1F5] dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] rounded-md pl-9 pr-16 py-1.5 text-xs text-slate-900 dark:text-gray-100 placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-all"
           />
           <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
             {searchQuery && (
               <button 
                 type="button"
                 onClick={() => setSearchQuery('')}
-                className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-white transition-colors cursor-pointer"
+                className="w-5 h-5 flex items-center justify-center text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
                 title="Effacer la recherche"
               >
                 <X className="w-3.5 h-3.5" />
@@ -1916,38 +1921,38 @@ export const SongList: React.FC = () => {
           <div className="relative w-full md:w-auto min-w-0" ref={categoryFilterRef}>
             <div
               onClick={() => setIsCategoryFilterOpen(!isCategoryFilterOpen)}
-              className={`h-[34px] w-full bg-[#1C1C1E] border hover:border-[#444] rounded-md px-2 sm:px-2.5 py-1 text-xs text-gray-200 cursor-pointer flex items-center justify-between gap-1 sm:gap-1.5 transition-colors ${
+              className={`h-[34px] w-full border hover:border-slate-400 dark:hover:border-[#444] rounded-md px-2 sm:px-2.5 py-1 text-xs text-slate-800 dark:text-gray-200 cursor-pointer flex items-center justify-between gap-1 sm:gap-1.5 transition-colors ${
                 selectedCategories.length > 0
-                  ? 'border-blue-500/50 bg-blue-950/20'
-                  : 'border-[#333]'
+                  ? 'border-blue-500/50 bg-blue-50 dark:bg-blue-950/20'
+                  : 'border-slate-300 dark:border-[#333] bg-[#EDF1F5] dark:bg-[#1C1C1E]'
               }`}
             >
               <div className="flex items-center gap-1 sm:gap-1.5 min-w-0 truncate">
-                <Tag className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                <Tag className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
                 {selectedCategories.length === 0 ? (
-                  <span className="text-gray-300 truncate text-[11px] sm:text-xs">Catégories</span>
+                  <span className="text-slate-700 dark:text-gray-300 truncate text-[11px] sm:text-xs">Catégories</span>
                 ) : (
-                  <span className="text-blue-300 font-semibold truncate text-[11px] sm:text-xs">
+                  <span className="text-blue-700 dark:text-blue-300 font-semibold truncate text-[11px] sm:text-xs">
                     {selectedCategories.length === 1 ? selectedCategories[0] : `${selectedCategories.length} cat.`}
                   </span>
                 )}
               </div>
               
-              <ChevronDown className={`w-3 h-3 text-gray-400 shrink-0 transition-transform ml-0.5 ${isCategoryFilterOpen ? 'rotate-180' : ''}`} />
+              <ChevronDown className={`w-3 h-3 text-slate-600 dark:text-gray-400 shrink-0 transition-transform ml-0.5 ${isCategoryFilterOpen ? 'rotate-180' : ''}`} />
             </div>
 
             {/* Dropdown Popover */}
             {isCategoryFilterOpen && (
-              <div className="absolute left-0 mt-1.5 w-72 sm:w-80 max-w-[calc(100vw-2rem)] bg-[#141416] border border-[#2A2A2D] rounded-lg shadow-2xl p-2.5 z-50 text-xs">
+              <div className="absolute left-0 mt-1.5 w-72 sm:w-80 max-w-[calc(100vw-2rem)] bg-slate-50 dark:bg-[#141416] border border-slate-300 dark:border-[#2A2A2D] rounded-lg shadow-2xl p-2.5 z-50 text-xs animate-in fade-in zoom-in-95 duration-100">
                 
                 {/* Header with Title & Selection Counter */}
                 <div className="flex items-center justify-between mb-2 px-0.5">
-                  <div className="flex items-center gap-1.5 font-semibold text-white text-xs">
-                    <Tag className="w-3.5 h-3.5 text-blue-400" />
+                  <div className="flex items-center gap-1.5 font-semibold text-slate-900 dark:text-white text-xs">
+                    <Tag className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                     <span>Catégories</span>
                   </div>
                   {selectedCategories.length > 0 ? (
-                    <span className="text-[11px] text-blue-400 font-semibold">
+                    <span className="text-[11px] text-blue-600 dark:text-blue-400 font-semibold">
                       {selectedCategories.length} sélectionnée{selectedCategories.length > 1 ? 's' : ''}
                     </span>
                   ) : (
@@ -1968,7 +1973,7 @@ export const SongList: React.FC = () => {
                         handleCreateCategory();
                       }
                     }}
-                    className="flex-1 bg-[#1C1C1E] border border-[#333] rounded px-2.5 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                    className="flex-1 bg-[#EDF1F5] dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] rounded px-2.5 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-blue-500"
                     autoFocus
                   />
                   {categoryFilterSearch.trim() && (
@@ -1994,7 +1999,7 @@ export const SongList: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => handleCreateCategory()}
-                            className="block mx-auto mt-1 text-blue-400 font-semibold hover:underline"
+                            className="block mx-auto mt-1 text-blue-600 dark:text-blue-400 font-semibold hover:underline"
                           >
                             + Créer &quot;{categoryFilterSearch.trim()}&quot;
                           </button>
@@ -2012,14 +2017,14 @@ export const SongList: React.FC = () => {
                           onClick={() => toggleCategoryFilter(cat.name)}
                           className={`flex items-center justify-between px-2.5 py-1.5 rounded cursor-pointer transition-colors ${
                             isSelected
-                              ? 'bg-blue-600/15 text-blue-300 font-medium'
-                              : 'hover:bg-[#1C1C1E] text-gray-300'
+                              ? 'bg-blue-600/15 text-blue-700 dark:text-blue-300 font-medium'
+                              : 'hover:bg-slate-200/70 dark:hover:bg-[#1C1C1E] text-slate-700 dark:text-gray-300'
                           }`}
                         >
                           <div className="flex items-center gap-2 truncate pr-2">
                             <span className="truncate">{cat.name}</span>
                             {cat.count > 0 && (
-                              <span className="text-[10px] text-gray-400 bg-[#0A0A0B] px-1.5 py-0.2 rounded border border-[#222224]">
+                              <span className="text-[10px] text-slate-600 dark:text-gray-400 bg-[#F4F6F9] dark:bg-[#0A0A0B] px-1.5 py-0.2 rounded border border-slate-200 dark:border-[#222224]">
                                 {cat.count}
                               </span>
                             )}
@@ -2027,7 +2032,7 @@ export const SongList: React.FC = () => {
                           <div className={`w-4 h-4 rounded shrink-0 flex items-center justify-center border transition-colors ${
                             isSelected 
                               ? 'bg-blue-600 border-blue-500 text-white' 
-                              : 'border-[#444] bg-[#1C1C1E]'
+                              : 'border-slate-300 dark:border-[#444] bg-[#EDF1F5] dark:bg-[#1C1C1E]'
                           }`}>
                             {isSelected && <Check className="w-3 h-3 stroke-[2.5]" />}
                           </div>
@@ -2038,12 +2043,12 @@ export const SongList: React.FC = () => {
                 </div>
 
                 {/* Footer bar */}
-                <div className="flex items-center justify-between pt-2 mt-2 border-t border-[#222224]">
+                <div className="flex items-center justify-between pt-2 mt-2 border-t border-slate-200 dark:border-[#222224]">
                   {selectedCategories.length > 0 ? (
                     <button
                       type="button"
                       onClick={() => setSelectedCategories([])}
-                      className="text-[11px] text-gray-400 hover:text-rose-400 transition-colors"
+                      className="text-[11px] text-slate-600 dark:text-gray-400 hover:text-rose-800 dark:hover:text-rose-400 transition-colors"
                     >
                       Tout désélectionner
                     </button>
@@ -2053,7 +2058,7 @@ export const SongList: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setIsCategoryFilterOpen(false)}
-                    className="px-3 py-1 rounded bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 text-[11px] font-medium border border-[#333] transition-colors"
+                    className="px-3 py-1 rounded bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-slate-200 dark:hover:bg-[#2A2A2D] text-slate-700 dark:text-gray-300 text-[11px] font-medium border border-slate-300 dark:border-[#333] transition-colors"
                   >
                     Fermer
                   </button>
@@ -2067,38 +2072,38 @@ export const SongList: React.FC = () => {
           <div className="relative w-full md:w-auto min-w-0" ref={authorFilterRef}>
             <div
               onClick={() => setIsAuthorFilterOpen(!isAuthorFilterOpen)}
-              className={`h-[34px] w-full bg-[#1C1C1E] border hover:border-[#444] rounded-md px-2 sm:px-2.5 py-1 text-xs text-gray-200 cursor-pointer flex items-center justify-between gap-1 sm:gap-1.5 transition-colors ${
+              className={`h-[34px] w-full border hover:border-slate-400 dark:hover:border-[#444] rounded-md px-2 sm:px-2.5 py-1 text-xs text-slate-800 dark:text-gray-200 cursor-pointer flex items-center justify-between gap-1 sm:gap-1.5 transition-colors ${
                 selectedAuthors.length > 0
-                  ? 'border-blue-500/50 bg-blue-950/20'
-                  : 'border-[#333]'
+                  ? 'border-blue-500/50 bg-blue-50 dark:bg-blue-950/20'
+                  : 'border-slate-300 dark:border-[#333] bg-[#EDF1F5] dark:bg-[#1C1C1E]'
               }`}
             >
               <div className="flex items-center gap-1 sm:gap-1.5 min-w-0 truncate">
-                <User className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                <User className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
                 {selectedAuthors.length === 0 ? (
-                  <span className="text-gray-300 truncate text-[11px] sm:text-xs">Auteurs</span>
+                  <span className="text-slate-700 dark:text-gray-300 truncate text-[11px] sm:text-xs">Auteurs</span>
                 ) : (
-                  <span className="text-blue-300 font-semibold truncate text-[11px] sm:text-xs">
+                  <span className="text-blue-700 dark:text-blue-300 font-semibold truncate text-[11px] sm:text-xs">
                     {selectedAuthors.length === 1 ? selectedAuthors[0] : `${selectedAuthors.length} aut.`}
                   </span>
                 )}
               </div>
               
-              <ChevronDown className={`w-3 h-3 text-gray-400 shrink-0 transition-transform ml-0.5 ${isAuthorFilterOpen ? 'rotate-180' : ''}`} />
+              <ChevronDown className={`w-3 h-3 text-slate-600 dark:text-gray-400 shrink-0 transition-transform ml-0.5 ${isAuthorFilterOpen ? 'rotate-180' : ''}`} />
             </div>
 
             {/* Dropdown Popover */}
             {isAuthorFilterOpen && (
-              <div className="absolute left-0 mt-1.5 w-72 sm:w-80 max-w-[calc(100vw-2rem)] bg-[#141416] border border-[#2A2A2D] rounded-lg shadow-2xl p-2.5 z-50 text-xs">
+              <div className="absolute left-0 mt-1.5 w-72 sm:w-80 max-w-[calc(100vw-2rem)] bg-slate-50 dark:bg-[#141416] border border-slate-300 dark:border-[#2A2A2D] rounded-lg shadow-2xl p-2.5 z-50 text-xs animate-in fade-in zoom-in-95 duration-100">
                 
                 {/* Header with Title & Selection Counter */}
                 <div className="flex items-center justify-between mb-2 px-0.5">
-                  <div className="flex items-center gap-1.5 font-semibold text-white text-xs">
-                    <User className="w-3.5 h-3.5 text-blue-400" />
+                  <div className="flex items-center gap-1.5 font-semibold text-slate-900 dark:text-white text-xs">
+                    <User className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                     <span>Auteurs</span>
                   </div>
                   {selectedAuthors.length > 0 ? (
-                    <span className="text-[11px] text-blue-400 font-semibold">
+                    <span className="text-[11px] text-blue-600 dark:text-blue-400 font-semibold">
                       {selectedAuthors.length} sélectionné{selectedAuthors.length > 1 ? 's' : ''}
                     </span>
                   ) : (
@@ -2113,14 +2118,14 @@ export const SongList: React.FC = () => {
                     placeholder="Rechercher un auteur..."
                     value={authorFilterSearch}
                     onChange={(e) => setAuthorFilterSearch(e.target.value)}
-                    className="flex-1 bg-[#1C1C1E] border border-[#333] rounded px-2.5 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                    className="flex-1 bg-[#EDF1F5] dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] rounded px-2.5 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-blue-500"
                     autoFocus
                   />
                   {authorFilterSearch && (
                     <button
                       type="button"
                       onClick={() => setAuthorFilterSearch('')}
-                      className="text-gray-400 hover:text-white p-1"
+                      className="text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white p-1"
                       title="Effacer la recherche"
                     >
                       <X className="w-3 h-3" />
@@ -2143,14 +2148,14 @@ export const SongList: React.FC = () => {
                           onClick={() => toggleAuthorFilter(authorItem.name)}
                           className={`flex items-center justify-between px-2.5 py-1.5 rounded cursor-pointer transition-colors ${
                             isSelected
-                              ? 'bg-blue-600/15 text-blue-300 font-medium'
-                              : 'hover:bg-[#1C1C1E] text-gray-300'
+                              ? 'bg-blue-600/15 text-blue-700 dark:text-blue-300 font-medium'
+                              : 'hover:bg-slate-200/70 dark:hover:bg-[#1C1C1E] text-slate-700 dark:text-gray-300'
                           }`}
                         >
                           <div className="flex items-center gap-2 truncate pr-2">
                             <span className="truncate">{authorItem.name}</span>
                             {authorItem.count > 0 && (
-                              <span className="text-[10px] text-gray-400 bg-[#0A0A0B] px-1.5 py-0.2 rounded border border-[#222224]">
+                              <span className="text-[10px] text-slate-600 dark:text-gray-400 bg-[#F4F6F9] dark:bg-[#0A0A0B] px-1.5 py-0.2 rounded border border-slate-200 dark:border-[#222224]">
                                 {authorItem.count}
                               </span>
                             )}
@@ -2158,7 +2163,7 @@ export const SongList: React.FC = () => {
                           <div className={`w-4 h-4 rounded shrink-0 flex items-center justify-center border transition-colors ${
                             isSelected 
                               ? 'bg-blue-600 border-blue-500 text-white' 
-                              : 'border-[#444] bg-[#1C1C1E]'
+                              : 'border-slate-300 dark:border-[#444] bg-[#EDF1F5] dark:bg-[#1C1C1E]'
                           }`}>
                             {isSelected && <Check className="w-3 h-3 stroke-[2.5]" />}
                           </div>
@@ -2169,12 +2174,12 @@ export const SongList: React.FC = () => {
                 </div>
 
                 {/* Footer bar */}
-                <div className="flex items-center justify-between pt-2 mt-2 border-t border-[#222224]">
+                <div className="flex items-center justify-between pt-2 mt-2 border-t border-slate-200 dark:border-[#222224]">
                   {selectedAuthors.length > 0 ? (
                     <button
                       type="button"
                       onClick={() => setSelectedAuthors([])}
-                      className="text-[11px] text-gray-400 hover:text-rose-400 transition-colors"
+                      className="text-[11px] text-slate-600 dark:text-gray-400 hover:text-rose-800 dark:hover:text-rose-400 transition-colors"
                     >
                       Tout désélectionner
                     </button>
@@ -2184,7 +2189,7 @@ export const SongList: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setIsAuthorFilterOpen(false)}
-                    className="px-3 py-1 rounded bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 text-[11px] font-medium border border-[#333] transition-colors"
+                    className="px-3 py-1 rounded bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-slate-200 dark:hover:bg-[#2A2A2D] text-slate-700 dark:text-gray-300 text-[11px] font-medium border border-slate-300 dark:border-[#333] transition-colors"
                   >
                     Fermer
                   </button>
@@ -2198,38 +2203,38 @@ export const SongList: React.FC = () => {
           <div className="relative w-full md:w-auto min-w-0" ref={keyFilterRef}>
             <div
               onClick={() => setIsKeyFilterOpen(!isKeyFilterOpen)}
-              className={`h-[34px] w-full bg-[#1C1C1E] border hover:border-[#444] rounded-md px-2 sm:px-2.5 py-1 text-xs text-gray-200 cursor-pointer flex items-center justify-between gap-1 sm:gap-1.5 transition-colors ${
+              className={`h-[34px] w-full border hover:border-slate-400 dark:hover:border-[#444] rounded-md px-2 sm:px-2.5 py-1 text-xs text-slate-800 dark:text-gray-200 cursor-pointer flex items-center justify-between gap-1 sm:gap-1.5 transition-colors ${
                 selectedKeys.length > 0
-                  ? 'border-amber-500/50 bg-amber-950/20'
-                  : 'border-[#333]'
+                  ? 'border-amber-500/50 bg-amber-50 dark:bg-amber-950/20'
+                  : 'border-slate-300 dark:border-[#333] bg-[#EDF1F5] dark:bg-[#1C1C1E]'
               }`}
             >
               <div className="flex items-center gap-1 sm:gap-1.5 min-w-0 truncate">
-                <Music className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <Music className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
                 {selectedKeys.length === 0 ? (
-                  <span className="text-gray-300 truncate text-[11px] sm:text-xs">Tonalités</span>
+                  <span className="text-slate-700 dark:text-gray-300 truncate text-[11px] sm:text-xs">Tonalités</span>
                 ) : (
-                  <span className="text-amber-300 font-semibold truncate text-[11px] sm:text-xs">
+                  <span className="text-amber-700 dark:text-amber-300 font-semibold truncate text-[11px] sm:text-xs">
                     {selectedKeys.length === 1 ? selectedKeys[0] : `${selectedKeys.length} ton.`}
                   </span>
                 )}
               </div>
               
-              <ChevronDown className={`w-3 h-3 text-gray-400 shrink-0 transition-transform ml-0.5 ${isKeyFilterOpen ? 'rotate-180' : ''}`} />
+              <ChevronDown className={`w-3 h-3 text-slate-600 dark:text-gray-400 shrink-0 transition-transform ml-0.5 ${isKeyFilterOpen ? 'rotate-180' : ''}`} />
             </div>
 
             {/* Dropdown Popover */}
             {isKeyFilterOpen && (
-              <div className="absolute left-0 mt-1.5 w-64 sm:w-72 max-w-[calc(100vw-2rem)] bg-[#141416] border border-[#2A2A2D] rounded-lg shadow-2xl p-2.5 z-50 text-xs">
+              <div className="absolute left-0 mt-1.5 w-64 sm:w-72 max-w-[calc(100vw-2rem)] bg-slate-50 dark:bg-[#141416] border border-slate-300 dark:border-[#2A2A2D] rounded-lg shadow-2xl p-2.5 z-50 text-xs animate-in fade-in zoom-in-95 duration-100">
                 
                 {/* Header with Title & Selection Counter */}
                 <div className="flex items-center justify-between mb-2 px-0.5">
-                  <div className="flex items-center gap-1.5 font-semibold text-white text-xs">
-                    <Music className="w-3.5 h-3.5 text-amber-400" />
+                  <div className="flex items-center gap-1.5 font-semibold text-slate-900 dark:text-white text-xs">
+                    <Music className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                     <span>Tonalités</span>
                   </div>
                   {selectedKeys.length > 0 ? (
-                    <span className="text-[11px] text-amber-400 font-semibold">
+                    <span className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold">
                       {selectedKeys.length} sélectionnée{selectedKeys.length > 1 ? 's' : ''}
                     </span>
                   ) : (
@@ -2244,14 +2249,14 @@ export const SongList: React.FC = () => {
                     placeholder="Rechercher une tonalité..."
                     value={keyFilterSearch}
                     onChange={(e) => setKeyFilterSearch(e.target.value)}
-                    className="flex-1 bg-[#1C1C1E] border border-[#333] rounded px-2.5 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-amber-500"
+                    className="flex-1 bg-[#EDF1F5] dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] rounded px-2.5 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-amber-500"
                     autoFocus
                   />
                   {keyFilterSearch && (
                     <button
                       type="button"
                       onClick={() => setKeyFilterSearch('')}
-                      className="text-gray-400 hover:text-white p-1"
+                      className="text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white p-1"
                       title="Effacer la recherche"
                     >
                       <X className="w-3 h-3" />
@@ -2274,14 +2279,14 @@ export const SongList: React.FC = () => {
                           onClick={() => toggleKeyFilter(keyItem.name)}
                           className={`flex items-center justify-between px-2.5 py-1.5 rounded cursor-pointer transition-colors ${
                             isSelected
-                              ? 'bg-amber-500/15 text-amber-300 font-medium'
-                              : 'hover:bg-[#1C1C1E] text-gray-300'
+                              ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 font-medium'
+                              : 'hover:bg-slate-200/70 dark:hover:bg-[#1C1C1E] text-slate-700 dark:text-gray-300'
                           }`}
                         >
                           <div className="flex items-center gap-2 truncate pr-2">
                             <span className="truncate font-semibold">{keyItem.name}</span>
                             {keyItem.count > 0 && (
-                              <span className="text-[10px] text-gray-400 bg-[#0A0A0B] px-1.5 py-0.2 rounded border border-[#222224]">
+                              <span className="text-[10px] text-slate-600 dark:text-gray-400 bg-[#F4F6F9] dark:bg-[#0A0A0B] px-1.5 py-0.2 rounded border border-slate-200 dark:border-[#222224]">
                                 {keyItem.count}
                               </span>
                             )}
@@ -2289,7 +2294,7 @@ export const SongList: React.FC = () => {
                           <div className={`w-4 h-4 rounded shrink-0 flex items-center justify-center border transition-colors ${
                             isSelected 
                               ? 'bg-amber-500 border-amber-400 text-black font-bold' 
-                              : 'border-[#444] bg-[#1C1C1E]'
+                              : 'border-slate-300 dark:border-[#444] bg-[#EDF1F5] dark:bg-[#1C1C1E]'
                           }`}>
                             {isSelected && <Check className="w-3 h-3 stroke-[2.5]" />}
                           </div>
@@ -2300,12 +2305,12 @@ export const SongList: React.FC = () => {
                 </div>
 
                 {/* Footer bar */}
-                <div className="flex items-center justify-between pt-2 mt-2 border-t border-[#222224]">
+                <div className="flex items-center justify-between pt-2 mt-2 border-t border-slate-200 dark:border-[#222224]">
                   {selectedKeys.length > 0 ? (
                     <button
                       type="button"
                       onClick={() => setSelectedKeys([])}
-                      className="text-[11px] text-gray-400 hover:text-rose-400 transition-colors"
+                      className="text-[11px] text-slate-600 dark:text-gray-400 hover:text-rose-800 dark:hover:text-rose-400 transition-colors"
                     >
                       Tout désélectionner
                     </button>
@@ -2315,7 +2320,7 @@ export const SongList: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setIsKeyFilterOpen(false)}
-                    className="px-3 py-1 rounded bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 text-[11px] font-medium border border-[#333] transition-colors"
+                    className="px-3 py-1 rounded bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-slate-200 dark:hover:bg-[#2A2A2D] text-slate-700 dark:text-gray-300 text-[11px] font-medium border border-slate-300 dark:border-[#333] transition-colors"
                   >
                     Fermer
                   </button>
@@ -2329,38 +2334,38 @@ export const SongList: React.FC = () => {
           <div className="relative w-full md:w-auto min-w-0" ref={languageFilterRef}>
             <div
               onClick={() => setIsLanguageFilterOpen(!isLanguageFilterOpen)}
-              className={`h-[34px] w-full bg-[#1C1C1E] border hover:border-[#444] rounded-md px-2 sm:px-2.5 py-1 text-xs text-gray-200 cursor-pointer flex items-center justify-between gap-1 sm:gap-1.5 transition-colors ${
+              className={`h-[34px] w-full border hover:border-slate-400 dark:hover:border-[#444] rounded-md px-2 sm:px-2.5 py-1 text-xs text-slate-800 dark:text-gray-200 cursor-pointer flex items-center justify-between gap-1 sm:gap-1.5 transition-colors ${
                 selectedLanguages.length > 0
-                  ? 'border-indigo-500/50 bg-indigo-950/20'
-                  : 'border-[#333]'
+                  ? 'border-indigo-500/50 bg-indigo-50 dark:bg-indigo-950/20'
+                  : 'border-slate-300 dark:border-[#333] bg-[#EDF1F5] dark:bg-[#1C1C1E]'
               }`}
             >
               <div className="flex items-center gap-1 sm:gap-1.5 min-w-0 truncate">
-                <Globe className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                <Globe className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
                 {selectedLanguages.length === 0 ? (
-                  <span className="text-gray-300 truncate text-[11px] sm:text-xs">Langues</span>
+                  <span className="text-slate-700 dark:text-gray-300 truncate text-[11px] sm:text-xs">Langues</span>
                 ) : (
-                  <span className="text-indigo-300 font-semibold truncate text-[11px] sm:text-xs">
+                  <span className="text-indigo-700 dark:text-indigo-300 font-semibold truncate text-[11px] sm:text-xs">
                     {selectedLanguages.length === 1 ? selectedLanguages[0] : `${selectedLanguages.length} lang.`}
                   </span>
                 )}
               </div>
               
-              <ChevronDown className={`w-3 h-3 text-gray-400 shrink-0 transition-transform ml-0.5 ${isLanguageFilterOpen ? 'rotate-180' : ''}`} />
+              <ChevronDown className={`w-3 h-3 text-slate-600 dark:text-gray-400 shrink-0 transition-transform ml-0.5 ${isLanguageFilterOpen ? 'rotate-180' : ''}`} />
             </div>
 
             {/* Dropdown Popover */}
             {isLanguageFilterOpen && (
-              <div className="absolute left-0 mt-1.5 w-64 sm:w-72 max-w-[calc(100vw-2rem)] bg-[#141416] border border-[#2A2A2D] rounded-lg shadow-2xl p-2.5 z-50 text-xs">
+              <div className="absolute left-0 mt-1.5 w-64 sm:w-72 max-w-[calc(100vw-2rem)] bg-slate-50 dark:bg-[#141416] border border-slate-300 dark:border-[#2A2A2D] rounded-lg shadow-2xl p-2.5 z-50 text-xs animate-in fade-in zoom-in-95 duration-100">
                 
                 {/* Header with Title & Selection Counter */}
                 <div className="flex items-center justify-between mb-2 px-0.5">
-                  <div className="flex items-center gap-1.5 font-semibold text-white text-xs">
-                    <Globe className="w-3.5 h-3.5 text-indigo-400" />
+                  <div className="flex items-center gap-1.5 font-semibold text-slate-900 dark:text-white text-xs">
+                    <Globe className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                     <span>Langues</span>
                   </div>
                   {selectedLanguages.length > 0 ? (
-                    <span className="text-[11px] text-indigo-400 font-semibold">
+                    <span className="text-[11px] text-indigo-600 dark:text-indigo-400 font-semibold">
                       {selectedLanguages.length} sélectionnée{selectedLanguages.length > 1 ? 's' : ''}
                     </span>
                   ) : (
@@ -2375,14 +2380,14 @@ export const SongList: React.FC = () => {
                     placeholder="Rechercher une langue..."
                     value={languageFilterSearch}
                     onChange={(e) => setLanguageFilterSearch(e.target.value)}
-                    className="flex-1 bg-[#1C1C1E] border border-[#333] rounded px-2.5 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                    className="flex-1 bg-[#EDF1F5] dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] rounded px-2.5 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-indigo-500"
                     autoFocus
                   />
                   {languageFilterSearch && (
                     <button
                       type="button"
                       onClick={() => setLanguageFilterSearch('')}
-                      className="text-gray-400 hover:text-white p-1"
+                      className="text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white p-1"
                       title="Effacer la recherche"
                     >
                       <X className="w-3 h-3" />
@@ -2405,14 +2410,14 @@ export const SongList: React.FC = () => {
                           onClick={() => toggleLanguageFilter(langItem.name)}
                           className={`flex items-center justify-between px-2.5 py-1.5 rounded cursor-pointer transition-colors ${
                             isSelected
-                              ? 'bg-indigo-600/15 text-indigo-300 font-medium'
-                              : 'hover:bg-[#1C1C1E] text-gray-300'
+                              ? 'bg-indigo-600/15 text-indigo-700 dark:text-indigo-300 font-medium'
+                              : 'hover:bg-slate-200/70 dark:hover:bg-[#1C1C1E] text-slate-700 dark:text-gray-300'
                           }`}
                         >
                           <div className="flex items-center gap-2 truncate pr-2">
                             <span className="truncate">{langItem.name}</span>
                             {langItem.count > 0 && (
-                              <span className="text-[10px] text-gray-400 bg-[#0A0A0B] px-1.5 py-0.2 rounded border border-[#222224]">
+                              <span className="text-[10px] text-slate-600 dark:text-gray-400 bg-[#F4F6F9] dark:bg-[#0A0A0B] px-1.5 py-0.2 rounded border border-slate-200 dark:border-[#222224]">
                                 {langItem.count}
                               </span>
                             )}
@@ -2420,7 +2425,7 @@ export const SongList: React.FC = () => {
                           <div className={`w-4 h-4 rounded shrink-0 flex items-center justify-center border transition-colors ${
                             isSelected 
                               ? 'bg-indigo-600 border-indigo-500 text-white' 
-                              : 'border-[#444] bg-[#1C1C1E]'
+                              : 'border-slate-300 dark:border-[#444] bg-[#EDF1F5] dark:bg-[#1C1C1E]'
                           }`}>
                             {isSelected && <Check className="w-3 h-3 stroke-[2.5]" />}
                           </div>
@@ -2431,13 +2436,13 @@ export const SongList: React.FC = () => {
                 </div>
 
                 {/* Footer bar */}
-                <div className="flex items-center justify-between pt-2 mt-2 border-t border-[#222224] gap-2">
+                <div className="flex items-center justify-between pt-2 mt-2 border-t border-slate-200 dark:border-[#222224] gap-2">
                   <div className="flex items-center gap-2">
                     {selectedLanguages.length > 0 && (
                       <button
                         type="button"
                         onClick={() => setSelectedLanguages([])}
-                        className="text-[11px] text-gray-400 hover:text-rose-400 transition-colors"
+                        className="text-[11px] text-slate-600 dark:text-gray-400 hover:text-rose-800 dark:hover:text-rose-400 transition-colors"
                       >
                         Tout désélectionner
                       </button>
@@ -2453,7 +2458,7 @@ export const SongList: React.FC = () => {
                         );
                         setTimeout(() => setExportNotification(null), 3000);
                       }}
-                      className="text-[11px] text-emerald-400 hover:text-emerald-300 font-medium flex items-center gap-1 transition-colors"
+                      className="text-[11px] text-emerald-600 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 font-medium flex items-center gap-1 transition-colors"
                       title="Deviner et actualiser automatiquement la langue de tous les chants du répertoire"
                     >
                       <Sparkles className="w-3 h-3" />
@@ -2463,7 +2468,7 @@ export const SongList: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setIsLanguageFilterOpen(false)}
-                    className="px-3 py-1 rounded bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 text-[11px] font-medium border border-[#333] transition-colors"
+                    className="px-3 py-1 rounded bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-slate-200 dark:hover:bg-[#2A2A2D] text-slate-700 dark:text-gray-300 text-[11px] font-medium border border-slate-300 dark:border-[#333] transition-colors"
                   >
                     Fermer
                   </button>
@@ -2480,19 +2485,19 @@ export const SongList: React.FC = () => {
         <div className="flex items-center flex-wrap gap-1.5 mb-4 px-1">
           {selectedKeys.length > 0 && (
             <>
-              <span className="text-[11px] text-gray-400 flex items-center gap-1 mr-1">
-                <Music className="w-3 h-3 text-amber-400" />
+              <span className="text-[11px] text-slate-600 dark:text-gray-400 flex items-center gap-1 mr-1">
+                <Music className="w-3 h-3 text-amber-600 dark:text-amber-400" />
                 <span>Tonalité{selectedKeys.length > 1 ? 's' : ''} :</span>
               </span>
               {selectedKeys.map((k) => (
                 <span
                   key={k}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-medium"
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-700 dark:text-amber-300 text-xs font-medium"
                 >
                   <span>{k}</span>
                   <button
                     onClick={() => toggleKeyFilter(k)}
-                    className="hover:text-white transition-colors"
+                    className="hover:text-slate-900 dark:hover:text-white transition-colors"
                     title="Supprimer ce filtre de tonalité"
                   >
                     <X className="w-3 h-3" />
@@ -2503,19 +2508,19 @@ export const SongList: React.FC = () => {
           )}
           {selectedLanguages.length > 0 && (
             <>
-              <span className="text-[11px] text-gray-400 flex items-center gap-1 mr-1 ml-1">
-                <Globe className="w-3 h-3 text-indigo-400" />
+              <span className="text-[11px] text-slate-600 dark:text-gray-400 flex items-center gap-1 mr-1 ml-1">
+                <Globe className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />
                 <span>Langue{selectedLanguages.length > 1 ? 's' : ''} :</span>
               </span>
               {selectedLanguages.map((lang) => (
                 <span
                   key={lang}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-600/20 border border-indigo-500/40 text-indigo-300 text-xs font-medium"
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-600/20 border border-indigo-500/40 text-indigo-700 dark:text-indigo-300 text-xs font-medium"
                 >
                   <span>{lang}</span>
                   <button
                     onClick={() => toggleLanguageFilter(lang)}
-                    className="hover:text-white transition-colors"
+                    className="hover:text-slate-900 dark:hover:text-white transition-colors"
                     title="Supprimer ce filtre de langue"
                   >
                     <X className="w-3 h-3" />
@@ -2526,19 +2531,19 @@ export const SongList: React.FC = () => {
           )}
           {selectedCategories.length > 0 && (
             <>
-              <span className="text-[11px] text-gray-400 flex items-center gap-1 mr-1 ml-1">
-                <Tag className="w-3 h-3 text-blue-400" />
+              <span className="text-[11px] text-slate-600 dark:text-gray-400 flex items-center gap-1 mr-1 ml-1">
+                <Tag className="w-3 h-3 text-blue-600 dark:text-blue-400" />
                 <span>Catégorie{selectedCategories.length > 1 ? 's' : ''} :</span>
               </span>
               {selectedCategories.map((cat) => (
                 <span
                   key={cat}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-600/20 border border-blue-500/40 text-blue-300 text-xs font-medium"
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-600/20 border border-blue-500/40 text-blue-700 dark:text-blue-300 text-xs font-medium"
                 >
                   <span>{cat}</span>
                   <button
                     onClick={() => toggleCategoryFilter(cat)}
-                    className="hover:text-white transition-colors"
+                    className="hover:text-slate-900 dark:hover:text-white transition-colors"
                     title="Supprimer ce filtre"
                   >
                     <X className="w-3 h-3" />
@@ -2549,19 +2554,19 @@ export const SongList: React.FC = () => {
           )}
           {selectedAuthors.length > 0 && (
             <>
-              <span className="text-[11px] text-gray-400 flex items-center gap-1 mr-1 ml-1">
-                <User className="w-3 h-3 text-blue-400" />
+              <span className="text-[11px] text-slate-600 dark:text-gray-400 flex items-center gap-1 mr-1 ml-1">
+                <User className="w-3 h-3 text-blue-600 dark:text-blue-400" />
                 <span>Auteur{selectedAuthors.length > 1 ? 's' : ''} :</span>
               </span>
               {selectedAuthors.map((author) => (
                 <span
                   key={author}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-600/20 border border-blue-500/40 text-blue-300 text-xs font-medium"
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-600/20 border border-blue-500/40 text-blue-700 dark:text-blue-300 text-xs font-medium"
                 >
                   <span>{author}</span>
                   <button
                     onClick={() => toggleAuthorFilter(author)}
-                    className="hover:text-white transition-colors"
+                    className="hover:text-slate-900 dark:hover:text-white transition-colors"
                     title="Supprimer ce filtre d'auteur"
                   >
                     <X className="w-3 h-3" />
@@ -2577,7 +2582,7 @@ export const SongList: React.FC = () => {
               setSelectedKeys([]);
               setSelectedLanguages([]);
             }}
-            className="text-[11px] text-gray-400 hover:text-white ml-2 underline"
+            className="text-[11px] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white ml-2 underline"
           >
             Tout effacer
           </button>
@@ -2586,9 +2591,9 @@ export const SongList: React.FC = () => {
 
       {/* Song List Cards or Alphabetical List */}
       {filteredSongs.length === 0 ? (
-        <div className="text-center py-16 bg-[#111112] rounded-lg border border-[#222224] p-6">
-          <Music className="w-10 h-10 text-gray-600 mx-auto mb-3" />
-          <h3 className="text-sm font-bold text-gray-300">Aucun chant trouvé</h3>
+        <div className="text-center py-16 bg-white dark:bg-[#111112] rounded-lg border border-slate-200 dark:border-[#222224] p-6">
+          <Music className="w-10 h-10 text-slate-500 dark:text-gray-600 mx-auto mb-3" />
+          <h3 className="text-sm font-bold text-slate-700 dark:text-gray-300">Aucun chant trouvé</h3>
           <p className="text-xs text-gray-500 mt-1 max-w-sm mx-auto">
             {searchQuery || selectedKeys.length > 0 || selectedLanguages.length > 0 || selectedCategories.length > 0 || selectedAuthors.length > 0
               ? "Essayez de modifier vos critères de recherche ou vos filtres."
@@ -2600,8 +2605,8 @@ export const SongList: React.FC = () => {
         <div className="relative">
           {/* Top Quick Letters Ribbon */}
           {(sortBy === 'title' || sortBy === 'artist') && !searchQuery.trim() && (
-            <div className="flex items-center gap-1 overflow-x-auto pb-2 mb-4 scrollbar-none border-b border-[#222224]">
-              <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider shrink-0 mr-1.5 flex items-center gap-1">
+            <div className="flex items-center gap-1 overflow-x-auto pb-2 mb-4 scrollbar-none border-b border-slate-200 dark:border-[#222224]">
+              <span className="text-[11px] font-bold text-slate-600 dark:text-gray-400 uppercase tracking-wider shrink-0 mr-1.5 flex items-center gap-1">
                 <span>Lettres :</span>
               </span>
               {alphabeticalGroups.map((group) => {
@@ -2614,7 +2619,7 @@ export const SongList: React.FC = () => {
                     className={`shrink-0 px-2.5 py-1 rounded-md text-xs font-bold transition-all ${
                       isActive
                         ? 'bg-blue-600 text-white shadow-xs scale-105'
-                        : 'bg-[#18181A] text-gray-300 hover:text-white hover:bg-[#252528] border border-[#262629]'
+                        : 'bg-slate-50 dark:bg-[#18181A] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#252528] border border-slate-200 dark:border-[#262629]'
                     }`}
                   >
                     {group.letter}
@@ -2631,7 +2636,7 @@ export const SongList: React.FC = () => {
               aria-label="Barre alphabétique"
             >
               <div 
-                className="bg-[#111112]/95 backdrop-blur-md border border-[#2B2B30] rounded-full py-1.5 px-0.5 sm:px-1 shadow-2xl flex flex-col items-center justify-between h-full max-h-[75vh] overflow-hidden"
+                className="bg-white/95 dark:bg-[#111112]/95 backdrop-blur-md border border-slate-300 dark:border-[#2B2B30] rounded-full py-1.5 px-0.5 sm:px-1 shadow-2xl flex flex-col items-center justify-between h-full max-h-[75vh] overflow-hidden"
                 onTouchMove={handleScrubberTouch}
               >
                 {ALL_LETTERS.map((letter) => {
@@ -2648,8 +2653,8 @@ export const SongList: React.FC = () => {
                         isActive
                           ? 'bg-blue-600 text-white scale-125 shadow-md z-10'
                           : hasSongs
-                            ? 'text-gray-300 hover:text-white hover:bg-blue-600/30 cursor-pointer'
-                            : 'text-gray-600 opacity-40 cursor-default'
+                            ? 'text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-blue-600/30 cursor-pointer'
+                            : 'text-slate-500 dark:text-gray-600 opacity-40 cursor-default'
                       }`}
                       title={hasSongs ? `Aller à la lettre ${letter}` : `Aucun chant commençant par ${letter}`}
                     >
@@ -2672,13 +2677,13 @@ export const SongList: React.FC = () => {
                   className="scroll-mt-24"
                 >
                   {/* Sticky Letter Header */}
-                  <div className="sticky top-16 z-20 py-1.5 px-3 bg-[#0A0A0B]/95 backdrop-blur-md border-b border-[#222224] flex items-center justify-between mb-2 rounded-lg">
+                  <div className="sticky top-16 z-20 py-1.5 px-3 bg-[#F4F6F9]/95 dark:bg-[#0A0A0B]/95 backdrop-blur-md border-b border-slate-200 dark:border-[#222224] flex items-center justify-between mb-2 rounded-lg">
                     <div className="flex items-center gap-2">
                       <span className="w-7 h-7 rounded-md bg-blue-600 text-white font-black text-sm flex items-center justify-center shadow-xs">
                         {group.letter}
                       </span>
                       {sortBy === 'artist' && (
-                        <span className="text-xs text-gray-400 font-medium">
+                        <span className="text-xs text-slate-600 dark:text-gray-400 font-medium">
                           Auteurs commençant par {group.letter}
                         </span>
                       )}
@@ -2716,19 +2721,19 @@ export const SongList: React.FC = () => {
           >
             <div 
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-md bg-[#141416] border border-[#2A2A2D] rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-100"
+              className="w-full max-w-md bg-slate-50 dark:bg-[#141416] border border-slate-300 dark:border-[#2A2A2D] rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-100"
             >
               {/* Modal Header */}
-              <div className="p-3.5 sm:p-4 border-b border-[#222224] bg-[#171719] flex items-center justify-between gap-3">
+              <div className="p-3.5 sm:p-4 border-b border-slate-200 dark:border-[#222224] bg-slate-50 dark:bg-[#171719] flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2 min-w-0">
-                  <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 shrink-0">
+                  <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 shrink-0">
                     <Tag className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
-                    <h3 className="text-sm font-bold text-white tracking-tight truncate">
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight truncate">
                       Catégories du chant
                     </h3>
-                    <p className="text-xs text-gray-400 truncate">
+                    <p className="text-xs text-slate-600 dark:text-gray-400 truncate">
                       {currentSongForCategories.title}
                     </p>
                   </div>
@@ -2739,7 +2744,7 @@ export const SongList: React.FC = () => {
                     setOpenCategorySongId(null);
                     setDeletingCatName(null);
                   }}
-                  className="text-gray-400 hover:text-white p-1.5 rounded-lg hover:bg-[#222225] transition-colors shrink-0"
+                  className="text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white p-1.5 rounded-lg hover:bg-slate-200/70 dark:hover:bg-[#222225] transition-colors shrink-0"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -2760,7 +2765,7 @@ export const SongList: React.FC = () => {
                         handleQuickCreateCategoryForSong(currentSongForCategories.id);
                       }
                     }}
-                    className="flex-1 bg-[#1C1C1E] border border-[#333] rounded-lg px-3 py-2 text-xs sm:text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors"
+                    className="flex-1 bg-[#EDF1F5] dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] rounded-lg px-3 py-2 text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors"
                     autoFocus
                   />
                   <button
@@ -2782,13 +2787,13 @@ export const SongList: React.FC = () => {
                     placeholder="Filtrer les catégories..."
                     value={quickCatSearch}
                     onChange={(e) => setQuickCatSearch(e.target.value)}
-                    className="w-full bg-[#1A1A1D] border border-[#2A2A2D] rounded-lg pl-8 pr-7 py-1.5 text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                    className="w-full bg-[#EDF1F5] dark:bg-[#1A1A1D] border border-slate-300 dark:border-[#2A2A2D] rounded-lg pl-8 pr-7 py-1.5 text-xs text-slate-800 dark:text-gray-200 placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-blue-500"
                   />
                   {quickCatSearch && (
                     <button
                       type="button"
                       onClick={() => setQuickCatSearch('')}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white p-0.5"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-slate-900 dark:hover:text-white p-0.5"
                     >
                       <X className="w-3 h-3" />
                     </button>
@@ -2798,14 +2803,14 @@ export const SongList: React.FC = () => {
                 {/* Category List with Checkbox for this song & Delete Action */}
                 <div className="max-h-60 overflow-y-auto space-y-1.5 pr-0.5">
                   {filteredQuickCategories.length === 0 ? (
-                    <div className="py-6 text-center text-gray-500 text-xs bg-[#1A1A1D]/40 rounded-lg border border-[#222224]">
+                    <div className="py-6 text-center text-gray-500 text-xs bg-[#EDF1F5]/40 dark:bg-[#1A1A1D]/40 rounded-lg border border-slate-200 dark:border-[#222224]">
                       {quickCatSearch.trim() ? (
                         <div>
                           <span>Aucune catégorie trouvée</span>
                           <button
                             type="button"
                             onClick={() => handleQuickCreateCategoryForSong(currentSongForCategories.id, quickCatSearch)}
-                            className="block mx-auto mt-1.5 text-blue-400 font-semibold hover:underline"
+                            className="block mx-auto mt-1.5 text-blue-600 dark:text-blue-400 font-semibold hover:underline"
                           >
                             + Créer &quot;{quickCatSearch.trim()}&quot;
                           </button>
@@ -2826,8 +2831,8 @@ export const SongList: React.FC = () => {
                           key={cat.name}
                           className={`flex items-center justify-between px-2.5 py-2 rounded-lg border transition-colors ${
                             isAssigned
-                              ? 'bg-blue-950/30 border-blue-500/50 text-blue-200'
-                              : 'bg-[#18181B] border-[#262629] text-gray-300 hover:border-[#38383C]'
+                              ? 'bg-blue-50 dark:bg-blue-950/30 border-blue-500/50 text-blue-700 dark:text-blue-200'
+                              : 'bg-slate-50 dark:bg-[#18181B] border-slate-200 dark:border-[#262629] text-slate-700 dark:text-gray-300 hover:border-slate-400 dark:hover:border-[#38383C]'
                           }`}
                         >
                           <div 
@@ -2838,7 +2843,7 @@ export const SongList: React.FC = () => {
                             <div className={`w-4 h-4 rounded shrink-0 flex items-center justify-center border transition-colors ${
                               isAssigned 
                                 ? 'bg-blue-600 border-blue-500 text-white' 
-                                : 'border-[#444] bg-[#1C1C1E]'
+                                : 'border-slate-300 dark:border-[#444] bg-[#EDF1F5] dark:bg-[#1C1C1E]'
                             }`}>
                               {isAssigned && <Check className="w-3 h-3 stroke-[2.5]" />}
                             </div>
@@ -2846,7 +2851,7 @@ export const SongList: React.FC = () => {
                             <span className="truncate text-xs sm:text-sm font-medium">{cat.name}</span>
 
                             {cat.count > 0 ? (
-                              <span className="text-[10px] text-gray-400 bg-[#0E0E10] px-1.5 py-0.5 rounded border border-[#222224] shrink-0">
+                              <span className="text-[10px] text-slate-600 dark:text-gray-400 bg-white dark:bg-[#0E0E10] px-1.5 py-0.5 rounded border border-slate-200 dark:border-[#222224] shrink-0">
                                 {cat.count} {cat.count > 1 ? 'chants' : 'chant'}
                               </span>
                             ) : (
@@ -2859,7 +2864,7 @@ export const SongList: React.FC = () => {
                           {/* Delete action with confirmation */}
                           <div className="flex items-center gap-1 shrink-0 ml-1.5">
                             {isDeleting ? (
-                              <div className="flex items-center gap-1 bg-rose-950/70 p-1 rounded-md border border-rose-800/50 animate-in fade-in">
+                              <div className="flex items-center gap-1 bg-rose-50 dark:bg-rose-950/70 p-1 rounded-md border border-rose-800/50 animate-in fade-in">
                                 <button
                                   type="button"
                                   onClick={() => handleQuickDeleteCategory(cat.name)}
@@ -2870,7 +2875,7 @@ export const SongList: React.FC = () => {
                                 <button
                                   type="button"
                                   onClick={() => setDeletingCatName(null)}
-                                  className="px-1.5 py-0.5 rounded bg-[#222] hover:bg-[#333] text-gray-300 text-[10px] transition-colors"
+                                  className="px-1.5 py-0.5 rounded bg-[#EDF1F5] dark:bg-[#222] hover:bg-slate-200 dark:hover:bg-[#333] text-slate-700 dark:text-gray-300 text-[10px] transition-colors"
                                 >
                                   Annuler
                                 </button>
@@ -2879,7 +2884,7 @@ export const SongList: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => setDeletingCatName(cat.name)}
-                                className="p-1 rounded text-gray-500 hover:text-rose-400 hover:bg-rose-950/30 transition-colors"
+                                className="p-1 rounded text-gray-500 hover:text-rose-800 dark:hover:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-950/30 transition-colors"
                                 title={`Supprimer définitivement la catégorie ${cat.name}`}
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
@@ -2894,12 +2899,12 @@ export const SongList: React.FC = () => {
               </div>
 
               {/* Modal Footer */}
-              <div className="p-3 sm:p-3.5 border-t border-[#222224] bg-[#171719] flex items-center justify-between">
+              <div className="p-3 sm:p-3.5 border-t border-slate-200 dark:border-[#222224] bg-slate-50 dark:bg-[#171719] flex items-center justify-between">
                 {hiddenCategories.length > 0 ? (
                   <button
                     type="button"
                     onClick={handleResetDefaultCategories}
-                    className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                    className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     <span>Restaurer par défaut</span>
@@ -2916,7 +2921,7 @@ export const SongList: React.FC = () => {
                     setOpenCategorySongId(null);
                     setDeletingCatName(null);
                   }}
-                  className="px-3.5 py-1.5 rounded-lg bg-[#222226] hover:bg-[#2E2E32] text-gray-200 text-xs font-semibold border border-[#333] transition-colors"
+                  className="px-3.5 py-1.5 rounded-lg bg-[#EDF1F5] dark:bg-[#222226] hover:bg-slate-200 dark:hover:bg-[#2E2E32] text-slate-800 dark:text-gray-200 text-xs font-semibold border border-slate-300 dark:border-[#333] transition-colors"
                 >
                   Fermer
                 </button>
@@ -2929,21 +2934,21 @@ export const SongList: React.FC = () => {
       {/* Modal: Add / Manage Song in Setlists (Multi-select, Search, Sort & Quick Create) */}
       {addToSetlistSong && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150">
-          <div className="bg-[#111112] border border-[#222224] rounded-xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+          <div className="bg-white dark:bg-[#111112] border border-slate-200 dark:border-[#222224] rounded-xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
             
             {/* Modal Header */}
-            <div className="p-4 sm:p-5 border-b border-[#222224] bg-[#141416] flex items-start justify-between gap-3">
+            <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-[#222224] bg-slate-50 dark:bg-[#141416] flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="p-1 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                  <span className="p-1 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
                     <ListPlus className="w-4 h-4" />
                   </span>
-                  <h3 className="text-sm sm:text-base font-bold text-white tracking-tight">
+                  <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white tracking-tight">
                     Ajouter aux Setlists
                   </h3>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-gray-400">
-                  <span className="font-semibold text-white truncate">{addToSetlistSong.title}</span>
+                <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-gray-400">
+                  <span className="font-semibold text-slate-900 dark:text-white truncate">{addToSetlistSong.title}</span>
                   {addToSetlistSong.artist && (
                     <>
                       <span>•</span>
@@ -2951,7 +2956,7 @@ export const SongList: React.FC = () => {
                     </>
                   )}
                   {addToSetlistSong.key && (
-                    <span className="px-1.5 py-0.2 bg-[#222] text-amber-300 rounded text-[10px] font-bold border border-[#333]">
+                    <span className="px-1.5 py-0.2 bg-[#EDF1F5] dark:bg-[#222] text-amber-700 dark:text-amber-300 rounded text-[10px] font-bold border border-slate-300 dark:border-[#333]">
                       {addToSetlistSong.key}
                     </span>
                   )}
@@ -2959,7 +2964,7 @@ export const SongList: React.FC = () => {
               </div>
               <button 
                 onClick={() => setAddToSetlistSong(null)}
-                className="p-1 rounded-md text-gray-400 hover:text-white hover:bg-[#222] transition-colors"
+                className="p-1 rounded-md text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#222] transition-colors"
                 title="Fermer"
               >
                 <X className="w-5 h-5" />
@@ -2967,22 +2972,22 @@ export const SongList: React.FC = () => {
             </div>
 
             {/* Toolbar: Search, Sort & Quick Create Toggle */}
-            <div className="p-3 sm:p-4 border-b border-[#222224] bg-[#0D0D0E] space-y-3">
+            <div className="p-3 sm:p-4 border-b border-slate-200 dark:border-[#222224] bg-[#F4F6F9] dark:bg-[#0D0D0E] space-y-3">
               {/* Search Bar & Quick Create Button */}
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
-                  <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <Search className="w-3.5 h-3.5 text-slate-600 dark:text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
                     value={setlistSearchQuery}
                     onChange={(e) => setSetlistSearchQuery(e.target.value)}
                     placeholder="Rechercher une setlist (nom, date)..."
-                    className="w-full bg-[#171719] border border-[#2A2A2D] focus:border-blue-500 rounded-lg pl-8 pr-7 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none transition-colors"
+                    className="w-full bg-slate-50 dark:bg-[#171719] border border-slate-300 dark:border-[#2A2A2D] focus:border-blue-500 rounded-lg pl-8 pr-7 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none transition-colors"
                   />
                   {setlistSearchQuery && (
                     <button
                       onClick={() => setSetlistSearchQuery('')}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-slate-900 dark:hover:text-white"
                     >
                       <X className="w-3 h-3" />
                     </button>
@@ -2994,8 +2999,8 @@ export const SongList: React.FC = () => {
                   onClick={() => setIsCreatingNewSetlist(!isCreatingNewSetlist)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all whitespace-nowrap ${
                     isCreatingNewSetlist
-                      ? 'bg-blue-600/20 text-blue-400 border-blue-500/50 shadow-sm'
-                      : 'bg-[#1C1C1E] hover:bg-[#252528] text-gray-200 border-[#333] hover:border-[#444]'
+                      ? 'bg-blue-600/20 text-blue-600 dark:text-blue-400 border-blue-500/50 shadow-sm'
+                      : 'bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-slate-200/70 dark:hover:bg-[#252528] text-slate-800 dark:text-gray-200 border-slate-300 dark:border-[#333] hover:border-slate-400 dark:hover:border-[#444]'
                   }`}
                 >
                   <Plus className={`w-3.5 h-3.5 transition-transform ${isCreatingNewSetlist ? 'rotate-45' : ''}`} />
@@ -3005,16 +3010,16 @@ export const SongList: React.FC = () => {
 
               {/* Quick Create Inline Panel */}
               {isCreatingNewSetlist && (
-                <div className="p-3 bg-[#151518] border border-blue-500/30 rounded-lg space-y-2.5 animate-in fade-in duration-150">
+                <div className="p-3 bg-slate-50 dark:bg-[#151518] border border-blue-500/30 rounded-lg space-y-2.5 animate-in fade-in duration-150">
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-blue-400 uppercase tracking-wider flex items-center gap-1">
+                    <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider flex items-center gap-1">
                       <Sparkles className="w-3 h-3" />
                       <span>Créer &amp; Ajouter directement</span>
                     </span>
                     <button
                       type="button"
                       onClick={() => setIsCreatingNewSetlist(false)}
-                      className="text-[10px] text-gray-400 hover:text-white"
+                      className="text-[10px] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
                     >
                       Annuler
                     </button>
@@ -3025,7 +3030,7 @@ export const SongList: React.FC = () => {
                       value={newSetlistName}
                       onChange={(e) => setNewSetlistName(e.target.value)}
                       placeholder="Nom (ex: Culte Dimanche)"
-                      className="sm:col-span-2 bg-[#1C1C1E] border border-[#333] focus:border-blue-500 rounded px-2.5 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none"
+                      className="sm:col-span-2 bg-[#EDF1F5] dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] focus:border-blue-500 rounded px-2.5 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none"
                       autoFocus
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
@@ -3038,7 +3043,7 @@ export const SongList: React.FC = () => {
                       type="date"
                       value={newSetlistDate}
                       onChange={(e) => setNewSetlistDate(e.target.value)}
-                      className="bg-[#1C1C1E] border border-[#333] focus:border-blue-500 rounded px-2.5 py-1.5 text-xs text-white focus:outline-none"
+                      className="bg-[#EDF1F5] dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] focus:border-blue-500 rounded px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none"
                     />
                   </div>
                   <div className="flex justify-end">
@@ -3056,18 +3061,18 @@ export const SongList: React.FC = () => {
 
               {/* Sorting Filter Pills */}
               <div className="flex items-center justify-between gap-2 pt-1">
-                <div className="flex items-center gap-1.5 text-[11px] text-gray-400">
+                <div className="flex items-center gap-1.5 text-[11px] text-slate-600 dark:text-gray-400">
                   <ArrowUpDown className="w-3 h-3 text-gray-500" />
                   <span>Trier par :</span>
                 </div>
-                <div className="flex items-center gap-1 bg-[#141416] p-0.5 rounded-lg border border-[#222]">
+                <div className="flex items-center gap-1 bg-slate-50 dark:bg-[#141416] p-0.5 rounded-lg border border-slate-200 dark:border-[#222]">
                   <button
                     type="button"
                     onClick={() => setSetlistSortBy('recent')}
                     className={`px-2 py-1 rounded text-[11px] font-medium transition-all ${
                       setlistSortBy === 'recent'
-                        ? 'bg-[#252528] text-white shadow-sm font-semibold'
-                        : 'text-gray-400 hover:text-gray-200'
+                        ? 'bg-[#EDF1F5] dark:bg-[#252528] text-slate-900 dark:text-white shadow-sm font-semibold'
+                        : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200'
                     }`}
                   >
                     Récent
@@ -3077,8 +3082,8 @@ export const SongList: React.FC = () => {
                     onClick={() => setSetlistSortBy('name')}
                     className={`px-2 py-1 rounded text-[11px] font-medium transition-all ${
                       setlistSortBy === 'name'
-                        ? 'bg-[#252528] text-white shadow-sm font-semibold'
-                        : 'text-gray-400 hover:text-gray-200'
+                        ? 'bg-[#EDF1F5] dark:bg-[#252528] text-slate-900 dark:text-white shadow-sm font-semibold'
+                        : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200'
                     }`}
                   >
                     A-Z
@@ -3088,8 +3093,8 @@ export const SongList: React.FC = () => {
                     onClick={() => setSetlistSortBy('count')}
                     className={`px-2 py-1 rounded text-[11px] font-medium transition-all ${
                       setlistSortBy === 'count'
-                        ? 'bg-[#252528] text-white shadow-sm font-semibold'
-                        : 'text-gray-400 hover:text-gray-200'
+                        ? 'bg-[#EDF1F5] dark:bg-[#252528] text-slate-900 dark:text-white shadow-sm font-semibold'
+                        : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200'
                     }`}
                   >
                     Nb Chants
@@ -3101,9 +3106,9 @@ export const SongList: React.FC = () => {
             {/* Setlists Multi-select List */}
             <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-2 min-h-[220px] max-h-[380px]">
               {setlists.length === 0 ? (
-                <div className="text-center py-8 bg-[#0A0A0B] border border-[#222224] rounded-xl p-4">
-                  <ListPlus className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-                  <p className="text-xs text-gray-300 font-semibold">Aucune setlist disponible</p>
+                <div className="text-center py-8 bg-[#F4F6F9] dark:bg-[#0A0A0B] border border-slate-200 dark:border-[#222224] rounded-xl p-4">
+                  <ListPlus className="w-8 h-8 text-slate-500 dark:text-gray-600 mx-auto mb-2" />
+                  <p className="text-xs text-slate-700 dark:text-gray-300 font-semibold">Aucune setlist disponible</p>
                   <p className="text-[11px] text-gray-500 mt-0.5">Créez votre première setlist pour y inclure ce chant.</p>
                   <button
                     type="button"
@@ -3115,9 +3120,9 @@ export const SongList: React.FC = () => {
                   </button>
                 </div>
               ) : filteredAndSortedSetlists.length === 0 ? (
-                <div className="text-center py-8 bg-[#0A0A0B] border border-[#222224] rounded-xl p-4">
-                  <p className="text-xs text-gray-400">
-                    Aucune setlist ne correspond à « <strong className="text-white">{setlistSearchQuery}</strong> »
+                <div className="text-center py-8 bg-[#F4F6F9] dark:bg-[#0A0A0B] border border-slate-200 dark:border-[#222224] rounded-xl p-4">
+                  <p className="text-xs text-slate-600 dark:text-gray-400">
+                    Aucune setlist ne correspond à « <strong className="text-slate-900 dark:text-white">{setlistSearchQuery}</strong> »
                   </p>
                   <button
                     type="button"
@@ -3125,7 +3130,7 @@ export const SongList: React.FC = () => {
                       setNewSetlistName(setlistSearchQuery.trim());
                       setIsCreatingNewSetlist(true);
                     }}
-                    className="mt-2.5 text-xs text-blue-400 hover:text-blue-300 font-semibold hover:underline flex items-center justify-center gap-1 mx-auto"
+                    className="mt-2.5 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-semibold hover:underline flex items-center justify-center gap-1 mx-auto"
                   >
                     <Plus className="w-3 h-3" />
                     <span>Créer la setlist « {setlistSearchQuery.trim()} »</span>
@@ -3133,7 +3138,7 @@ export const SongList: React.FC = () => {
                 </div>
               ) : (
                 <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-[11px] text-gray-400 px-1 pb-1">
+                  <div className="flex items-center justify-between text-[11px] text-slate-600 dark:text-gray-400 px-1 pb-1">
                     <span>Sélectionnez les setlists ({filteredAndSortedSetlists.length} disponible{filteredAndSortedSetlists.length > 1 ? 's' : ''})</span>
                     <div className="flex items-center gap-2">
                       <button
@@ -3142,7 +3147,7 @@ export const SongList: React.FC = () => {
                           const allIds = filteredAndSortedSetlists.map(s => s.id);
                           setSelectedSetlistIds(prev => Array.from(new Set([...prev, ...allIds])));
                         }}
-                        className="text-blue-400 hover:underline"
+                        className="text-blue-600 dark:text-blue-400 hover:underline"
                       >
                         Tout cocher
                       </button>
@@ -3153,7 +3158,7 @@ export const SongList: React.FC = () => {
                           const visibleIds = new Set(filteredAndSortedSetlists.map(s => s.id));
                           setSelectedSetlistIds(prev => prev.filter(id => !visibleIds.has(id)));
                         }}
-                        className="text-gray-400 hover:text-white hover:underline"
+                        className="text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:underline"
                       >
                         Décocher
                       </button>
@@ -3170,30 +3175,30 @@ export const SongList: React.FC = () => {
                         onClick={() => handleToggleSetlistSelection(st.id)}
                         className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all ${
                           isSelected
-                            ? 'bg-[#181C28] border-blue-500/60 shadow-sm text-white'
-                            : 'bg-[#0E0E10] border-[#222224] text-gray-300 hover:bg-[#151518] hover:border-[#333]'
+                            ? 'bg-[#EDF1F5] dark:bg-[#181C28] border-blue-500/60 shadow-sm text-slate-900 dark:text-white'
+                            : 'bg-white dark:bg-[#0E0E10] border-slate-200 dark:border-[#222224] text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-[#151518] hover:border-slate-400 dark:hover:border-[#333]'
                         }`}
                       >
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className="shrink-0 text-blue-400">
+                          <div className="shrink-0 text-blue-600 dark:text-blue-400">
                             {isSelected ? (
-                              <CheckSquare className="w-4 h-4 fill-blue-500/20 text-blue-400" />
+                              <CheckSquare className="w-4 h-4 fill-blue-500/20 text-blue-600 dark:text-blue-400" />
                             ) : (
                               <Square className="w-4 h-4 text-gray-500" />
                             )}
                           </div>
                           <div className="min-w-0">
                             <div className="flex items-center gap-2">
-                              <p className={`text-xs font-bold truncate ${isSelected ? 'text-white' : 'text-gray-200'}`}>
+                              <p className={`text-xs font-bold truncate ${isSelected ? 'text-slate-900 dark:text-white' : 'text-slate-800 dark:text-gray-200'}`}>
                                 {st.name}
                               </p>
                               {wasAlreadyIn && (
-                                <span className="shrink-0 text-[9px] px-1.5 py-0.2 rounded bg-[#1F1F23] text-gray-400 border border-[#333]">
+                                <span className="shrink-0 text-[9px] px-1.5 py-0.2 rounded bg-[#EDF1F5] dark:bg-[#1F1F23] text-slate-600 dark:text-gray-400 border border-slate-300 dark:border-[#333]">
                                   Déjà présent
                                 </span>
                               )}
                             </div>
-                            <div className="flex items-center gap-2 text-[10px] text-gray-400 mt-0.5 flex-wrap">
+                            <div className="flex items-center gap-2 text-[10px] text-slate-600 dark:text-gray-400 mt-0.5 flex-wrap">
                               <span className="flex items-center gap-1">
                                 <Music className="w-2.5 h-2.5 text-gray-500" />
                                 {(() => {
@@ -3209,8 +3214,8 @@ export const SongList: React.FC = () => {
                                 return totalSecs > 0 ? (
                                   <>
                                     <span>•</span>
-                                    <span className="flex items-center gap-1 text-cyan-400 font-mono">
-                                      <Clock className="w-2.5 h-2.5 text-cyan-400" />
+                                    <span className="flex items-center gap-1 text-cyan-700 dark:text-cyan-400 font-mono">
+                                      <Clock className="w-2.5 h-2.5 text-cyan-700 dark:text-cyan-400" />
                                       <span>{formatSetlistDuration(totalSecs)}</span>
                                     </span>
                                   </>
@@ -3233,7 +3238,7 @@ export const SongList: React.FC = () => {
                           <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border transition-colors ${
                             isSelected
                               ? 'bg-blue-600 text-white border-blue-500'
-                              : 'bg-[#1A1A1D] text-gray-500 border-[#2A2A2D]'
+                              : 'bg-[#EDF1F5] dark:bg-[#1A1A1D] text-gray-500 border-slate-300 dark:border-[#2A2A2D]'
                           }`}>
                             {isSelected ? 'Inclus' : 'Non inclus'}
                           </span>
@@ -3246,16 +3251,16 @@ export const SongList: React.FC = () => {
             </div>
 
             {/* Modal Footer */}
-            <div className="p-3 sm:p-4 border-t border-[#222224] bg-[#141416] flex items-center justify-between gap-3">
-              <div className="text-xs text-gray-400">
-                <span className="font-bold text-white">{selectedSetlistIds.length}</span> setlist{selectedSetlistIds.length > 1 ? 's' : ''} sélectionnée{selectedSetlistIds.length > 1 ? 's' : ''}
+            <div className="p-3 sm:p-4 border-t border-slate-200 dark:border-[#222224] bg-slate-50 dark:bg-[#141416] flex items-center justify-between gap-3">
+              <div className="text-xs text-slate-600 dark:text-gray-400">
+                <span className="font-bold text-slate-900 dark:text-white">{selectedSetlistIds.length}</span> setlist{selectedSetlistIds.length > 1 ? 's' : ''} sélectionnée{selectedSetlistIds.length > 1 ? 's' : ''}
               </div>
 
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setAddToSetlistSong(null)}
-                  className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-gray-400 hover:text-white hover:bg-[#222] transition-colors"
+                  className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#222] transition-colors"
                 >
                   Annuler
                 </button>
@@ -3325,18 +3330,21 @@ export const SongList: React.FC = () => {
       )}
 
       {/* Floating Multi-Select Action Bar - Appears only when at least one song is selected */}
-      {selectedSongIds.length > 0 && (
-        <div 
-          id="floating-selection-toolbar"
-          className="fixed bottom-4 sm:bottom-5 left-1/2 -translate-x-1/2 z-40 bg-[#161618]/95 backdrop-blur-md border border-[#333] shadow-2xl rounded-2xl px-2 sm:px-3.5 py-1.5 sm:py-2 flex items-center gap-1.5 sm:gap-2.5 text-white max-w-[calc(100vw-16px)] sm:max-w-fit flex-nowrap overflow-x-auto scrollbar-none animate-in slide-in-from-bottom-5 duration-200 select-none"
-        >
+      <AnimatePresence>
+        {selectedSongIds.length > 0 && (
+          <div className="fixed bottom-4 sm:bottom-5 left-1/2 -translate-x-1/2 z-40 max-w-[calc(100vw-16px)] sm:max-w-fit">
+            <motion.div
+              {...SHEET_PANEL_MOTION}
+              id="floating-selection-toolbar"
+              className="bg-slate-50/95 dark:bg-[#161618]/95 backdrop-blur-md border border-slate-300 dark:border-[#333] shadow-2xl rounded-2xl px-2 sm:px-3.5 py-1.5 sm:py-2 flex items-center gap-1.5 sm:gap-2.5 text-slate-900 dark:text-white flex-nowrap overflow-x-auto scrollbar-none select-none"
+            >
           {/* Badge count */}
-          <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-blue-500/15 border border-blue-500/30 text-blue-300 shrink-0">
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-blue-500/15 border border-blue-500/30 text-blue-700 dark:text-blue-300 shrink-0">
             <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse shrink-0" />
             <span className="text-xs font-bold font-mono whitespace-nowrap">
               {selectedSongIds.length}
             </span>
-            <span className="hidden sm:inline text-[11px] font-medium text-blue-200/90 whitespace-nowrap">
+            <span className="hidden sm:inline text-[11px] font-medium text-blue-700 dark:text-blue-200/90 whitespace-nowrap">
               {selectedSongIds.length > 1 ? 'sélectionnés' : 'sélectionné'}
             </span>
           </div>
@@ -3420,11 +3428,11 @@ export const SongList: React.FC = () => {
               type="button"
               id="toolbar-toggle-all-btn"
               onClick={toggleSelectAll}
-              className="h-8 sm:h-8.5 px-2 sm:px-2.5 rounded-lg bg-[#222226] hover:bg-[#2C2C32] active:scale-95 text-xs font-semibold text-gray-200 border border-[#3A3A40] transition-colors cursor-pointer flex items-center justify-center gap-1.5 shrink-0"
+              className="h-8 sm:h-8.5 px-2 sm:px-2.5 rounded-lg bg-[#EDF1F5] dark:bg-[#222226] hover:bg-slate-200 dark:hover:bg-[#2C2C32] active:scale-95 text-xs font-semibold text-slate-800 dark:text-gray-200 border border-slate-300 dark:border-[#3A3A40] transition-colors cursor-pointer flex items-center justify-center gap-1.5 shrink-0"
               title={selectedSongIds.length === filteredSongs.length && filteredSongs.length > 0 ? "Tout désélectionner" : "Tout sélectionner"}
               aria-label={selectedSongIds.length === filteredSongs.length && filteredSongs.length > 0 ? "Tout désélectionner" : "Tout sélectionner"}
             >
-              <CheckSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-400 shrink-0" />
+              <CheckSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600 dark:text-blue-400 shrink-0" />
               <span className="hidden md:inline">
                 {selectedSongIds.length === filteredSongs.length && filteredSongs.length > 0
                   ? 'Tout désélectionner'
@@ -3440,15 +3448,17 @@ export const SongList: React.FC = () => {
                 setIsMultiSelectMode(false);
                 setSelectedSongIds([]);
               }}
-              className="h-8 sm:h-8.5 w-8 sm:w-8.5 rounded-lg bg-[#222226] hover:bg-[#2C2C32] active:scale-95 text-gray-400 hover:text-white border border-[#3A3A40] transition-colors cursor-pointer flex items-center justify-center shrink-0"
+              className="h-8 sm:h-8.5 w-8 sm:w-8.5 rounded-lg bg-[#EDF1F5] dark:bg-[#222226] hover:bg-slate-200 dark:hover:bg-[#2C2C32] active:scale-95 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-[#3A3A40] transition-colors cursor-pointer flex items-center justify-center shrink-0"
               title="Désélectionner et fermer"
               aria-label="Désélectionner et fermer"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
-        </div>
-      )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Modal: Assigner à une catégorie (Multi-sélection) */}
       {isAssignCategoryModalOpen && (
@@ -3468,19 +3478,19 @@ export const SongList: React.FC = () => {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-lg bg-[#141416] border border-[#2A2A2D] rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[88vh] animate-in zoom-in-95 duration-100"
+            className="w-full max-w-lg bg-slate-50 dark:bg-[#141416] border border-slate-300 dark:border-[#2A2A2D] rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[88vh] animate-in zoom-in-95 duration-100"
           >
             {/* Modal Header */}
-            <div className="p-3.5 sm:p-4 border-b border-[#222224] bg-[#171719] flex items-center justify-between gap-3">
+            <div className="p-3.5 sm:p-4 border-b border-slate-200 dark:border-[#222224] bg-slate-50 dark:bg-[#171719] flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 shrink-0">
+                <div className="p-2 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 shrink-0">
                   <Tag className="w-4 h-4" />
                 </div>
                 <div className="min-w-0">
-                  <h3 id="batch-assign-category-title" className="text-sm sm:text-base font-bold text-white tracking-tight truncate">
+                  <h3 id="batch-assign-category-title" className="text-sm sm:text-base font-bold text-slate-900 dark:text-white tracking-tight truncate">
                     Catégories • {selectedSongIds.length} chant{selectedSongIds.length > 1 ? 's' : ''}
                   </h3>
-                  <p className="text-xs text-gray-400 truncate">
+                  <p className="text-xs text-slate-600 dark:text-gray-400 truncate">
                     {selectedSongIds.length === 1
                       ? songs.find(s => s.id === selectedSongIds[0])?.title || 'Chant sélectionné'
                       : `${selectedSongIds.length} chants à catégoriser`}
@@ -3496,7 +3506,7 @@ export const SongList: React.FC = () => {
                   setMultiCategoryInput('');
                   setMultiCategorySearch('');
                 }}
-                className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#252528] transition-colors cursor-pointer"
+                className="p-1.5 rounded-lg text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#252528] transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -3505,8 +3515,8 @@ export const SongList: React.FC = () => {
             {/* Modal Body */}
             <div className="p-3.5 sm:p-4 space-y-3 overflow-y-auto flex-1">
               {/* Quick create category form */}
-              <div className="bg-[#19191C] border border-[#262629] p-2.5 rounded-lg">
-                <label className="block text-[11px] font-semibold text-gray-300 mb-1.5 uppercase tracking-wider">
+              <div className="bg-slate-50 dark:bg-[#19191C] border border-slate-200 dark:border-[#262629] p-2.5 rounded-lg">
+                <label className="block text-[11px] font-semibold text-slate-700 dark:text-gray-300 mb-1.5 uppercase tracking-wider">
                   Nouvelle catégorie
                 </label>
                 <div className="flex items-center gap-2">
@@ -3522,7 +3532,7 @@ export const SongList: React.FC = () => {
                       }
                     }}
                     placeholder="Nom de la nouvelle catégorie..."
-                    className="flex-1 bg-[#141416] border border-[#333] focus:border-blue-500 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-500 outline-none transition-all"
+                    className="flex-1 bg-slate-50 dark:bg-[#141416] border border-slate-300 dark:border-[#333] focus:border-blue-500 rounded-lg px-3 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 outline-none transition-all"
                   />
                   <button
                     type="button"
@@ -3541,20 +3551,20 @@ export const SongList: React.FC = () => {
               <div className="space-y-2 pt-1">
                 <div className="flex items-center gap-2">
                   <div className="relative flex-1">
-                    <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                    <Search className="w-3.5 h-3.5 text-slate-600 dark:text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                     <input
                       type="text"
                       id="batch-category-search-input"
                       value={multiCategorySearch}
                       onChange={(e) => setMultiCategorySearch(e.target.value)}
                       placeholder="Filtrer les catégories..."
-                      className="w-full bg-[#18181A] border border-[#2E2E32] focus:border-blue-500 rounded-lg pl-8 pr-7 py-1.5 text-xs text-white placeholder-gray-500 outline-none transition-all"
+                      className="w-full bg-slate-50 dark:bg-[#18181A] border border-slate-300 dark:border-[#2E2E32] focus:border-blue-500 rounded-lg pl-8 pr-7 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 outline-none transition-all"
                     />
                     {multiCategorySearch && (
                       <button
                         type="button"
                         onClick={() => setMultiCategorySearch('')}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white p-0.5"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white p-0.5"
                       >
                         <X className="w-3 h-3" />
                       </button>
@@ -3568,7 +3578,7 @@ export const SongList: React.FC = () => {
                         const namesToAdd = filteredMultiCategories.map(c => c.name);
                         setSelectedBatchCategories(prev => Array.from(new Set([...prev, ...namesToAdd])));
                       }}
-                      className="px-2 py-1 rounded text-[11px] font-medium bg-[#222226] hover:bg-[#2C2C32] text-gray-300 hover:text-white border border-[#333] transition-colors"
+                      className="px-2 py-1 rounded text-[11px] font-medium bg-[#EDF1F5] dark:bg-[#222226] hover:bg-slate-200 dark:hover:bg-[#2C2C32] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-[#333] transition-colors"
                     >
                       Tout cocher
                     </button>
@@ -3579,7 +3589,7 @@ export const SongList: React.FC = () => {
                         const namesToRemove = new Set(filteredMultiCategories.map(c => c.name.toLowerCase()));
                         setSelectedBatchCategories(prev => prev.filter(c => !namesToRemove.has(c.toLowerCase())));
                       }}
-                      className="px-2 py-1 rounded text-[11px] font-medium bg-[#222226] hover:bg-[#2C2C32] text-gray-300 hover:text-white border border-[#333] transition-colors"
+                      className="px-2 py-1 rounded text-[11px] font-medium bg-[#EDF1F5] dark:bg-[#222226] hover:bg-slate-200 dark:hover:bg-[#2C2C32] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-[#333] transition-colors"
                     >
                       Décocher
                     </button>
@@ -3587,7 +3597,7 @@ export const SongList: React.FC = () => {
                 </div>
 
                 {/* Selected count info */}
-                <div className="flex items-center justify-between text-[11px] text-gray-400 px-0.5">
+                <div className="flex items-center justify-between text-[11px] text-slate-600 dark:text-gray-400 px-0.5">
                   <span>
                     {selectedBatchCategories.length} catégorie{selectedBatchCategories.length > 1 ? 's' : ''} cochée{selectedBatchCategories.length > 1 ? 's' : ''}
                   </span>
@@ -3616,8 +3626,8 @@ export const SongList: React.FC = () => {
                         onClick={() => toggleBatchCategory(cat.name)}
                         className={`w-full flex items-center justify-between p-2.5 rounded-lg border transition-all cursor-pointer select-none ${
                           isChecked
-                            ? 'bg-blue-950/30 border-blue-500/50 text-blue-100 shadow-sm'
-                            : 'bg-[#18181A] hover:bg-[#1E1E22] border-[#26262A] text-gray-300'
+                            ? 'bg-blue-50 dark:bg-blue-950/30 border-blue-500/50 text-blue-100 shadow-sm'
+                            : 'bg-slate-50 dark:bg-[#18181A] hover:bg-slate-200/70 dark:hover:bg-[#1E1E22] border-slate-200 dark:border-[#26262A] text-slate-700 dark:text-gray-300'
                         }`}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
@@ -3626,13 +3636,13 @@ export const SongList: React.FC = () => {
                             className={`w-4 h-4 rounded shrink-0 flex items-center justify-center border transition-all ${
                               isChecked
                                 ? 'bg-blue-600 border-blue-500 text-white'
-                                : 'border-[#444] bg-[#161618]'
+                                : 'border-slate-300 dark:border-[#444] bg-slate-50 dark:bg-[#161618]'
                             }`}
                           >
                             {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
                           </div>
-                          <Tag className={`w-3.5 h-3.5 shrink-0 ${isChecked ? 'text-blue-400' : 'text-gray-500'}`} />
-                          <span className={`text-xs font-medium truncate ${isChecked ? 'text-white' : 'text-gray-200'}`}>
+                          <Tag className={`w-3.5 h-3.5 shrink-0 ${isChecked ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500'}`} />
+                          <span className={`text-xs font-medium truncate ${isChecked ? 'text-slate-900 dark:text-white' : 'text-slate-800 dark:text-gray-200'}`}>
                             {cat.name}
                           </span>
                         </div>
@@ -3642,14 +3652,14 @@ export const SongList: React.FC = () => {
                             <span
                               className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
                                 inSelectedCount === selectedSongIds.length
-                                  ? 'bg-blue-900/60 text-blue-300 border border-blue-700/50'
-                                  : 'bg-amber-950/60 text-amber-300 border border-amber-800/40'
+                                  ? 'bg-blue-50 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 border border-blue-700/50'
+                                  : 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-800/40'
                               }`}
                             >
                               {inSelectedCount === selectedSongIds.length ? 'Sur tous' : `${inSelectedCount}/${selectedSongIds.length}`}
                             </span>
                           )}
-                          <span className="text-[10px] font-mono text-gray-400 bg-[#222226] px-1.5 py-0.5 rounded border border-[#2D2D32]">
+                          <span className="text-[10px] font-mono text-slate-600 dark:text-gray-400 bg-[#EDF1F5] dark:bg-[#222226] px-1.5 py-0.5 rounded border border-slate-300 dark:border-[#2D2D32]">
                             {cat.count}
                           </span>
                         </div>
@@ -3661,8 +3671,8 @@ export const SongList: React.FC = () => {
             </div>
 
             {/* Modal Footer */}
-            <div className="p-3 sm:p-3.5 border-t border-[#222224] bg-[#171719] flex items-center justify-between gap-2">
-              <span className="text-xs text-gray-400 truncate hidden xs:inline">
+            <div className="p-3 sm:p-3.5 border-t border-slate-200 dark:border-[#222224] bg-slate-50 dark:bg-[#171719] flex items-center justify-between gap-2">
+              <span className="text-xs text-slate-600 dark:text-gray-400 truncate hidden xs:inline">
                 {selectedBatchCategories.length} sélectionnée{selectedBatchCategories.length > 1 ? 's' : ''}
               </span>
               <div className="flex items-center gap-2 ml-auto">
@@ -3675,7 +3685,7 @@ export const SongList: React.FC = () => {
                     setMultiCategoryInput('');
                     setMultiCategorySearch('');
                   }}
-                  className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-gray-300 hover:text-white hover:bg-[#252528] border border-[#333] transition-colors cursor-pointer"
+                  className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#252528] border border-slate-300 dark:border-[#333] transition-colors cursor-pointer"
                 >
                   Annuler
                 </button>
@@ -3722,19 +3732,19 @@ export const SongList: React.FC = () => {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-lg bg-[#141416] border border-[#2A2A2D] rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[88vh] animate-in zoom-in-95 duration-100"
+            className="w-full max-w-lg bg-slate-50 dark:bg-[#141416] border border-slate-300 dark:border-[#2A2A2D] rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[88vh] animate-in zoom-in-95 duration-100"
           >
             {/* Modal Header */}
-            <div className="p-3.5 sm:p-4 border-b border-[#222224] bg-[#171719] flex items-center justify-between gap-3">
+            <div className="p-3.5 sm:p-4 border-b border-slate-200 dark:border-[#222224] bg-slate-50 dark:bg-[#171719] flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="p-2 rounded-lg bg-violet-500/10 text-violet-400 border border-violet-500/20 shrink-0">
+                <div className="p-2 rounded-lg bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/20 shrink-0">
                   <Globe className="w-4 h-4" />
                 </div>
                 <div className="min-w-0">
-                  <h3 id="batch-assign-language-title" className="text-sm sm:text-base font-bold text-white tracking-tight truncate">
+                  <h3 id="batch-assign-language-title" className="text-sm sm:text-base font-bold text-slate-900 dark:text-white tracking-tight truncate">
                     Langue • {selectedSongIds.length} chant{selectedSongIds.length > 1 ? 's' : ''}
                   </h3>
-                  <p className="text-xs text-gray-400 truncate">
+                  <p className="text-xs text-slate-600 dark:text-gray-400 truncate">
                     {selectedSongIds.length === 1
                       ? songs.find(s => s.id === selectedSongIds[0])?.title || 'Chant sélectionné'
                       : `Attribuer une langue aux ${selectedSongIds.length} chants sélectionnés`}
@@ -3750,7 +3760,7 @@ export const SongList: React.FC = () => {
                   setCustomBatchLanguageInput('');
                   setBatchLanguageSearch('');
                 }}
-                className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#252528] transition-colors cursor-pointer"
+                className="p-1.5 rounded-lg text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#252528] transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -3759,8 +3769,8 @@ export const SongList: React.FC = () => {
             {/* Modal Body */}
             <div className="p-3.5 sm:p-4 space-y-3 overflow-y-auto flex-1">
               {/* Quick Custom Language Input */}
-              <div className="bg-[#19191C] border border-[#262629] p-2.5 rounded-lg">
-                <label className="block text-[11px] font-semibold text-gray-300 mb-1.5 uppercase tracking-wider">
+              <div className="bg-slate-50 dark:bg-[#19191C] border border-slate-200 dark:border-[#262629] p-2.5 rounded-lg">
+                <label className="block text-[11px] font-semibold text-slate-700 dark:text-gray-300 mb-1.5 uppercase tracking-wider">
                   Autre langue personnalisée
                 </label>
                 <div className="flex items-center gap-2">
@@ -3783,7 +3793,7 @@ export const SongList: React.FC = () => {
                       }
                     }}
                     placeholder="Exemple : Malgache, Latin, Néerlandais..."
-                    className="flex-1 bg-[#141416] border border-[#333] focus:border-violet-500 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-500 outline-none transition-all"
+                    className="flex-1 bg-slate-50 dark:bg-[#141416] border border-slate-300 dark:border-[#333] focus:border-violet-500 rounded-lg px-3 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 outline-none transition-all"
                   />
                   <button
                     type="button"
@@ -3801,27 +3811,27 @@ export const SongList: React.FC = () => {
               {/* Search Filter */}
               <div className="space-y-2 pt-1">
                 <div className="relative">
-                  <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                  <Search className="w-3.5 h-3.5 text-slate-600 dark:text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
                     id="batch-language-search-input"
                     value={batchLanguageSearch}
                     onChange={(e) => setBatchLanguageSearch(e.target.value)}
                     placeholder="Filtrer les langues..."
-                    className="w-full bg-[#18181A] border border-[#2E2E32] focus:border-violet-500 rounded-lg pl-8 pr-7 py-1.5 text-xs text-white placeholder-gray-500 outline-none transition-all"
+                    className="w-full bg-slate-50 dark:bg-[#18181A] border border-slate-300 dark:border-[#2E2E32] focus:border-violet-500 rounded-lg pl-8 pr-7 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 outline-none transition-all"
                   />
                   {batchLanguageSearch && (
                     <button
                       type="button"
                       onClick={() => setBatchLanguageSearch('')}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white p-0.5"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white p-0.5"
                     >
                       <X className="w-3 h-3" />
                     </button>
                   )}
                 </div>
 
-                <div className="flex items-center justify-between text-[11px] text-gray-400 px-0.5">
+                <div className="flex items-center justify-between text-[11px] text-slate-600 dark:text-gray-400 px-0.5">
                   <span>Sélectionnez une langue à attribuer</span>
                   <span>{filteredBatchLanguages.length} disponibles</span>
                 </div>
@@ -3838,8 +3848,8 @@ export const SongList: React.FC = () => {
                   }}
                   className={`w-full flex items-center justify-between p-2.5 rounded-lg border transition-all cursor-pointer select-none mb-1.5 ${
                     selectedBatchLanguage === '__AUTO_DETECT__' && !customBatchLanguageInput.trim()
-                      ? 'bg-emerald-950/30 border-emerald-500/50 text-emerald-100 shadow-sm'
-                      : 'bg-[#18181A] hover:bg-[#1E1E22] border-[#26262A] text-gray-300'
+                      ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-500/50 text-emerald-100 shadow-sm'
+                      : 'bg-slate-50 dark:bg-[#18181A] hover:bg-slate-200/70 dark:hover:bg-[#1E1E22] border-slate-200 dark:border-[#26262A] text-slate-700 dark:text-gray-300'
                   }`}
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
@@ -3847,19 +3857,19 @@ export const SongList: React.FC = () => {
                       className={`w-4 h-4 rounded-full shrink-0 flex items-center justify-center border transition-all ${
                         selectedBatchLanguage === '__AUTO_DETECT__' && !customBatchLanguageInput.trim()
                           ? 'border-emerald-500 bg-emerald-600 text-white'
-                          : 'border-[#444] bg-[#161618]'
+                          : 'border-slate-300 dark:border-[#444] bg-slate-50 dark:bg-[#161618]'
                       }`}
                     >
                       {selectedBatchLanguage === '__AUTO_DETECT__' && !customBatchLanguageInput.trim() && (
                         <div className="w-1.5 h-1.5 rounded-full bg-white" />
                       )}
                     </div>
-                    <Sparkles className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                     <div className="flex flex-col text-left">
-                      <span className="text-xs font-semibold text-white">
+                      <span className="text-xs font-semibold text-slate-900 dark:text-white">
                         Deviner automatiquement la langue
                       </span>
-                      <span className="text-[10px] text-gray-400">
+                      <span className="text-[10px] text-slate-600 dark:text-gray-400">
                         Analyse individuelle du titre et des paroles pour chaque chant
                       </span>
                     </div>
@@ -3888,8 +3898,8 @@ export const SongList: React.FC = () => {
                         }}
                         className={`w-full flex items-center justify-between p-2.5 rounded-lg border transition-all cursor-pointer select-none ${
                           isSelected
-                            ? 'bg-violet-950/30 border-violet-500/50 text-violet-100 shadow-sm'
-                            : 'bg-[#18181A] hover:bg-[#1E1E22] border-[#26262A] text-gray-300'
+                            ? 'bg-violet-50 dark:bg-violet-950/30 border-violet-500/50 text-violet-100 shadow-sm'
+                            : 'bg-slate-50 dark:bg-[#18181A] hover:bg-slate-200/70 dark:hover:bg-[#1E1E22] border-slate-200 dark:border-[#26262A] text-slate-700 dark:text-gray-300'
                         }`}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
@@ -3898,7 +3908,7 @@ export const SongList: React.FC = () => {
                             className={`w-4 h-4 rounded-full shrink-0 flex items-center justify-center border transition-all ${
                               isSelected
                                 ? 'border-violet-500 bg-violet-600 text-white'
-                                : 'border-[#444] bg-[#161618]'
+                                : 'border-slate-300 dark:border-[#444] bg-slate-50 dark:bg-[#161618]'
                             }`}
                           >
                             {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
@@ -3909,7 +3919,7 @@ export const SongList: React.FC = () => {
                             {langItem.code}
                           </span>
 
-                          <span className={`text-xs font-medium truncate ${isSelected ? 'text-white' : 'text-gray-200'}`}>
+                          <span className={`text-xs font-medium truncate ${isSelected ? 'text-slate-900 dark:text-white' : 'text-slate-800 dark:text-gray-200'}`}>
                             {langItem.name}
                           </span>
                         </div>
@@ -3919,8 +3929,8 @@ export const SongList: React.FC = () => {
                             <span
                               className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
                                 inSelectedCount === selectedSongIds.length
-                                  ? 'bg-violet-900/60 text-violet-300 border border-violet-700/50'
-                                  : 'bg-[#222226] text-gray-300 border border-[#333]'
+                                  ? 'bg-violet-50 dark:bg-violet-900/60 text-violet-700 dark:text-violet-300 border border-violet-700/50'
+                                  : 'bg-[#EDF1F5] dark:bg-[#222226] text-slate-700 dark:text-gray-300 border border-slate-300 dark:border-[#333]'
                               }`}
                             >
                               {inSelectedCount === selectedSongIds.length
@@ -3943,8 +3953,8 @@ export const SongList: React.FC = () => {
                   }}
                   className={`w-full flex items-center justify-between p-2.5 rounded-lg border transition-all cursor-pointer select-none mt-2 ${
                     selectedBatchLanguage === '__NONE__' && !customBatchLanguageInput.trim()
-                      ? 'bg-rose-950/20 border-rose-500/40 text-rose-200 shadow-sm'
-                      : 'bg-[#18181A] hover:bg-[#1E1E22] border-[#26262A] text-gray-400 hover:text-gray-300'
+                      ? 'bg-rose-50 dark:bg-rose-950/20 border-rose-500/40 text-rose-700 dark:text-rose-200 shadow-sm'
+                      : 'bg-slate-50 dark:bg-[#18181A] hover:bg-slate-200/70 dark:hover:bg-[#1E1E22] border-slate-200 dark:border-[#26262A] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-300'
                   }`}
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
@@ -3952,7 +3962,7 @@ export const SongList: React.FC = () => {
                       className={`w-4 h-4 rounded-full shrink-0 flex items-center justify-center border transition-all ${
                         selectedBatchLanguage === '__NONE__' && !customBatchLanguageInput.trim()
                           ? 'border-rose-500 bg-rose-600 text-white'
-                          : 'border-[#444] bg-[#161618]'
+                          : 'border-slate-300 dark:border-[#444] bg-slate-50 dark:bg-[#161618]'
                       }`}
                     >
                       {selectedBatchLanguage === '__NONE__' && !customBatchLanguageInput.trim() && (
@@ -3968,8 +3978,8 @@ export const SongList: React.FC = () => {
             </div>
 
             {/* Modal Footer */}
-            <div className="p-3 sm:p-3.5 border-t border-[#222224] bg-[#171719] flex items-center justify-between gap-2">
-              <span className="text-xs text-gray-400 truncate hidden xs:inline">
+            <div className="p-3 sm:p-3.5 border-t border-slate-200 dark:border-[#222224] bg-slate-50 dark:bg-[#171719] flex items-center justify-between gap-2">
+              <span className="text-xs text-slate-600 dark:text-gray-400 truncate hidden xs:inline">
                 {customBatchLanguageInput.trim()
                   ? `Langue : ${customBatchLanguageInput.trim()}`
                   : selectedBatchLanguage === '__AUTO_DETECT__'
@@ -3991,7 +4001,7 @@ export const SongList: React.FC = () => {
                     setCustomBatchLanguageInput('');
                     setBatchLanguageSearch('');
                   }}
-                  className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-gray-300 hover:text-white hover:bg-[#252528] border border-[#333] transition-colors cursor-pointer"
+                  className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#252528] border border-slate-300 dark:border-[#333] transition-colors cursor-pointer"
                 >
                   Annuler
                 </button>
@@ -4049,19 +4059,19 @@ export const SongList: React.FC = () => {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-lg bg-[#141416] border border-[#2A2A2D] rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[88vh] animate-in zoom-in-95 duration-100"
+            className="w-full max-w-lg bg-slate-50 dark:bg-[#141416] border border-slate-300 dark:border-[#2A2A2D] rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[88vh] animate-in zoom-in-95 duration-100"
           >
             {/* Modal Header */}
-            <div className="p-3.5 sm:p-4 border-b border-[#222224] bg-[#171719] flex items-center justify-between gap-3">
+            <div className="p-3.5 sm:p-4 border-b border-slate-200 dark:border-[#222224] bg-slate-50 dark:bg-[#171719] flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 shrink-0">
+                <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 shrink-0">
                   <ListPlus className="w-4 h-4" />
                 </div>
                 <div className="min-w-0">
-                  <h3 id="batch-assign-setlist-title" className="text-sm sm:text-base font-bold text-white tracking-tight truncate">
+                  <h3 id="batch-assign-setlist-title" className="text-sm sm:text-base font-bold text-slate-900 dark:text-white tracking-tight truncate">
                     Ajouter aux Setlists
                   </h3>
-                  <p className="text-xs text-gray-400 truncate">
+                  <p className="text-xs text-slate-600 dark:text-gray-400 truncate">
                     {selectedSongIds.length === 1
                       ? songs.find(s => s.id === selectedSongIds[0])?.title || 'Chant sélectionné'
                       : `${selectedSongIds.length} chants sélectionnés`}
@@ -4077,7 +4087,7 @@ export const SongList: React.FC = () => {
                   setMultiSetlistNameInput('');
                   setMultiSetlistSearch('');
                 }}
-                className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#252528] transition-colors cursor-pointer"
+                className="p-1.5 rounded-lg text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#252528] transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -4088,20 +4098,20 @@ export const SongList: React.FC = () => {
               {/* Search & New Setlist Row */}
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
-                  <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                  <Search className="w-3.5 h-3.5 text-slate-600 dark:text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
                     id="batch-setlist-search-input"
                     value={multiSetlistSearch}
                     onChange={(e) => setMultiSetlistSearch(e.target.value)}
                     placeholder="Rechercher une setlist par nom ou date..."
-                    className="w-full bg-[#18181A] border border-[#2E2E32] focus:border-indigo-500 rounded-lg pl-8 pr-7 py-1.5 text-xs text-white placeholder-gray-500 outline-none transition-all"
+                    className="w-full bg-slate-50 dark:bg-[#18181A] border border-slate-300 dark:border-[#2E2E32] focus:border-indigo-500 rounded-lg pl-8 pr-7 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 outline-none transition-all"
                   />
                   {multiSetlistSearch && (
                     <button
                       type="button"
                       onClick={() => setMultiSetlistSearch('')}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white p-0.5"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white p-0.5"
                     >
                       <X className="w-3 h-3" />
                     </button>
@@ -4114,7 +4124,7 @@ export const SongList: React.FC = () => {
                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer shrink-0 flex items-center gap-1.5 border ${
                     isBatchCreatingSetlist
                       ? 'bg-indigo-700 border-indigo-500 text-white'
-                      : 'bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border-indigo-500/40'
+                      : 'bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-700 dark:text-indigo-300 border-indigo-500/40'
                   }`}
                 >
                   <Plus className="w-3.5 h-3.5" />
@@ -4124,13 +4134,13 @@ export const SongList: React.FC = () => {
 
               {/* Inline Quick Create Setlist */}
               {isBatchCreatingSetlist && (
-                <div className="p-3 rounded-lg bg-[#19191D] border border-indigo-500/30 space-y-2.5 animate-in slide-in-from-top-2 duration-150">
+                <div className="p-3 rounded-lg bg-[#EDF1F5] dark:bg-[#19191D] border border-indigo-500/30 space-y-2.5 animate-in slide-in-from-top-2 duration-150">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-indigo-200">Créer une nouvelle setlist</span>
+                    <span className="text-xs font-bold text-indigo-700 dark:text-indigo-200">Créer une nouvelle setlist</span>
                     <button
                       type="button"
                       onClick={() => setIsBatchCreatingSetlist(false)}
-                      className="text-gray-400 hover:text-white text-xs"
+                      className="text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white text-xs"
                     >
                       Fermer
                     </button>
@@ -4147,18 +4157,18 @@ export const SongList: React.FC = () => {
                       }
                     }}
                     placeholder="Nom (ex: Culte Dimanche, Répétition...)"
-                    className="w-full bg-[#141416] border border-[#333] focus:border-indigo-500 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-500 outline-none transition-all"
+                    className="w-full bg-slate-50 dark:bg-[#141416] border border-slate-300 dark:border-[#333] focus:border-indigo-500 rounded-lg px-3 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 outline-none transition-all"
                     autoFocus
                   />
                   <div className="flex items-center gap-2">
                     <div className="relative flex-1">
-                      <Calendar className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                      <Calendar className="w-3.5 h-3.5 text-slate-600 dark:text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                       <input
                         type="date"
                         id="batch-setlist-new-date-input"
                         value={multiSetlistDateInput}
                         onChange={(e) => setMultiSetlistDateInput(e.target.value)}
-                        className="w-full bg-[#141416] border border-[#333] focus:border-indigo-500 rounded-lg pl-8 pr-2 py-1.5 text-xs text-white outline-none transition-all"
+                        className="w-full bg-slate-50 dark:bg-[#141416] border border-slate-300 dark:border-[#333] focus:border-indigo-500 rounded-lg pl-8 pr-2 py-1.5 text-xs text-slate-900 dark:text-white outline-none transition-all"
                       />
                     </div>
                     <button
@@ -4178,7 +4188,7 @@ export const SongList: React.FC = () => {
               {/* Sort Tabs & Select All / Deselect All */}
               <div className="flex items-center justify-between gap-2 pt-0.5 flex-wrap">
                 {/* Sort tabs */}
-                <div className="flex items-center gap-1 bg-[#18181A] p-0.5 rounded-lg border border-[#2E2E32]">
+                <div className="flex items-center gap-1 bg-slate-50 dark:bg-[#18181A] p-0.5 rounded-lg border border-slate-300 dark:border-[#2E2E32]">
                   <span className="text-[10px] text-gray-500 px-1.5 flex items-center gap-0.5">
                     <ArrowUpDown className="w-2.5 h-2.5" /> Tri :
                   </span>
@@ -4189,7 +4199,7 @@ export const SongList: React.FC = () => {
                     className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
                       batchSetlistSortBy === 'recent'
                         ? 'bg-indigo-600 text-white shadow-sm'
-                        : 'text-gray-400 hover:text-gray-200'
+                        : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200'
                     }`}
                   >
                     Récent
@@ -4201,7 +4211,7 @@ export const SongList: React.FC = () => {
                     className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
                       batchSetlistSortBy === 'name'
                         ? 'bg-indigo-600 text-white shadow-sm'
-                        : 'text-gray-400 hover:text-gray-200'
+                        : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200'
                     }`}
                   >
                     A-Z
@@ -4213,7 +4223,7 @@ export const SongList: React.FC = () => {
                     className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
                       batchSetlistSortBy === 'count'
                         ? 'bg-indigo-600 text-white shadow-sm'
-                        : 'text-gray-400 hover:text-gray-200'
+                        : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200'
                     }`}
                   >
                     Nb Chants
@@ -4229,7 +4239,7 @@ export const SongList: React.FC = () => {
                       const idsToAdd = filteredAndSortedMultiSetlists.map(s => s.id);
                       setSelectedBatchSetlistIds(prev => Array.from(new Set([...prev, ...idsToAdd])));
                     }}
-                    className="px-2 py-1 rounded text-[11px] font-medium bg-[#222226] hover:bg-[#2C2C32] text-gray-300 hover:text-white border border-[#333] transition-colors"
+                    className="px-2 py-1 rounded text-[11px] font-medium bg-[#EDF1F5] dark:bg-[#222226] hover:bg-slate-200 dark:hover:bg-[#2C2C32] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-[#333] transition-colors"
                   >
                     Tout cocher
                   </button>
@@ -4240,7 +4250,7 @@ export const SongList: React.FC = () => {
                       const idsToRemove = new Set(filteredAndSortedMultiSetlists.map(s => s.id));
                       setSelectedBatchSetlistIds(prev => prev.filter(id => !idsToRemove.has(id)));
                     }}
-                    className="px-2 py-1 rounded text-[11px] font-medium bg-[#222226] hover:bg-[#2C2C32] text-gray-300 hover:text-white border border-[#333] transition-colors"
+                    className="px-2 py-1 rounded text-[11px] font-medium bg-[#EDF1F5] dark:bg-[#222226] hover:bg-slate-200 dark:hover:bg-[#2C2C32] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-[#333] transition-colors"
                   >
                     Décocher
                   </button>
@@ -4248,7 +4258,7 @@ export const SongList: React.FC = () => {
               </div>
 
               {/* Setlists count info */}
-              <div className="flex items-center justify-between text-[11px] text-gray-400 px-0.5">
+              <div className="flex items-center justify-between text-[11px] text-slate-600 dark:text-gray-400 px-0.5">
                 <span>
                   {selectedBatchSetlistIds.length} setlist{selectedBatchSetlistIds.length > 1 ? 's' : ''} cochée{selectedBatchSetlistIds.length > 1 ? 's' : ''}
                 </span>
@@ -4274,15 +4284,15 @@ export const SongList: React.FC = () => {
                         onClick={() => toggleBatchSetlistSelection(st.id)}
                         className={`w-full flex items-center justify-between p-2.5 rounded-lg border transition-all cursor-pointer select-none ${
                           isChecked
-                            ? 'bg-indigo-950/30 border-indigo-500/50 text-indigo-100 shadow-sm'
-                            : 'bg-[#18181A] hover:bg-[#1E1E22] border-[#26262A] text-gray-300'
+                            ? 'bg-indigo-50 dark:bg-indigo-950/30 border-indigo-500/50 text-indigo-100 shadow-sm'
+                            : 'bg-slate-50 dark:bg-[#18181A] hover:bg-slate-200/70 dark:hover:bg-[#1E1E22] border-slate-200 dark:border-[#26262A] text-slate-700 dark:text-gray-300'
                         }`}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
                           {/* Checkbox */}
                           <div className="shrink-0">
                             {isChecked ? (
-                              <CheckSquare className="w-4 h-4 fill-indigo-500/20 text-indigo-400" />
+                              <CheckSquare className="w-4 h-4 fill-indigo-500/20 text-indigo-600 dark:text-indigo-400" />
                             ) : (
                               <Square className="w-4 h-4 text-gray-500" />
                             )}
@@ -4290,11 +4300,11 @@ export const SongList: React.FC = () => {
 
                           <div className="min-w-0">
                             <div className="flex items-center gap-2">
-                              <span className={`text-xs font-medium truncate ${isChecked ? 'text-white' : 'text-gray-200'}`}>
+                              <span className={`text-xs font-medium truncate ${isChecked ? 'text-slate-900 dark:text-white' : 'text-slate-800 dark:text-gray-200'}`}>
                                 {st.name}
                               </span>
                             </div>
-                            <div className="flex items-center gap-2 text-[10px] text-gray-400 mt-0.5">
+                            <div className="flex items-center gap-2 text-[10px] text-slate-600 dark:text-gray-400 mt-0.5">
                               <span className="flex items-center gap-1">
                                 <Music className="w-2.5 h-2.5 text-gray-500" />
                                 {(() => {
@@ -4310,8 +4320,8 @@ export const SongList: React.FC = () => {
                                 return totalSecs > 0 ? (
                                   <>
                                     <span>•</span>
-                                    <span className="flex items-center gap-1 text-cyan-400 font-mono">
-                                      <Clock className="w-2.5 h-2.5 text-cyan-400" />
+                                    <span className="flex items-center gap-1 text-cyan-700 dark:text-cyan-400 font-mono">
+                                      <Clock className="w-2.5 h-2.5 text-cyan-700 dark:text-cyan-400" />
                                       <span>{formatSetlistDuration(totalSecs)}</span>
                                     </span>
                                   </>
@@ -4331,16 +4341,16 @@ export const SongList: React.FC = () => {
                           {/* Status badge */}
                           {isSingleSong ? (
                             st.songIds.includes(selectedSongIds[0]) ? (
-                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#202024] text-gray-300 border border-[#333]">
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#EDF1F5] dark:bg-[#202024] text-slate-700 dark:text-gray-300 border border-slate-300 dark:border-[#333]">
                                 Déjà présent
                               </span>
                             ) : null
                           ) : inCount === selectedSongIds.length ? (
-                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-800/60">
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-800/60">
                               Tous présents
                             </span>
                           ) : inCount > 0 ? (
-                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-950/60 text-amber-300 border border-amber-800/50">
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-800/50">
                               {inCount}/{selectedSongIds.length} présents
                             </span>
                           ) : null}
@@ -4348,8 +4358,8 @@ export const SongList: React.FC = () => {
                           <span
                             className={`text-[10px] font-medium px-2 py-0.5 rounded border ${
                               isChecked
-                                ? 'bg-indigo-950/60 border-indigo-700/50 text-indigo-300'
-                                : 'bg-[#1D1D20] border-[#2A2A2E] text-gray-500'
+                                ? 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-700/50 text-indigo-700 dark:text-indigo-300'
+                                : 'bg-[#EDF1F5] dark:bg-[#1D1D20] border-slate-300 dark:border-[#2A2A2E] text-gray-500'
                             }`}
                           >
                             {isChecked ? 'Inclus' : 'Non inclus'}
@@ -4363,8 +4373,8 @@ export const SongList: React.FC = () => {
             </div>
 
             {/* Modal Footer */}
-            <div className="p-3 sm:p-3.5 border-t border-[#222224] bg-[#171719] flex items-center justify-between gap-2">
-              <span className="text-xs text-gray-400 truncate hidden xs:inline">
+            <div className="p-3 sm:p-3.5 border-t border-slate-200 dark:border-[#222224] bg-slate-50 dark:bg-[#171719] flex items-center justify-between gap-2">
+              <span className="text-xs text-slate-600 dark:text-gray-400 truncate hidden xs:inline">
                 {selectedBatchSetlistIds.length} sélectionnée{selectedBatchSetlistIds.length > 1 ? 's' : ''}
               </span>
               <div className="flex items-center gap-2 ml-auto">
@@ -4377,7 +4387,7 @@ export const SongList: React.FC = () => {
                     setMultiSetlistNameInput('');
                     setMultiSetlistSearch('');
                   }}
-                  className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-gray-300 hover:text-white hover:bg-[#252528] border border-[#333] transition-colors cursor-pointer"
+                  className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#252528] border border-slate-300 dark:border-[#333] transition-colors cursor-pointer"
                 >
                   Annuler
                 </button>
@@ -4425,43 +4435,43 @@ export const SongList: React.FC = () => {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md bg-[#141416] border border-[#3A2226] rounded-xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-100"
+            className="w-full max-w-md bg-slate-50 dark:bg-[#141416] border border-slate-300 dark:border-[#3A2226] rounded-xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-100"
           >
             {/* Header */}
-            <div className="p-4 border-b border-[#2A1C1E] bg-[#1A1214] flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-rose-500/15 text-rose-400 border border-rose-500/30 shrink-0">
+            <div className="p-4 border-b border-slate-200 dark:border-[#2A1C1E] bg-slate-50 dark:bg-[#1A1214] flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 shrink-0">
                 <Trash2 className="w-5 h-5" />
               </div>
               <div className="min-w-0">
-                <h3 id="bulk-delete-dialog-title" className="text-sm font-bold text-white tracking-tight">
+                <h3 id="bulk-delete-dialog-title" className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
                   Supprimer les chants sélectionnés
                 </h3>
-                <p className="text-xs text-rose-300/80 font-medium">
+                <p className="text-xs text-rose-700 dark:text-rose-300/80 font-medium">
                   Attention : cette action est irréversible
                 </p>
               </div>
             </div>
 
             {/* Body content */}
-            <div className="p-4 space-y-3.5 text-sm text-gray-300">
-              <div className="p-3 rounded-lg bg-rose-950/25 border border-rose-900/40 text-xs text-rose-200/90 leading-relaxed">
-                Êtes-vous sûr de vouloir supprimer définitivement <strong className="text-white font-bold">{selectedSongIds.length} chant{selectedSongIds.length > 1 ? 's' : ''}</strong> ? Ils seront retirés de votre bibliothèque et de toutes les setlists.
+            <div className="p-4 space-y-3.5 text-sm text-slate-700 dark:text-gray-300">
+              <div className="p-3 rounded-lg bg-rose-50 dark:bg-rose-950/25 border border-rose-900/40 text-xs text-rose-700 dark:text-rose-200/90 leading-relaxed">
+                Êtes-vous sûr de vouloir supprimer définitivement <strong className="text-slate-900 dark:text-white font-bold">{selectedSongIds.length} chant{selectedSongIds.length > 1 ? 's' : ''}</strong> ? Ils seront retirés de votre bibliothèque et de toutes les setlists.
               </div>
 
               {/* List of songs being deleted */}
               <div>
-                <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                <div className="text-[11px] font-semibold text-slate-600 dark:text-gray-400 uppercase tracking-wider mb-1.5 flex items-center justify-between">
                   <span>Chants concernés</span>
-                  <span className="text-gray-400 font-mono text-[11px]">{selectedSongIds.length} sélectionné{selectedSongIds.length > 1 ? 's' : ''}</span>
+                  <span className="text-slate-600 dark:text-gray-400 font-mono text-[11px]">{selectedSongIds.length} sélectionné{selectedSongIds.length > 1 ? 's' : ''}</span>
                 </div>
-                <div className="max-h-40 overflow-y-auto space-y-1 bg-[#1A1A1D] border border-[#28282B] rounded-lg p-2.5 divide-y divide-[#242428]">
+                <div className="max-h-40 overflow-y-auto space-y-1 bg-[#EDF1F5] dark:bg-[#1A1A1D] border border-slate-300 dark:border-[#28282B] rounded-lg p-2.5 divide-y divide-slate-200 dark:divide-[#242428]">
                   {selectedSongIds.map(id => {
                     const s = songs.find(item => item.id === id);
                     if (!s) return null;
                     return (
-                      <div key={id} className="text-xs text-gray-300 flex items-center justify-between py-1.5 first:pt-0 last:pb-0">
-                        <span className="font-medium text-white truncate max-w-[240px]">{s.title}</span>
-                        {s.artist && <span className="text-gray-400 text-[11px] truncate max-w-[130px]">{s.artist}</span>}
+                      <div key={id} className="text-xs text-slate-700 dark:text-gray-300 flex items-center justify-between py-1.5 first:pt-0 last:pb-0">
+                        <span className="font-medium text-slate-900 dark:text-white truncate max-w-[240px]">{s.title}</span>
+                        {s.artist && <span className="text-slate-600 dark:text-gray-400 text-[11px] truncate max-w-[130px]">{s.artist}</span>}
                       </div>
                     );
                   })}
@@ -4470,13 +4480,13 @@ export const SongList: React.FC = () => {
             </div>
 
             {/* Footer with confirmation actions */}
-            <div className="p-3.5 border-t border-[#222224] bg-[#171719] flex items-center justify-end gap-2.5">
+            <div className="p-3.5 border-t border-slate-200 dark:border-[#222224] bg-slate-50 dark:bg-[#171719] flex items-center justify-end gap-2.5">
               <button
                 type="button"
                 id="cancel-bulk-delete-btn"
                 disabled={isDeletingMultiple}
                 onClick={() => setIsMultiDeleteModalOpen(false)}
-                className="px-4 py-2 rounded-lg text-xs font-semibold text-gray-300 hover:text-white hover:bg-[#252528] border border-[#333] transition-colors cursor-pointer disabled:opacity-50"
+                className="px-4 py-2 rounded-lg text-xs font-semibold text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#252528] border border-slate-300 dark:border-[#333] transition-colors cursor-pointer disabled:opacity-50"
               >
                 Annuler
               </button>
@@ -4514,18 +4524,18 @@ export const SongList: React.FC = () => {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md bg-[#141416] border border-[#2A2A2D] rounded-xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-100"
+            className="w-full max-w-md bg-slate-50 dark:bg-[#141416] border border-slate-300 dark:border-[#2A2A2D] rounded-xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-100"
           >
-            <div className="p-4 border-b border-[#222224] bg-[#171719] flex items-center justify-between">
+            <div className="p-4 border-b border-slate-200 dark:border-[#222224] bg-slate-50 dark:bg-[#171719] flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
+                <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shrink-0">
                   <FileDown className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-white tracking-tight">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
                     Exporter la sélection
                   </h3>
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-slate-600 dark:text-gray-400">
                     {selectedSongIds.length} chant{selectedSongIds.length > 1 ? 's' : ''} sélectionné{selectedSongIds.length > 1 ? 's' : ''}
                   </p>
                 </div>
@@ -4533,14 +4543,14 @@ export const SongList: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsMultiExportModalOpen(false)}
-                className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-[#252528] transition-colors cursor-pointer"
+                className="p-1 rounded-lg text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#252528] transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <div className="p-4 space-y-3">
-              <p className="text-xs text-gray-300">
+              <p className="text-xs text-slate-700 dark:text-gray-300">
                 Choisissez le format d'export souhaité pour vos chants sélectionnés :
               </p>
 
@@ -4549,17 +4559,17 @@ export const SongList: React.FC = () => {
                 type="button"
                 disabled={isExportingPdf}
                 onClick={handleExportSelectedPdf}
-                className="w-full p-3 rounded-xl bg-[#1A1A1D] hover:bg-[#222226] border border-[#2D2D32] hover:border-emerald-500/50 transition-all text-left flex items-start gap-3 cursor-pointer group disabled:opacity-50"
+                className="w-full p-3 rounded-xl bg-[#EDF1F5] dark:bg-[#1A1A1D] hover:bg-slate-200/70 dark:hover:bg-[#222226] border border-slate-300 dark:border-[#2D2D32] hover:border-emerald-500/50 transition-all text-left flex items-start gap-3 cursor-pointer group disabled:opacity-50"
               >
                 <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white transition-all shrink-0">
                   {isExportingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
                 </div>
                 <div className="min-w-0">
-                  <div className="text-xs font-semibold text-white flex items-center gap-2">
+                  <div className="text-xs font-semibold text-slate-900 dark:text-white flex items-center gap-2">
                     <span>Livret PDF imprimable</span>
-                    <span className="text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-800/60 px-1.5 py-0.2 rounded">Recommandé</span>
+                    <span className="text-[10px] bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 border border-emerald-800/60 px-1.5 py-0.2 rounded">Recommandé</span>
                   </div>
-                  <p className="text-[11px] text-gray-400 mt-0.5 leading-relaxed">
+                  <p className="text-[11px] text-slate-600 dark:text-gray-400 mt-0.5 leading-relaxed">
                     Mise en page A4 élégante avec accords transposés, structure et grille soignée.
                   </p>
                 </div>
@@ -4569,16 +4579,16 @@ export const SongList: React.FC = () => {
               <button
                 type="button"
                 onClick={handleExportSelectedChordPro}
-                className="w-full p-3 rounded-xl bg-[#1A1A1D] hover:bg-[#222226] border border-[#2D2D32] hover:border-blue-500/50 transition-all text-left flex items-start gap-3 cursor-pointer group"
+                className="w-full p-3 rounded-xl bg-[#EDF1F5] dark:bg-[#1A1A1D] hover:bg-slate-200/70 dark:hover:bg-[#222226] border border-slate-300 dark:border-[#2D2D32] hover:border-blue-500/50 transition-all text-left flex items-start gap-3 cursor-pointer group"
               >
                 <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400 group-hover:bg-blue-500 group-hover:text-white transition-all shrink-0">
                   <FileCode className="w-4 h-4" />
                 </div>
                 <div className="min-w-0">
-                  <div className="text-xs font-semibold text-white">
+                  <div className="text-xs font-semibold text-slate-900 dark:text-white">
                     Format ChordPro texte brut
                   </div>
-                  <p className="text-[11px] text-gray-400 mt-0.5 leading-relaxed">
+                  <p className="text-[11px] text-slate-600 dark:text-gray-400 mt-0.5 leading-relaxed">
                     Fichier .txt standard avec métadonnées et balises ChordPro, compatible avec d'autres applications.
                   </p>
                 </div>
@@ -4588,27 +4598,27 @@ export const SongList: React.FC = () => {
               <button
                 type="button"
                 onClick={handleExportSelectedJson}
-                className="w-full p-3 rounded-xl bg-[#1A1A1D] hover:bg-[#222226] border border-[#2D2D32] hover:border-amber-500/50 transition-all text-left flex items-start gap-3 cursor-pointer group"
+                className="w-full p-3 rounded-xl bg-[#EDF1F5] dark:bg-[#1A1A1D] hover:bg-slate-200/70 dark:hover:bg-[#222226] border border-slate-300 dark:border-[#2D2D32] hover:border-amber-500/50 transition-all text-left flex items-start gap-3 cursor-pointer group"
               >
                 <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 group-hover:bg-amber-500 group-hover:text-white transition-all shrink-0">
                   <Download className="w-4 h-4" />
                 </div>
                 <div className="min-w-0">
-                  <div className="text-xs font-semibold text-white">
+                  <div className="text-xs font-semibold text-slate-900 dark:text-white">
                     Sauvegarde JSON structurée
                   </div>
-                  <p className="text-[11px] text-gray-400 mt-0.5 leading-relaxed">
+                  <p className="text-[11px] text-slate-600 dark:text-gray-400 mt-0.5 leading-relaxed">
                     Données complètes pour sauvegarde ou réimportation directe dans SongBook.
                   </p>
                 </div>
               </button>
             </div>
 
-            <div className="p-3 border-t border-[#222224] bg-[#171719] flex justify-end">
+            <div className="p-3 border-t border-slate-200 dark:border-[#222224] bg-slate-50 dark:bg-[#171719] flex justify-end">
               <button
                 type="button"
                 onClick={() => setIsMultiExportModalOpen(false)}
-                className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-gray-300 hover:text-white hover:bg-[#252528] border border-[#333] transition-colors cursor-pointer"
+                className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#252528] border border-slate-300 dark:border-[#333] transition-colors cursor-pointer"
               >
                 Fermer
               </button>
@@ -4619,8 +4629,8 @@ export const SongList: React.FC = () => {
 
       {/* Toast Notification for Export */}
       {exportNotification && (
-        <div className="fixed top-6 left-6 z-50 bg-[#18181B] text-white border border-[#333] shadow-2xl rounded-xl px-4 py-2.5 flex items-center gap-2 text-xs font-medium animate-in fade-in slide-in-from-top-3 duration-200">
-          <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
+        <div className="fixed top-6 left-6 z-50 bg-slate-50 dark:bg-[#18181B] text-slate-900 dark:text-white border border-slate-300 dark:border-[#333] shadow-2xl rounded-xl px-4 py-2.5 flex items-center gap-2 text-xs font-medium animate-in fade-in slide-in-from-top-3 duration-200">
+          <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
           <span>{exportNotification}</span>
         </div>
       )}
@@ -4646,20 +4656,20 @@ export const SongList: React.FC = () => {
       {audioLinkSong && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs animate-in fade-in duration-200">
           <div 
-            className="w-full max-w-lg bg-[#141417] border border-[#2A2A32] rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+            className="w-full max-w-lg bg-slate-50 dark:bg-[#141417] border border-slate-300 dark:border-[#2A2A32] rounded-2xl shadow-2xl overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="p-4 border-b border-[#222228] flex items-center justify-between">
+            <div className="p-4 border-b border-slate-200 dark:border-[#222228] flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 flex items-center justify-center shrink-0">
                   <Play className="w-5 h-5 fill-current" />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-base font-bold text-white truncate">
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white truncate">
                     Liens Audio & Vidéo
                   </h3>
-                  <p className="text-xs text-gray-400 truncate">
+                  <p className="text-xs text-slate-600 dark:text-gray-400 truncate">
                     {audioLinkSong.title} {audioLinkSong.artist ? `• ${audioLinkSong.artist}` : ''}
                   </p>
                 </div>
@@ -4667,7 +4677,7 @@ export const SongList: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setAudioLinkSong(null)}
-                className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#202026] transition-colors cursor-pointer"
+                className="p-1.5 rounded-lg text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#202026] transition-colors cursor-pointer"
                 title="Fermer"
               >
                 <X className="w-5 h-5" />
@@ -4676,14 +4686,14 @@ export const SongList: React.FC = () => {
 
             {/* Body */}
             <div className="p-4 space-y-4 text-xs">
-              <p className="text-gray-400 text-xs leading-relaxed">
+              <p className="text-slate-600 dark:text-gray-400 text-xs leading-relaxed">
                 Configurez une vidéo YouTube ou une piste audio externe pour ce chant. Un bouton de lecture (Play) apparaîtra automatiquement dans le lecteur de partition.
               </p>
 
               {/* Champ Lien YouTube */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label className="font-semibold text-gray-300 flex items-center gap-1.5">
+                  <label className="font-semibold text-slate-700 dark:text-gray-300 flex items-center gap-1.5">
                     <svg className="w-3.5 h-3.5 text-red-500 fill-current shrink-0" viewBox="0 0 24 24">
                       <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
                     </svg>
@@ -4694,7 +4704,7 @@ export const SongList: React.FC = () => {
                       href={audioLinkYoutubeInput.trim()}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-red-400 hover:text-red-300 flex items-center gap-1 text-[11px] font-medium hover:underline"
+                      className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 flex items-center gap-1 text-[11px] font-medium hover:underline"
                     >
                       <ExternalLink className="w-3 h-3" />
                       <span>Tester</span>
@@ -4706,15 +4716,15 @@ export const SongList: React.FC = () => {
                   placeholder="ex: https://www.youtube.com/watch?v=... ou https://youtu.be/..."
                   value={audioLinkYoutubeInput}
                   onChange={(e) => setAudioLinkYoutubeInput(e.target.value)}
-                  className="w-full h-9 bg-[#1B1B1E] border border-[#333] hover:border-[#444] focus:border-red-500 rounded-lg px-3 text-xs text-red-200 placeholder-gray-500 font-mono focus:outline-none transition-colors"
+                  className="w-full h-9 bg-[#EDF1F5] dark:bg-[#1B1B1E] border border-slate-300 dark:border-[#333] hover:border-slate-400 dark:hover:border-[#444] focus:border-red-500 rounded-lg px-3 text-xs text-red-700 dark:text-red-200 placeholder-slate-400 dark:placeholder-gray-500 font-mono focus:outline-none transition-colors"
                 />
               </div>
 
               {/* Champ Lien Spotify */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label className="font-semibold text-gray-300 flex items-center gap-1.5">
-                    <svg className="w-3.5 h-3.5 text-emerald-400 fill-current shrink-0" viewBox="0 0 24 24">
+                  <label className="font-semibold text-slate-700 dark:text-gray-300 flex items-center gap-1.5">
+                    <svg className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 fill-current shrink-0" viewBox="0 0 24 24">
                       <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
                     </svg>
                     <span>Lien Spotify (morceau, album)</span>
@@ -4724,7 +4734,7 @@ export const SongList: React.FC = () => {
                       href={audioLinkSpotifyInput.trim()}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-emerald-400 hover:text-emerald-300 flex items-center gap-1 text-[11px] font-medium hover:underline"
+                      className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 flex items-center gap-1 text-[11px] font-medium hover:underline"
                     >
                       <ExternalLink className="w-3 h-3" />
                       <span>Tester</span>
@@ -4736,15 +4746,15 @@ export const SongList: React.FC = () => {
                   placeholder="ex: https://open.spotify.com/track/..."
                   value={audioLinkSpotifyInput}
                   onChange={(e) => setAudioLinkSpotifyInput(e.target.value)}
-                  className="w-full h-9 bg-[#1B1B1E] border border-[#333] hover:border-[#444] focus:border-emerald-500 rounded-lg px-3 text-xs text-emerald-200 placeholder-gray-500 font-mono focus:outline-none transition-colors"
+                  className="w-full h-9 bg-[#EDF1F5] dark:bg-[#1B1B1E] border border-slate-300 dark:border-[#333] hover:border-slate-400 dark:hover:border-[#444] focus:border-emerald-500 rounded-lg px-3 text-xs text-emerald-700 dark:text-emerald-200 placeholder-slate-400 dark:placeholder-gray-500 font-mono focus:outline-none transition-colors"
                 />
               </div>
 
               {/* Champ Lien Audio externe */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label className="font-semibold text-gray-300 flex items-center gap-1.5">
-                    <Music className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                  <label className="font-semibold text-slate-700 dark:text-gray-300 flex items-center gap-1.5">
+                    <Music className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
                     <span>Lien Audio direct (MP3 / flux)</span>
                   </label>
                   {audioLinkAudioInput.trim() && (
@@ -4752,7 +4762,7 @@ export const SongList: React.FC = () => {
                       href={audioLinkAudioInput.trim()}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-emerald-400 hover:text-emerald-300 flex items-center gap-1 text-[11px] font-medium hover:underline"
+                      className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 flex items-center gap-1 text-[11px] font-medium hover:underline"
                     >
                       <ExternalLink className="w-3 h-3" />
                       <span>Tester</span>
@@ -4764,19 +4774,19 @@ export const SongList: React.FC = () => {
                   placeholder="ex: https://domaine.com/enregistrement.mp3 ou lien streaming..."
                   value={audioLinkAudioInput}
                   onChange={(e) => setAudioLinkAudioInput(e.target.value)}
-                  className="w-full h-9 bg-[#1B1B1E] border border-[#333] hover:border-[#444] focus:border-emerald-500 rounded-lg px-3 text-xs text-emerald-200 placeholder-gray-500 font-mono focus:outline-none transition-colors"
+                  className="w-full h-9 bg-[#EDF1F5] dark:bg-[#1B1B1E] border border-slate-300 dark:border-[#333] hover:border-slate-400 dark:hover:border-[#444] focus:border-emerald-500 rounded-lg px-3 text-xs text-emerald-700 dark:text-emerald-200 placeholder-slate-400 dark:placeholder-gray-500 font-mono focus:outline-none transition-colors"
                 />
               </div>
             </div>
 
             {/* Footer */}
-            <div className="p-3.5 border-t border-[#222228] bg-[#101013] flex items-center justify-between">
+            <div className="p-3.5 border-t border-slate-200 dark:border-[#222228] bg-white dark:bg-[#101013] flex items-center justify-between">
               {(audioLinkSong.youtubeUrl || audioLinkSong.spotifyUrl || audioLinkSong.audioUrl) ? (
                 <button
                   type="button"
                   onClick={handleClearAudioLinks}
                   disabled={isSavingAudioLink}
-                  className="text-xs text-red-400 hover:text-red-300 hover:underline flex items-center gap-1 disabled:opacity-50 cursor-pointer"
+                  className="text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 hover:underline flex items-center gap-1 disabled:opacity-50 cursor-pointer"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   <span>Supprimer les liens</span>
@@ -4788,7 +4798,7 @@ export const SongList: React.FC = () => {
                   type="button"
                   onClick={() => setAudioLinkSong(null)}
                   disabled={isSavingAudioLink}
-                  className="px-3 py-1.5 rounded-lg text-xs font-medium text-gray-300 hover:text-white hover:bg-[#202026] border border-[#333] transition-colors cursor-pointer"
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#202026] border border-slate-300 dark:border-[#333] transition-colors cursor-pointer"
                 >
                   Annuler
                 </button>
@@ -4823,20 +4833,20 @@ export const SongList: React.FC = () => {
           onClick={() => setQuickMediaSong(null)}
         >
           <div 
-            className="w-full max-w-sm sm:max-w-md bg-[#16161A] border border-[#2E2E38] rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-150"
+            className="w-full max-w-sm sm:max-w-md bg-slate-50 dark:bg-[#16161A] border border-slate-300 dark:border-[#2E2E38] rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="p-3.5 sm:p-4 border-b border-[#24242C] bg-[#1A1A20] flex items-center justify-between gap-3">
+            <div className="p-3.5 sm:p-4 border-b border-slate-200 dark:border-[#24242C] bg-[#EDF1F5] dark:bg-[#1A1A20] flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center shrink-0">
+                <div className="w-8 h-8 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
                   <Play className="w-4 h-4 fill-current" />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-sm font-bold text-white tracking-tight truncate">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight truncate">
                     Lecteur & Liens Multimédias
                   </h3>
-                  <p className="text-xs text-gray-400 truncate">
+                  <p className="text-xs text-slate-600 dark:text-gray-400 truncate">
                     {quickMediaSong.title} {quickMediaSong.artist ? `• ${quickMediaSong.artist}` : ''}
                   </p>
                 </div>
@@ -4844,7 +4854,7 @@ export const SongList: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setQuickMediaSong(null)}
-                className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#262630] transition-colors cursor-pointer"
+                className="p-1.5 rounded-lg text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-[#262630] transition-colors cursor-pointer"
                 title="Fermer"
               >
                 <X className="w-4 h-4" />
@@ -4855,11 +4865,11 @@ export const SongList: React.FC = () => {
             <div className="p-4 space-y-3.5">
               {/* En-tête : ÉCOUTER LE CHANT + LECTEURS */}
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5 text-[11px] font-bold text-gray-200 tracking-wider uppercase">
-                  <Play className="w-3.5 h-3.5 text-blue-400 fill-blue-400/20" />
+                <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-800 dark:text-gray-200 tracking-wider uppercase">
+                  <Play className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 fill-blue-400/20" />
                   <span>Écouter le chant</span>
                 </div>
-                <span className="text-[10px] text-gray-400 font-medium bg-[#1F1F27] px-2.5 py-0.5 rounded-full border border-[#2D2D38] tracking-wider">
+                <span className="text-[10px] text-slate-600 dark:text-gray-400 font-medium bg-[#EDF1F5] dark:bg-[#1F1F27] px-2.5 py-0.5 rounded-full border border-slate-300 dark:border-[#2D2D38] tracking-wider">
                   Lecteurs
                 </span>
               </div>
@@ -4876,7 +4886,7 @@ export const SongList: React.FC = () => {
                       setActiveQuickEditSource(activeQuickEditSource === 'youtube' ? null : 'youtube');
                     }
                   }}
-                  className="flex items-center gap-2 p-2.5 rounded-xl bg-gradient-to-br from-red-600/25 via-red-900/15 to-[#16161C] hover:from-red-600/35 hover:via-red-900/25 border border-red-500/40 hover:border-red-400 text-white font-bold text-xs transition-all cursor-pointer group shadow-md shadow-red-950/30 hover:shadow-red-950/50 active:scale-98 text-left"
+                  className="flex items-center gap-2 p-2.5 rounded-xl bg-gradient-to-br from-red-50 dark:from-red-600/25 via-red-50 dark:via-red-900/15 to-white dark:to-[#16161C] hover:from-red-100 dark:hover:from-red-600/35 hover:via-red-100 dark:hover:via-red-900/25 border border-red-500/40 hover:border-red-400 text-slate-900 dark:text-white font-bold text-xs transition-all cursor-pointer group shadow-md shadow-red-950/30 hover:shadow-red-950/50 active:scale-98 text-left"
                   title={quickMediaSong.youtubeUrl ? "Lancer le lecteur YouTube" : "Ajouter un lien YouTube"}
                 >
                   <div className="w-7 h-7 rounded-lg bg-red-600/20 border border-red-500/30 flex items-center justify-center text-red-500 shrink-0 group-hover:scale-110 group-hover:bg-red-600/30 transition-transform shadow-xs">
@@ -4885,10 +4895,10 @@ export const SongList: React.FC = () => {
                     </svg>
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="font-bold text-xs text-white group-hover:text-red-200 transition-colors">
+                    <div className="font-bold text-xs text-slate-900 dark:text-white group-hover:text-red-800 dark:group-hover:text-red-200 transition-colors">
                       YouTube
                     </div>
-                    <div className="text-[10px] text-red-300/80 font-medium truncate flex items-center gap-1">
+                    <div className="text-[10px] text-red-700 dark:text-red-300/80 font-medium truncate flex items-center gap-1">
                       {quickMediaSong.youtubeUrl ? (
                         <>
                           <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
@@ -4911,19 +4921,19 @@ export const SongList: React.FC = () => {
                       setActiveQuickEditSource(activeQuickEditSource === 'spotify' ? null : 'spotify');
                     }
                   }}
-                  className="flex items-center gap-2 p-2.5 rounded-xl bg-gradient-to-br from-emerald-600/25 via-emerald-900/15 to-[#16161C] hover:from-emerald-600/35 hover:via-emerald-900/25 border border-emerald-500/40 hover:border-emerald-400 text-white font-bold text-xs transition-all cursor-pointer group shadow-md shadow-emerald-950/30 hover:shadow-emerald-950/50 active:scale-98 text-left"
+                  className="flex items-center gap-2 p-2.5 rounded-xl bg-gradient-to-br from-emerald-50 dark:from-emerald-600/25 via-emerald-50 dark:via-emerald-900/15 to-white dark:to-[#16161C] hover:from-emerald-100 dark:hover:from-emerald-600/35 hover:via-emerald-100 dark:hover:via-emerald-900/25 border border-emerald-500/40 hover:border-emerald-400 text-slate-900 dark:text-white font-bold text-xs transition-all cursor-pointer group shadow-md shadow-emerald-950/30 hover:shadow-emerald-950/50 active:scale-98 text-left"
                   title={quickMediaSong.spotifyUrl ? "Lancer le lecteur Spotify" : "Ajouter un lien Spotify"}
                 >
-                  <div className="w-7 h-7 rounded-lg bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0 group-hover:scale-110 group-hover:bg-emerald-600/30 transition-transform shadow-xs">
+                  <div className="w-7 h-7 rounded-lg bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0 group-hover:scale-110 group-hover:bg-emerald-600/30 transition-transform shadow-xs">
                     <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
                       <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
                     </svg>
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="font-bold text-xs text-white group-hover:text-emerald-200 transition-colors">
+                    <div className="font-bold text-xs text-slate-900 dark:text-white group-hover:text-emerald-800 dark:group-hover:text-emerald-200 transition-colors">
                       Spotify
                     </div>
-                    <div className="text-[10px] text-emerald-300/80 font-medium truncate flex items-center gap-1">
+                    <div className="text-[10px] text-emerald-700 dark:text-emerald-300/80 font-medium truncate flex items-center gap-1">
                       {quickMediaSong.spotifyUrl ? (
                         <>
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -4939,13 +4949,13 @@ export const SongList: React.FC = () => {
 
               {/* Raccourcis de modification ou ouverture externe si des liens existent */}
               {(quickMediaSong.youtubeUrl || quickMediaSong.spotifyUrl) && (
-                <div className="flex items-center justify-between text-[11px] px-1 text-gray-400 pt-1 border-t border-[#222228]">
+                <div className="flex items-center justify-between text-[11px] px-1 text-slate-600 dark:text-gray-400 pt-1 border-t border-slate-200 dark:border-[#222228]">
                   <div className="flex items-center gap-2">
                     {quickMediaSong.youtubeUrl && (
                       <button
                         type="button"
                         onClick={() => setActiveQuickEditSource(activeQuickEditSource === 'youtube' ? null : 'youtube')}
-                        className="text-red-400/90 hover:text-red-300 hover:underline cursor-pointer flex items-center gap-1"
+                        className="text-red-600 dark:text-red-400/90 hover:text-red-800 dark:hover:text-red-300 hover:underline cursor-pointer flex items-center gap-1"
                       >
                         <Pen className="w-2.5 h-2.5" />
                         <span>Modifier YouTube</span>
@@ -4956,7 +4966,7 @@ export const SongList: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setActiveQuickEditSource(activeQuickEditSource === 'spotify' ? null : 'spotify')}
-                        className="text-emerald-400/90 hover:text-emerald-300 hover:underline cursor-pointer flex items-center gap-1"
+                        className="text-emerald-600 dark:text-emerald-400/90 hover:text-emerald-800 dark:hover:text-emerald-300 hover:underline cursor-pointer flex items-center gap-1"
                       >
                         <Pen className="w-2.5 h-2.5" />
                         <span>Modifier Spotify</span>
@@ -4969,7 +4979,7 @@ export const SongList: React.FC = () => {
                         href={quickMediaSong.youtubeUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-gray-400 hover:text-white flex items-center gap-0.5 hover:underline"
+                        className="text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white flex items-center gap-0.5 hover:underline"
                         title="Ouvrir sur YouTube"
                       >
                         <span>YouTube</span>
@@ -4981,7 +4991,7 @@ export const SongList: React.FC = () => {
                         href={quickMediaSong.spotifyUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-gray-400 hover:text-white flex items-center gap-0.5 hover:underline"
+                        className="text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white flex items-center gap-0.5 hover:underline"
                         title="Ouvrir sur Spotify"
                       >
                         <span>Spotify</span>
@@ -4994,9 +5004,9 @@ export const SongList: React.FC = () => {
 
               {/* Champ de saisie rapide s'il n'y a pas de lien ou si l'utilisateur clique pour lier/modifier */}
               {activeQuickEditSource && (
-                <div className="p-3 rounded-xl bg-[#121216] border border-[#262630] space-y-2 animate-in slide-in-from-top-1 duration-150">
+                <div className="p-3 rounded-xl bg-white dark:bg-[#121216] border border-slate-300 dark:border-[#262630] space-y-2 animate-in slide-in-from-top-1 duration-150">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-gray-200 flex items-center gap-1.5">
+                    <span className="font-semibold text-slate-800 dark:text-gray-200 flex items-center gap-1.5">
                       {activeQuickEditSource === 'youtube' ? (
                         <>
                           <span className="w-2 h-2 rounded-full bg-red-500" />
@@ -5012,7 +5022,7 @@ export const SongList: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setActiveQuickEditSource(null)}
-                      className="text-[11px] text-gray-400 hover:text-white cursor-pointer"
+                      className="text-[11px] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white cursor-pointer"
                     >
                       Fermer
                     </button>
@@ -5038,7 +5048,7 @@ export const SongList: React.FC = () => {
                           else handleSaveSpotifyLink();
                         }
                       }}
-                      className="flex-1 bg-[#1A1A20] border border-[#333] focus:border-blue-500 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-500 outline-none"
+                      className="flex-1 bg-[#EDF1F5] dark:bg-[#1A1A20] border border-slate-300 dark:border-[#333] focus:border-blue-500 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 outline-none"
                       autoFocus
                     />
                     <button
@@ -5061,13 +5071,13 @@ export const SongList: React.FC = () => {
                     </button>
                   </div>
 
-                  <div className="flex items-center justify-between text-[10px] text-gray-400 pt-0.5">
+                  <div className="flex items-center justify-between text-[10px] text-slate-600 dark:text-gray-400 pt-0.5">
                     {activeQuickEditSource === 'youtube' ? (
                       <a
                         href={`https://www.youtube.com/results?search_query=${encodeURIComponent([quickMediaSong.title, quickMediaSong.artist].filter(Boolean).join(' '))}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-red-400 hover:underline flex items-center gap-1"
+                        className="text-red-600 dark:text-red-400 hover:underline flex items-center gap-1"
                       >
                         <Search className="w-2.5 h-2.5" />
                         <span>Chercher sur YouTube</span>
@@ -5077,7 +5087,7 @@ export const SongList: React.FC = () => {
                         href={`https://open.spotify.com/search/${encodeURIComponent([quickMediaSong.title, quickMediaSong.artist].filter(Boolean).join(' '))}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-emerald-400 hover:underline flex items-center gap-1"
+                        className="text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
                       >
                         <Search className="w-2.5 h-2.5" />
                         <span>Chercher sur Spotify</span>
@@ -5114,7 +5124,7 @@ export const SongList: React.FC = () => {
                           }
                           showNotification('Lien retiré');
                         }}
-                        className="text-gray-500 hover:text-red-400 transition-colors cursor-pointer"
+                        className="text-gray-500 hover:text-red-800 dark:hover:text-red-400 transition-colors cursor-pointer"
                       >
                         Retirer ce lien
                       </button>
@@ -5125,11 +5135,11 @@ export const SongList: React.FC = () => {
             </div>
 
             {/* Footer */}
-            <div className="p-3 border-t border-[#24242C] bg-[#16161A] flex justify-end">
+            <div className="p-3 border-t border-slate-200 dark:border-[#24242C] bg-slate-50 dark:bg-[#16161A] flex justify-end">
               <button
                 type="button"
                 onClick={() => setQuickMediaSong(null)}
-                className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-gray-300 hover:text-white hover:bg-[#24242E] border border-[#333] transition-colors cursor-pointer"
+                className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-[#24242E] border border-slate-300 dark:border-[#333] transition-colors cursor-pointer"
               >
                 Fermer
               </button>
@@ -5147,18 +5157,18 @@ export const SongList: React.FC = () => {
             <span className={`w-2 h-2 rounded-full animate-ping shrink-0 ${
               floatingPlayer.source === 'spotify' ? 'bg-emerald-400' : 'bg-red-500'
             }`} />
-            <span className="text-xs font-bold text-white max-w-[130px] truncate">{floatingPlayer.song.title}</span>
+            <span className="text-xs font-bold text-slate-900 dark:text-white max-w-[130px] truncate">{floatingPlayer.song.title}</span>
             <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
               floatingPlayer.source === 'spotify' 
-                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' 
-                : 'bg-red-500/20 text-red-300 border border-red-500/30'
+                ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30' 
+                : 'bg-red-500/20 text-red-700 dark:text-red-300 border border-red-500/30'
             }`}>
               {floatingPlayer.source === 'spotify' ? 'Spotify' : 'YouTube'}
             </span>
             <button
               type="button"
               onClick={() => setIsFloatingPlayerMinimized(false)}
-              className="p-1 rounded-full text-gray-300 hover:text-white hover:bg-[#282830] transition-colors cursor-pointer"
+              className="p-1 rounded-full text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-[#282830] transition-colors cursor-pointer"
               title="Agrandir le lecteur"
             >
               <Maximize2 className="w-3.5 h-3.5" />
@@ -5166,20 +5176,20 @@ export const SongList: React.FC = () => {
             <button
               type="button"
               onClick={() => setFloatingPlayer(null)}
-              className="p-1 rounded-full text-gray-400 hover:text-white hover:bg-[#282830] transition-colors cursor-pointer"
+              className="p-1 rounded-full text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-[#282830] transition-colors cursor-pointer"
               title="Fermer le lecteur"
             >
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
         ) : (
-          <div className="no-print fixed bottom-3 right-3 sm:bottom-5 sm:right-5 z-50 w-[calc(100vw-24px)] sm:w-96 max-w-sm bg-[#16161A]/95 border border-[#333] shadow-2xl rounded-2xl p-3 backdrop-blur-md animate-in fade-in slide-in-from-bottom-3 duration-200">
-            <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#282830]">
+          <div className="no-print fixed bottom-3 right-3 sm:bottom-5 sm:right-5 z-50 w-[calc(100vw-24px)] sm:w-96 max-w-sm bg-slate-50/95 dark:bg-[#16161A]/95 border border-slate-300 dark:border-[#333] shadow-2xl rounded-2xl p-3 backdrop-blur-md animate-in fade-in slide-in-from-bottom-3 duration-200">
+            <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-300 dark:border-[#282830]">
               <div className="flex items-center gap-2 min-w-0">
                 <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
                   floatingPlayer.source === 'spotify' 
-                    ? 'bg-emerald-600/20 text-emerald-400' 
-                    : 'bg-red-600/20 text-red-400'
+                    ? 'bg-emerald-600/20 text-emerald-600 dark:text-emerald-400' 
+                    : 'bg-red-600/20 text-red-600 dark:text-red-400'
                 }`}>
                   {floatingPlayer.source === 'spotify' ? (
                     <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
@@ -5188,8 +5198,8 @@ export const SongList: React.FC = () => {
                   )}
                 </div>
                 <div className="min-w-0">
-                  <div className="text-xs font-bold text-white truncate">{floatingPlayer.song.title}</div>
-                  <div className="text-[10px] text-gray-400 truncate">
+                  <div className="text-xs font-bold text-slate-900 dark:text-white truncate">{floatingPlayer.song.title}</div>
+                  <div className="text-[10px] text-slate-600 dark:text-gray-400 truncate">
                     {floatingPlayer.source === 'spotify' ? 'Lecteur Spotify' : 'Lecteur YouTube'}
                   </div>
                 </div>
@@ -5198,7 +5208,7 @@ export const SongList: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsFloatingPlayerMinimized(true)}
-                  className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#25252D] transition-colors cursor-pointer"
+                  className="p-1.5 rounded-lg text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-[#25252D] transition-colors cursor-pointer"
                   title="Réduire"
                 >
                   <Minimize2 className="w-3.5 h-3.5" />
@@ -5206,7 +5216,7 @@ export const SongList: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setFloatingPlayer(null)}
-                  className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#25252D] transition-colors cursor-pointer"
+                  className="p-1.5 rounded-lg text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-[#25252D] transition-colors cursor-pointer"
                   title="Fermer"
                 >
                   <X className="w-3.5 h-3.5" />
@@ -5216,14 +5226,14 @@ export const SongList: React.FC = () => {
 
             {/* Switch source si les deux liens existent */}
             {floatingPlayer.song.youtubeUrl && floatingPlayer.song.spotifyUrl && (
-              <div className="flex items-center gap-1 mb-2 p-1 bg-[#101014] rounded-lg border border-[#25252E]">
+              <div className="flex items-center gap-1 mb-2 p-1 bg-white dark:bg-[#101014] rounded-lg border border-slate-200 dark:border-[#25252E]">
                 <button
                   type="button"
                   onClick={() => setFloatingPlayer(prev => prev ? { ...prev, source: 'youtube' } : null)}
                   className={`flex-1 py-1 px-2 rounded-md text-[10px] font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer ${
                     floatingPlayer.source === 'youtube'
-                      ? 'bg-red-600/30 text-red-200 border border-red-500/40'
-                      : 'text-gray-400 hover:text-white'
+                      ? 'bg-red-600/30 text-red-700 dark:text-red-200 border border-red-500/40'
+                      : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
                   <span>YouTube</span>
@@ -5233,8 +5243,8 @@ export const SongList: React.FC = () => {
                   onClick={() => setFloatingPlayer(prev => prev ? { ...prev, source: 'spotify' } : null)}
                   className={`flex-1 py-1 px-2 rounded-md text-[10px] font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer ${
                     floatingPlayer.source === 'spotify'
-                      ? 'bg-emerald-600/30 text-emerald-200 border border-emerald-500/40'
-                      : 'text-gray-400 hover:text-white'
+                      ? 'bg-emerald-600/30 text-emerald-700 dark:text-emerald-200 border border-emerald-500/40'
+                      : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
                   <span>Spotify</span>
@@ -5244,7 +5254,7 @@ export const SongList: React.FC = () => {
 
             {/* Player content */}
             {floatingPlayer.source === 'spotify' && (
-              <div className="rounded-xl overflow-hidden border border-[#2A2A32] bg-[#121212] shadow-md">
+              <div className="rounded-xl overflow-hidden border border-slate-300 dark:border-[#2A2A32] bg-white dark:bg-[#121212] shadow-md">
                 {getSpotifyEmbedUrl(floatingPlayer.song.spotifyUrl) ? (
                   <iframe
                     src={getSpotifyEmbedUrl(floatingPlayer.song.spotifyUrl)!}
@@ -5254,7 +5264,7 @@ export const SongList: React.FC = () => {
                     loading="lazy"
                   />
                 ) : (
-                  <div className="p-4 text-center text-xs text-gray-400">
+                  <div className="p-4 text-center text-xs text-slate-600 dark:text-gray-400">
                     <p className="mb-2">Lien Spotify externe :</p>
                     <a
                       href={floatingPlayer.song.spotifyUrl}
@@ -5278,7 +5288,7 @@ export const SongList: React.FC = () => {
 
               if (embedUrl) {
                 return (
-                  <div className="rounded-lg overflow-hidden border border-[#2A2A32] bg-black aspect-video shadow-md">
+                  <div className="rounded-lg overflow-hidden border border-slate-300 dark:border-[#2A2A32] bg-black aspect-video shadow-md">
                     <iframe
                       src={embedUrl}
                       title={floatingPlayer.song.title}
@@ -5290,7 +5300,7 @@ export const SongList: React.FC = () => {
                 );
               }
               return (
-                <div className="p-3 bg-[#111114] rounded-lg text-center">
+                <div className="p-3 bg-white dark:bg-[#111114] rounded-lg text-center">
                   <a
                     href={floatingPlayer.song.youtubeUrl || `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`}
                     target="_blank"

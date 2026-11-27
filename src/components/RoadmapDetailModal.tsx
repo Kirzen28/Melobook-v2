@@ -197,32 +197,32 @@ export const RoadmapDetailModal: React.FC<RoadmapDetailModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5"
+      className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 animate-in fade-in duration-150"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
       aria-labelledby="roadmap-detail-title"
     >
       <div
-        className="w-full max-w-2xl bg-[#111112] border border-[#222224] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+        className="w-full max-w-2xl bg-white dark:bg-[#111112] border border-slate-200 dark:border-[#222224] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top bar */}
-        <div className="px-5 py-3.5 border-b border-[#222224] flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-xs text-gray-400 min-w-0 truncate">
+        <div className="px-5 py-3.5 border-b border-slate-200 dark:border-[#222224] flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-gray-400 min-w-0 truncate">
             {item.category === 'bug' ? (
-              <span className="inline-flex items-center gap-1.5 font-semibold text-amber-400 shrink-0">
+              <span className="inline-flex items-center gap-1.5 font-semibold text-amber-600 dark:text-amber-400 shrink-0">
                 <Bug className="w-3.5 h-3.5" />
                 <span>Bug</span>
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1.5 font-semibold text-blue-400 shrink-0">
+              <span className="inline-flex items-center gap-1.5 font-semibold text-blue-600 dark:text-blue-400 shrink-0">
                 <Lightbulb className="w-3.5 h-3.5" />
                 <span>Idée</span>
               </span>
             )}
             <span aria-hidden="true">·</span>
-            <span className="text-gray-300 font-medium">{currentStatusMeta.label}</span>
+            <span className="text-slate-700 dark:text-gray-300 font-medium">{currentStatusMeta.label}</span>
             <span aria-hidden="true">·</span>
             <span className="font-mono tabular-nums text-gray-500">
               {formatRoadmapDate(item.createdAt)}
@@ -234,7 +234,7 @@ export const RoadmapDetailModal: React.FC<RoadmapDetailModalProps> = ({
               <button
                 type="button"
                 onClick={() => onEdit(item)}
-                className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-gray-200 hover:text-white bg-[#1C1C1E] hover:bg-[#26262A] border border-[#2C2C32] flex items-center gap-1.5 transition-colors cursor-pointer"
+                className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-800 dark:text-gray-200 hover:text-slate-900 dark:hover:text-white bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-slate-200 dark:hover:bg-[#26262A] border border-slate-300 dark:border-[#2C2C32] flex items-center gap-1.5 transition-colors cursor-pointer"
               >
                 <Pencil className="w-3.5 h-3.5" />
                 <span>Modifier</span>
@@ -245,7 +245,7 @@ export const RoadmapDetailModal: React.FC<RoadmapDetailModalProps> = ({
               <button
                 type="button"
                 onClick={() => setConfirmDeletePost(true)}
-                className="p-1.5 rounded-lg text-gray-400 hover:text-rose-400 hover:bg-rose-950/30 transition-colors cursor-pointer"
+                className="p-1.5 rounded-lg text-slate-600 dark:text-gray-400 hover:text-rose-800 dark:hover:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-950/30 transition-colors cursor-pointer"
                 title="Supprimer"
                 aria-label="Supprimer la publication"
               >
@@ -256,7 +256,7 @@ export const RoadmapDetailModal: React.FC<RoadmapDetailModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#1C1C1E] transition-colors cursor-pointer"
+              className="p-1.5 rounded-lg text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#1C1C1E] transition-colors cursor-pointer"
               aria-label="Fermer"
             >
               <X className="w-4 h-4" />
@@ -266,13 +266,13 @@ export const RoadmapDetailModal: React.FC<RoadmapDetailModalProps> = ({
 
         {/* Inline delete confirmation */}
         {confirmDeletePost && (
-          <div className="px-5 py-2.5 bg-rose-950/30 border-b border-rose-500/30 flex items-center justify-between gap-3 text-xs">
-            <span className="text-rose-300">Supprimer définitivement cette publication ?</span>
+          <div className="px-5 py-2.5 bg-rose-50 dark:bg-rose-950/30 border-b border-rose-500/30 flex items-center justify-between gap-3 text-xs">
+            <span className="text-rose-700 dark:text-rose-300">Supprimer définitivement cette publication ?</span>
             <div className="flex items-center gap-2 shrink-0">
               <button
                 type="button"
                 onClick={() => setConfirmDeletePost(false)}
-                className="px-2.5 py-1 rounded-md bg-[#1C1C1E] text-gray-300 hover:text-white cursor-pointer"
+                className="px-2.5 py-1 rounded-md bg-[#EDF1F5] dark:bg-[#1C1C1E] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white cursor-pointer"
               >
                 Annuler
               </button>
@@ -298,17 +298,17 @@ export const RoadmapDetailModal: React.FC<RoadmapDetailModalProps> = ({
                 displayName={item.authorName}
                 sizeClass="w-8 h-8 text-xs"
                 iconClass="w-4 h-4"
-                fallbackClassName="bg-[#1C1C1E] border border-[#333] text-white"
+                fallbackClassName="bg-[#EDF1F5] dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] text-slate-900 dark:text-white"
               />
               <div className="min-w-0">
-                <p className="text-xs font-semibold text-white truncate">{item.authorName}</p>
+                <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">{item.authorName}</p>
                 <p className="text-[11px] text-gray-500">Auteur</p>
               </div>
             </div>
 
             {canChangeStatus && (
               <div className="flex items-center gap-2">
-                <label htmlFor="detail-status-select" className="text-xs text-gray-400">
+                <label htmlFor="detail-status-select" className="text-xs text-slate-600 dark:text-gray-400">
                   Statut :
                 </label>
                 <select
@@ -316,7 +316,7 @@ export const RoadmapDetailModal: React.FC<RoadmapDetailModalProps> = ({
                   value={item.status}
                   disabled={isUpdatingStatus}
                   onChange={(e) => handleStatusChange(e.target.value as RoadmapStatus)}
-                  className="px-2.5 py-1.5 rounded-lg bg-[#18181C] border border-[#2E2E36] text-xs font-medium text-white focus:outline-none focus:border-blue-500 cursor-pointer"
+                  className="px-2.5 py-1.5 rounded-lg bg-slate-50 dark:bg-[#18181C] border border-slate-300 dark:border-[#2E2E36] text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 cursor-pointer"
                 >
                   {ROADMAP_COLUMNS.map((col) => (
                     <option key={col.id} value={col.id}>
@@ -330,10 +330,10 @@ export const RoadmapDetailModal: React.FC<RoadmapDetailModalProps> = ({
 
           {/* Content */}
           <div className="space-y-2.5">
-            <h3 id="roadmap-detail-title" className="text-lg font-bold text-white leading-snug">
+            <h3 id="roadmap-detail-title" className="text-lg font-bold text-slate-900 dark:text-white leading-snug">
               {item.title}
             </h3>
-            <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">
+            <p className="text-sm text-slate-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
               {item.description}
             </p>
           </div>
@@ -354,7 +354,7 @@ export const RoadmapDetailModal: React.FC<RoadmapDetailModalProps> = ({
                   key={idx}
                   type="button"
                   onClick={() => setLightboxIndex(idx)}
-                  className="relative group aspect-video rounded-xl overflow-hidden border border-[#222224] bg-[#0A0A0B] cursor-zoom-in"
+                  className="relative group aspect-video rounded-xl overflow-hidden border border-slate-200 dark:border-[#222224] bg-[#F4F6F9] dark:bg-[#0A0A0B] cursor-zoom-in"
                 >
                   <img
                     src={src}
@@ -362,7 +362,7 @@ export const RoadmapDetailModal: React.FC<RoadmapDetailModalProps> = ({
                     referrerPolicy="no-referrer"
                     className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
                   />
-                  <span className="absolute bottom-2 right-2 p-1.5 rounded-lg bg-black/65 text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                  <span className="absolute bottom-2 right-2 p-1.5 rounded-lg bg-black/65 text-slate-900 dark:text-white opacity-0 group-hover:opacity-100 transition-opacity">
                     <Maximize2 className="w-3.5 h-3.5" />
                   </span>
                 </button>
@@ -371,15 +371,15 @@ export const RoadmapDetailModal: React.FC<RoadmapDetailModalProps> = ({
           )}
 
           {/* Like + stats bar */}
-          <div className="pt-2 pb-1 border-y border-[#222224] flex items-center justify-between">
+          <div className="pt-2 pb-1 border-y border-slate-200 dark:border-[#222224] flex items-center justify-between">
             <button
               type="button"
               onClick={handleToggleLike}
               disabled={isTogglingLike}
               className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
                 isLiked
-                  ? 'bg-rose-500/15 border-rose-500/40 text-rose-400'
-                  : 'bg-[#18181C] border-[#2A2A30] text-gray-300 hover:text-white hover:border-[#3A3A44]'
+                  ? 'bg-rose-500/15 border-rose-500/40 text-rose-600 dark:text-rose-400'
+                  : 'bg-slate-50 dark:bg-[#18181C] border-slate-300 dark:border-[#2A2A30] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:border-slate-400 dark:hover:border-[#3A3A44]'
               }`}
             >
               <Heart className={`w-3.5 h-3.5 ${isLiked ? 'fill-current' : ''}`} />
@@ -387,7 +387,7 @@ export const RoadmapDetailModal: React.FC<RoadmapDetailModalProps> = ({
               <span>{isLiked ? 'Aimé' : "J'aime"}</span>
             </button>
 
-            <div className="flex items-center gap-1.5 text-xs text-gray-400">
+            <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-gray-400">
               <MessageSquare className="w-3.5 h-3.5" />
               <span className="font-mono tabular-nums">{comments.length || item.commentsCount}</span>
               <span>commentaire{(comments.length || item.commentsCount) > 1 ? 's' : ''}</span>
@@ -396,7 +396,7 @@ export const RoadmapDetailModal: React.FC<RoadmapDetailModalProps> = ({
 
           {/* Comments list */}
           <div className="space-y-3">
-            <h4 className="text-xs font-semibold text-gray-300">Commentaires</h4>
+            <h4 className="text-xs font-semibold text-slate-700 dark:text-gray-300">Commentaires</h4>
 
             {loadingComments ? (
               <div className="py-4 flex items-center gap-2 text-xs text-gray-500">
@@ -414,22 +414,22 @@ export const RoadmapDetailModal: React.FC<RoadmapDetailModalProps> = ({
                   return (
                     <div
                       key={cmt.id}
-                      className="flex items-start gap-2.5 pb-3 border-b border-[#1E1E22] last:border-b-0 last:pb-0"
+                      className="flex items-start gap-2.5 pb-3 border-b border-slate-200 dark:border-[#1E1E22] last:border-b-0 last:pb-0"
                     >
                       <UserAvatar
                         photoURL={cmt.authorPhotoURL}
                         displayName={cmt.authorName}
                         sizeClass="w-7 h-7 text-[11px]"
                         iconClass="w-3.5 h-3.5"
-                        fallbackClassName="bg-[#1C1C1E] border border-[#333] text-white"
+                        fallbackClassName="bg-[#EDF1F5] dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] text-slate-900 dark:text-white"
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-2 text-xs min-w-0">
-                            <span className="font-semibold text-white truncate">
+                            <span className="font-semibold text-slate-900 dark:text-white truncate">
                               {cmt.authorName}
                             </span>
-                            <span aria-hidden="true" className="text-gray-600">
+                            <span aria-hidden="true" className="text-slate-500 dark:text-gray-600">
                               ·
                             </span>
                             <span className="text-[11px] font-mono tabular-nums text-gray-500 shrink-0">
@@ -440,7 +440,7 @@ export const RoadmapDetailModal: React.FC<RoadmapDetailModalProps> = ({
                             <button
                               type="button"
                               onClick={() => handleDeleteComment(cmt.id)}
-                              className="p-1 rounded text-gray-500 hover:text-rose-400 transition-colors cursor-pointer"
+                              className="p-1 rounded text-gray-500 hover:text-rose-800 dark:hover:text-rose-400 transition-colors cursor-pointer"
                               aria-label="Supprimer le commentaire"
                               title="Supprimer"
                             >
@@ -448,7 +448,7 @@ export const RoadmapDetailModal: React.FC<RoadmapDetailModalProps> = ({
                             </button>
                           )}
                         </div>
-                        <p className="mt-1 text-xs text-gray-300 whitespace-pre-wrap leading-relaxed">
+                        <p className="mt-1 text-xs text-slate-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">
                           {cmt.text}
                         </p>
                       </div>
@@ -461,9 +461,9 @@ export const RoadmapDetailModal: React.FC<RoadmapDetailModalProps> = ({
         </div>
 
         {/* Comment composer */}
-        <div className="px-5 py-3.5 border-t border-[#222224] bg-[#0D0D0F]">
+        <div className="px-5 py-3.5 border-t border-slate-200 dark:border-[#222224] bg-[#F4F6F9] dark:bg-[#0D0D0F]">
           {isGuest || !uid ? (
-            <div className="flex items-center justify-between gap-3 text-xs text-gray-400">
+            <div className="flex items-center justify-between gap-3 text-xs text-slate-600 dark:text-gray-400">
               <span>Connectez-vous pour laisser un commentaire.</span>
               <button
                 type="button"
@@ -484,7 +484,7 @@ export const RoadmapDetailModal: React.FC<RoadmapDetailModalProps> = ({
                 maxLength={ROADMAP_COMMENT_MAX}
                 onChange={(e) => setCommentText(e.target.value)}
                 placeholder="Ajouter un commentaire..."
-                className="flex-1 px-3.5 py-2 rounded-xl bg-[#141417] border border-[#242429] text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                className="flex-1 px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-[#141417] border border-slate-200 dark:border-[#242429] text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-blue-500"
               />
               <button
                 type="submit"
@@ -515,7 +515,7 @@ export const RoadmapDetailModal: React.FC<RoadmapDetailModalProps> = ({
           <button
             type="button"
             onClick={() => setLightboxIndex(null)}
-            className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white cursor-pointer"
+            className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-slate-900 dark:text-white cursor-pointer"
             aria-label="Fermer l'image"
           >
             <X className="w-5 h-5" />
@@ -528,7 +528,7 @@ export const RoadmapDetailModal: React.FC<RoadmapDetailModalProps> = ({
                 e.stopPropagation();
                 setLightboxIndex((lightboxIndex - 1 + item.images.length) % item.images.length);
               }}
-              className="absolute left-4 p-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white cursor-pointer"
+              className="absolute left-4 p-2.5 rounded-full bg-white/10 hover:bg-white/20 text-slate-900 dark:text-white cursor-pointer"
               aria-label="Image précédente"
             >
               <ChevronLeft className="w-5 h-5" />
@@ -550,7 +550,7 @@ export const RoadmapDetailModal: React.FC<RoadmapDetailModalProps> = ({
                 e.stopPropagation();
                 setLightboxIndex((lightboxIndex + 1) % item.images.length);
               }}
-              className="absolute right-4 p-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white cursor-pointer"
+              className="absolute right-4 p-2.5 rounded-full bg-white/10 hover:bg-white/20 text-slate-900 dark:text-white cursor-pointer"
               aria-label="Image suivante"
             >
               <ChevronRight className="w-5 h-5" />

@@ -74,18 +74,18 @@ export const ProfilePictureModal: React.FC<ProfilePictureModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md bg-[#121215] border border-[#26262E] rounded-2xl shadow-2xl flex flex-col overflow-hidden text-white animate-in zoom-in-95 duration-150"
+        className="w-full max-w-md bg-white dark:bg-[#121215] border border-slate-300 dark:border-[#26262E] rounded-2xl shadow-2xl flex flex-col overflow-hidden text-slate-900 dark:text-white animate-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-[#222228] bg-[#16161B]">
+        <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-[#222228] bg-slate-50 dark:bg-[#16161B]">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-blue-600/20 text-blue-400 border border-blue-500/30 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-blue-600/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 flex items-center justify-center">
               <Sparkles className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="font-bold text-sm text-white">Avatar SVG</h3>
-              <p className="text-[11px] text-gray-400">
+              <h3 className="font-bold text-sm text-slate-900 dark:text-white">Avatar SVG</h3>
+              <p className="text-[11px] text-slate-600 dark:text-gray-400">
                 Léger et instantané — aucune image stockée
               </p>
             </div>
@@ -94,7 +94,7 @@ export const ProfilePictureModal: React.FC<ProfilePictureModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg bg-[#202026] hover:bg-[#2C2C34] text-gray-400 hover:text-white transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg bg-[#EDF1F5] dark:bg-[#202026] hover:bg-slate-200 dark:hover:bg-[#2C2C34] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
             title="Fermer"
           >
             <X className="w-4 h-4" />
@@ -112,10 +112,10 @@ export const ProfilePictureModal: React.FC<ProfilePictureModalProps> = ({
               iconClass="w-9 h-9"
             />
             <div className="text-center">
-              <p className="font-semibold text-sm text-white">
+              <p className="font-semibold text-sm text-slate-900 dark:text-white">
                 {currentUser?.displayName || 'Musicien'}
               </p>
-              <p className="text-[11px] text-gray-400">
+              <p className="text-[11px] text-slate-600 dark:text-gray-400">
                 {currentUser?.email || 'Compte utilisateur'}
               </p>
             </div>
@@ -123,7 +123,7 @@ export const ProfilePictureModal: React.FC<ProfilePictureModalProps> = ({
 
           {/* Liste des icônes SVG */}
           <div className="space-y-2">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-600 dark:text-gray-400">
               Choisir un icône
             </p>
             <div className="grid grid-cols-4 gap-2">
@@ -136,8 +136,8 @@ export const ProfilePictureModal: React.FC<ProfilePictureModalProps> = ({
                     onClick={() => setSelectedIcon(item.id)}
                     className={`flex flex-col items-center justify-center gap-1 py-2.5 px-1.5 rounded-xl border text-[11px] font-medium transition-all cursor-pointer ${
                       active
-                        ? 'bg-blue-600/20 border-blue-500 text-white shadow-xs'
-                        : 'bg-[#18181E] border-[#262630] text-gray-400 hover:text-white hover:border-[#3A3A48]'
+                        ? 'bg-blue-600/20 border-blue-500 text-slate-900 dark:text-white shadow-xs'
+                        : 'bg-slate-50 dark:bg-[#18181E] border-slate-300 dark:border-[#262630] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:border-slate-400 dark:hover:border-[#3A3A48]'
                     }`}
                   >
                     <SvgAvatarGlyph iconId={item.id} className="w-5 h-5" />
@@ -150,7 +150,7 @@ export const ProfilePictureModal: React.FC<ProfilePictureModalProps> = ({
 
           {/* Couleur */}
           <div className="space-y-2">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-600 dark:text-gray-400">
               Couleur
             </p>
             <div className="flex items-center justify-between gap-2">
@@ -175,13 +175,13 @@ export const ProfilePictureModal: React.FC<ProfilePictureModalProps> = ({
           </div>
 
           {/* Actions */}
-          <div className="pt-2 border-t border-[#202028] flex items-center justify-between gap-2">
+          <div className="pt-2 border-t border-slate-200 dark:border-[#202028] flex items-center justify-between gap-2">
             {existing ? (
               <button
                 type="button"
                 onClick={handleReset}
                 disabled={isSaving}
-                className="px-3 py-2 rounded-xl bg-[#1A1A20] hover:bg-[#24242C] text-gray-300 hover:text-white border border-[#2C2C36] text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                className="px-3 py-2 rounded-xl bg-[#EDF1F5] dark:bg-[#1A1A20] hover:bg-slate-200 dark:hover:bg-[#24242C] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-[#2C2C36] text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
                 title="Revenir à l'initiale du nom"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
@@ -192,7 +192,7 @@ export const ProfilePictureModal: React.FC<ProfilePictureModalProps> = ({
                 type="button"
                 onClick={onClose}
                 disabled={isSaving}
-                className="px-3 py-2 rounded-xl bg-[#1A1A20] hover:bg-[#24242C] text-gray-300 border border-[#2C2C36] text-xs font-medium cursor-pointer"
+                className="px-3 py-2 rounded-xl bg-[#EDF1F5] dark:bg-[#1A1A20] hover:bg-slate-200 dark:hover:bg-[#24242C] text-slate-700 dark:text-gray-300 border border-slate-300 dark:border-[#2C2C36] text-xs font-medium cursor-pointer"
               >
                 Annuler
               </button>

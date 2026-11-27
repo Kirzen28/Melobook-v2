@@ -44,13 +44,13 @@ export const ACCESS_DEFINITIONS: Record<AccessPermission, AccessMeta> = {
   },
   setlists: {
     key: 'setlists',
-    label: 'Setlists',
-    shortLabel: 'Setlists',
-    description: 'Direction des programmes : création, organisation et suppression des setlists, fixation des tonalités et tempos par défaut.',
+    label: 'Responsable (Setlists)',
+    shortLabel: 'Responsable',
+    description: 'Direction des programmes & planning : création des setlists, organisation du planning des musiciens et de la régie par date.',
     permissions: [
       'Créer, modifier, réordonner et supprimer des setlists',
-      'Définir la tonalité et le tempo par défaut pour l’équipe',
-      'Consulter les setlists et le répertoire associé'
+      'Organiser le planning et les équipes (musiciens, chant, régie) par date/setlist',
+      'Définir la tonalité et le tempo par défaut pour l’équipe'
     ],
     badgeStyle: 'bg-emerald-600/20 text-emerald-300 border-emerald-500/40',
     iconBoxStyle: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30',

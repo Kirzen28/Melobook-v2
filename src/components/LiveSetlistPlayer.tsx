@@ -247,9 +247,9 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
 
   if (!liveSetlist || setlistSongs.length === 0) {
     return (
-      <div className="fixed inset-0 top-16 z-40 bg-[#0A0A0B] flex flex-col items-center justify-center p-6 text-center text-[#E0E0E0]">
-        <ListMusic className="w-12 h-12 text-gray-600 mb-4" />
-        <h2 className="text-base font-bold text-gray-200">Cette setlist ne contient aucun chant</h2>
+      <div className="fixed inset-0 top-16 z-40 bg-[#F4F6F9] dark:bg-[#0A0A0B] flex flex-col items-center justify-center p-6 text-center text-slate-900 dark:text-[#E0E0E0]">
+        <ListMusic className="w-12 h-12 text-slate-500 dark:text-gray-600 mb-4" />
+        <h2 className="text-base font-bold text-slate-800 dark:text-gray-200">Cette setlist ne contient aucun chant</h2>
         <p className="text-xs text-gray-500 mt-1 mb-6">
           Ajoutez des morceaux à votre setlist avant de lancer le mode Scène Live.
         </p>
@@ -265,18 +265,18 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
 
   return (
     <div 
-      className={`fixed inset-0 ${isFullscreen ? 'top-0 z-50' : 'top-16 z-30'} bg-[#0A0A0B] flex flex-col text-[#E0E0E0] overflow-hidden transition-all print:static print:inset-auto print:top-0 print:w-full print:h-auto print:overflow-visible print:bg-white print:text-black`}
+      className={`fixed inset-0 ${isFullscreen ? 'top-0 z-50' : 'top-16 z-30'} bg-[#F4F6F9] dark:bg-[#0A0A0B] flex flex-col text-slate-900 dark:text-[#E0E0E0] overflow-hidden transition-all print:static print:inset-auto print:top-0 print:w-full print:h-auto print:overflow-visible print:bg-white print:text-black`}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
       {/* Live Setlist Top Navigation Bar */}
-      <div className="no-print bg-[#111112]/98 border-b border-[#222224] px-3 sm:px-8 md:px-12 py-2 shadow-sm z-40 shrink-0">
+      <div className="no-print bg-white/98 dark:bg-[#111112]/98 border-b border-slate-200 dark:border-[#222224] px-3 sm:px-8 md:px-12 py-2 shadow-sm z-40 shrink-0">
         <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
         {/* Left: Close & Setlist info */}
         <div className="flex items-center gap-2.5 min-w-0">
           <button
             onClick={onClose}
-            className="p-1.5 rounded-md bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 hover:text-white border border-[#333] transition-colors shrink-0 flex items-center justify-center cursor-pointer"
+            className="p-1.5 rounded-md bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-slate-200 dark:hover:bg-[#2A2A2D] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-[#333] transition-colors shrink-0 flex items-center justify-center cursor-pointer"
             title="Quitter le mode Live"
             aria-label="Quitter le mode Live"
           >
@@ -285,12 +285,12 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
 
           <div className="min-w-0">
             <div className="flex items-center gap-2 min-w-0">
-              <span className="text-xs font-bold text-blue-400 uppercase tracking-wider flex items-center gap-1 truncate">
+              <span className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider flex items-center gap-1 truncate">
                 <ListMusic className="w-3.5 h-3.5 shrink-0" />
                 <span className="truncate">{liveSetlist.name}</span>
               </span>
               <span 
-                className="px-1.5 py-0.5 rounded text-[11px] font-mono font-medium bg-[#1C1C1E] text-gray-300 border border-[#333] shrink-0 select-none"
+                className="px-1.5 py-0.5 rounded text-[11px] font-mono font-medium bg-[#EDF1F5] dark:bg-[#1C1C1E] text-slate-700 dark:text-gray-300 border border-slate-300 dark:border-[#333] shrink-0 select-none"
                 title={`${activeSetlistIndex + 1} / ${setlistSongs.length}`}
               >
                 {activeSetlistIndex + 1}/{setlistSongs.length}
@@ -299,7 +299,7 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
                 <button
                   type="button"
                   onClick={() => setIsAddSongModalOpen(true)}
-                  className="p-1 rounded bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 hover:text-blue-300 border border-blue-500/30 text-xs flex items-center justify-center cursor-pointer transition-colors shrink-0"
+                  className="p-1 rounded bg-blue-600/20 hover:bg-blue-600/40 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 border border-blue-500/30 text-xs flex items-center justify-center cursor-pointer transition-colors shrink-0"
                   title="Ajouter rapidement une chanson à cette setlist"
                   aria-label="Ajouter une chanson"
                 >
@@ -321,12 +321,12 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
                 title="Passer au chant suivant"
               >
                 <span className="text-[10px] uppercase font-semibold text-gray-500 group-hover:text-gray-400">À suivre :</span>
-                <p className="text-xs font-semibold text-blue-400 group-hover:text-blue-300 truncate max-w-[140px]">
+                <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 group-hover:text-blue-800 dark:group-hover:text-blue-300 truncate max-w-[140px]">
                   {setlistSongs[activeSetlistIndex + 1]?.title}
                 </p>
               </button>
             ) : (
-              <span className="text-xs font-semibold text-emerald-400 flex items-center gap-1">
+              <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                 <CheckCircle2 className="w-3.5 h-3.5" /> Dernier chant
               </span>
             )}
@@ -340,7 +340,7 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
             className={`p-1.5 rounded-md border text-xs font-medium flex items-center gap-1 transition-colors shrink-0 cursor-pointer ${
               isFullscreen
                 ? 'bg-blue-600 border-blue-500 text-white'
-                : 'bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 hover:text-white border-[#333]'
+                : 'bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-slate-200 dark:hover:bg-[#2A2A2D] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white border-slate-300 dark:border-[#333]'
             }`}
             title="Plein écran"
             aria-label="Plein écran"
@@ -352,7 +352,7 @@ export const LiveSetlistPlayer: React.FC<LiveSetlistPlayerProps> = ({ onClose })
       </div>
 
       {/* Embedded Active Song Reader with animated transition */}
-      <div className="flex-1 min-h-0 relative overflow-hidden bg-[#0A0A0B] print:static print:overflow-visible print:h-auto print:w-full print:bg-white">
+      <div className="flex-1 min-h-0 relative overflow-hidden bg-[#F4F6F9] dark:bg-[#0A0A0B] print:static print:overflow-visible print:h-auto print:w-full print:bg-white">
         <AnimatePresence initial={false} custom={direction}>
           {currentSong && (
             <motion.div

@@ -199,7 +199,7 @@ export const VocalArrangementSelector: React.FC<VocalArrangementSelectorProps> =
                       e.stopPropagation();
                       handleRemoveVocal(voc);
                     }}
-                    className="ml-0.5 -mr-0.5 p-0.5 rounded-full hover:bg-black/30 text-gray-400 hover:text-white transition-colors cursor-pointer"
+                    className="ml-0.5 -mr-0.5 p-0.5 rounded-full hover:bg-black/30 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
                     title={`Retirer ${voc}`}
                     aria-label={`Retirer ${voc}`}
                   >
@@ -215,7 +215,7 @@ export const VocalArrangementSelector: React.FC<VocalArrangementSelectorProps> =
               ref={buttonRef}
               type="button"
               onClick={() => setIsOpen(!isOpen)}
-              className="p-1 rounded-md text-gray-400 hover:text-purple-300 hover:bg-[#1F1F24] border border-transparent hover:border-[#333] transition-colors cursor-pointer"
+              className="p-1 rounded-md text-slate-600 dark:text-gray-400 hover:text-purple-800 dark:hover:text-purple-300 hover:bg-slate-200/70 dark:hover:bg-[#1F1F24] border border-transparent hover:border-slate-400 dark:hover:border-[#333] transition-colors cursor-pointer"
               title="Modifier les voix pour cette section"
               aria-label="Modifier les voix"
             >
@@ -230,13 +230,13 @@ export const VocalArrangementSelector: React.FC<VocalArrangementSelectorProps> =
           onClick={() => setIsOpen(!isOpen)}
           className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium transition-all cursor-pointer border ${
             isOpen
-              ? 'bg-purple-600/20 text-purple-300 border-purple-500/40 shadow-xs'
-              : 'bg-[#18181C] hover:bg-[#202026] text-gray-400 hover:text-gray-200 border-[#2E2E34] hover:border-purple-500/30'
+              ? 'bg-purple-600/20 text-purple-700 dark:text-purple-300 border-purple-500/40 shadow-xs'
+              : 'bg-slate-50 dark:bg-[#18181C] hover:bg-slate-200/70 dark:hover:bg-[#202026] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200 border-slate-300 dark:border-[#2E2E34] hover:border-purple-500/30'
           }`}
           title="Ajouter un arrangement des voix (Soprano, Alto, Ténor, Basse...)"
         >
           <span className="text-[10px] sm:text-[11px]">Voix</span>
-          <Plus className="w-2.5 h-2.5 text-gray-400" />
+          <Plus className="w-2.5 h-2.5 text-slate-600 dark:text-gray-400" />
         </button>
       ) : null}
 
@@ -244,11 +244,11 @@ export const VocalArrangementSelector: React.FC<VocalArrangementSelectorProps> =
       {isOpen && canEdit && (
         <div
           ref={popoverRef}
-          className="absolute right-0 top-full mt-1.5 z-[100] w-72 max-w-[calc(100vw-2rem)] bg-[#141417] border border-[#2E2E36] rounded-xl shadow-2xl p-3 backdrop-blur-md animate-in fade-in zoom-in-95 duration-100 box-border text-xs"
+          className="absolute right-0 top-full mt-1.5 z-[100] w-72 max-w-[calc(100vw-2rem)] bg-slate-50 dark:bg-[#141417] border border-slate-300 dark:border-[#2E2E36] rounded-xl shadow-2xl p-3 backdrop-blur-md animate-in fade-in zoom-in-95 duration-100 box-border text-xs"
         >
           {/* Header */}
-          <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-[#26262E]">
-            <span className="font-bold text-gray-200 text-xs truncate">
+          <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-slate-300 dark:border-[#26262E]">
+            <span className="font-bold text-slate-800 dark:text-gray-200 text-xs truncate">
               Arrangement des voix
             </span>
             <div className="flex items-center gap-1">
@@ -256,7 +256,7 @@ export const VocalArrangementSelector: React.FC<VocalArrangementSelectorProps> =
                 <button
                   type="button"
                   onClick={handleClearAll}
-                  className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold text-rose-400 hover:text-rose-300 hover:bg-rose-500/15 border border-rose-500/30 transition-colors cursor-pointer"
+                  className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold text-rose-600 dark:text-rose-400 hover:text-rose-800 dark:hover:text-rose-300 hover:bg-rose-500/15 border border-rose-500/30 transition-colors cursor-pointer"
                   title="Retirer toutes les voix pour cette section"
                 >
                   <Trash2 className="w-2.5 h-2.5" />
@@ -266,7 +266,7 @@ export const VocalArrangementSelector: React.FC<VocalArrangementSelectorProps> =
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="p-1 rounded text-gray-400 hover:text-white hover:bg-[#202026] transition-colors cursor-pointer"
+                className="p-1 rounded text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#202026] transition-colors cursor-pointer"
                 title="Fermer"
               >
                 <X className="w-3 h-3" />
@@ -276,7 +276,7 @@ export const VocalArrangementSelector: React.FC<VocalArrangementSelectorProps> =
 
           {/* SATB Grid */}
           <div className="mb-2.5">
-            <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+            <div className="text-[10px] font-semibold text-slate-600 dark:text-gray-400 uppercase tracking-wider mb-1.5 flex items-center justify-between">
               <span>Pupitres (SATB)</span>
               <span className="text-[9px] text-gray-500">Multisélection</span>
             </div>
@@ -294,12 +294,12 @@ export const VocalArrangementSelector: React.FC<VocalArrangementSelectorProps> =
                     className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-all cursor-pointer ${
                       isSelected
                         ? `${vStyle.bg} ${vStyle.border} ${vStyle.text} ring-1 ring-white/10 shadow-xs`
-                        : 'bg-[#1A1A1E] border-[#2A2A30] text-gray-400 hover:text-gray-200 hover:border-[#383840]'
+                        : 'bg-[#EDF1F5] dark:bg-[#1A1A1E] border-slate-300 dark:border-[#2A2A30] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200 hover:border-slate-400 dark:hover:border-[#383840]'
                     }`}
                   >
                     <div className="flex items-center gap-1.5 truncate">
                       <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                        isSelected ? 'bg-white/20 text-white' : 'bg-[#24242A] text-gray-400'
+                        isSelected ? 'bg-white/20 text-slate-900 dark:text-white' : 'bg-[#EDF1F5] dark:bg-[#24242A] text-slate-600 dark:text-gray-400'
                       }`}>
                         {v.badge}
                       </span>
@@ -314,7 +314,7 @@ export const VocalArrangementSelector: React.FC<VocalArrangementSelectorProps> =
 
           {/* Common Vocal Presets */}
           <div className="mb-2.5">
-            <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
+            <div className="text-[10px] font-semibold text-slate-600 dark:text-gray-400 uppercase tracking-wider mb-1.5">
               Arrangements courants
             </div>
             <div className="flex items-center gap-1 flex-wrap">
@@ -331,7 +331,7 @@ export const VocalArrangementSelector: React.FC<VocalArrangementSelectorProps> =
                     className={`px-2 py-0.5 rounded-full text-[10px] font-medium border transition-all cursor-pointer ${
                       isSelected
                         ? `${vStyle.bg} ${vStyle.border} ${vStyle.text} font-semibold shadow-xs`
-                        : 'bg-[#1A1A1E] border-[#2A2A30] text-gray-400 hover:text-gray-200 hover:border-[#383840]'
+                        : 'bg-[#EDF1F5] dark:bg-[#1A1A1E] border-slate-300 dark:border-[#2A2A30] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200 hover:border-slate-400 dark:hover:border-[#383840]'
                     }`}
                   >
                     {isSelected ? '✓ ' : ''}{v.label}
@@ -344,9 +344,9 @@ export const VocalArrangementSelector: React.FC<VocalArrangementSelectorProps> =
           {/* Custom saved choices (enregistrées dans la liste des choix) */}
           {customVocals.length > 0 && (
             <div className="mb-2.5">
-              <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+              <div className="text-[10px] font-semibold text-slate-600 dark:text-gray-400 uppercase tracking-wider mb-1.5 flex items-center justify-between">
                 <span>Voix enregistrées</span>
-                <span className="text-[9px] text-purple-400 font-mono font-bold">
+                <span className="text-[9px] text-purple-600 dark:text-purple-400 font-mono font-bold">
                   {customVocals.length} enregistrée{customVocals.length > 1 ? 's' : ''}
                 </span>
               </div>
@@ -362,7 +362,7 @@ export const VocalArrangementSelector: React.FC<VocalArrangementSelectorProps> =
                       className={`inline-flex items-center rounded-full border transition-all ${
                         isSelected
                           ? `${vStyle.border} shadow-xs`
-                          : 'border-[#2A2A30] hover:border-[#383840]'
+                          : 'border-slate-300 dark:border-[#2A2A30] hover:border-slate-400 dark:hover:border-[#383840]'
                       }`}
                     >
                       <button
@@ -371,7 +371,7 @@ export const VocalArrangementSelector: React.FC<VocalArrangementSelectorProps> =
                         className={`pl-2.5 pr-1.5 py-0.5 rounded-l-full text-[10px] font-medium transition-all cursor-pointer ${
                           isSelected
                             ? `${vStyle.bg} ${vStyle.text} font-semibold`
-                            : 'bg-[#1A1A1E] text-gray-300 hover:text-white hover:bg-[#25252D]'
+                            : 'bg-[#EDF1F5] dark:bg-[#1A1A1E] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-[#25252D]'
                         }`}
                         title={`Cliquer pour sélectionner / désélectionner « ${v} »`}
                       >
@@ -384,7 +384,7 @@ export const VocalArrangementSelector: React.FC<VocalArrangementSelectorProps> =
                           deleteCustomVocalChoice(v);
                           setCustomVocals(getSavedCustomVocals());
                         }}
-                        className="pl-1 pr-2 py-0.5 rounded-r-full bg-[#1A1A1E] hover:bg-rose-500/20 text-gray-500 hover:text-rose-400 text-[10px] transition-colors cursor-pointer"
+                        className="pl-1 pr-2 py-0.5 rounded-r-full bg-[#EDF1F5] dark:bg-[#1A1A1E] hover:bg-rose-500/20 text-gray-500 hover:text-rose-800 dark:hover:text-rose-400 text-[10px] transition-colors cursor-pointer"
                         title={`Supprimer « ${v} » de la liste des choix enregistrés`}
                         aria-label={`Supprimer ${v} de la liste`}
                       >
@@ -398,8 +398,8 @@ export const VocalArrangementSelector: React.FC<VocalArrangementSelectorProps> =
           )}
 
           {/* Custom voice input */}
-          <div className="pt-2 border-t border-[#26262E] mb-2">
-            <div className="text-[10px] font-semibold text-gray-400 mb-1 flex items-center justify-between">
+          <div className="pt-2 border-t border-slate-300 dark:border-[#26262E] mb-2">
+            <div className="text-[10px] font-semibold text-slate-600 dark:text-gray-400 mb-1 flex items-center justify-between">
               <span>Ajouter une nouvelle voix</span>
               <span className="text-[9px] text-gray-500">Enregistrée dans la liste</span>
             </div>
@@ -415,7 +415,7 @@ export const VocalArrangementSelector: React.FC<VocalArrangementSelectorProps> =
                   }
                 }}
                 placeholder="Ex: Lead 2, Baryton, Harmonie..."
-                className="flex-1 bg-[#1A1A1E] border border-[#2E2E36] rounded-lg px-2.5 py-1 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/60 transition-colors"
+                className="flex-1 bg-[#EDF1F5] dark:bg-[#1A1A1E] border border-slate-300 dark:border-[#2E2E36] rounded-lg px-2.5 py-1 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-purple-500/60 transition-colors"
               />
               <button
                 type="button"
@@ -431,12 +431,12 @@ export const VocalArrangementSelector: React.FC<VocalArrangementSelectorProps> =
           </div>
 
           {/* Footer action buttons */}
-          <div className="flex items-center justify-between pt-2 border-t border-[#26262E]">
+          <div className="flex items-center justify-between pt-2 border-t border-slate-300 dark:border-[#26262E]">
             {hasVocals ? (
               <button
                 type="button"
                 onClick={handleClearAll}
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 hover:text-rose-200 text-xs font-semibold transition-colors cursor-pointer"
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-700 dark:text-rose-300 hover:text-rose-800 dark:hover:text-rose-200 text-xs font-semibold transition-colors cursor-pointer"
                 title="Retirer toutes les voix pour cette section"
               >
                 <Trash2 className="w-3 h-3" />
@@ -447,7 +447,7 @@ export const VocalArrangementSelector: React.FC<VocalArrangementSelectorProps> =
             <button
               type="button"
               onClick={() => setIsOpen(false)}
-              className="px-2.5 py-1 rounded-md bg-[#24242C] hover:bg-[#2C2C34] text-gray-200 text-[11px] font-semibold transition-colors cursor-pointer"
+              className="px-2.5 py-1 rounded-md bg-[#EDF1F5] dark:bg-[#24242C] hover:bg-slate-200 dark:hover:bg-[#2C2C34] text-slate-800 dark:text-gray-200 text-[11px] font-semibold transition-colors cursor-pointer"
             >
               Terminé
             </button>

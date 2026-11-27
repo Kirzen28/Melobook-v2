@@ -124,10 +124,11 @@ export interface StageSettings {
   autoScrollSpeed: number; // 1 to 10
   isAutoScrolling: boolean;
   columns: 1 | 2 | 3 | 4 | 5 | 'auto';
-  theme: 'dark' | 'oled' | 'sepia' | 'light' | 'system';
+  theme: 'dark' | 'light';
   capo: number; // 0 to 7
   showMetronome: boolean;
   soundMetronome: boolean;
+  reduceMotion?: boolean;
 }
 
 export interface SongTypographySettings {
@@ -268,3 +269,69 @@ export interface RoadmapComment {
   createdAt?: any;
 }
 
+export type PlanningPole = 'musique' | 'chant' | 'regie';
+
+export type PlanningAvailabilityStatus = 'available' | 'maybe' | 'unavailable';
+
+export type PlanningSlotStatus = 'assigned' | 'confirmed' | 'declined';
+
+export interface PlanningTeamMember {
+  uid: string;
+  displayName: string;
+  pole: PlanningPole;
+  roleLabel: string;
+}
+
+export interface PlanningTeam {
+  id: string;
+  groupId: string;
+  name: string;
+  description?: string;
+  color?: string;
+  members: PlanningTeamMember[];
+  createdBy?: string;
+  createdAt?: any;
+  updatedAt?: any;
+}
+
+export interface PlanningAvailability {
+  id: string;
+  groupId: string;
+  date: string; // YYYY-MM-DD
+  uid: string;
+  displayName: string;
+  status: PlanningAvailabilityStatus;
+  preferredPoles?: PlanningPole[];
+  note?: string;
+  updatedAt?: any;
+}
+
+export interface PlanningSlot {
+  id: string;
+  uid?: string | null;
+  memberName: string;
+  pole: PlanningPole;
+  roleLabel: string;
+  status: PlanningSlotStatus;
+  note?: string;
+}
+
+export interface PlanningAssignment {
+  id: string;
+  groupId: string;
+  setlistId?: string | null;
+  setlistName?: string | null;
+  date: string; // YYYY-MM-DD
+  title: string;
+  callTime?: string;
+  serviceTime?: string;
+  location?: string;
+  teamPresetId?: string | null;
+  teamPresetName?: string | null;
+  slots: PlanningSlot[];
+  notes?: string;
+  updatedBy?: string;
+  updatedByName?: string;
+  createdAt?: any;
+  updatedAt?: any;
+}

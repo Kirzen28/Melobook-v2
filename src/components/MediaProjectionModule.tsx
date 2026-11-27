@@ -66,9 +66,9 @@ const SOURCE_LABELS: Record<MediaSourceType, string> = {
 };
 
 const renderTypeIcon = (type: MediaType, className = 'w-3.5 h-3.5') => {
-  if (type === 'image') return <ImageIcon className={`${className} text-blue-400 shrink-0`} />;
-  if (type === 'audio') return <Music className={`${className} text-emerald-400 shrink-0`} />;
-  return <Video className={`${className} text-purple-400 shrink-0`} />;
+  if (type === 'image') return <ImageIcon className={`${className} text-blue-600 dark:text-blue-400 shrink-0`} />;
+  if (type === 'audio') return <Music className={`${className} text-emerald-600 dark:text-emerald-400 shrink-0`} />;
+  return <Video className={`${className} text-purple-600 dark:text-purple-400 shrink-0`} />;
 };
 
 export const MediaProjectionModule = React.forwardRef<MediaProjectionHandle, MediaProjectionModuleProps>(({
@@ -528,26 +528,26 @@ export const MediaProjectionModule = React.forwardRef<MediaProjectionHandle, Med
     <div
       className={
         className
-          ? `flex flex-col gap-4 text-gray-200 ${className}`
-          : 'bg-[#121215] border border-[#222226] rounded-2xl p-4 sm:p-5 shadow-md flex flex-col gap-4 text-gray-200'
+          ? `flex flex-col gap-4 text-slate-800 dark:text-gray-200 ${className}`
+          : 'bg-white dark:bg-[#121215] border border-slate-200 dark:border-[#222226] rounded-2xl p-4 sm:p-5 shadow-md flex flex-col gap-4 text-slate-800 dark:text-gray-200'
       }
     >
       {/* 1. Bandeau compact de diffusion active */}
       {activeMedia?.isActive && (
-        <div className="px-3.5 py-2.5 rounded-xl bg-[#191524] border border-purple-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+        <div className="px-3.5 py-2.5 rounded-xl bg-[#EDF1F5] dark:bg-[#191524] border border-purple-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-8 h-8 rounded-lg bg-purple-600/20 border border-purple-400/30 flex items-center justify-center shrink-0">
               {renderTypeIcon(activeMedia.type, 'w-4 h-4')}
             </div>
             <div className="min-w-0">
-              <div className="flex items-center gap-1.5 text-[11px] text-purple-200/90">
-                <span className="font-semibold text-purple-300">En direct</span>
+              <div className="flex items-center gap-1.5 text-[11px] text-purple-700 dark:text-purple-200/90">
+                <span className="font-semibold text-purple-700 dark:text-purple-300">En direct</span>
                 <span aria-hidden="true" className="text-gray-500">·</span>
                 <span>{MEDIA_TYPE_LABELS[activeMedia.type]}</span>
                 <span aria-hidden="true" className="text-gray-500">·</span>
-                <span className="text-gray-400">{SOURCE_LABELS[activeMedia.source]}</span>
+                <span className="text-slate-600 dark:text-gray-400">{SOURCE_LABELS[activeMedia.source]}</span>
               </div>
-              <h3 className="text-sm font-semibold text-white truncate">
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white truncate">
                 {activeMedia.title}
               </h3>
             </div>
@@ -567,12 +567,12 @@ export const MediaProjectionModule = React.forwardRef<MediaProjectionHandle, Med
       {/* 2. Régie côte à côte : 3 sources visibles à gauche | Aperçu 16:9 à droite */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
         {/* Colonne gauche : YouTube, URL directe et Fichier local visibles ensemble */}
-        <div className="lg:col-span-7 bg-[#15151C] border border-[#242432] rounded-xl p-4 flex flex-col justify-between gap-3.5">
+        <div className="lg:col-span-7 bg-slate-50 dark:bg-[#15151C] border border-slate-300 dark:border-[#242432] rounded-xl p-4 flex flex-col justify-between gap-3.5">
           <div className="space-y-2.5">
             {/* Lien YouTube */}
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-gray-300 flex items-center gap-1.5">
-                <Globe className="w-3.5 h-3.5 text-red-400 shrink-0" />
+              <label className="text-xs font-semibold text-slate-700 dark:text-gray-300 flex items-center gap-1.5">
+                <Globe className="w-3.5 h-3.5 text-red-600 dark:text-red-400 shrink-0" />
                 <span>Lien YouTube</span>
               </label>
               <div className="relative flex items-center">
@@ -598,7 +598,7 @@ export const MediaProjectionModule = React.forwardRef<MediaProjectionHandle, Med
                   className={`w-full bg-[#1A1A24] border rounded-lg pl-3 pr-8 py-2 text-xs text-white focus:outline-none transition-colors ${
                     selectedSource === 'youtube' && youtubeInput.trim()
                       ? 'border-red-500/70'
-                      : 'border-[#2F2F40] focus:border-red-500'
+                      : 'border-slate-300 dark:border-[#2F2F40] focus:border-red-500'
                   }`}
                 />
                 {youtubeInput && (
@@ -610,7 +610,7 @@ export const MediaProjectionModule = React.forwardRef<MediaProjectionHandle, Med
                       else if (localFileMedia) setSelectedSource('local');
                     }}
                     aria-label="Effacer le lien YouTube"
-                    className="absolute right-2 p-1 text-gray-400 hover:text-white cursor-pointer"
+                    className="absolute right-2 p-1 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -620,8 +620,8 @@ export const MediaProjectionModule = React.forwardRef<MediaProjectionHandle, Med
 
             {/* URL directe */}
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-gray-300 flex items-center gap-1.5">
-                <LinkIcon className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+              <label className="text-xs font-semibold text-slate-700 dark:text-gray-300 flex items-center gap-1.5">
+                <LinkIcon className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
                 <span>URL directe (vidéo, image ou audio)</span>
               </label>
               <div className="relative flex items-center">
@@ -652,7 +652,7 @@ export const MediaProjectionModule = React.forwardRef<MediaProjectionHandle, Med
                   className={`w-full bg-[#1A1A24] border rounded-lg pl-3 pr-8 py-2 text-xs text-white focus:outline-none transition-colors font-mono ${
                     selectedSource === 'url' && urlInput.trim()
                       ? 'border-blue-500/70'
-                      : 'border-[#2F2F40] focus:border-blue-500'
+                      : 'border-slate-300 dark:border-[#2F2F40] focus:border-blue-500'
                   }`}
                 />
                 {urlInput && (
@@ -665,7 +665,7 @@ export const MediaProjectionModule = React.forwardRef<MediaProjectionHandle, Med
                       else if (localFileMedia) setSelectedSource('local');
                     }}
                     aria-label="Effacer l'URL"
-                    className="absolute right-2 p-1 text-gray-400 hover:text-white cursor-pointer"
+                    className="absolute right-2 p-1 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -675,8 +675,8 @@ export const MediaProjectionModule = React.forwardRef<MediaProjectionHandle, Med
 
             {/* Fichier local */}
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-gray-300 flex items-center gap-1.5">
-                <Folder className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <label className="text-xs font-semibold text-slate-700 dark:text-gray-300 flex items-center gap-1.5">
+                <Folder className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                 <span>Fichier local (vidéo, image ou audio)</span>
               </label>
               <input
@@ -709,17 +709,17 @@ export const MediaProjectionModule = React.forwardRef<MediaProjectionHandle, Med
                 }}
                 className={`border border-dashed rounded-xl px-3.5 py-2.5 flex items-center gap-3 cursor-pointer transition-colors ${
                   isDraggingFile
-                    ? 'border-emerald-400 bg-emerald-950/25'
+                    ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-950/25'
                     : selectedSource === 'local' && localFileMedia
-                    ? 'border-emerald-500/70 bg-[#18201E]'
-                    : 'border-[#343446] hover:border-emerald-500/60 bg-[#181822] hover:bg-[#1C1C28]'
+                    ? 'border-emerald-500/70 bg-[#EDF1F5] dark:bg-[#18201E]'
+                    : 'border-slate-300 dark:border-[#343446] hover:border-emerald-500/60 bg-[#EDF1F5] dark:bg-[#181822] hover:bg-slate-200/70 dark:hover:bg-[#1C1C28]'
                 }`}
               >
-                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center text-emerald-400 shrink-0">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
                   <Upload className="w-4 h-4" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-semibold text-gray-200 truncate">
+                  <p className="text-xs font-semibold text-slate-800 dark:text-gray-200 truncate">
                     {localFileMedia ? localFileMedia.name : 'Déposer un fichier'}
                   </p>
                 </div>
@@ -733,7 +733,7 @@ export const MediaProjectionModule = React.forwardRef<MediaProjectionHandle, Med
                       else if (urlInput.trim()) setSelectedSource('url');
                     }}
                     aria-label="Retirer le fichier local"
-                    className="p-1 text-gray-400 hover:text-white cursor-pointer shrink-0"
+                    className="p-1 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white cursor-pointer shrink-0"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -743,14 +743,14 @@ export const MediaProjectionModule = React.forwardRef<MediaProjectionHandle, Med
 
             {/* Ligne d'auto-détection du type + options de lecture */}
             <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-xs">
-              <div className="flex flex-wrap items-center gap-2 text-gray-400">
+              <div className="flex flex-wrap items-center gap-2 text-slate-600 dark:text-gray-400">
                 {selectedSource === 'youtube' && youtubeVideoId && (
-                  <div className="flex items-center gap-1 bg-[#181822] border border-[#282838] rounded-lg p-0.5">
+                  <div className="flex items-center gap-1 bg-[#EDF1F5] dark:bg-[#181822] border border-slate-300 dark:border-[#282838] rounded-lg p-0.5">
                     <button
                       type="button"
                       onClick={() => setYoutubeMode('video')}
                       className={`px-2 py-0.5 rounded text-[11px] font-medium cursor-pointer transition-colors ${
-                        youtubeMode === 'video' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white'
+                        youtubeMode === 'video' ? 'bg-purple-600 text-white' : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                       }`}
                     >
                       Vidéo
@@ -759,7 +759,7 @@ export const MediaProjectionModule = React.forwardRef<MediaProjectionHandle, Med
                       type="button"
                       onClick={() => setYoutubeMode('audio')}
                       className={`px-2 py-0.5 rounded text-[11px] font-medium cursor-pointer transition-colors ${
-                        youtubeMode === 'audio' ? 'bg-emerald-600 text-white' : 'text-gray-400 hover:text-white'
+                        youtubeMode === 'audio' ? 'bg-emerald-600 text-white' : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                       }`}
                     >
                       Audio seul
@@ -772,14 +772,14 @@ export const MediaProjectionModule = React.forwardRef<MediaProjectionHandle, Med
                     value={urlTypeOverride}
                     onChange={(e) => setUrlTypeOverride(e.target.value as 'auto' | MediaType)}
                     aria-label="Forcer le type de média pour cette URL"
-                    className="bg-[#181822] border border-[#2A2A3A] text-gray-300 text-[11px] rounded-lg px-2 py-1 cursor-pointer focus:outline-none focus:border-blue-500"
+                    className="bg-[#EDF1F5] dark:bg-[#181822] border border-slate-300 dark:border-[#2A2A3A] text-slate-700 dark:text-gray-300 text-[11px] rounded-lg px-2 py-1 cursor-pointer focus:outline-none focus:border-blue-500"
                   >
-                    <option value="auto" className="bg-[#161622] text-white">
+                    <option value="auto" className="bg-slate-50 dark:bg-[#161622] text-slate-900 dark:text-white">
                       Auto ({MEDIA_TYPE_LABELS[urlDetection.type]})
                     </option>
-                    <option value="video" className="bg-[#161622] text-white">Forcer : Vidéo</option>
-                    <option value="image" className="bg-[#161622] text-white">Forcer : Image</option>
-                    <option value="audio" className="bg-[#161622] text-white">Forcer : Audio</option>
+                    <option value="video" className="bg-slate-50 dark:bg-[#161622] text-slate-900 dark:text-white">Forcer : Vidéo</option>
+                    <option value="image" className="bg-slate-50 dark:bg-[#161622] text-slate-900 dark:text-white">Forcer : Image</option>
+                    <option value="audio" className="bg-slate-50 dark:bg-[#161622] text-slate-900 dark:text-white">Forcer : Audio</option>
                   </select>
                 )}
               </div>
@@ -790,8 +790,8 @@ export const MediaProjectionModule = React.forwardRef<MediaProjectionHandle, Med
                   onClick={() => setIsLoop(l => !l)}
                   className={`px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-colors flex items-center gap-1 cursor-pointer whitespace-nowrap shrink-0 ${
                     isLoop
-                      ? 'bg-purple-600/20 border-purple-500/40 text-purple-200'
-                      : 'bg-[#181820] border-[#2A2A38] text-gray-400 hover:text-gray-200'
+                      ? 'bg-purple-600/20 border-purple-500/40 text-purple-700 dark:text-purple-200'
+                      : 'bg-[#EDF1F5] dark:bg-[#181820] border-slate-300 dark:border-[#2A2A38] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200'
                   }`}
                   title="Répéter en boucle sur l'écran externe"
                 >
@@ -805,12 +805,12 @@ export const MediaProjectionModule = React.forwardRef<MediaProjectionHandle, Med
                     onClick={() => setIsMuted(m => !m)}
                     className={`px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-colors flex items-center gap-1 cursor-pointer whitespace-nowrap shrink-0 ${
                       isMuted
-                        ? 'bg-amber-600/20 border-amber-500/40 text-amber-200'
-                        : 'bg-[#181820] border-[#2A2A38] text-gray-400 hover:text-gray-200'
+                        ? 'bg-amber-600/20 border-amber-500/40 text-amber-700 dark:text-amber-200'
+                        : 'bg-[#EDF1F5] dark:bg-[#181820] border-slate-300 dark:border-[#2A2A38] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200'
                     }`}
                     title="Couper le son de la vidéo"
                   >
-                    {isMuted ? <VolumeX className="w-3 h-3 text-amber-400" /> : <Volume2 className="w-3 h-3" />}
+                    {isMuted ? <VolumeX className="w-3 h-3 text-amber-600 dark:text-amber-400" /> : <Volume2 className="w-3 h-3" />}
                     <span>{isMuted ? 'Muet' : 'Son'}</span>
                   </button>
                 )}
@@ -820,24 +820,24 @@ export const MediaProjectionModule = React.forwardRef<MediaProjectionHandle, Med
 
           {/* Barre d'actions : Enregistrer en favori */}
           {canSaveFavorite && (
-            <div className="pt-3 border-t border-[#222230] flex flex-wrap items-center gap-1.5">
+            <div className="pt-3 border-t border-slate-200 dark:border-[#222230] flex flex-wrap items-center gap-1.5">
               <button
                 type="button"
                 onClick={handleSaveCurrentFavorite}
-                className="px-3 py-2 rounded-lg bg-[#1D1D2B] hover:bg-[#252538] border border-[#323246] text-amber-300 text-xs font-semibold flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 transition-colors"
+                className="px-3 py-2 rounded-lg bg-[#EDF1F5] dark:bg-[#1D1D2B] hover:bg-slate-200 dark:hover:bg-[#252538] border border-slate-300 dark:border-[#323246] text-amber-700 dark:text-amber-300 text-xs font-semibold flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 transition-colors"
                 title="Enregistrer ce média dans le dossier choisi"
               >
-                <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-600 dark:text-amber-400" />
                 <span>+ Favori</span>
               </button>
               <select
                 value={targetCategoryForAdd}
                 onChange={(e) => setTargetCategoryForAdd(e.target.value)}
                 aria-label="Dossier de destination du favori"
-                className="bg-[#1A1A26] border border-[#323246] text-amber-200 text-xs rounded-lg px-2 py-2 cursor-pointer focus:outline-none max-w-[140px] truncate"
+                className="bg-[#EDF1F5] dark:bg-[#1A1A26] border border-slate-300 dark:border-[#323246] text-amber-700 dark:text-amber-200 text-xs rounded-lg px-2 py-2 cursor-pointer focus:outline-none max-w-[140px] truncate"
               >
                 {categories.map((c) => (
-                  <option key={c} value={c} className="bg-[#161622] text-white">
+                  <option key={c} value={c} className="bg-slate-50 dark:bg-[#161622] text-slate-900 dark:text-white">
                     {c}
                   </option>
                 ))}
@@ -847,10 +847,10 @@ export const MediaProjectionModule = React.forwardRef<MediaProjectionHandle, Med
         </div>
 
         {/* Colonne droite : Moniteur d'aperçu 16:9 */}
-        <div className="lg:col-span-5 bg-[#101016] border border-[#242432] rounded-xl overflow-hidden flex flex-col">
-          <div className="px-3.5 py-2 border-b border-[#1E1E28] flex items-center justify-between text-[11px]">
-            <span className="font-semibold text-gray-300">Aperçu</span>
-            <span className="text-gray-400">
+        <div className="lg:col-span-5 bg-white dark:bg-[#101016] border border-slate-300 dark:border-[#242432] rounded-xl overflow-hidden flex flex-col">
+          <div className="px-3.5 py-2 border-b border-slate-200 dark:border-[#1E1E28] flex items-center justify-between text-[11px]">
+            <span className="font-semibold text-slate-700 dark:text-gray-300">Aperçu</span>
+            <span className="text-slate-600 dark:text-gray-400">
               {MEDIA_TYPE_LABELS[effectiveMediaType]} · {SOURCE_LABELS[selectedSource]}
             </span>
           </div>
@@ -867,8 +867,8 @@ export const MediaProjectionModule = React.forwardRef<MediaProjectionHandle, Med
             ) : selectedSource === 'url' && urlInput.trim() ? (
               previewLoadError ? (
                 <div className="text-center px-4 space-y-1.5">
-                  <MonitorPlay className="w-7 h-7 text-gray-600 mx-auto" />
-                  <p className="text-xs text-gray-400">Aperçu indisponible pour ce lien</p>
+                  <MonitorPlay className="w-7 h-7 text-slate-500 dark:text-gray-600 mx-auto" />
+                  <p className="text-xs text-slate-600 dark:text-gray-400">Aperçu indisponible pour ce lien</p>
                 </div>
               ) : effectiveMediaType === 'video' ? (
                 <video
@@ -887,8 +887,8 @@ export const MediaProjectionModule = React.forwardRef<MediaProjectionHandle, Med
                 />
               ) : (
                 <div className="w-full px-3 space-y-2 text-center">
-                  <Music className="w-8 h-8 text-emerald-400 mx-auto" />
-                  <p className="text-xs text-gray-300 truncate">Piste audio</p>
+                  <Music className="w-8 h-8 text-emerald-600 dark:text-emerald-400 mx-auto" />
+                  <p className="text-xs text-slate-700 dark:text-gray-300 truncate">Piste audio</p>
                   <audio src={urlInput} controls className="w-full" />
                 </div>
               )
@@ -903,14 +903,14 @@ export const MediaProjectionModule = React.forwardRef<MediaProjectionHandle, Med
                 />
               ) : (
                 <div className="w-full px-3 space-y-2 text-center">
-                  <Music className="w-8 h-8 text-emerald-400 mx-auto" />
-                  <p className="text-xs text-gray-300 truncate">{localFileMedia.name}</p>
+                  <Music className="w-8 h-8 text-emerald-600 dark:text-emerald-400 mx-auto" />
+                  <p className="text-xs text-slate-700 dark:text-gray-300 truncate">{localFileMedia.name}</p>
                   <audio src={localFileMedia.url} controls className="w-full" />
                 </div>
               )
             ) : (
               <div className="text-center px-4 space-y-1.5">
-                <MonitorPlay className="w-8 h-8 text-gray-600 mx-auto" />
+                <MonitorPlay className="w-8 h-8 text-slate-500 dark:text-gray-600 mx-auto" />
                 <p className="text-xs text-gray-500">
                   Saisissez un lien ou choisissez un fichier pour l'aperçu
                 </p>
@@ -921,14 +921,14 @@ export const MediaProjectionModule = React.forwardRef<MediaProjectionHandle, Med
       </div>
 
       {/* 4. Bibliothèque Dossiers & Favoris (placée en bas sous le panneau de projection) */}
-      <div className="pt-4 border-t border-[#22222C] space-y-3">
+      <div className="pt-4 border-t border-slate-200 dark:border-[#22222C] space-y-3">
         {/* En-tête de bibliothèque */}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2 text-xs">
-            <Star className="w-4 h-4 text-amber-400 fill-amber-400 shrink-0" />
-            <span className="font-semibold text-white">Dossiers & Favoris</span>
-            <span aria-hidden="true" className="text-gray-600">·</span>
-            <span className="text-gray-400 tabular-nums font-mono text-[11px]">
+            <Star className="w-4 h-4 text-amber-600 dark:text-amber-400 fill-amber-400 shrink-0" />
+            <span className="font-semibold text-slate-900 dark:text-white">Dossiers & Favoris</span>
+            <span aria-hidden="true" className="text-slate-500 dark:text-gray-600">·</span>
+            <span className="text-slate-600 dark:text-gray-400 tabular-nums font-mono text-[11px]">
               {mediaFavorites.length} enregistré{mediaFavorites.length > 1 ? 's' : ''}
             </span>
           </div>
@@ -942,7 +942,7 @@ export const MediaProjectionModule = React.forwardRef<MediaProjectionHandle, Med
                   value={favoritesSearch}
                   onChange={(e) => setFavoritesSearch(e.target.value)}
                   placeholder="Filtrer les favoris..."
-                  className="bg-[#181820] border border-[#2A2A38] rounded-lg pl-7 pr-2.5 py-1 text-xs text-white placeholder:text-gray-500 focus:outline-none focus:border-amber-500/60 w-40 sm:w-48"
+                  className="bg-[#EDF1F5] dark:bg-[#181820] border border-slate-300 dark:border-[#2A2A38] rounded-lg pl-7 pr-2.5 py-1 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-amber-500/60 w-40 sm:w-48"
                 />
               </div>
             )}
@@ -960,7 +960,7 @@ export const MediaProjectionModule = React.forwardRef<MediaProjectionHandle, Med
                   value={newCategoryName}
                   onChange={(e) => setNewCategoryName(e.target.value)}
                   placeholder="Nom du dossier..."
-                  className="px-2.5 py-1 text-xs bg-[#181820] border border-amber-500/50 rounded-lg text-white placeholder:text-gray-500 focus:outline-none w-32"
+                  className="px-2.5 py-1 text-xs bg-[#EDF1F5] dark:bg-[#181820] border border-amber-500/50 rounded-lg text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-gray-500 focus:outline-none w-32"
                   autoFocus
                 />
                 <button
@@ -976,7 +976,7 @@ export const MediaProjectionModule = React.forwardRef<MediaProjectionHandle, Med
                     setNewCategoryName('');
                   }}
                   aria-label="Annuler la création de dossier"
-                  className="p-1 text-gray-400 hover:text-white cursor-pointer"
+                  className="p-1 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white cursor-pointer"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -985,9 +985,9 @@ export const MediaProjectionModule = React.forwardRef<MediaProjectionHandle, Med
               <button
                 type="button"
                 onClick={() => setIsCreatingCategory(true)}
-                className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-gray-300 hover:text-amber-200 bg-[#181820] hover:bg-[#20202C] border border-[#2C2C3C] cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-colors"
+                className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 dark:text-gray-300 hover:text-amber-800 dark:hover:text-amber-200 bg-[#EDF1F5] dark:bg-[#181820] hover:bg-slate-200/70 dark:hover:bg-[#20202C] border border-slate-300 dark:border-[#2C2C3C] cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-colors"
               >
-                <FolderPlus className="w-3.5 h-3.5 text-amber-400" />
+                <FolderPlus className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                 <span>Nouveau dossier</span>
               </button>
             )}
@@ -1001,12 +1001,12 @@ export const MediaProjectionModule = React.forwardRef<MediaProjectionHandle, Med
             onClick={() => setSelectedCategoryFilter('all')}
             className={`px-3 py-1.5 rounded-lg font-medium cursor-pointer transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
               selectedCategoryFilter === 'all'
-                ? 'bg-amber-500/20 text-amber-200 border border-amber-500/45'
-                : 'bg-[#16161E] text-gray-400 hover:text-white border border-[#252534]'
+                ? 'bg-amber-500/20 text-amber-700 dark:text-amber-200 border border-amber-500/45'
+                : 'bg-slate-50 dark:bg-[#16161E] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-[#252534]'
             }`}
           >
             <span>Tous</span>
-            <span className="text-[11px] font-mono tabular-nums text-gray-400">
+            <span className="text-[11px] font-mono tabular-nums text-slate-600 dark:text-gray-400">
               {mediaFavorites.length}
             </span>
           </button>
@@ -1026,13 +1026,13 @@ export const MediaProjectionModule = React.forwardRef<MediaProjectionHandle, Med
                   }}
                   className={`px-3 py-1.5 rounded-lg font-medium cursor-pointer transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                     isSelected
-                      ? 'bg-amber-500/20 text-amber-200 border border-amber-500/45'
-                      : 'bg-[#16161E] text-gray-300 hover:text-white border border-[#252534]'
+                      ? 'bg-amber-500/20 text-amber-700 dark:text-amber-200 border border-amber-500/45'
+                      : 'bg-slate-50 dark:bg-[#16161E] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-[#252534]'
                   }`}
                 >
-                  <FolderOpen className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <FolderOpen className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
                   <span>{cat}</span>
-                  <span className="text-[11px] font-mono tabular-nums text-gray-400">
+                  <span className="text-[11px] font-mono tabular-nums text-slate-600 dark:text-gray-400">
                     {count}
                   </span>
                 </button>
@@ -1041,7 +1041,7 @@ export const MediaProjectionModule = React.forwardRef<MediaProjectionHandle, Med
                   <button
                     type="button"
                     onClick={(e) => handleDeleteCategory(cat, e)}
-                    className="ml-0.5 p-1 text-gray-500 hover:text-red-400 opacity-70 group-hover:opacity-100 transition-opacity cursor-pointer"
+                    className="ml-0.5 p-1 text-gray-500 hover:text-red-800 dark:hover:text-red-400 opacity-70 group-hover:opacity-100 transition-opacity cursor-pointer"
                     title={`Supprimer le dossier « ${cat} »`}
                     aria-label={`Supprimer le dossier ${cat}`}
                   >
@@ -1055,8 +1055,8 @@ export const MediaProjectionModule = React.forwardRef<MediaProjectionHandle, Med
 
         {/* Grille des favoris du dossier actif */}
         {displayedFavorites.length === 0 ? (
-          <div className="px-4 py-5 rounded-xl bg-[#14141C] border border-[#222230] text-center">
-            <p className="text-xs text-gray-400">
+          <div className="px-4 py-5 rounded-xl bg-slate-50 dark:bg-[#14141C] border border-slate-200 dark:border-[#222230] text-center">
+            <p className="text-xs text-slate-600 dark:text-gray-400">
               Aucun favori dans {selectedCategoryFilter === 'all' ? 'la bibliothèque' : `« ${selectedCategoryFilter} »`}. Utilisez « + Favori » ci-dessus pour enregistrer un lien YouTube ou une URL.
             </p>
           </div>
@@ -1070,8 +1070,8 @@ export const MediaProjectionModule = React.forwardRef<MediaProjectionHandle, Med
                   key={fav.id}
                   className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl border transition-colors min-h-[44px] ${
                     isActive
-                      ? 'bg-amber-500/15 border-amber-400/60 text-white'
-                      : 'bg-[#15151D] border-[#252534] hover:border-[#36364A] hover:bg-[#191924] text-gray-200'
+                      ? 'bg-amber-500/15 border-amber-400/60 text-slate-900 dark:text-white'
+                      : 'bg-slate-50 dark:bg-[#15151D] border-slate-300 dark:border-[#252534] hover:border-slate-400 dark:hover:border-[#36364A] hover:bg-slate-200/70 dark:hover:bg-[#191924] text-slate-800 dark:text-gray-200'
                   }`}
                 >
                   <button
@@ -1083,7 +1083,7 @@ export const MediaProjectionModule = React.forwardRef<MediaProjectionHandle, Med
                     {renderTypeIcon(fav.type, 'w-4 h-4')}
                     <div className="min-w-0 flex-1">
                       <div className="text-xs font-semibold truncate">{fav.title}</div>
-                      <div className="text-[11px] text-gray-400 truncate">
+                      <div className="text-[11px] text-slate-600 dark:text-gray-400 truncate">
                         {SOURCE_LABELS[fav.source]} · {MEDIA_TYPE_LABELS[fav.type]}
                         {isActive ? ' · En direct' : ''}
                       </div>
@@ -1095,11 +1095,11 @@ export const MediaProjectionModule = React.forwardRef<MediaProjectionHandle, Med
                       value={fav.category}
                       onChange={(e) => handleChangeFavoriteCategory(fav.id, e.target.value)}
                       aria-label={`Déplacer ${fav.title} vers un dossier`}
-                      className="text-[11px] bg-[#111118] text-gray-300 border border-[#2A2A3B] rounded-md px-1.5 py-1 cursor-pointer focus:outline-none max-w-[105px] truncate"
+                      className="text-[11px] bg-white dark:bg-[#111118] text-slate-700 dark:text-gray-300 border border-slate-300 dark:border-[#2A2A3B] rounded-md px-1.5 py-1 cursor-pointer focus:outline-none max-w-[105px] truncate"
                       title="Déplacer vers un autre dossier"
                     >
                       {categories.map((c) => (
-                        <option key={c} value={c} className="bg-[#161622] text-white">
+                        <option key={c} value={c} className="bg-slate-50 dark:bg-[#161622] text-slate-900 dark:text-white">
                           {c}
                         </option>
                       ))}
@@ -1108,7 +1108,7 @@ export const MediaProjectionModule = React.forwardRef<MediaProjectionHandle, Med
                     <button
                       type="button"
                       onClick={(e) => removeFavorite(fav.id, e)}
-                      className="p-1.5 rounded-md text-gray-500 hover:text-red-400 hover:bg-red-950/30 cursor-pointer transition-colors"
+                      className="p-1.5 rounded-md text-gray-500 hover:text-red-800 dark:hover:text-red-400 hover:bg-red-100 dark:hover:bg-red-950/30 cursor-pointer transition-colors"
                       title="Retirer ce favori"
                       aria-label={`Retirer ${fav.title}`}
                     >

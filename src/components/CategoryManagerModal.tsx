@@ -195,24 +195,24 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150">
       <div 
-        className="bg-[#111113] border border-[#2A2A2D] rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-150"
+        className="bg-white dark:bg-[#111113] border border-slate-300 dark:border-[#2A2A2D] rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-4 py-3.5 border-b border-[#222224] flex items-center justify-between bg-[#151518]">
+        <div className="px-4 py-3.5 border-b border-slate-200 dark:border-[#222224] flex items-center justify-between bg-slate-50 dark:bg-[#151518]">
           <div className="flex items-center gap-2.5">
-            <div className="p-1.5 rounded-lg bg-blue-600/20 text-blue-400 border border-blue-500/30">
+            <div className="p-1.5 rounded-lg bg-blue-600/20 text-blue-600 dark:text-blue-400 border border-blue-500/30">
               <Tag className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="font-bold text-sm text-white">Gestion des Catégories</h3>
-              <p className="text-[11px] text-gray-400">Créer, filtrer ou retirer des catégories de votre répertoire</p>
+              <h3 className="font-bold text-sm text-slate-900 dark:text-white">Gestion des Catégories</h3>
+              <p className="text-[11px] text-slate-600 dark:text-gray-400">Créer, filtrer ou retirer des catégories de votre répertoire</p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#222226] transition-colors"
+            className="p-1.5 rounded-lg text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#222226] transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -222,8 +222,8 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
         {feedbackMsg && (
           <div className={`px-4 py-2 text-xs font-medium border-b flex items-center gap-2 ${
             feedbackMsg.type === 'success' 
-              ? 'bg-emerald-950/40 border-emerald-800/40 text-emerald-300'
-              : 'bg-blue-950/40 border-blue-800/40 text-blue-300'
+              ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-800/40 text-emerald-700 dark:text-emerald-300'
+              : 'bg-blue-50 dark:bg-blue-950/40 border-blue-800/40 text-blue-700 dark:text-blue-300'
           }`}>
             <Sparkles className="w-3.5 h-3.5 shrink-0" />
             <span>{feedbackMsg.text}</span>
@@ -234,13 +234,13 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
         <div className="p-4 overflow-y-auto space-y-4 flex-1">
           
           {/* Create / Add Section */}
-          <div className="p-3 bg-[#161619] rounded-lg border border-[#262629] space-y-2">
-            <label className="block text-xs font-semibold text-gray-200">
+          <div className="p-3 bg-slate-50 dark:bg-[#161619] rounded-lg border border-slate-200 dark:border-[#262629] space-y-2">
+            <label className="block text-xs font-semibold text-slate-800 dark:text-gray-200">
               Ajouter une nouvelle catégorie
             </label>
             <div className="flex items-center gap-2">
               <div className="relative flex-1">
-                <Tag className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Tag className="w-3.5 h-3.5 text-slate-600 dark:text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   placeholder="Ex: Évangélisation, Psaume, Sainte Cène..."
@@ -252,7 +252,7 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
                       handleAddCategory();
                     }
                   }}
-                  className="w-full bg-[#1C1C1E] border border-[#333] rounded-md pl-9 pr-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors"
+                  className="w-full bg-[#EDF1F5] dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] rounded-md pl-9 pr-3 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors"
                   autoFocus
                 />
               </div>
@@ -271,25 +271,25 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
           {/* Search bar inside list */}
           <div className="flex items-center justify-between gap-2 pt-1">
             <div className="relative flex-1">
-              <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <Search className="w-3.5 h-3.5 text-slate-600 dark:text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 placeholder="Filtrer les catégories..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-[#161619] border border-[#2A2A2D] rounded-md pl-8 pr-3 py-1.5 text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                className="w-full bg-slate-50 dark:bg-[#161619] border border-slate-300 dark:border-[#2A2A2D] rounded-md pl-8 pr-3 py-1.5 text-xs text-slate-800 dark:text-gray-200 placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-blue-500"
               />
               {searchQuery && (
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
                 >
                   <X className="w-3 h-3" />
                 </button>
               )}
             </div>
-            <div className="text-[11px] text-gray-400 whitespace-nowrap">
+            <div className="text-[11px] text-slate-600 dark:text-gray-400 whitespace-nowrap">
               {filteredCategories.length} catégorie{filteredCategories.length > 1 ? 's' : ''}
             </div>
           </div>
@@ -297,7 +297,7 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
           {/* Categories List */}
           <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
             {filteredCategories.length === 0 ? (
-              <div className="py-6 text-center text-gray-500 text-xs bg-[#161619]/40 rounded-lg border border-[#222224]">
+              <div className="py-6 text-center text-gray-500 text-xs bg-slate-50/40 dark:bg-[#161619]/40 rounded-lg border border-slate-200 dark:border-[#222224]">
                 Aucune catégorie trouvée.
               </div>
             ) : (
@@ -310,8 +310,8 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
                     key={cat.name}
                     className={`flex items-center justify-between p-2 rounded-lg border transition-all ${
                       isSelected
-                        ? 'bg-blue-950/20 border-blue-500/40 text-blue-200'
-                        : 'bg-[#161619] border-[#262629] text-gray-200 hover:border-[#333]'
+                        ? 'bg-blue-50 dark:bg-blue-950/20 border-blue-500/40 text-blue-700 dark:text-blue-200'
+                        : 'bg-slate-50 dark:bg-[#161619] border-slate-200 dark:border-[#262629] text-slate-800 dark:text-gray-200 hover:border-slate-400 dark:hover:border-[#333]'
                     }`}
                   >
                     <div className="flex items-center gap-2 min-w-0 pr-2">
@@ -322,7 +322,7 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
                           className={`w-4 h-4 rounded shrink-0 flex items-center justify-center border transition-colors ${
                             isSelected
                               ? 'bg-blue-600 border-blue-500 text-white'
-                              : 'border-[#444] bg-[#1C1C1E] text-transparent hover:border-gray-300'
+                              : 'border-slate-300 dark:border-[#444] bg-[#EDF1F5] dark:bg-[#1C1C1E] text-transparent hover:border-gray-300'
                           }`}
                           title={isSelected ? "Retirer du filtre actif" : "Ajouter au filtre actif"}
                         >
@@ -333,7 +333,7 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
                       <span className="text-xs font-medium truncate">{cat.name}</span>
                       
                       {cat.count > 0 ? (
-                        <span className="text-[10px] text-gray-400 bg-[#0E0E10] px-1.5 py-0.5 rounded border border-[#222224] shrink-0">
+                        <span className="text-[10px] text-slate-600 dark:text-gray-400 bg-white dark:bg-[#0E0E10] px-1.5 py-0.5 rounded border border-slate-200 dark:border-[#222224] shrink-0">
                           {cat.count} {cat.count > 1 ? 'chants' : 'chant'}
                         </span>
                       ) : (
@@ -343,7 +343,7 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
                       )}
 
                       {cat.isCustom && (
-                        <span className="text-[9px] font-bold text-blue-400 bg-blue-950/40 px-1.5 py-0.2 rounded border border-blue-800/30 shrink-0">
+                        <span className="text-[9px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-1.5 py-0.2 rounded border border-blue-800/30 shrink-0">
                           Perso
                         </span>
                       )}
@@ -352,8 +352,8 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
                     {/* Action buttons */}
                     <div className="flex items-center gap-1 shrink-0">
                       {isDeleting ? (
-                        <div className="flex items-center gap-1 bg-rose-950/60 p-1 rounded border border-rose-800/50 animate-in fade-in">
-                          <span className="text-[10px] text-rose-300 px-1">Retirer ?</span>
+                        <div className="flex items-center gap-1 bg-rose-50 dark:bg-rose-950/60 p-1 rounded border border-rose-800/50 animate-in fade-in">
+                          <span className="text-[10px] text-rose-700 dark:text-rose-300 px-1">Retirer ?</span>
                           <button
                             type="button"
                             onClick={() => confirmDeleteCategory(cat.name, cat.count > 0)}
@@ -364,7 +364,7 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
                           <button
                             type="button"
                             onClick={() => setDeletingCategory(null)}
-                            className="px-1.5 py-0.5 rounded bg-[#222] hover:bg-[#333] text-gray-300 text-[10px] transition-colors"
+                            className="px-1.5 py-0.5 rounded bg-[#EDF1F5] dark:bg-[#222] hover:bg-slate-200 dark:hover:bg-[#333] text-slate-700 dark:text-gray-300 text-[10px] transition-colors"
                           >
                             Non
                           </button>
@@ -373,7 +373,7 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
                         <button
                           type="button"
                           onClick={() => setDeletingCategory(cat.name)}
-                          className="p-1.5 rounded text-gray-400 hover:text-rose-400 hover:bg-rose-950/30 transition-colors"
+                          className="p-1.5 rounded text-slate-600 dark:text-gray-400 hover:text-rose-800 dark:hover:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-950/30 transition-colors"
                           title={`Retirer la catégorie "${cat.name}"`}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -388,14 +388,14 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
 
           {/* Reset suggestions option */}
           {hiddenCategories.length > 0 && (
-            <div className="pt-2 border-t border-[#222224] flex items-center justify-between">
+            <div className="pt-2 border-t border-slate-200 dark:border-[#222224] flex items-center justify-between">
               <span className="text-[11px] text-gray-500">
                 {hiddenCategories.length} catégories par défaut masquées
               </span>
               <button
                 type="button"
                 onClick={handleResetDefaults}
-                className="flex items-center gap-1 text-[11px] text-blue-400 hover:text-blue-300 transition-colors"
+                className="flex items-center gap-1 text-[11px] text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors"
               >
                 <RotateCcw className="w-3 h-3" />
                 <span>Restaurer les catégories par défaut</span>
@@ -406,14 +406,14 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-4 py-3 bg-[#151518] border-t border-[#222224] flex items-center justify-between">
+        <div className="px-4 py-3 bg-slate-50 dark:bg-[#151518] border-t border-slate-200 dark:border-[#222224] flex items-center justify-between">
           <span className="text-[11px] text-gray-500">
             Les catégories créées sont synchronisées avec vos chants
           </span>
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-1.5 rounded-lg bg-[#222226] hover:bg-[#2C2C30] text-gray-200 text-xs font-semibold border border-[#333] transition-colors"
+            className="px-4 py-1.5 rounded-lg bg-[#EDF1F5] dark:bg-[#222226] hover:bg-slate-200 dark:hover:bg-[#2C2C30] text-slate-800 dark:text-gray-200 text-xs font-semibold border border-slate-300 dark:border-[#333] transition-colors"
           >
             Fermer
           </button>

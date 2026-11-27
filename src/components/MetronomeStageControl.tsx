@@ -196,8 +196,8 @@ export const MetronomeStageControl: React.FC<MetronomeStageControlProps> = ({
         id="stage-metronome-bar"
         className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-lg border shadow-sm transition-all select-none ${
           isPlaying 
-            ? 'bg-emerald-950/40 border-emerald-500/50 shadow-emerald-950/50' 
-            : 'bg-[#141416] border-[#242428] hover:border-emerald-500/40'
+            ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500/50 shadow-emerald-950/50' 
+            : 'bg-slate-50 dark:bg-[#141416] border-slate-200 dark:border-[#242428] hover:border-emerald-500/40'
         }`}
         title="Métronome visuel, sonore et flash écran (BPM, signature, pulsation)"
       >
@@ -209,7 +209,7 @@ export const MetronomeStageControl: React.FC<MetronomeStageControlProps> = ({
           className={`w-6 h-6 rounded-md flex items-center justify-center transition-all cursor-pointer ${
             isPlaying
               ? 'bg-emerald-500 hover:bg-emerald-400 text-white shadow-xs ring-2 ring-emerald-400/40 animate-pulse'
-              : 'bg-[#222226] hover:bg-emerald-950/60 hover:text-emerald-300 text-gray-300'
+              : 'bg-[#EDF1F5] dark:bg-[#222226] hover:bg-emerald-100 dark:hover:bg-emerald-950/60 hover:text-emerald-800 dark:hover:text-emerald-300 text-slate-700 dark:text-gray-300'
           }`}
           title={isPlaying ? 'Mettre en pause le métronome' : 'Démarrer le métronome'}
         >
@@ -227,17 +227,17 @@ export const MetronomeStageControl: React.FC<MetronomeStageControlProps> = ({
             title={onOpenSettings ? "Modifier le tempo dans les réglages du morceau" : undefined}
             onClick={onOpenSettings}
           >
-            <Gauge className={`w-3.5 h-3.5 ${isPlaying ? 'text-emerald-400' : 'text-emerald-500/80'} shrink-0`} />
-            <span className="text-emerald-400/90 font-medium text-xs hidden sm:inline">Métronome :</span>
-            <span className="px-1.5 py-0.5 rounded bg-[#18181C] border border-[#242428] text-emerald-400 font-bold font-mono text-xs">
+            <Gauge className={`w-3.5 h-3.5 ${isPlaying ? 'text-emerald-600 dark:text-emerald-400' : 'text-emerald-500/80'} shrink-0`} />
+            <span className="text-emerald-600 dark:text-emerald-400/90 font-medium text-xs hidden sm:inline">Métronome :</span>
+            <span className="px-1.5 py-0.5 rounded bg-slate-50 dark:bg-[#18181C] border border-slate-200 dark:border-[#242428] text-emerald-600 dark:text-emerald-400 font-bold font-mono text-xs">
               {bpm}
             </span>
-            <span className="text-[10px] text-gray-400 font-mono">BPM</span>
+            <span className="text-[10px] text-slate-600 dark:text-gray-400 font-mono">BPM</span>
           </div>
         ) : (
           <div className="flex items-center gap-1">
-            <Gauge className={`w-3.5 h-3.5 ${isPlaying ? 'text-emerald-400' : 'text-emerald-500/80'} shrink-0`} />
-            <span className="text-emerald-400/90 font-medium text-xs hidden sm:inline">Métronome :</span>
+            <Gauge className={`w-3.5 h-3.5 ${isPlaying ? 'text-emerald-600 dark:text-emerald-400' : 'text-emerald-500/80'} shrink-0`} />
+            <span className="text-emerald-600 dark:text-emerald-400/90 font-medium text-xs hidden sm:inline">Métronome :</span>
             <input
               type="number"
               min={30}
@@ -247,10 +247,10 @@ export const MetronomeStageControl: React.FC<MetronomeStageControlProps> = ({
                 const val = parseInt(e.target.value, 10);
                 if (!isNaN(val)) handleBpmUpdate(val);
               }}
-              className="w-11 bg-[#18181C] hover:bg-[#202026] text-emerald-400 font-bold font-mono text-xs border border-emerald-500/40 focus:border-emerald-400 rounded px-1 py-0.5 text-center focus:outline-none transition-colors"
+              className="w-11 bg-slate-50 dark:bg-[#18181C] hover:bg-slate-200/70 dark:hover:bg-[#202026] text-emerald-600 dark:text-emerald-400 font-bold font-mono text-xs border border-emerald-500/40 focus:border-emerald-400 rounded px-1 py-0.5 text-center focus:outline-none transition-colors"
               title="Cliquer pour ajuster le tempo (BPM)"
             />
-            <span className="text-[10px] text-gray-400 font-mono">BPM</span>
+            <span className="text-[10px] text-slate-600 dark:text-gray-400 font-mono">BPM</span>
           </div>
         )}
 
@@ -261,13 +261,13 @@ export const MetronomeStageControl: React.FC<MetronomeStageControlProps> = ({
           onClick={handleToggleMute}
           className={`p-1 rounded transition-colors cursor-pointer ${
             isMuted
-              ? 'text-gray-500 hover:text-gray-300'
-              : 'text-emerald-400 bg-emerald-950/40 hover:bg-emerald-950/60'
+              ? 'text-gray-500 hover:text-slate-900 dark:hover:text-gray-300'
+              : 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-950/60'
           }`}
           title={isMuted ? 'Activer le clic sonore (son coupé)' : 'Couper le son (métronome visuel uniquement)'}
         >
           {isMuted ? (
-            <VolumeX className="w-3.5 h-3.5 text-gray-400" />
+            <VolumeX className="w-3.5 h-3.5 text-slate-600 dark:text-gray-400" />
           ) : (
             <Volume2 className="w-3.5 h-3.5" />
           )}
@@ -280,12 +280,12 @@ export const MetronomeStageControl: React.FC<MetronomeStageControlProps> = ({
           onClick={handleToggleScreenFlash}
           className={`p-1 rounded transition-all cursor-pointer ${
             enableScreenFlash
-              ? 'bg-amber-500/25 text-amber-400 border border-amber-500/50 shadow-[0_0_8px_rgba(245,158,11,0.3)]'
-              : 'text-gray-400 hover:text-amber-300 hover:bg-[#202026]'
+              ? 'bg-amber-500/25 text-amber-600 dark:text-amber-400 border border-amber-500/50 shadow-[0_0_8px_rgba(245,158,11,0.3)]'
+              : 'text-slate-600 dark:text-gray-400 hover:text-amber-800 dark:hover:text-amber-300 hover:bg-slate-200/70 dark:hover:bg-[#202026]'
           }`}
           title={enableScreenFlash ? "Flash écran actif (cliquer pour désactiver)" : "Activer le flash écran au tempo"}
         >
-          <Zap className={`w-3.5 h-3.5 ${enableScreenFlash ? 'fill-amber-400 text-amber-400' : ''}`} />
+          <Zap className={`w-3.5 h-3.5 ${enableScreenFlash ? 'fill-amber-400 text-amber-600 dark:text-amber-400' : ''}`} />
         </button>
       </div>
     </div>

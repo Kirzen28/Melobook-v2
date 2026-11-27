@@ -186,20 +186,20 @@ export const AssignMembersModal: React.FC<AssignMembersModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-xs animate-in fade-in duration-200">
       <div 
-        className="w-full max-w-2xl bg-[#111114] border border-[#262630] rounded-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden text-[#E0E0E0]"
+        className="w-full max-w-2xl bg-white dark:bg-[#111114] border border-slate-300 dark:border-[#262630] rounded-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden text-slate-900 dark:text-[#E0E0E0]"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="p-4 sm:p-5 border-b border-[#222228] flex items-start justify-between gap-3 bg-[#15151A]">
+        <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-[#222228] flex items-start justify-between gap-3 bg-slate-50 dark:bg-[#15151A]">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400 shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
               <UserPlus className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+              <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <span>Assigner des membres à une bibliothèque</span>
               </h2>
-              <p className="text-xs text-gray-400 mt-0.5">
+              <p className="text-xs text-slate-600 dark:text-gray-400 mt-0.5">
                 Cochez les membres autorisés à accéder au répertoire et aux setlists de cette bibliothèque.
               </p>
             </div>
@@ -208,7 +208,7 @@ export const AssignMembersModal: React.FC<AssignMembersModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#202028] transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#202028] transition-colors cursor-pointer"
             aria-label="Fermer"
           >
             <X className="w-5 h-5" />
@@ -216,9 +216,9 @@ export const AssignMembersModal: React.FC<AssignMembersModalProps> = ({
         </div>
 
         {/* Target Library Selector Bar */}
-        <div className="p-4 border-b border-[#222228] bg-[#0E0E12] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-xs font-semibold text-gray-300">
-            <Library className="w-4 h-4 text-blue-400 shrink-0" />
+        <div className="p-4 border-b border-slate-200 dark:border-[#222228] bg-white dark:bg-[#0E0E12] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-gray-300">
+            <Library className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
             <span>Bibliothèque cible :</span>
           </div>
 
@@ -226,36 +226,36 @@ export const AssignMembersModal: React.FC<AssignMembersModalProps> = ({
             <select
               value={selectedGroupId}
               onChange={(e) => setSelectedGroupId(e.target.value)}
-              className="w-full bg-[#1A1A22] border border-[#2E2E3C] rounded-lg px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-blue-500 cursor-pointer appearance-none pr-8"
+              className="w-full bg-[#EDF1F5] dark:bg-[#1A1A22] border border-slate-300 dark:border-[#2E2E3C] rounded-lg px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 cursor-pointer appearance-none pr-8"
             >
               {groups.map((g) => (
-                <option key={g.id} value={g.id} className="bg-[#1A1A22] text-white">
+                <option key={g.id} value={g.id} className="bg-[#EDF1F5] dark:bg-[#1A1A22] text-slate-900 dark:text-white">
                   {g.name} — code {g.inviteCode || 'LOUAN7'}
                 </option>
               ))}
             </select>
-            <ChevronDown className="w-4 h-4 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <ChevronDown className="w-4 h-4 text-slate-600 dark:text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
         </div>
 
         {/* Toolbar: Search, Filters & Multiselect actions */}
-        <div className="p-4 space-y-3 border-b border-[#222228] bg-[#141418]">
+        <div className="p-4 space-y-3 border-b border-slate-200 dark:border-[#222228] bg-slate-50 dark:bg-[#141418]">
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
             {/* Search */}
             <div className="relative flex-1">
-              <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <Search className="w-3.5 h-3.5 text-slate-600 dark:text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 placeholder="Rechercher par nom ou adresse e-mail..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-[#1B1B22] border border-[#2A2A34] rounded-lg pl-8.5 pr-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                className="w-full bg-[#EDF1F5] dark:bg-[#1B1B22] border border-slate-300 dark:border-[#2A2A34] rounded-lg pl-8.5 pr-3 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-blue-500"
               />
               {searchQuery && (
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
                 >
                   <X className="w-3 h-3" />
                 </button>
@@ -263,14 +263,14 @@ export const AssignMembersModal: React.FC<AssignMembersModalProps> = ({
             </div>
 
             {/* Filter Pills */}
-            <div className="flex items-center gap-1 bg-[#181820] p-1 rounded-lg border border-[#282834] shrink-0">
+            <div className="flex items-center gap-1 bg-[#EDF1F5] dark:bg-[#181820] p-1 rounded-lg border border-slate-300 dark:border-[#282834] shrink-0">
               <button
                 type="button"
                 onClick={() => setFilterMode('all')}
                 className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-colors cursor-pointer ${
                   filterMode === 'all'
                     ? 'bg-blue-600 text-white shadow-xs'
-                    : 'text-gray-400 hover:text-white'
+                    : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 Tous
@@ -281,7 +281,7 @@ export const AssignMembersModal: React.FC<AssignMembersModalProps> = ({
                 className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-colors cursor-pointer ${
                   filterMode === 'assigned'
                     ? 'bg-blue-600 text-white shadow-xs'
-                    : 'text-gray-400 hover:text-white'
+                    : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 Assignés
@@ -292,7 +292,7 @@ export const AssignMembersModal: React.FC<AssignMembersModalProps> = ({
                 className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-colors cursor-pointer ${
                   filterMode === 'unassigned'
                     ? 'bg-blue-600 text-white shadow-xs'
-                    : 'text-gray-400 hover:text-white'
+                    : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 Non assignés
@@ -306,35 +306,35 @@ export const AssignMembersModal: React.FC<AssignMembersModalProps> = ({
               <button
                 type="button"
                 onClick={areAllFilteredSelected ? handleDeselectAllFiltered : handleSelectAllFiltered}
-                className="px-2.5 py-1 rounded-md bg-[#1E1E26] hover:bg-[#282834] border border-[#2E2E3C] text-gray-300 hover:text-white text-[11px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                className="px-2.5 py-1 rounded-md bg-[#EDF1F5] dark:bg-[#1E1E26] hover:bg-slate-200 dark:hover:bg-[#282834] border border-slate-300 dark:border-[#2E2E3C] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white text-[11px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
               >
                 {areAllFilteredSelected ? (
                   <>
-                    <Square className="w-3.5 h-3.5 text-blue-400" />
+                    <Square className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                     <span>Tout désélectionner</span>
                   </>
                 ) : (
                   <>
-                    <CheckSquare className="w-3.5 h-3.5 text-blue-400" />
+                    <CheckSquare className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                     <span>Tout sélectionner</span>
                   </>
                 )}
               </button>
 
-              <span className="text-[11px] text-gray-400">
+              <span className="text-[11px] text-slate-600 dark:text-gray-400">
                 {filteredUsers.length} musicien{filteredUsers.length > 1 ? 's' : ''} visible{filteredUsers.length > 1 ? 's' : ''}
               </span>
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-blue-600/20 text-blue-300 border border-blue-500/30">
+              <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-blue-600/20 text-blue-700 dark:text-blue-300 border border-blue-500/30">
                 {selectedCount} coché{selectedCount > 1 ? 's' : ''} au total
               </span>
               {selectedCount > 0 && (
                 <button
                   type="button"
                   onClick={() => setSelectedUids(new Set())}
-                  className="text-[11px] text-gray-400 hover:text-rose-400 transition-colors cursor-pointer underline"
+                  className="text-[11px] text-slate-600 dark:text-gray-400 hover:text-rose-800 dark:hover:text-rose-400 transition-colors cursor-pointer underline"
                 >
                   Effacer la sélection
                 </button>
@@ -344,7 +344,7 @@ export const AssignMembersModal: React.FC<AssignMembersModalProps> = ({
         </div>
 
         {/* Users List with Checkboxes */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-2 divide-y divide-[#1F1F28] custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-4 space-y-2 divide-y divide-slate-200 dark:divide-[#1F1F28] custom-scrollbar">
           {filteredUsers.length > 0 ? (
             filteredUsers.map((u) => {
               const isSelected = selectedUids.has(u.uid);
@@ -361,7 +361,7 @@ export const AssignMembersModal: React.FC<AssignMembersModalProps> = ({
                   className={`pt-2 first:pt-0 p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 select-none ${
                     isSelected
                       ? 'bg-blue-600/12 border-blue-500/50 shadow-xs'
-                      : 'bg-[#15151A] hover:bg-[#1C1C22] border-[#22222A]'
+                      : 'bg-slate-50 dark:bg-[#15151A] hover:bg-slate-200/70 dark:hover:bg-[#1C1C22] border-slate-200 dark:border-[#22222A]'
                   }`}
                 >
                   {/* Left: Checkbox + Avatar + User Details */}
@@ -370,7 +370,7 @@ export const AssignMembersModal: React.FC<AssignMembersModalProps> = ({
                       className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors shrink-0 ${
                         isSelected 
                           ? 'bg-blue-600 border-blue-500 text-white' 
-                          : 'border-gray-600 bg-[#1A1A22]'
+                          : 'border-gray-600 bg-[#EDF1F5] dark:bg-[#1A1A22]'
                       }`}
                     >
                       {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
@@ -383,23 +383,23 @@ export const AssignMembersModal: React.FC<AssignMembersModalProps> = ({
                       iconClass="w-4 h-4"
                       fallbackClassName={
                         isAdmin 
-                          ? 'bg-blue-600/30 text-blue-300 border border-blue-500/40' 
+                          ? 'bg-blue-600/30 text-blue-700 dark:text-blue-300 border border-blue-500/40' 
                           : isSetlists
-                          ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/40'
-                          : 'bg-[#22222A] text-gray-300 border border-[#333]'
+                          ? 'bg-emerald-600/30 text-emerald-700 dark:text-emerald-300 border border-emerald-500/40'
+                          : 'bg-[#EDF1F5] dark:bg-[#22222A] text-slate-700 dark:text-gray-300 border border-slate-300 dark:border-[#333]'
                       }
                     />
 
                     <div className="min-w-0">
-                      <div className="font-bold text-xs text-white truncate flex items-center gap-1.5">
+                      <div className="font-bold text-xs text-slate-900 dark:text-white truncate flex items-center gap-1.5">
                         <span>{u.displayName || 'Utilisateur'}</span>
                         {isCurrentUser && (
-                          <span className="text-[9px] px-1.5 py-0.2 rounded bg-blue-600/20 text-blue-300 border border-blue-500/30 font-medium">
+                          <span className="text-[9px] px-1.5 py-0.2 rounded bg-blue-600/20 text-blue-700 dark:text-blue-300 border border-blue-500/30 font-medium">
                             Vous
                           </span>
                         )}
                       </div>
-                      <div className="text-[11px] text-gray-400 truncate font-mono">
+                      <div className="text-[11px] text-slate-600 dark:text-gray-400 truncate font-mono">
                         {u.email || 'Sans e-mail'}
                       </div>
                     </div>
@@ -409,21 +409,21 @@ export const AssignMembersModal: React.FC<AssignMembersModalProps> = ({
                   <div className="flex items-center gap-2 shrink-0">
                     <span className={`text-[10px] px-2 py-0.5 rounded font-semibold border whitespace-nowrap ${
                       isAdmin 
-                        ? 'bg-blue-600/20 text-blue-300 border-blue-500/30' 
+                        ? 'bg-blue-600/20 text-blue-700 dark:text-blue-300 border-blue-500/30' 
                         : isSetlists
-                        ? 'bg-emerald-600/20 text-emerald-300 border-emerald-500/30'
-                        : 'bg-[#1C1C22] text-gray-300 border-[#2E2E38]'
+                        ? 'bg-emerald-600/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
+                        : 'bg-[#EDF1F5] dark:bg-[#1C1C22] text-slate-700 dark:text-gray-300 border-slate-300 dark:border-[#2E2E38]'
                     }`}>
                       {isAdmin ? 'Admin' : formatAccessSummary(memberAccesses)}
                     </span>
 
                     {isOriginallyAssigned ? (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-medium flex items-center gap-1">
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 font-medium flex items-center gap-1">
                         <Check className="w-2.5 h-2.5" />
                         <span>Assigné</span>
                       </span>
                     ) : (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#1C1C24] text-gray-400 border border-[#2A2A34] font-medium">
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#EDF1F5] dark:bg-[#1C1C24] text-slate-600 dark:text-gray-400 border border-slate-300 dark:border-[#2A2A34] font-medium">
                         Non assigné
                       </span>
                     )}
@@ -432,28 +432,28 @@ export const AssignMembersModal: React.FC<AssignMembersModalProps> = ({
               );
             })
           ) : (
-            <div className="text-center py-8 text-gray-400 text-xs">
-              <Users className="w-8 h-8 text-gray-600 mx-auto mb-2 opacity-50" />
+            <div className="text-center py-8 text-slate-600 dark:text-gray-400 text-xs">
+              <Users className="w-8 h-8 text-slate-500 dark:text-gray-600 mx-auto mb-2 opacity-50" />
               <p>Aucun utilisateur ne correspond à ce critère de recherche.</p>
             </div>
           )}
         </div>
 
         {/* Quick Add by Email Section */}
-        <div className="px-4 py-3 bg-[#0E0E12] border-t border-[#222228]">
+        <div className="px-4 py-3 bg-white dark:bg-[#0E0E12] border-t border-slate-200 dark:border-[#222228]">
           <form onSubmit={handleAddByEmail} className="flex items-center gap-2">
-            <Mail className="w-4 h-4 text-gray-400 shrink-0" />
+            <Mail className="w-4 h-4 text-slate-600 dark:text-gray-400 shrink-0" />
             <input
               type="email"
               placeholder="Cocher rapidement un membre par e-mail..."
               value={manualEmail}
               onChange={(e) => setManualEmail(e.target.value)}
-              className="flex-1 bg-[#181820] border border-[#2A2A36] rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+              className="flex-1 bg-[#EDF1F5] dark:bg-[#181820] border border-slate-300 dark:border-[#2A2A36] rounded-lg px-2.5 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-blue-500"
             />
             <button
               type="submit"
               disabled={!manualEmail.trim()}
-              className="px-3 py-1.5 rounded-lg bg-[#22222C] hover:bg-[#2A2A38] text-white font-semibold text-xs border border-[#333342] transition-colors cursor-pointer disabled:opacity-50"
+              className="px-3 py-1.5 rounded-lg bg-[#EDF1F5] dark:bg-[#22222C] hover:bg-slate-200 dark:hover:bg-[#2A2A38] text-slate-900 dark:text-white font-semibold text-xs border border-slate-300 dark:border-[#333342] transition-colors cursor-pointer disabled:opacity-50"
             >
               Cocher
             </button>
@@ -461,8 +461,8 @@ export const AssignMembersModal: React.FC<AssignMembersModalProps> = ({
         </div>
 
         {/* Footer Actions */}
-        <div className="p-4 bg-[#15151A] border-t border-[#222228] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-          <div className="text-xs text-gray-400">
+        <div className="p-4 bg-slate-50 dark:bg-[#15151A] border-t border-slate-200 dark:border-[#222228] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <div className="text-xs text-slate-600 dark:text-gray-400">
             <span>{selectedCount} membre{selectedCount > 1 ? 's' : ''} assigné{selectedCount > 1 ? 's' : ''} à « {activeTargetGroup?.name} »</span>
           </div>
 
@@ -470,7 +470,7 @@ export const AssignMembersModal: React.FC<AssignMembersModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl bg-[#202028] hover:bg-[#2A2A34] text-gray-300 hover:text-white font-semibold text-xs transition-colors cursor-pointer"
+              className="px-4 py-2 rounded-xl bg-[#EDF1F5] dark:bg-[#202028] hover:bg-slate-200 dark:hover:bg-[#2A2A34] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white font-semibold text-xs transition-colors cursor-pointer"
             >
               Annuler
             </button>

@@ -121,6 +121,33 @@ export function getSectionColor(sectionType: string | undefined, colors: Section
 }
 
 /**
+ * Ensures chord colors remain crisp and legible against daylight light backgrounds
+ */
+export function getReadableChordColor(chordColor: string | undefined, isLight: boolean): string {
+  const base = chordColor || DEFAULT_CHORD_COLOR;
+  if (!isLight) return base;
+  if (base.toLowerCase() === DEFAULT_CHORD_COLOR.toLowerCase()) return '#1D4ED8';
+
+  const hex = base.replace('#', '').trim();
+  if (!/^[0-9a-fA-F]{6}$/.test(hex)) return base;
+
+  const r = parseInt(hex.slice(0, 2), 16);
+  const g = parseInt(hex.slice(2, 4), 16);
+  const b = parseInt(hex.slice(4, 6), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+
+  if (luminance > 0.78) return '#1E293B';
+  if (luminance > 0.48) {
+    const scale = 0.58;
+    const dr = Math.round(r * scale).toString(16).padStart(2, '0');
+    const dg = Math.round(g * scale).toString(16).padStart(2, '0');
+    const db = Math.round(b * scale).toString(16).padStart(2, '0');
+    return `#${dr}${dg}${db}`;
+  }
+  return base;
+}
+
+/**
  * Calculates CSS border and background properties for song sections based on active borders
  */
 export function getSectionBorderStyles(secColor: string, borders?: SectionBorders): React.CSSProperties {

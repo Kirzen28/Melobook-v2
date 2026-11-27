@@ -411,20 +411,20 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
 
   return (
     <>
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5">
-      <div className="bg-[#111112] border border-[#222224] rounded-xl w-full max-w-4xl max-h-[90vh] shadow-2xl flex flex-col overflow-hidden text-[#E0E0E0]">
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 animate-in fade-in duration-150">
+      <div className="bg-white dark:bg-[#111112] border border-slate-200 dark:border-[#222224] rounded-xl w-full max-w-4xl max-h-[90vh] shadow-2xl flex flex-col overflow-hidden text-slate-900 dark:text-[#E0E0E0] animate-in zoom-in-95 duration-150">
         
         {/* Header */}
-        <div className="p-4 sm:p-5 border-b border-[#222224] flex items-center justify-between gap-3 bg-[#151518]">
+        <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-[#222224] flex items-center justify-between gap-3 bg-slate-50 dark:bg-[#151518]">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="p-2 rounded-lg bg-blue-600/20 text-blue-400 border border-blue-500/30 shrink-0">
+            <div className="p-2 rounded-lg bg-blue-600/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 shrink-0">
               <ListMusic className="w-5 h-5" />
             </div>
             <div className="min-w-0">
-              <h2 className="text-sm sm:text-base font-bold text-white truncate">
+              <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white truncate">
                 Ajouter des chants à la setlist « {setlist.name} »
               </h2>
-              <p className="text-[11px] text-gray-400">
+              <p className="text-[11px] text-slate-600 dark:text-gray-400">
                 {validSetlistSongIds.length} chant{validSetlistSongIds.length > 1 ? 's' : ''} dans la setlist
               </p>
             </div>
@@ -432,7 +432,7 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
           <button 
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-400 hover:text-white border border-[#333] transition-colors shrink-0 cursor-pointer"
+            className="p-1.5 rounded-lg bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-slate-200 dark:hover:bg-[#2A2A2D] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-[#333] transition-colors shrink-0 cursor-pointer"
             title="Fermer"
           >
             <X className="w-4 h-4" />
@@ -440,26 +440,26 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
         </div>
 
         {/* Search & Filter Controls Bar - Même agencement et style que l'onglet Chants */}
-        <div className="p-3 sm:p-4 pb-2 border-b border-[#1E1E22] bg-[#0E0E10] space-y-2.5">
+        <div className="p-3 sm:p-4 pb-2 border-b border-slate-200 dark:border-[#1E1E22] bg-white dark:bg-[#0E0E10] space-y-2.5">
           
-          <div className="bg-[#111112] border border-[#222224] rounded-lg p-2.5 flex flex-col md:flex-row items-center gap-2.5">
+          <div className="bg-white dark:bg-[#111112] border border-slate-200 dark:border-[#222224] rounded-lg p-2.5 flex flex-col md:flex-row items-center gap-2.5">
             {/* Search Input + Nouveau Chant Dropdown Button */}
             <div className="flex items-center gap-2 w-full md:flex-1">
               <div className="relative flex-1 min-w-0">
-                <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-3.5 h-3.5 text-slate-600 dark:text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   placeholder="Rechercher par titre, artiste, paroles ou catégorie..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-[#1C1C1E] border border-[#333] rounded-md pl-9 pr-16 py-1.5 text-xs text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-all"
+                  className="w-full bg-[#EDF1F5] dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] rounded-md pl-9 pr-16 py-1.5 text-xs text-slate-900 dark:text-gray-100 placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-all"
                 />
                 <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
                   {searchQuery && (
                     <button 
                       type="button"
                       onClick={() => setSearchQuery('')}
-                      className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-white transition-colors cursor-pointer"
+                      className="w-5 h-5 flex items-center justify-center text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
                       title="Effacer la recherche"
                     >
                       <X className="w-3.5 h-3.5" />
@@ -499,9 +499,9 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
                   {isNewSongDropdownOpen && (
                     <div
                       role="menu"
-                      className="absolute right-0 mt-1.5 w-80 max-w-[calc(100vw-2rem)] bg-[#111112] border border-[#333] rounded-lg shadow-2xl z-50 py-1.5 text-xs animate-in fade-in zoom-in-95 duration-100"
+                      className="absolute right-0 mt-1.5 w-80 max-w-[calc(100vw-2rem)] bg-white dark:bg-[#111112] border border-slate-300 dark:border-[#333] rounded-lg shadow-2xl z-50 py-1.5 text-xs animate-in fade-in zoom-in-95 duration-100"
                     >
-                      <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400 border-b border-[#222224]">
+                      <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-gray-400 border-b border-slate-200 dark:border-[#222224]">
                         Ajouter un chant
                       </div>
 
@@ -509,16 +509,16 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
                         type="button"
                         role="menuitem"
                         onClick={handleCreateNewSongFromModal}
-                        className="w-full text-left px-3.5 py-2.5 hover:bg-[#1C1C1E] flex items-start gap-2.5 transition-colors group bg-blue-950/20 border-b border-[#222224] cursor-pointer"
+                        className="w-full text-left px-3.5 py-2.5 hover:bg-slate-200/70 dark:hover:bg-[#1C1C1E] flex items-start gap-2.5 transition-colors group bg-blue-50 dark:bg-blue-950/20 border-b border-slate-200 dark:border-[#222224] cursor-pointer"
                       >
                         <div className="p-1.5 rounded bg-blue-600/20 border border-blue-500/30 text-blue-400 mt-0.5 group-hover:bg-blue-600 group-hover:text-white transition-colors">
                           <Pen className="w-4 h-4" />
                         </div>
                         <div>
-                          <div className="font-semibold text-white group-hover:text-blue-400">
+                          <div className="font-semibold text-slate-900 dark:text-white group-hover:text-blue-800 dark:group-hover:text-blue-400">
                             Créer à partir de zéro
                           </div>
-                          <p className="text-[11px] text-gray-400 mt-0.5">
+                          <p className="text-[11px] text-slate-600 dark:text-gray-400 mt-0.5">
                             Composer un nouveau chant directement dans l'éditeur de l'app
                           </p>
                         </div>
@@ -528,17 +528,17 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
                         type="button"
                         role="menuitem"
                         onClick={() => handleOpenImport('search')}
-                        className="w-full text-left px-3.5 py-2.5 hover:bg-[#1C1C1E] flex items-start gap-2.5 transition-colors group border-b border-[#222224] cursor-pointer"
+                        className="w-full text-left px-3.5 py-2.5 hover:bg-slate-200/70 dark:hover:bg-[#1C1C1E] flex items-start gap-2.5 transition-colors group border-b border-slate-200 dark:border-[#222224] cursor-pointer"
                       >
-                        <div className="p-1.5 rounded bg-[#1C1C1E] border border-[#333] text-blue-400 mt-0.5 group-hover:border-blue-500">
+                        <div className="p-1.5 rounded bg-[#EDF1F5] dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] text-blue-600 dark:text-blue-400 mt-0.5 group-hover:border-blue-500">
                           <Search className="w-4 h-4" />
                         </div>
                         <div>
-                          <div className="font-semibold text-white group-hover:text-blue-400 flex items-center gap-1.5">
+                          <div className="font-semibold text-slate-900 dark:text-white group-hover:text-blue-800 dark:group-hover:text-blue-400 flex items-center gap-1.5">
                             <span>Recherche en ligne</span>
-                            <span className="px-1.5 py-0.2 text-[9px] font-bold uppercase rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">Nouveau</span>
+                            <span className="px-1.5 py-0.2 text-[9px] font-bold uppercase rounded bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30">Nouveau</span>
                           </div>
-                          <p className="text-[11px] text-gray-400 mt-0.5">
+                          <p className="text-[11px] text-slate-600 dark:text-gray-400 mt-0.5">
                             Cherchez parmi des milliers de chants chrétiens et importez en 1 clic
                           </p>
                         </div>
@@ -548,16 +548,16 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
                         type="button"
                         role="menuitem"
                         onClick={() => handleOpenImport('file')}
-                        className="w-full text-left px-3.5 py-2.5 hover:bg-[#1C1C1E] flex items-start gap-2.5 transition-colors group border-b border-[#222224] cursor-pointer"
+                        className="w-full text-left px-3.5 py-2.5 hover:bg-slate-200/70 dark:hover:bg-[#1C1C1E] flex items-start gap-2.5 transition-colors group border-b border-slate-200 dark:border-[#222224] cursor-pointer"
                       >
-                        <div className="p-1.5 rounded bg-[#1C1C1E] border border-[#333] text-blue-400 mt-0.5 group-hover:border-blue-500">
+                        <div className="p-1.5 rounded bg-[#EDF1F5] dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] text-blue-600 dark:text-blue-400 mt-0.5 group-hover:border-blue-500">
                           <Upload className="w-4 h-4" />
                         </div>
                         <div>
-                          <div className="font-semibold text-white group-hover:text-blue-400">
+                          <div className="font-semibold text-slate-900 dark:text-white group-hover:text-blue-800 dark:group-hover:text-blue-400">
                             Importer un fichier
                           </div>
-                          <p className="text-[11px] text-gray-400 mt-0.5">
+                          <p className="text-[11px] text-slate-600 dark:text-gray-400 mt-0.5">
                             Fichiers locaux (.cho, .pro, .txt, .crd) par glisser-déposer
                           </p>
                         </div>
@@ -567,16 +567,16 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
                         type="button"
                         role="menuitem"
                         onClick={() => handleOpenImport('chordpro')}
-                        className="w-full text-left px-3.5 py-2.5 hover:bg-[#1C1C1E] flex items-start gap-2.5 transition-colors group cursor-pointer"
+                        className="w-full text-left px-3.5 py-2.5 hover:bg-slate-200/70 dark:hover:bg-[#1C1C1E] flex items-start gap-2.5 transition-colors group cursor-pointer"
                       >
-                        <div className="p-1.5 rounded bg-[#1C1C1E] border border-[#333] text-blue-400 mt-0.5 group-hover:border-blue-500">
+                        <div className="p-1.5 rounded bg-[#EDF1F5] dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] text-blue-600 dark:text-blue-400 mt-0.5 group-hover:border-blue-500">
                           <FileCode className="w-4 h-4" />
                         </div>
                         <div>
-                          <div className="font-semibold text-white group-hover:text-blue-400">
+                          <div className="font-semibold text-slate-900 dark:text-white group-hover:text-blue-800 dark:group-hover:text-blue-400">
                             Écrire / Coller ChordPro
                           </div>
-                          <p className="text-[11px] text-gray-400 mt-0.5">
+                          <p className="text-[11px] text-slate-600 dark:text-gray-400 mt-0.5">
                             Saisie directe de paroles et accords ou texte brut
                           </p>
                         </div>
@@ -597,33 +597,33 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
                   onClick={() => setIsCategoryFilterOpen(!isCategoryFilterOpen)}
                   className={`h-[34px] w-full bg-[#1C1C1E] border hover:border-[#444] rounded-md px-2 sm:px-2.5 py-1 text-xs text-gray-200 cursor-pointer flex items-center justify-between gap-1 sm:gap-1.5 transition-colors ${
                     selectedCategories.length > 0
-                      ? 'border-blue-500/50 bg-blue-950/20'
-                      : 'border-[#333]'
+                      ? 'border-blue-500/50 bg-blue-50 dark:bg-blue-950/20'
+                      : 'border-slate-300 dark:border-[#333]'
                   }`}
                   title="Filtrer par catégorie"
                 >
                   <div className="flex items-center gap-1 sm:gap-1.5 min-w-0 truncate">
-                    <Tag className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                    <Tag className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
                     {selectedCategories.length === 0 ? (
-                      <span className="text-gray-300 truncate text-[11px] sm:text-xs">Catégories</span>
+                      <span className="text-slate-700 dark:text-gray-300 truncate text-[11px] sm:text-xs">Catégories</span>
                     ) : (
-                      <span className="text-blue-300 font-semibold truncate text-[11px] sm:text-xs">
+                      <span className="text-blue-700 dark:text-blue-300 font-semibold truncate text-[11px] sm:text-xs">
                         {selectedCategories.length === 1 ? selectedCategories[0] : `${selectedCategories.length} cat.`}
                       </span>
                     )}
                   </div>
-                  <ChevronDown className={`w-3 h-3 text-gray-400 shrink-0 transition-transform ml-0.5 ${isCategoryFilterOpen ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`w-3 h-3 text-slate-600 dark:text-gray-400 shrink-0 transition-transform ml-0.5 ${isCategoryFilterOpen ? 'rotate-180' : ''}`} />
                 </button>
 
                 {isCategoryFilterOpen && (
-                  <div className="absolute left-0 mt-1.5 w-72 sm:w-80 max-w-[calc(100vw-2rem)] bg-[#141416] border border-[#2A2A2D] rounded-lg shadow-2xl p-2.5 z-50 text-xs">
+                  <div className="absolute left-0 mt-1.5 w-72 sm:w-80 max-w-[calc(100vw-2rem)] bg-slate-50 dark:bg-[#141416] border border-slate-300 dark:border-[#2A2A2D] rounded-lg shadow-2xl p-2.5 z-50 text-xs">
                     <div className="flex items-center justify-between mb-2 px-0.5">
-                      <div className="flex items-center gap-1.5 font-semibold text-white text-xs">
-                        <Tag className="w-3.5 h-3.5 text-blue-400" />
+                      <div className="flex items-center gap-1.5 font-semibold text-slate-900 dark:text-white text-xs">
+                        <Tag className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                         <span>Catégories</span>
                       </div>
                       {selectedCategories.length > 0 ? (
-                        <span className="text-[11px] text-blue-400 font-semibold">
+                        <span className="text-[11px] text-blue-600 dark:text-blue-400 font-semibold">
                           {selectedCategories.length} sélectionnée{selectedCategories.length > 1 ? 's' : ''}
                         </span>
                       ) : (
@@ -643,7 +643,7 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
                             handleCreateCategory();
                           }
                         }}
-                        className="flex-1 bg-[#1C1C1E] border border-[#333] rounded px-2.5 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                        className="flex-1 bg-[#EDF1F5] dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] rounded px-2.5 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-blue-500"
                         autoFocus
                       />
                       {categoryFilterSearch.trim() && (
@@ -668,7 +668,7 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
                               <button
                                 type="button"
                                 onClick={() => handleCreateCategory()}
-                                className="block mx-auto mt-1 text-blue-400 font-semibold hover:underline"
+                                className="block mx-auto mt-1 text-blue-600 dark:text-blue-400 font-semibold hover:underline"
                               >
                                 + Créer &quot;{categoryFilterSearch.trim()}&quot;
                               </button>
@@ -686,14 +686,14 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
                               onClick={() => toggleCategoryFilter(cat.name)}
                               className={`flex items-center justify-between px-2.5 py-1.5 rounded cursor-pointer transition-colors ${
                                 isSelected
-                                  ? 'bg-blue-600/15 text-blue-300 font-medium'
-                                  : 'hover:bg-[#1C1C1E] text-gray-300'
+                                  ? 'bg-blue-600/15 text-blue-700 dark:text-blue-300 font-medium'
+                                  : 'hover:bg-slate-200/70 dark:hover:bg-[#1C1C1E] text-slate-700 dark:text-gray-300'
                               }`}
                             >
                               <div className="flex items-center gap-2 truncate pr-2">
                                 <span className="truncate">{cat.name}</span>
                                 {cat.count > 0 && (
-                                  <span className="text-[10px] text-gray-400 bg-[#0A0A0B] px-1.5 py-0.2 rounded border border-[#222224]">
+                                  <span className="text-[10px] text-slate-600 dark:text-gray-400 bg-[#F4F6F9] dark:bg-[#0A0A0B] px-1.5 py-0.2 rounded border border-slate-200 dark:border-[#222224]">
                                     {cat.count}
                                   </span>
                                 )}
@@ -701,7 +701,7 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
                               <div className={`w-4 h-4 rounded shrink-0 flex items-center justify-center border transition-colors ${
                                 isSelected 
                                   ? 'bg-blue-600 border-blue-500 text-white' 
-                                  : 'border-[#444] bg-[#1C1C1E]'
+                                  : 'border-slate-300 dark:border-[#444] bg-[#EDF1F5] dark:bg-[#1C1C1E]'
                               }`}>
                                 {isSelected && <Check className="w-3 h-3 stroke-[2.5]" />}
                               </div>
@@ -711,12 +711,12 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
                       )}
                     </div>
 
-                    <div className="flex items-center justify-between pt-2 mt-2 border-t border-[#222224]">
+                    <div className="flex items-center justify-between pt-2 mt-2 border-t border-slate-200 dark:border-[#222224]">
                       {selectedCategories.length > 0 ? (
                         <button
                           type="button"
                           onClick={() => setSelectedCategories([])}
-                          className="text-[11px] text-gray-400 hover:text-rose-400 transition-colors cursor-pointer"
+                          className="text-[11px] text-slate-600 dark:text-gray-400 hover:text-rose-800 dark:hover:text-rose-400 transition-colors cursor-pointer"
                         >
                           Tout désélectionner
                         </button>
@@ -726,7 +726,7 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
                       <button
                         type="button"
                         onClick={() => setIsCategoryFilterOpen(false)}
-                        className="px-3 py-1 rounded bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 text-[11px] font-medium border border-[#333] transition-colors cursor-pointer"
+                        className="px-3 py-1 rounded bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-slate-200 dark:hover:bg-[#2A2A2D] text-slate-700 dark:text-gray-300 text-[11px] font-medium border border-slate-300 dark:border-[#333] transition-colors cursor-pointer"
                       >
                         Fermer
                       </button>
@@ -742,33 +742,33 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
                   onClick={() => setIsAuthorFilterOpen(!isAuthorFilterOpen)}
                   className={`h-[34px] w-full bg-[#1C1C1E] border hover:border-[#444] rounded-md px-2 sm:px-2.5 py-1 text-xs text-gray-200 cursor-pointer flex items-center justify-between gap-1 sm:gap-1.5 transition-colors ${
                     selectedAuthors.length > 0
-                      ? 'border-blue-500/50 bg-blue-950/20'
-                      : 'border-[#333]'
+                      ? 'border-blue-500/50 bg-blue-50 dark:bg-blue-950/20'
+                      : 'border-slate-300 dark:border-[#333]'
                   }`}
                   title="Filtrer par auteur"
                 >
                   <div className="flex items-center gap-1 sm:gap-1.5 min-w-0 truncate">
-                    <User className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                    <User className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
                     {selectedAuthors.length === 0 ? (
-                      <span className="text-gray-300 truncate text-[11px] sm:text-xs">Auteurs</span>
+                      <span className="text-slate-700 dark:text-gray-300 truncate text-[11px] sm:text-xs">Auteurs</span>
                     ) : (
-                      <span className="text-blue-300 font-semibold truncate text-[11px] sm:text-xs">
+                      <span className="text-blue-700 dark:text-blue-300 font-semibold truncate text-[11px] sm:text-xs">
                         {selectedAuthors.length === 1 ? selectedAuthors[0] : `${selectedAuthors.length} aut.`}
                       </span>
                     )}
                   </div>
-                  <ChevronDown className={`w-3 h-3 text-gray-400 shrink-0 transition-transform ml-0.5 ${isAuthorFilterOpen ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`w-3 h-3 text-slate-600 dark:text-gray-400 shrink-0 transition-transform ml-0.5 ${isAuthorFilterOpen ? 'rotate-180' : ''}`} />
                 </button>
 
                 {isAuthorFilterOpen && (
-                  <div className="absolute left-0 mt-1.5 w-72 sm:w-80 max-w-[calc(100vw-2rem)] bg-[#141416] border border-[#2A2A2D] rounded-lg shadow-2xl p-2.5 z-50 text-xs">
+                  <div className="absolute left-0 mt-1.5 w-72 sm:w-80 max-w-[calc(100vw-2rem)] bg-slate-50 dark:bg-[#141416] border border-slate-300 dark:border-[#2A2A2D] rounded-lg shadow-2xl p-2.5 z-50 text-xs">
                     <div className="flex items-center justify-between mb-2 px-0.5">
-                      <div className="flex items-center gap-1.5 font-semibold text-white text-xs">
-                        <User className="w-3.5 h-3.5 text-blue-400" />
+                      <div className="flex items-center gap-1.5 font-semibold text-slate-900 dark:text-white text-xs">
+                        <User className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                         <span>Auteurs</span>
                       </div>
                       {selectedAuthors.length > 0 ? (
-                        <span className="text-[11px] text-blue-400 font-semibold">
+                        <span className="text-[11px] text-blue-600 dark:text-blue-400 font-semibold">
                           {selectedAuthors.length} sélectionné{selectedAuthors.length > 1 ? 's' : ''}
                         </span>
                       ) : (
@@ -782,14 +782,14 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
                         placeholder="Rechercher un auteur..."
                         value={authorFilterSearch}
                         onChange={(e) => setAuthorFilterSearch(e.target.value)}
-                        className="flex-1 bg-[#1C1C1E] border border-[#333] rounded px-2.5 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                        className="flex-1 bg-[#EDF1F5] dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] rounded px-2.5 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-blue-500"
                         autoFocus
                       />
                       {authorFilterSearch && (
                         <button
                           type="button"
                           onClick={() => setAuthorFilterSearch('')}
-                          className="text-gray-400 hover:text-white p-1"
+                          className="text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white p-1"
                           title="Effacer la recherche"
                         >
                           <X className="w-3 h-3" />
@@ -811,14 +811,14 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
                               onClick={() => toggleAuthorFilter(authorItem.name)}
                               className={`flex items-center justify-between px-2.5 py-1.5 rounded cursor-pointer transition-colors ${
                                 isSelected
-                                  ? 'bg-blue-600/15 text-blue-300 font-medium'
-                                  : 'hover:bg-[#1C1C1E] text-gray-300'
+                                  ? 'bg-blue-600/15 text-blue-700 dark:text-blue-300 font-medium'
+                                  : 'hover:bg-slate-200/70 dark:hover:bg-[#1C1C1E] text-slate-700 dark:text-gray-300'
                               }`}
                             >
                               <div className="flex items-center gap-2 truncate pr-2">
                                 <span className="truncate">{authorItem.name}</span>
                                 {authorItem.count > 0 && (
-                                  <span className="text-[10px] text-gray-400 bg-[#0A0A0B] px-1.5 py-0.2 rounded border border-[#222224]">
+                                  <span className="text-[10px] text-slate-600 dark:text-gray-400 bg-[#F4F6F9] dark:bg-[#0A0A0B] px-1.5 py-0.2 rounded border border-slate-200 dark:border-[#222224]">
                                     {authorItem.count}
                                   </span>
                                 )}
@@ -826,7 +826,7 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
                               <div className={`w-4 h-4 rounded shrink-0 flex items-center justify-center border transition-colors ${
                                 isSelected 
                                   ? 'bg-blue-600 border-blue-500 text-white' 
-                                  : 'border-[#444] bg-[#1C1C1E]'
+                                  : 'border-slate-300 dark:border-[#444] bg-[#EDF1F5] dark:bg-[#1C1C1E]'
                               }`}>
                                 {isSelected && <Check className="w-3 h-3 stroke-[2.5]" />}
                               </div>
@@ -836,12 +836,12 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
                       )}
                     </div>
 
-                    <div className="flex items-center justify-between pt-2 mt-2 border-t border-[#222224]">
+                    <div className="flex items-center justify-between pt-2 mt-2 border-t border-slate-200 dark:border-[#222224]">
                       {selectedAuthors.length > 0 ? (
                         <button
                           type="button"
                           onClick={() => setSelectedAuthors([])}
-                          className="text-[11px] text-gray-400 hover:text-rose-400 transition-colors cursor-pointer"
+                          className="text-[11px] text-slate-600 dark:text-gray-400 hover:text-rose-800 dark:hover:text-rose-400 transition-colors cursor-pointer"
                         >
                           Tout désélectionner
                         </button>
@@ -851,7 +851,7 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
                       <button
                         type="button"
                         onClick={() => setIsAuthorFilterOpen(false)}
-                        className="px-3 py-1 rounded bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 text-[11px] font-medium border border-[#333] transition-colors cursor-pointer"
+                        className="px-3 py-1 rounded bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-slate-200 dark:hover:bg-[#2A2A2D] text-slate-700 dark:text-gray-300 text-[11px] font-medium border border-slate-300 dark:border-[#333] transition-colors cursor-pointer"
                       >
                         Fermer
                       </button>
@@ -867,33 +867,33 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
                   onClick={() => setIsKeyFilterOpen(!isKeyFilterOpen)}
                   className={`h-[34px] w-full bg-[#1C1C1E] border hover:border-[#444] rounded-md px-2 sm:px-2.5 py-1 text-xs text-gray-200 cursor-pointer flex items-center justify-between gap-1 sm:gap-1.5 transition-colors ${
                     selectedKeys.length > 0
-                      ? 'border-amber-500/50 bg-amber-950/20'
-                      : 'border-[#333]'
+                      ? 'border-amber-500/50 bg-amber-50 dark:bg-amber-950/20'
+                      : 'border-slate-300 dark:border-[#333]'
                   }`}
                   title="Filtrer par tonalité"
                 >
                   <div className="flex items-center gap-1 sm:gap-1.5 min-w-0 truncate">
-                    <Music className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <Music className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
                     {selectedKeys.length === 0 ? (
-                      <span className="text-gray-300 truncate text-[11px] sm:text-xs">Tonalités</span>
+                      <span className="text-slate-700 dark:text-gray-300 truncate text-[11px] sm:text-xs">Tonalités</span>
                     ) : (
-                      <span className="text-amber-300 font-semibold truncate text-[11px] sm:text-xs">
+                      <span className="text-amber-700 dark:text-amber-300 font-semibold truncate text-[11px] sm:text-xs">
                         {selectedKeys.length === 1 ? selectedKeys[0] : `${selectedKeys.length} ton.`}
                       </span>
                     )}
                   </div>
-                  <ChevronDown className={`w-3 h-3 text-gray-400 shrink-0 transition-transform ml-0.5 ${isKeyFilterOpen ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`w-3 h-3 text-slate-600 dark:text-gray-400 shrink-0 transition-transform ml-0.5 ${isKeyFilterOpen ? 'rotate-180' : ''}`} />
                 </button>
 
                 {isKeyFilterOpen && (
-                  <div className="absolute left-0 mt-1.5 w-64 sm:w-72 max-w-[calc(100vw-2rem)] bg-[#141416] border border-[#2A2A2D] rounded-lg shadow-2xl p-2.5 z-50 text-xs">
+                  <div className="absolute left-0 mt-1.5 w-64 sm:w-72 max-w-[calc(100vw-2rem)] bg-slate-50 dark:bg-[#141416] border border-slate-300 dark:border-[#2A2A2D] rounded-lg shadow-2xl p-2.5 z-50 text-xs">
                     <div className="flex items-center justify-between mb-2 px-0.5">
-                      <div className="flex items-center gap-1.5 font-semibold text-white text-xs">
-                        <Music className="w-3.5 h-3.5 text-amber-400" />
+                      <div className="flex items-center gap-1.5 font-semibold text-slate-900 dark:text-white text-xs">
+                        <Music className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                         <span>Tonalités</span>
                       </div>
                       {selectedKeys.length > 0 ? (
-                        <span className="text-[11px] text-amber-400 font-semibold">
+                        <span className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold">
                           {selectedKeys.length} sélectionnée{selectedKeys.length > 1 ? 's' : ''}
                         </span>
                       ) : (
@@ -907,14 +907,14 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
                         placeholder="Rechercher une tonalité..."
                         value={keyFilterSearch}
                         onChange={(e) => setKeyFilterSearch(e.target.value)}
-                        className="flex-1 bg-[#1C1C1E] border border-[#333] rounded px-2.5 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-amber-500"
+                        className="flex-1 bg-[#EDF1F5] dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] rounded px-2.5 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-amber-500"
                         autoFocus
                       />
                       {keyFilterSearch && (
                         <button
                           type="button"
                           onClick={() => setKeyFilterSearch('')}
-                          className="text-gray-400 hover:text-white p-1"
+                          className="text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white p-1"
                           title="Effacer la recherche"
                         >
                           <X className="w-3 h-3" />
@@ -936,14 +936,14 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
                               onClick={() => toggleKeyFilter(keyItem.name)}
                               className={`flex items-center justify-between px-2.5 py-1.5 rounded cursor-pointer transition-colors ${
                                 isSelected
-                                  ? 'bg-amber-500/15 text-amber-300 font-medium'
-                                  : 'hover:bg-[#1C1C1E] text-gray-300'
+                                  ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 font-medium'
+                                  : 'hover:bg-slate-200/70 dark:hover:bg-[#1C1C1E] text-slate-700 dark:text-gray-300'
                               }`}
                             >
                               <div className="flex items-center gap-2 truncate pr-2">
                                 <span className="truncate font-semibold">{keyItem.name}</span>
                                 {keyItem.count > 0 && (
-                                  <span className="text-[10px] text-gray-400 bg-[#0A0A0B] px-1.5 py-0.2 rounded border border-[#222224]">
+                                  <span className="text-[10px] text-slate-600 dark:text-gray-400 bg-[#F4F6F9] dark:bg-[#0A0A0B] px-1.5 py-0.2 rounded border border-slate-200 dark:border-[#222224]">
                                     {keyItem.count}
                                   </span>
                                 )}
@@ -951,7 +951,7 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
                               <div className={`w-4 h-4 rounded shrink-0 flex items-center justify-center border transition-colors ${
                                 isSelected 
                                   ? 'bg-amber-500 border-amber-400 text-black font-bold' 
-                                  : 'border-[#444] bg-[#1C1C1E]'
+                                  : 'border-slate-300 dark:border-[#444] bg-[#EDF1F5] dark:bg-[#1C1C1E]'
                               }`}>
                                 {isSelected && <Check className="w-3 h-3 stroke-[2.5]" />}
                               </div>
@@ -961,12 +961,12 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
                       )}
                     </div>
 
-                    <div className="flex items-center justify-between pt-2 mt-2 border-t border-[#222224]">
+                    <div className="flex items-center justify-between pt-2 mt-2 border-t border-slate-200 dark:border-[#222224]">
                       {selectedKeys.length > 0 ? (
                         <button
                           type="button"
                           onClick={() => setSelectedKeys([])}
-                          className="text-[11px] text-gray-400 hover:text-rose-400 transition-colors cursor-pointer"
+                          className="text-[11px] text-slate-600 dark:text-gray-400 hover:text-rose-800 dark:hover:text-rose-400 transition-colors cursor-pointer"
                         >
                           Tout désélectionner
                         </button>
@@ -976,7 +976,7 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
                       <button
                         type="button"
                         onClick={() => setIsKeyFilterOpen(false)}
-                        className="px-3 py-1 rounded bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 text-[11px] font-medium border border-[#333] transition-colors cursor-pointer"
+                        className="px-3 py-1 rounded bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-slate-200 dark:hover:bg-[#2A2A2D] text-slate-700 dark:text-gray-300 text-[11px] font-medium border border-slate-300 dark:border-[#333] transition-colors cursor-pointer"
                       >
                         Fermer
                       </button>
@@ -992,33 +992,33 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
                   onClick={() => setIsLanguageFilterOpen(!isLanguageFilterOpen)}
                   className={`h-[34px] w-full bg-[#1C1C1E] border hover:border-[#444] rounded-md px-2 sm:px-2.5 py-1 text-xs text-gray-200 cursor-pointer flex items-center justify-between gap-1 sm:gap-1.5 transition-colors ${
                     selectedLanguages.length > 0
-                      ? 'border-indigo-500/50 bg-indigo-950/20'
-                      : 'border-[#333]'
+                      ? 'border-indigo-500/50 bg-indigo-50 dark:bg-indigo-950/20'
+                      : 'border-slate-300 dark:border-[#333]'
                   }`}
                   title="Filtrer par langue"
                 >
                   <div className="flex items-center gap-1 sm:gap-1.5 min-w-0 truncate">
-                    <Globe className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                    <Globe className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
                     {selectedLanguages.length === 0 ? (
-                      <span className="text-gray-300 truncate text-[11px] sm:text-xs">Langues</span>
+                      <span className="text-slate-700 dark:text-gray-300 truncate text-[11px] sm:text-xs">Langues</span>
                     ) : (
-                      <span className="text-indigo-300 font-semibold truncate text-[11px] sm:text-xs">
+                      <span className="text-indigo-700 dark:text-indigo-300 font-semibold truncate text-[11px] sm:text-xs">
                         {selectedLanguages.length === 1 ? selectedLanguages[0] : `${selectedLanguages.length} lang.`}
                       </span>
                     )}
                   </div>
-                  <ChevronDown className={`w-3 h-3 text-gray-400 shrink-0 transition-transform ml-0.5 ${isLanguageFilterOpen ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`w-3 h-3 text-slate-600 dark:text-gray-400 shrink-0 transition-transform ml-0.5 ${isLanguageFilterOpen ? 'rotate-180' : ''}`} />
                 </button>
 
                 {isLanguageFilterOpen && (
-                  <div className="absolute left-0 mt-1.5 w-64 sm:w-72 max-w-[calc(100vw-2rem)] bg-[#141416] border border-[#2A2A2D] rounded-lg shadow-2xl p-2.5 z-50 text-xs">
+                  <div className="absolute left-0 mt-1.5 w-64 sm:w-72 max-w-[calc(100vw-2rem)] bg-slate-50 dark:bg-[#141416] border border-slate-300 dark:border-[#2A2A2D] rounded-lg shadow-2xl p-2.5 z-50 text-xs">
                     <div className="flex items-center justify-between mb-2 px-0.5">
-                      <div className="flex items-center gap-1.5 font-semibold text-white text-xs">
-                        <Globe className="w-3.5 h-3.5 text-indigo-400" />
+                      <div className="flex items-center gap-1.5 font-semibold text-slate-900 dark:text-white text-xs">
+                        <Globe className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                         <span>Langues</span>
                       </div>
                       {selectedLanguages.length > 0 ? (
-                        <span className="text-[11px] text-indigo-400 font-semibold">
+                        <span className="text-[11px] text-indigo-600 dark:text-indigo-400 font-semibold">
                           {selectedLanguages.length} sélectionnée{selectedLanguages.length > 1 ? 's' : ''}
                         </span>
                       ) : (
@@ -1032,14 +1032,14 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
                         placeholder="Rechercher une langue..."
                         value={languageFilterSearch}
                         onChange={(e) => setLanguageFilterSearch(e.target.value)}
-                        className="flex-1 bg-[#1C1C1E] border border-[#333] rounded px-2.5 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                        className="flex-1 bg-[#EDF1F5] dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] rounded px-2.5 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-indigo-500"
                         autoFocus
                       />
                       {languageFilterSearch && (
                         <button
                           type="button"
                           onClick={() => setLanguageFilterSearch('')}
-                          className="text-gray-400 hover:text-white p-1"
+                          className="text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white p-1"
                           title="Effacer la recherche"
                         >
                           <X className="w-3 h-3" />
@@ -1061,14 +1061,14 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
                               onClick={() => toggleLanguageFilter(langItem.name)}
                               className={`flex items-center justify-between px-2.5 py-1.5 rounded cursor-pointer transition-colors ${
                                 isSelected
-                                  ? 'bg-indigo-600/15 text-indigo-300 font-medium'
-                                  : 'hover:bg-[#1C1C1E] text-gray-300'
+                                  ? 'bg-indigo-600/15 text-indigo-700 dark:text-indigo-300 font-medium'
+                                  : 'hover:bg-slate-200/70 dark:hover:bg-[#1C1C1E] text-slate-700 dark:text-gray-300'
                               }`}
                             >
                               <div className="flex items-center gap-2 truncate pr-2">
                                 <span className="truncate">{langItem.name}</span>
                                 {langItem.count > 0 && (
-                                  <span className="text-[10px] text-gray-400 bg-[#0A0A0B] px-1.5 py-0.2 rounded border border-[#222224]">
+                                  <span className="text-[10px] text-slate-600 dark:text-gray-400 bg-[#F4F6F9] dark:bg-[#0A0A0B] px-1.5 py-0.2 rounded border border-slate-200 dark:border-[#222224]">
                                     {langItem.count}
                                   </span>
                                 )}
@@ -1076,7 +1076,7 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
                               <div className={`w-4 h-4 rounded shrink-0 flex items-center justify-center border transition-colors ${
                                 isSelected 
                                   ? 'bg-indigo-600 border-indigo-500 text-white' 
-                                  : 'border-[#444] bg-[#1C1C1E]'
+                                  : 'border-slate-300 dark:border-[#444] bg-[#EDF1F5] dark:bg-[#1C1C1E]'
                               }`}>
                                 {isSelected && <Check className="w-3 h-3 stroke-[2.5]" />}
                               </div>
@@ -1086,12 +1086,12 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
                       )}
                     </div>
 
-                    <div className="flex items-center justify-between pt-2 mt-2 border-t border-[#222224]">
+                    <div className="flex items-center justify-between pt-2 mt-2 border-t border-slate-200 dark:border-[#222224]">
                       {selectedLanguages.length > 0 ? (
                         <button
                           type="button"
                           onClick={() => setSelectedLanguages([])}
-                          className="text-[11px] text-gray-400 hover:text-rose-400 transition-colors cursor-pointer"
+                          className="text-[11px] text-slate-600 dark:text-gray-400 hover:text-rose-800 dark:hover:text-rose-400 transition-colors cursor-pointer"
                         >
                           Tout désélectionner
                         </button>
@@ -1101,7 +1101,7 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
                       <button
                         type="button"
                         onClick={() => setIsLanguageFilterOpen(false)}
-                        className="px-3 py-1 rounded bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 text-[11px] font-medium border border-[#333] transition-colors cursor-pointer"
+                        className="px-3 py-1 rounded bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-slate-200 dark:hover:bg-[#2A2A2D] text-slate-700 dark:text-gray-300 text-[11px] font-medium border border-slate-300 dark:border-[#333] transition-colors cursor-pointer"
                       >
                         Fermer
                       </button>
@@ -1118,20 +1118,20 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
             <div className="flex items-center flex-wrap gap-1.5 px-1 pt-0.5">
               {selectedKeys.length > 0 && (
                 <>
-                  <span className="text-[11px] text-gray-400 flex items-center gap-1 mr-1">
-                    <Music className="w-3 h-3 text-amber-400" />
+                  <span className="text-[11px] text-slate-600 dark:text-gray-400 flex items-center gap-1 mr-1">
+                    <Music className="w-3 h-3 text-amber-600 dark:text-amber-400" />
                     <span>Tonalité{selectedKeys.length > 1 ? 's' : ''} :</span>
                   </span>
                   {selectedKeys.map((k) => (
                     <span
                       key={k}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-semibold"
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-xs font-semibold"
                     >
                       <span>{k}</span>
                       <button
                         type="button"
                         onClick={() => toggleKeyFilter(k)}
-                        className="hover:text-white transition-colors cursor-pointer"
+                        className="hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
                         title="Supprimer ce filtre de tonalité"
                       >
                         <X className="w-3 h-3" />
@@ -1143,20 +1143,20 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
 
               {selectedLanguages.length > 0 && (
                 <>
-                  <span className="text-[11px] text-gray-400 flex items-center gap-1 mr-1 ml-1">
-                    <Globe className="w-3 h-3 text-indigo-400" />
+                  <span className="text-[11px] text-slate-600 dark:text-gray-400 flex items-center gap-1 mr-1 ml-1">
+                    <Globe className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />
                     <span>Langue{selectedLanguages.length > 1 ? 's' : ''} :</span>
                   </span>
                   {selectedLanguages.map((lang) => (
                     <span
                       key={lang}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-600/20 border border-indigo-500/40 text-indigo-300 text-xs font-medium"
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-600/20 border border-indigo-500/40 text-indigo-700 dark:text-indigo-300 text-xs font-medium"
                     >
                       <span>{lang}</span>
                       <button
                         type="button"
                         onClick={() => toggleLanguageFilter(lang)}
-                        className="hover:text-white transition-colors cursor-pointer"
+                        className="hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
                         title="Supprimer ce filtre de langue"
                       >
                         <X className="w-3 h-3" />
@@ -1168,20 +1168,20 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
 
               {selectedCategories.length > 0 && (
                 <>
-                  <span className="text-[11px] text-gray-400 flex items-center gap-1 mr-1 ml-1">
-                    <Tag className="w-3 h-3 text-blue-400" />
+                  <span className="text-[11px] text-slate-600 dark:text-gray-400 flex items-center gap-1 mr-1 ml-1">
+                    <Tag className="w-3 h-3 text-blue-600 dark:text-blue-400" />
                     <span>Catégorie{selectedCategories.length > 1 ? 's' : ''} :</span>
                   </span>
                   {selectedCategories.map((cat) => (
                     <span
                       key={cat}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-600/20 border border-blue-500/40 text-blue-300 text-xs font-medium"
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-600/20 border border-blue-500/40 text-blue-700 dark:text-blue-300 text-xs font-medium"
                     >
                       <span>{cat}</span>
                       <button
                         type="button"
                         onClick={() => toggleCategoryFilter(cat)}
-                        className="hover:text-white transition-colors cursor-pointer"
+                        className="hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
                         title="Supprimer ce filtre de catégorie"
                       >
                         <X className="w-3 h-3" />
@@ -1193,20 +1193,20 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
 
               {selectedAuthors.length > 0 && (
                 <>
-                  <span className="text-[11px] text-gray-400 flex items-center gap-1 mr-1 ml-1">
-                    <User className="w-3 h-3 text-blue-400" />
+                  <span className="text-[11px] text-slate-600 dark:text-gray-400 flex items-center gap-1 mr-1 ml-1">
+                    <User className="w-3 h-3 text-blue-600 dark:text-blue-400" />
                     <span>Auteur{selectedAuthors.length > 1 ? 's' : ''} :</span>
                   </span>
                   {selectedAuthors.map((author) => (
                     <span
                       key={author}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-600/20 border border-blue-500/40 text-blue-300 text-xs font-medium"
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-600/20 border border-blue-500/40 text-blue-700 dark:text-blue-300 text-xs font-medium"
                     >
                       <span>{author}</span>
                       <button
                         type="button"
                         onClick={() => toggleAuthorFilter(author)}
-                        className="hover:text-white transition-colors cursor-pointer"
+                        className="hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
                         title="Supprimer ce filtre d'auteur"
                       >
                         <X className="w-3 h-3" />
@@ -1224,7 +1224,7 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
                   setSelectedKeys([]);
                   setSelectedLanguages([]);
                 }}
-                className="text-[11px] text-gray-400 hover:text-white ml-2 underline cursor-pointer"
+                className="text-[11px] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white ml-2 underline cursor-pointer"
               >
                 Tout effacer
               </button>
@@ -1234,9 +1234,9 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
         </div>
 
         {/* Quick selection status & action bar */}
-        <div className="px-4 sm:px-5 py-2.5 bg-[#121215] border-b border-[#222224] flex items-center justify-between gap-2 text-xs">
+        <div className="px-4 sm:px-5 py-2.5 bg-white dark:bg-[#121215] border-b border-slate-200 dark:border-[#222224] flex items-center justify-between gap-2 text-xs">
           <div className="flex items-center gap-2">
-            <span className="text-gray-300 font-medium">
+            <span className="text-slate-700 dark:text-gray-300 font-medium">
               {filteredSongs.length} chant{filteredSongs.length > 1 ? 's' : ''} trouvé{filteredSongs.length > 1 ? 's' : ''}
             </span>
           </div>
@@ -1245,16 +1245,16 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
             <button
               type="button"
               onClick={handleToggleAllFiltered}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#1C1C1E] hover:bg-[#252528] text-gray-300 hover:text-white border border-[#333] transition-colors font-medium text-[11px] cursor-pointer"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-slate-200/70 dark:hover:bg-[#252528] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-[#333] transition-colors font-medium text-[11px] cursor-pointer"
             >
               {allFilteredInSetlist ? (
                 <>
-                  <Square className="w-3.5 h-3.5 text-rose-400" />
+                  <Square className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
                   <span>Tout retirer</span>
                 </>
               ) : (
                 <>
-                  <CheckSquare className="w-3.5 h-3.5 text-blue-400" />
+                  <CheckSquare className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                   <span>Tout ajouter</span>
                 </>
               )}
@@ -1265,10 +1265,10 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
         {/* Pure Single-Column List of Songs - Agencement identique à l'onglet Chants */}
         <div className="overflow-y-auto p-3 sm:p-5 flex-1 max-h-[55vh] custom-scrollbar">
           {filteredSongs.length === 0 ? (
-            <div className="py-12 text-center text-gray-500 bg-[#0A0A0B] rounded-lg border border-[#222224]">
-              <Search className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-              <p className="text-xs font-semibold text-gray-400">Aucun chant ne correspond à vos critères de recherche</p>
-              <p className="text-[11px] text-gray-600 mt-1">Essayez de modifier vos filtres ou termes de recherche</p>
+            <div className="py-12 text-center text-gray-500 bg-[#F4F6F9] dark:bg-[#0A0A0B] rounded-lg border border-slate-200 dark:border-[#222224]">
+              <Search className="w-8 h-8 text-slate-500 dark:text-gray-600 mx-auto mb-2" />
+              <p className="text-xs font-semibold text-slate-600 dark:text-gray-400">Aucun chant ne correspond à vos critères de recherche</p>
+              <p className="text-[11px] text-slate-500 dark:text-gray-600 mt-1">Essayez de modifier vos filtres ou termes de recherche</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-2 w-full">
@@ -1282,8 +1282,8 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
                     onClick={() => onToggleSong(song.id)}
                     className={`group relative border rounded-lg p-2.5 sm:p-3 transition-all flex items-center gap-2.5 sm:gap-3 cursor-pointer shadow-xs hover:shadow-md select-none w-full ${
                       isInSetlist
-                        ? 'bg-blue-950/25 border-blue-500/60 ring-1 ring-blue-500/30'
-                        : 'bg-[#111112] hover:bg-[#151518] border-[#222224] hover:border-blue-500/40'
+                        ? 'bg-blue-50 dark:bg-blue-950/25 border-blue-500/60 ring-1 ring-blue-500/30'
+                        : 'bg-white dark:bg-[#111112] hover:bg-slate-100 dark:hover:bg-[#151518] border-slate-200 dark:border-[#222224] hover:border-blue-500/40'
                     }`}
                   >
                     {/* Checkbox on the left */}
@@ -1296,12 +1296,12 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
                       className={`w-5 h-5 rounded flex items-center justify-center border transition-all cursor-pointer shrink-0 ${
                         isInSetlist
                           ? 'bg-blue-600 border-blue-500 text-white shadow-xs ring-2 ring-blue-500/30'
-                          : 'bg-[#1C1C1E] border-[#444] text-transparent hover:border-blue-400 hover:bg-[#252528]'
+                          : 'bg-[#EDF1F5] dark:bg-[#1C1C1E] border-slate-300 dark:border-[#444] text-transparent hover:border-blue-400 hover:bg-slate-200/70 dark:hover:bg-[#252528]'
                       }`}
                       title={isInSetlist ? "Retirer de la setlist" : "Ajouter à la setlist"}
                       aria-label={isInSetlist ? "Retirer de la setlist" : "Ajouter à la setlist"}
                     >
-                      <Check className={`w-3.5 h-3.5 stroke-[2.5] ${isInSetlist ? 'opacity-100' : 'opacity-0 hover:opacity-40 text-blue-400'}`} />
+                      <Check className={`w-3.5 h-3.5 stroke-[2.5] ${isInSetlist ? 'opacity-100' : 'opacity-0 hover:opacity-40 text-blue-600 dark:text-blue-400'}`} />
                     </button>
 
                     {/* Single unified row aligning title, artist, categories, badges, and quick button */}
@@ -1312,7 +1312,7 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
                         <div className="min-w-0 flex-1">
                           <h4 
                             className={`text-xs sm:text-sm font-bold truncate leading-snug transition-colors ${
-                              isInSetlist ? 'text-blue-300' : 'text-white group-hover:text-blue-400'
+                              isInSetlist ? 'text-blue-700 dark:text-blue-300' : 'text-slate-900 dark:text-white group-hover:text-blue-800 dark:group-hover:text-blue-400'
                             }`}
                             title={stripParentheses(song.title)}
                           >
@@ -1320,7 +1320,7 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
                           </h4>
                           <p 
                             className={`text-[11px] sm:text-xs font-medium truncate mt-0.5 ${
-                              selectedAuthors.includes(song.artist) ? 'text-blue-400 font-semibold' : 'text-gray-400'
+                              selectedAuthors.includes(song.artist) ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-slate-600 dark:text-gray-400'
                             }`}
                             title={song.artist || 'Auteur inconnu'}
                           >
@@ -1343,12 +1343,12 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
                                   }}
                                   className={`text-[9px] px-1.5 py-0.5 rounded border transition-colors flex items-center gap-1 max-w-full truncate cursor-pointer ${
                                     isFiltered
-                                      ? 'bg-blue-600/20 text-blue-300 border-blue-500/40 font-semibold'
-                                      : 'bg-[#1C1C1E] border-[#222224] text-gray-400 hover:text-gray-200 hover:border-[#333]'
+                                      ? 'bg-blue-600/20 text-blue-700 dark:text-blue-300 border-blue-500/40 font-semibold'
+                                      : 'bg-[#EDF1F5] dark:bg-[#1C1C1E] border-slate-200 dark:border-[#222224] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200 hover:border-slate-400 dark:hover:border-[#333]'
                                   }`}
                                   title={`Filtrer par la catégorie ${cat}`}
                                 >
-                                  <Tag className="w-2 h-2 text-blue-400 shrink-0" />
+                                  <Tag className="w-2 h-2 text-blue-600 dark:text-blue-400 shrink-0" />
                                   <span className="truncate">{cat}</span>
                                 </button>
                               );
@@ -1369,8 +1369,8 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
                             title={`Filtrer par la tonalité ${song.key.toUpperCase()}`}
                             className={`px-1.5 py-0.5 rounded border text-[10px] font-bold transition-colors cursor-pointer ${
                               selectedKeys.includes(song.key.toUpperCase())
-                                ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
-                                : 'bg-[#1C1C1E] border-[#333] text-gray-200 hover:border-amber-500/40 hover:text-amber-300'
+                                ? 'bg-amber-500/20 border-amber-500/50 text-amber-700 dark:text-amber-300'
+                                : 'bg-[#EDF1F5] dark:bg-[#1C1C1E] border-slate-300 dark:border-[#333] text-slate-800 dark:text-gray-200 hover:border-amber-500/40 hover:text-amber-800 dark:hover:text-amber-300'
                             }`}
                           >
                             {song.key}
@@ -1379,16 +1379,16 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
 
                         {/* Tempo Badge */}
                         {song.tempo && (
-                          <span className="px-1.5 py-0.5 rounded bg-[#1C1C1E] border border-[#222224] text-gray-400 text-[9px] font-medium hidden sm:flex items-center gap-1">
-                            <Gauge className="w-2.5 h-2.5 text-blue-400" />
+                          <span className="px-1.5 py-0.5 rounded bg-[#EDF1F5] dark:bg-[#1C1C1E] border border-slate-200 dark:border-[#222224] text-slate-600 dark:text-gray-400 text-[9px] font-medium hidden sm:flex items-center gap-1">
+                            <Gauge className="w-2.5 h-2.5 text-blue-600 dark:text-blue-400" />
                             <span>{song.tempo}</span>
                           </span>
                         )}
 
                         {/* Duration Badge */}
                         {songDur && (
-                          <span className="px-1.5 py-0.5 rounded bg-cyan-950/50 border border-cyan-500/30 text-cyan-300 text-[9px] font-medium font-mono hidden sm:flex items-center gap-1 shadow-xs">
-                            <Clock className="w-2.5 h-2.5 text-cyan-400" />
+                          <span className="px-1.5 py-0.5 rounded bg-cyan-50 dark:bg-cyan-950/50 border border-cyan-500/30 text-cyan-700 dark:text-cyan-300 text-[9px] font-medium font-mono hidden sm:flex items-center gap-1 shadow-xs">
+                            <Clock className="w-2.5 h-2.5 text-cyan-700 dark:text-cyan-400" />
                             <span>{songDur}</span>
                           </span>
                         )}
@@ -1403,9 +1403,9 @@ export const SetlistAddSongsModal: React.FC<SetlistAddSongsModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="p-4 sm:p-5 border-t border-[#222224] bg-[#151518] flex items-center justify-between gap-3">
-          <div className="text-xs text-gray-400">
-            <span className="font-semibold text-white">{validSetlistSongIds.length}</span> chant{validSetlistSongIds.length > 1 ? 's' : ''} dans la setlist
+        <div className="p-4 sm:p-5 border-t border-slate-200 dark:border-[#222224] bg-slate-50 dark:bg-[#151518] flex items-center justify-between gap-3">
+          <div className="text-xs text-slate-600 dark:text-gray-400">
+            <span className="font-semibold text-slate-900 dark:text-white">{validSetlistSongIds.length}</span> chant{validSetlistSongIds.length > 1 ? 's' : ''} dans la setlist
           </div>
           <button
             type="button"

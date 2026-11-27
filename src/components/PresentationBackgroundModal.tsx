@@ -194,23 +194,23 @@ export const PresentationBackgroundModal: React.FC<PresentationBackgroundModalPr
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-sm animate-in fade-in">
       <div 
-        className="w-full max-w-4xl max-h-[90vh] bg-[#121216] border border-[#2B2B38] rounded-2xl shadow-2xl flex flex-col overflow-hidden text-gray-200"
+        className="w-full max-w-4xl max-h-[90vh] bg-white dark:bg-[#121216] border border-slate-300 dark:border-[#2B2B38] rounded-2xl shadow-2xl flex flex-col overflow-hidden text-slate-800 dark:text-gray-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* En-tête */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#22222E] bg-[#16161D]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-[#22222E] bg-slate-50 dark:bg-[#16161D]">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-purple-600/20 text-purple-400 border border-purple-500/30">
+            <div className="p-2 rounded-xl bg-purple-600/20 text-purple-600 dark:text-purple-400 border border-purple-500/30">
               <ImageIcon className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+              <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <span>Arrière-plan de Projection</span>
-                <span className="text-[11px] px-2 py-0.5 rounded-full bg-purple-950/80 text-purple-300 border border-purple-800/60 font-medium">
+                <span className="text-[11px] px-2 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/80 text-purple-700 dark:text-purple-300 border border-purple-800/60 font-medium">
                   Personnalisation
                 </span>
               </h2>
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-slate-600 dark:text-gray-400">
                 Sélectionnez une image de fond et ajustez le filtre sombre automatique pour une lisibilité parfaite.
               </p>
             </div>
@@ -219,7 +219,7 @@ export const PresentationBackgroundModal: React.FC<PresentationBackgroundModalPr
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-xl text-gray-400 hover:text-white hover:bg-[#252532] transition-colors cursor-pointer"
+            className="p-2 rounded-xl text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-[#252532] transition-colors cursor-pointer"
             title="Fermer"
           >
             <X className="w-5 h-5" />
@@ -230,22 +230,22 @@ export const PresentationBackgroundModal: React.FC<PresentationBackgroundModalPr
         <div className="flex-1 overflow-y-auto p-5 space-y-6 custom-scrollbar">
 
           {/* Section 1 : Filtre sombre automatique protecteur */}
-          <div className="p-4 rounded-xl bg-[#191922] border border-[#2D2D3E] flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="p-4 rounded-xl bg-[#EDF1F5] dark:bg-[#191922] border border-slate-300 dark:border-[#2D2D3E] flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="space-y-1">
-              <div className="flex items-center gap-2 text-sm font-semibold text-white">
-                <Sliders className="w-4 h-4 text-blue-400" />
+              <div className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
+                <Sliders className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                 <span>Filtre sombre automatique (Contraste)</span>
-                <span className="text-xs font-mono px-2 py-0.5 rounded bg-blue-950/80 text-blue-300 border border-blue-800/60">
+                <span className="text-xs font-mono px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 border border-blue-800/60">
                   {Math.round(currentOverlay * 100)}%
                 </span>
               </div>
-              <p className="text-xs text-gray-400 max-w-lg">
+              <p className="text-xs text-slate-600 dark:text-gray-400 max-w-lg">
                 Superpose un voile sombre sur l'image pour que le texte des chants reste 100% lisible quel que soit le vidéo-projecteur.
               </p>
             </div>
 
             <div className="flex items-center gap-3">
-              <span className="text-xs text-gray-400">Clair</span>
+              <span className="text-xs text-slate-600 dark:text-gray-400">Clair</span>
               <input
                 type="range"
                 min="0.30"
@@ -253,16 +253,16 @@ export const PresentationBackgroundModal: React.FC<PresentationBackgroundModalPr
                 step="0.05"
                 value={currentOverlay}
                 onChange={(e) => onAdjustOverlay(parseFloat(e.target.value))}
-                className="w-32 sm:w-44 accent-blue-500 cursor-pointer h-2 bg-[#2E2E3F] rounded-lg"
+                className="w-32 sm:w-44 accent-blue-500 cursor-pointer h-2 bg-[#EDF1F5] dark:bg-[#2E2E3F] rounded-lg"
               />
-              <span className="text-xs text-gray-400">Foncé</span>
+              <span className="text-xs text-slate-600 dark:text-gray-400">Foncé</span>
 
               <div className="flex gap-1 ml-2">
                 <button
                   type="button"
                   onClick={() => onAdjustOverlay(0.50)}
                   className={`px-2 py-1 text-[11px] rounded font-medium transition-colors cursor-pointer ${
-                    currentOverlay === 0.50 ? 'bg-blue-600 text-white' : 'bg-[#252535] text-gray-300 hover:bg-[#303045]'
+                    currentOverlay === 0.50 ? 'bg-blue-600 text-white' : 'bg-[#EDF1F5] dark:bg-[#252535] text-slate-700 dark:text-gray-300 hover:bg-slate-200 dark:hover:bg-[#303045]'
                   }`}
                   title="50% : Image plus visible"
                 >
@@ -272,7 +272,7 @@ export const PresentationBackgroundModal: React.FC<PresentationBackgroundModalPr
                   type="button"
                   onClick={() => onAdjustOverlay(0.65)}
                   className={`px-2 py-1 text-[11px] rounded font-medium transition-colors cursor-pointer ${
-                    currentOverlay === 0.65 ? 'bg-blue-600 text-white' : 'bg-[#252535] text-gray-300 hover:bg-[#303045]'
+                    currentOverlay === 0.65 ? 'bg-blue-600 text-white' : 'bg-[#EDF1F5] dark:bg-[#252535] text-slate-700 dark:text-gray-300 hover:bg-slate-200 dark:hover:bg-[#303045]'
                   }`}
                   title="65% : Réglage optimal recommandé"
                 >
@@ -282,7 +282,7 @@ export const PresentationBackgroundModal: React.FC<PresentationBackgroundModalPr
                   type="button"
                   onClick={() => onAdjustOverlay(0.80)}
                   className={`px-2 py-1 text-[11px] rounded font-medium transition-colors cursor-pointer ${
-                    currentOverlay === 0.80 ? 'bg-blue-600 text-white' : 'bg-[#252535] text-gray-300 hover:bg-[#303045]'
+                    currentOverlay === 0.80 ? 'bg-blue-600 text-white' : 'bg-[#EDF1F5] dark:bg-[#252535] text-slate-700 dark:text-gray-300 hover:bg-slate-200 dark:hover:bg-[#303045]'
                   }`}
                   title="80% : Contraste maximal"
                 >
@@ -296,19 +296,19 @@ export const PresentationBackgroundModal: React.FC<PresentationBackgroundModalPr
           <div className="space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="relative flex-1">
-                <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-4 h-4 text-slate-600 dark:text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   placeholder="Rechercher une image (ex: étoiles, mont, ciel, louange, brume, bokeh)..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-[#171720] border border-[#2C2C3C] rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
+                  className="w-full bg-slate-50 dark:bg-[#171720] border border-slate-300 dark:border-[#2C2C3C] rounded-xl pl-9 pr-4 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-purple-500"
                 />
                 {searchQuery && (
                   <button
                     type="button"
                     onClick={() => setSearchQuery('')}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-slate-900 dark:hover:text-white"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -321,14 +321,14 @@ export const PresentationBackgroundModal: React.FC<PresentationBackgroundModalPr
                 onClick={handleClearBackground}
                 className={`px-3.5 py-2 rounded-xl border text-xs font-semibold transition-all cursor-pointer flex items-center gap-2 ${
                   !currentBackground
-                    ? 'bg-blue-600/30 border-blue-500 text-white ring-2 ring-blue-500/30'
-                    : 'bg-[#1A1A24] border-[#2C2C3C] text-gray-300 hover:text-white hover:bg-[#252535]'
+                    ? 'bg-blue-600/30 border-blue-500 text-slate-900 dark:text-white ring-2 ring-blue-500/30'
+                    : 'bg-[#EDF1F5] dark:bg-[#1A1A24] border-slate-300 dark:border-[#2C2C3C] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-[#252535]'
                 }`}
                 title="Supprimer l'image et revenir au fond noir classique"
               >
-                <Trash2 className="w-3.5 h-3.5 text-gray-400" />
+                <Trash2 className="w-3.5 h-3.5 text-slate-600 dark:text-gray-400" />
                 <span>Fond noir pur</span>
-                {!currentBackground && <Check className="w-3 h-3 text-blue-400" />}
+                {!currentBackground && <Check className="w-3 h-3 text-blue-600 dark:text-blue-400" />}
               </button>
             </div>
 
@@ -349,7 +349,7 @@ export const PresentationBackgroundModal: React.FC<PresentationBackgroundModalPr
                   className={`px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer ${
                     selectedCategory === cat.id
                       ? 'bg-purple-600 text-white shadow-sm'
-                      : 'bg-[#1C1C26] text-gray-400 hover:text-gray-200 hover:bg-[#252536]'
+                      : 'bg-[#EDF1F5] dark:bg-[#1C1C26] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200 hover:bg-slate-200 dark:hover:bg-[#252536]'
                   }`}
                 >
                   {cat.label}
@@ -360,16 +360,16 @@ export const PresentationBackgroundModal: React.FC<PresentationBackgroundModalPr
 
           {/* Section 3 : Grille des images de la bibliothèque */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs text-gray-400">
-              <span className="font-semibold text-gray-300 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+            <div className="flex items-center justify-between text-xs text-slate-600 dark:text-gray-400">
+              <span className="font-semibold text-slate-700 dark:text-gray-300 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
                 <span>Bibliothèque intégrée ({filteredPresets.length})</span>
               </span>
               <span className="text-[11px] text-gray-500">Cliquez pour appliquer immédiatement</span>
             </div>
 
             {filteredPresets.length === 0 ? (
-              <div className="text-center py-10 bg-[#161620] rounded-xl border border-[#272736] text-xs text-gray-500">
+              <div className="text-center py-10 bg-slate-50 dark:bg-[#161620] rounded-xl border border-slate-300 dark:border-[#272736] text-xs text-gray-500">
                 Aucune image ne correspond à votre recherche "{searchQuery}".
               </div>
             ) : (
@@ -403,7 +403,7 @@ export const PresentationBackgroundModal: React.FC<PresentationBackgroundModalPr
 
                       {/* Titre et badge sélectionné */}
                       <div className="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black/90 via-black/50 to-transparent flex items-center justify-between gap-1">
-                        <span className="text-[11px] font-medium text-white truncate drop-shadow">
+                        <span className="text-[11px] font-medium text-slate-900 dark:text-white truncate drop-shadow">
                           {preset.title}
                         </span>
                         {isSelected && (
@@ -420,9 +420,9 @@ export const PresentationBackgroundModal: React.FC<PresentationBackgroundModalPr
           </div>
 
           {/* Section 4 : Image personnalisée depuis une URL externe */}
-          <div className="p-4 rounded-xl bg-[#161620] border border-[#252536] space-y-3">
-            <div className="flex items-center gap-2 text-xs font-semibold text-gray-300">
-              <Link2 className="w-4 h-4 text-blue-400" />
+          <div className="p-4 rounded-xl bg-slate-50 dark:bg-[#161620] border border-slate-300 dark:border-[#252536] space-y-3">
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-gray-300">
+              <Link2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
               <span>Ou utiliser votre propre image (Lien URL direct)</span>
             </div>
 
@@ -435,7 +435,7 @@ export const PresentationBackgroundModal: React.FC<PresentationBackgroundModalPr
                   setCustomUrlInput(e.target.value);
                   setCustomUrlError('');
                 }}
-                className="flex-1 bg-[#121218] border border-[#2A2A3A] rounded-xl px-3.5 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                className="flex-1 bg-white dark:bg-[#121218] border border-slate-300 dark:border-[#2A2A3A] rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-blue-500"
               />
               <button
                 type="submit"
@@ -445,22 +445,22 @@ export const PresentationBackgroundModal: React.FC<PresentationBackgroundModalPr
               </button>
             </form>
             {customUrlError && (
-              <p className="text-[11px] text-red-400">{customUrlError}</p>
+              <p className="text-[11px] text-red-600 dark:text-red-400">{customUrlError}</p>
             )}
           </div>
 
         </div>
 
         {/* Pied de page modal */}
-        <div className="px-5 py-3.5 border-t border-[#22222E] bg-[#16161D] flex items-center justify-between text-xs text-gray-400">
+        <div className="px-5 py-3.5 border-t border-slate-200 dark:border-[#22222E] bg-slate-50 dark:bg-[#16161D] flex items-center justify-between text-xs text-slate-600 dark:text-gray-400">
           <div className="flex items-center gap-2">
             <span>Fond actif :</span>
             {currentBackground ? (
-              <span className="text-purple-300 font-semibold truncate max-w-xs">
+              <span className="text-purple-700 dark:text-purple-300 font-semibold truncate max-w-xs">
                 Image personnalisée ({Math.round(currentOverlay * 100)}% opacité)
               </span>
             ) : (
-              <span className="text-gray-400">Noir pur classique</span>
+              <span className="text-slate-600 dark:text-gray-400">Noir pur classique</span>
             )}
           </div>
 

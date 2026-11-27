@@ -29,7 +29,7 @@ import {
   StrumStep
 } from '../utils/chordUtils';
 import { cacheSongInWorker } from '../utils/pwaCache';
-import { getSectionColor, getSectionBorderStyles } from '../utils/displayDefaults';
+import { getSectionColor, getSectionBorderStyles, getReadableChordColor } from '../utils/displayDefaults';
 import { 
   requestFullscreenSafe, 
   exitFullscreenSafe, 
@@ -1511,10 +1511,10 @@ export const SongReader: React.FC<SongReaderProps> = ({
           key={stepIdx}
           className={`inline-flex flex-col items-center justify-center leading-none ${
             isAccented
-              ? 'text-amber-300 print:text-black'
+              ? 'text-amber-700 dark:text-amber-300 print:text-black'
               : isLightStroke
-                ? 'text-sky-300/70 print:text-neutral-600'
-                : 'text-sky-300 print:text-black'
+                ? 'text-sky-700 dark:text-sky-300/70 print:text-neutral-600'
+                : 'text-sky-700 dark:text-sky-300 print:text-black'
           }`}
           title={isAccented ? 'Coup vers le bas accentué (↓)' : 'Coup vers le bas (↓)'}
           aria-label="Bas"
@@ -1544,10 +1544,10 @@ export const SongReader: React.FC<SongReaderProps> = ({
           key={stepIdx}
           className={`inline-flex flex-col items-center justify-center leading-none ${
             isAccented
-              ? 'text-amber-300 print:text-black'
+              ? 'text-amber-700 dark:text-amber-300 print:text-black'
               : isLightStroke
-                ? 'text-emerald-300/70 print:text-neutral-600'
-                : 'text-emerald-300 print:text-black'
+                ? 'text-emerald-700 dark:text-emerald-300/70 print:text-neutral-600'
+                : 'text-emerald-700 dark:text-emerald-300 print:text-black'
           }`}
           title={isAccented ? 'Coup vers le haut accentué (↑)' : 'Coup vers le haut (↑)'}
           aria-label="Haut"
@@ -1575,7 +1575,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
       return (
         <span
           key={stepIdx}
-          className="inline-flex items-center justify-center text-rose-400 font-bold text-xs px-0.5 print:text-black"
+          className="inline-flex items-center justify-center text-rose-600 dark:text-rose-400 font-bold text-xs px-0.5 print:text-black"
           title="Étouffé / Mute (✕)"
           aria-label="Étouffé"
         >
@@ -1588,7 +1588,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
       return (
         <span
           key={stepIdx}
-          className="inline-flex items-center justify-center text-gray-400 font-mono text-xs px-0.5 print:text-neutral-600"
+          className="inline-flex items-center justify-center text-slate-600 dark:text-gray-400 font-mono text-xs px-0.5 print:text-neutral-600"
           title="Tenue / Prolongation (—)"
           aria-label="Tenue"
         >
@@ -1614,7 +1614,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
       return (
         <span
           key={stepIdx}
-          className="inline-flex items-center justify-center text-gray-400 font-mono font-bold text-xs px-0.5 print:text-neutral-600"
+          className="inline-flex items-center justify-center text-slate-600 dark:text-gray-400 font-mono font-bold text-xs px-0.5 print:text-neutral-600"
           title="Marque rythmique (/)"
         >
           /
@@ -1626,7 +1626,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
       return (
         <span
           key={stepIdx}
-          className="inline-flex items-center justify-center text-amber-300/90 font-mono font-bold text-xs px-1 print:text-black"
+          className="inline-flex items-center justify-center text-amber-700 dark:text-amber-300/90 font-mono font-bold text-xs px-1 print:text-black"
           title="Répéter la mesure précédente (%)"
         >
           ·/·
@@ -1637,7 +1637,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
     return (
       <span
         key={stepIdx}
-        className="inline-flex items-center justify-center text-gray-400 font-mono text-xs px-0.5 print:text-neutral-600"
+        className="inline-flex items-center justify-center text-slate-600 dark:text-gray-400 font-mono text-xs px-0.5 print:text-neutral-600"
         title="Silence"
       >
         𝄽
@@ -1679,7 +1679,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
             return (
               <pre
                 key={`tab-${entry.key}`}
-                className="font-mono text-xs sm:text-sm text-sky-200/95 bg-[#101014]/70 border border-[#24242C] rounded-md px-3 py-2 overflow-x-auto leading-snug whitespace-pre print:bg-transparent print:border-neutral-300 print:text-black"
+                className="font-mono text-xs sm:text-sm text-sky-700 dark:text-sky-200/95 bg-white/70 dark:bg-[#101014]/70 border border-slate-200 dark:border-[#24242C] rounded-md px-3 py-2 overflow-x-auto leading-snug whitespace-pre print:bg-transparent print:border-neutral-300 print:text-black"
               >
                 {entry.rows.join('\n')}
               </pre>
@@ -1709,7 +1709,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
             return (
               <div
                 key={`grid-${entry.key}`}
-                className="rounded-lg bg-[#101014]/75 border border-[#24242C] px-2.5 py-2.5 overflow-x-auto print:bg-transparent print:border-neutral-300 print:px-1.5 print:py-1.5"
+                className="rounded-lg bg-white/75 dark:bg-[#101014]/75 border border-slate-200 dark:border-[#24242C] px-2.5 py-2.5 overflow-x-auto print:bg-transparent print:border-neutral-300 print:px-1.5 print:py-1.5"
               >
                 <div
                   className="grid gap-y-1.5 items-stretch min-w-fit"
@@ -1722,7 +1722,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                     return (
                       <React.Fragment key={rIdx}>
                         {hasPrefix && (
-                          <div className="flex items-center pr-2.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400 whitespace-nowrap print:text-neutral-700">
+                          <div className="flex items-center pr-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-600 dark:text-gray-400 whitespace-nowrap print:text-neutral-700">
                             {row.gridPrefix || ''}
                           </div>
                         )}
@@ -1734,20 +1734,20 @@ export const SongReader: React.FC<SongReaderProps> = ({
                               key={bIdx}
                               className={`relative flex items-center justify-between min-h-[28px] px-1.5 py-0.5 ${
                                 row.isStrumRow
-                                  ? 'bg-[#17171F]/65 rounded-xs print:bg-transparent'
+                                  ? 'bg-slate-50/65 dark:bg-[#17171F]/65 rounded-xs print:bg-transparent'
                                   : ''
                               }`}
                             >
                               {/* Barre de mesure gauche */}
                               {bar.repeatStart ? (
                                 <span
-                                  className="font-mono font-black text-amber-400 mr-1.5 select-none shrink-0 print:text-black"
+                                  className="font-mono font-black text-amber-600 dark:text-amber-400 mr-1.5 select-none shrink-0 print:text-black"
                                   title="Début de reprise"
                                 >
                                   |:
                                 </span>
                               ) : bar.doubleBarStart ? (
-                                <span className="font-mono font-bold text-gray-400 mr-1.5 select-none shrink-0 print:text-neutral-700">
+                                <span className="font-mono font-bold text-slate-600 dark:text-gray-400 mr-1.5 select-none shrink-0 print:text-neutral-700">
                                   ||
                                 </span>
                               ) : (
@@ -1781,7 +1781,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                                         className="font-mono font-bold hover:underline cursor-pointer px-0.5 transition-all active:scale-95 whitespace-nowrap print:cursor-default print:hover:no-underline print:text-blue-800"
                                         style={{
                                           fontSize: `${displaySettings.typography.chordSize}px`,
-                                          color: displaySettings.chordColor || '#60a5fa'
+                                          color: getReadableChordColor(displaySettings.chordColor, effectiveTheme === 'light')
                                         }}
                                         title={`Diagramme de l'accord ${displayedBeat}`}
                                       >
@@ -1802,7 +1802,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                                   }
 
                                   return (
-                                    <span key={beatIdx} className="text-gray-400 font-mono text-xs px-0.5 whitespace-nowrap print:text-neutral-700">
+                                    <span key={beatIdx} className="text-slate-600 dark:text-gray-400 font-mono text-xs px-0.5 whitespace-nowrap print:text-neutral-700">
                                       {beat}
                                     </span>
                                   );
@@ -1812,13 +1812,13 @@ export const SongReader: React.FC<SongReaderProps> = ({
                               {/* Barre de mesure droite (reprise, double barre ou clôture sur dernière mesure) */}
                               {bar.repeatEnd ? (
                                 <span
-                                  className="font-mono font-black text-amber-400 ml-1.5 select-none shrink-0 print:text-black"
+                                  className="font-mono font-black text-amber-600 dark:text-amber-400 ml-1.5 select-none shrink-0 print:text-black"
                                   title="Fin de reprise"
                                 >
                                   :|
                                 </span>
                               ) : bar.doubleBarEnd ? (
-                                <span className="font-mono font-bold text-gray-400 ml-1.5 select-none shrink-0 print:text-neutral-700">
+                                <span className="font-mono font-bold text-slate-600 dark:text-gray-400 ml-1.5 select-none shrink-0 print:text-neutral-700">
                                   ||
                                 </span>
                               ) : isLastRenderedBar ? (
@@ -1834,7 +1834,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                           ))}
 
                         {hasSuffix && (
-                          <div className="flex items-center pl-2 text-xs font-mono font-semibold text-emerald-300/90 whitespace-nowrap print:text-neutral-800">
+                          <div className="flex items-center pl-2 text-xs font-mono font-semibold text-emerald-700 dark:text-emerald-300/90 whitespace-nowrap print:text-neutral-800">
                             {row.gridSuffix || ''}
                           </div>
                         )}
@@ -1844,21 +1844,21 @@ export const SongReader: React.FC<SongReaderProps> = ({
                 </div>
 
                 {hasStrumVisuals && (
-                  <div className="mt-2 pt-1.5 border-t border-[#24242C]/80 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-gray-400 print:border-neutral-300 print:text-neutral-600">
+                  <div className="mt-2 pt-1.5 border-t border-slate-200/80 dark:border-[#24242C]/80 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-slate-600 dark:text-gray-400 print:border-neutral-300 print:text-neutral-600">
                     <span className="inline-flex items-center gap-1">
-                      <span className="text-sky-300 font-bold print:text-black">↓</span> Bas
+                      <span className="text-sky-700 dark:text-sky-300 font-bold print:text-black">↓</span> Bas
                     </span>
                     <span className="inline-flex items-center gap-1">
-                      <span className="text-emerald-300 font-bold print:text-black">↑</span> Haut
+                      <span className="text-emerald-700 dark:text-emerald-300 font-bold print:text-black">↑</span> Haut
                     </span>
                     <span className="inline-flex items-center gap-1">
-                      <span className="text-rose-400 font-bold print:text-black">✕</span> Étouffé
+                      <span className="text-rose-600 dark:text-rose-400 font-bold print:text-black">✕</span> Étouffé
                     </span>
                     <span className="inline-flex items-center gap-1">
-                      <span className="text-gray-300 font-mono print:text-black">—</span> Tenue
+                      <span className="text-slate-700 dark:text-gray-300 font-mono print:text-black">—</span> Tenue
                     </span>
                     <span className="inline-flex items-center gap-1">
-                      <span className="text-gray-400 print:text-black">•</span> Temps
+                      <span className="text-slate-600 dark:text-gray-400 print:text-black">•</span> Temps
                     </span>
                   </div>
                 )}
@@ -1874,7 +1874,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
 
           if (line.type === 'comment') {
             return (
-              <p key={lIdx} className="text-xs sm:text-sm text-sky-300/90 font-medium print:text-neutral-700">
+              <p key={lIdx} className="text-xs sm:text-sm text-sky-700 dark:text-sky-300/90 font-medium print:text-neutral-700">
                 {line.comment}
               </p>
             );
@@ -1882,7 +1882,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
 
           if (line.type === 'comment_italic') {
             return (
-              <p key={lIdx} className="text-xs sm:text-sm italic text-cyan-300/90 print:text-neutral-700">
+              <p key={lIdx} className="text-xs sm:text-sm italic text-cyan-700 dark:text-cyan-300/90 print:text-neutral-700">
                 {line.comment}
               </p>
             );
@@ -1892,7 +1892,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
             return (
               <div
                 key={lIdx}
-                className="inline-block px-2.5 py-1 rounded border border-amber-500/40 bg-amber-950/20 text-xs sm:text-sm font-medium text-amber-200 print:border-neutral-400 print:bg-neutral-50 print:text-black"
+                className="inline-block px-2.5 py-1 rounded border border-amber-500/40 bg-amber-50 dark:bg-amber-950/20 text-xs sm:text-sm font-medium text-amber-700 dark:text-amber-200 print:border-neutral-400 print:bg-neutral-50 print:text-black"
               >
                 {line.comment}
               </div>
@@ -1909,7 +1909,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                 return (
                   <div key={iIdx} className="inline-flex flex-col items-start">
                     {item.annotation && (
-                      <span className="text-[11px] italic text-amber-300/90 leading-none mb-0.5 pr-1 print:text-neutral-700">
+                      <span className="text-[11px] italic text-amber-700 dark:text-amber-300/90 leading-none mb-0.5 pr-1 print:text-neutral-700">
                         ({item.annotation})
                       </span>
                     )}
@@ -1930,7 +1930,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                         }`}
                         style={{
                           fontSize: `${displaySettings.typography.chordSize}px`,
-                          color: displaySettings.chordColor || '#60a5fa'
+                          color: getReadableChordColor(displaySettings.chordColor, effectiveTheme === 'light')
                         }}
                         title={displayedChord
                           ? (!isTranslatedCol && effectiveCapo > 0
@@ -1943,7 +1943,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                     )}
 
                     <span
-                      className="text-[#E0E0E0] font-sans tracking-normal whitespace-pre print:text-black print:font-normal"
+                      className="text-slate-900 dark:text-[#E0E0E0] font-sans tracking-normal whitespace-pre print:text-black print:font-normal"
                       style={{ fontSize: `${displaySettings.typography.lyricsSize}px` }}
                     >
                       {item.lyrics || (item.chord ? ' ' : '')}
@@ -2012,7 +2012,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
         <div 
           key={sIdx}
           data-section-card="true"
-          className={`rounded-lg ${cardPaddingClass} transition-all ${isTranslatedCol ? 'bg-[#121217]/60' : ''} print:break-inside-avoid print:page-break-inside-avoid print:p-0 print:mb-3 print:bg-transparent print:border-none print:shadow-none`}
+          className={`rounded-lg ${cardPaddingClass} transition-all ${isTranslatedCol ? 'bg-white/60 dark:bg-[#121217]/60' : ''} print:break-inside-avoid print:page-break-inside-avoid print:p-0 print:mb-3 print:bg-transparent print:border-none print:shadow-none`}
           style={getSectionBorderStyles(secColor, displaySettings.sectionBorders)}
         >
           {hasVisibleHeader && (
@@ -2033,14 +2033,14 @@ export const SongReader: React.FC<SongReaderProps> = ({
                 ) : null}
 
                 {section.isChorusRecall && (
-                  <span className="text-[10px] font-medium uppercase tracking-wider text-blue-300/80 border border-blue-500/30 bg-blue-950/30 px-1.5 py-0.5 rounded print:text-neutral-700 print:border-neutral-400">
+                  <span className="text-[10px] font-medium uppercase tracking-wider text-blue-700 dark:text-blue-300/80 border border-blue-500/30 bg-blue-50 dark:bg-blue-950/30 px-1.5 py-0.5 rounded print:text-neutral-700 print:border-neutral-400">
                     Rappel
                   </span>
                 )}
 
                 {sectionRepeat > 1 && (
                   <span 
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded border bg-emerald-950/40 border-emerald-500/50 text-emerald-300 font-bold font-mono select-none print:bg-neutral-100 print:border-neutral-400 print:text-neutral-900 print:text-[9.5pt]"
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded border bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500/50 text-emerald-700 dark:text-emerald-300 font-bold font-mono select-none print:bg-neutral-100 print:border-neutral-400 print:text-neutral-900 print:text-[9.5pt]"
                     style={{ fontSize: `${Math.max(10, Math.round((displaySettings.typography?.headerSize || 12) * 0.9))}px` }}
                     title={`Répété ${sectionRepeat} fois`}
                   >
@@ -2049,14 +2049,14 @@ export const SongReader: React.FC<SongReaderProps> = ({
                         width: `${Math.max(11, Math.round((displaySettings.typography?.headerSize || 12) * 0.9))}px`,
                         height: `${Math.max(11, Math.round((displaySettings.typography?.headerSize || 12) * 0.9))}px` 
                       }}
-                      className="text-emerald-400 shrink-0 print:text-neutral-800" 
+                      className="text-emerald-600 dark:text-emerald-400 shrink-0 print:text-neutral-800" 
                     />
                     <span>x{sectionRepeat}</span>
                   </span>
                 )}
 
                 {(section.key || section.transposeOffset || section.tempo || section.timeSignature || section.gridShape?.raw) && (
-                  <span className="text-[11px] font-mono text-gray-300/90 print:text-neutral-700">
+                  <span className="text-[11px] font-mono text-slate-700 dark:text-gray-300/90 print:text-neutral-700">
                     {[
                       section.gridShape?.raw ? `Grille ${section.gridShape.raw}` : '',
                       section.key ? `Ton: ${transposeChord(section.key, semitonesOffset, stageSettings.notation)}` : '',
@@ -2089,9 +2089,9 @@ export const SongReader: React.FC<SongReaderProps> = ({
 
   if (!song || !parsedData) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-20 text-center text-slate-400">
-        <Music className="w-16 h-16 mx-auto mb-4 text-slate-600" />
-        <h2 className="text-xl font-bold text-slate-200">Aucun chant sélectionné</h2>
+      <div className="max-w-4xl mx-auto px-4 py-20 text-center text-slate-600 dark:text-slate-400">
+        <Music className="w-16 h-16 mx-auto mb-4 text-slate-500 dark:text-slate-600" />
+        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-200">Aucun chant sélectionné</h2>
         <p className="text-xs text-slate-500 mt-2 mb-6">
           Sélectionnez un chant dans le répertoire pour l'afficher en mode scène.
         </p>
@@ -2106,17 +2106,11 @@ export const SongReader: React.FC<SongReaderProps> = ({
   }
 
   // Theme backgrounds
-  const isSystemLight = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
-  const effectiveTheme = stageSettings.theme === 'system'
-    ? (isSystemLight ? 'light' : 'dark')
-    : (stageSettings.theme || 'dark');
+  const effectiveTheme: 'dark' | 'light' = stageSettings.theme === 'light' ? 'light' : 'dark';
 
-  const themeClasses = {
-    dark: 'bg-[#0A0A0B] text-[#E0E0E0]',
-    oled: 'bg-black text-[#E0E0E0]',
-    sepia: 'bg-[#1C1814] text-[#F3EAD8]',
-    light: 'bg-[#F4F4F5] text-[#111112]'
-  }[effectiveTheme as 'dark' | 'oled' | 'sepia' | 'light'] || 'bg-[#0A0A0B] text-[#E0E0E0]';
+  const themeClasses = effectiveTheme === 'light'
+    ? 'bg-[#EDF1F5] dark:bg-[#F4F6F9] text-slate-900'
+    : 'bg-[#F4F6F9] dark:bg-[#0A0A0B] text-slate-900 dark:text-[#E0E0E0]';
 
   const isEmbedded = Boolean(propSong || setlistId || onBack);
   const containerClasses = isEmbedded
@@ -2142,7 +2136,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
       )}
 
       {/* Progress Bar for Auto-Scroll */}
-      <div className="no-print w-full h-0.5 bg-[#222224] overflow-hidden">
+      <div className="no-print w-full h-0.5 bg-[#EDF1F5] dark:bg-[#222224] overflow-hidden">
         <div 
           className="h-full bg-blue-600 transition-all duration-150"
           style={{ width: `${scrollProgress}%` }}
@@ -2159,15 +2153,15 @@ export const SongReader: React.FC<SongReaderProps> = ({
           />
           <div
             style={settingsPopoverStyle}
-            className="no-print absolute z-50 w-[340px] sm:w-[420px] max-w-[calc(100vw-20px)] max-h-[85vh] overflow-y-auto custom-scrollbar bg-[#16161A] border border-[#2E2E36] rounded-2xl shadow-2xl p-3 sm:p-4 backdrop-blur-md animate-in fade-in zoom-in-95 duration-100 box-border text-xs"
+            className="no-print absolute z-50 w-[340px] sm:w-[420px] max-w-[calc(100vw-20px)] max-h-[85vh] overflow-y-auto custom-scrollbar bg-slate-50 dark:bg-[#16161A] border border-slate-300 dark:border-[#2E2E36] rounded-2xl shadow-2xl p-3 sm:p-4 backdrop-blur-md animate-in fade-in zoom-in-95 duration-100 box-border text-xs"
           >
             {/* En-tête */}
-            <div className="flex items-center justify-between mb-3 pb-2 border-b border-[#282830]">
+            <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-300 dark:border-[#282830]">
               <div className="flex items-center gap-1.5">
-                <Settings2 className="w-3.5 h-3.5 text-blue-400" />
-                <span className="font-semibold text-gray-200 text-[11px]">Réglages du chant</span>
+                <Settings2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                <span className="font-semibold text-slate-800 dark:text-gray-200 text-[11px]">Réglages du chant</span>
                 {song.title && (
-                  <span className="text-[10px] text-gray-400 font-normal truncate max-w-[120px]">
+                  <span className="text-[10px] text-slate-600 dark:text-gray-400 font-normal truncate max-w-[120px]">
                     — {stripParentheses(song.title)}
                   </span>
                 )}
@@ -2175,7 +2169,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
               <button
                 type="button"
                 onClick={() => setShowSettingsDrawer(false)}
-                className="p-1 rounded-md text-gray-500 hover:text-white hover:bg-[#252530] transition-all cursor-pointer"
+                className="p-1 rounded-md text-gray-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-[#252530] transition-all cursor-pointer"
                 title="Fermer"
               >
                 <X className="w-3.5 h-3.5" />
@@ -2183,7 +2177,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
             </div>
 
             {/* Actions principales : Éditer le chant & Exporter PDF */}
-            <div className="mb-3.5 pb-3 border-b border-[#282830]">
+            <div className="mb-3.5 pb-3 border-b border-slate-300 dark:border-[#282830]">
               <div className={`grid ${canManageSongs ? 'grid-cols-2' : 'grid-cols-1'} gap-2`}>
                 {canManageSongs && (
                   <button
@@ -2196,14 +2190,14 @@ export const SongReader: React.FC<SongReaderProps> = ({
                       setEditorReturnTarget(isInSetlist ? 'setlistLive' : 'stage');
                       setActiveTab('editor');
                     }}
-                    className="flex items-center gap-2 p-2 sm:p-2.5 rounded-xl bg-gradient-to-br from-amber-500/20 via-amber-600/10 to-[#18181F] hover:from-amber-500/30 hover:via-amber-600/20 border border-amber-500/40 hover:border-amber-400 text-left transition-all cursor-pointer group shadow-md shadow-amber-950/30 active:scale-98"
+                    className="flex items-center gap-2 p-2 sm:p-2.5 rounded-xl bg-gradient-to-br from-amber-50 dark:from-amber-500/20 via-amber-50 dark:via-amber-600/10 to-white dark:to-[#18181F] hover:from-amber-100 dark:hover:from-amber-500/30 hover:via-amber-100 dark:hover:via-amber-600/20 border border-amber-500/40 hover:border-amber-400 text-left transition-all cursor-pointer group shadow-md shadow-amber-950/30 active:scale-98"
                     title="Éditer le chant dans l'éditeur"
                   >
-                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0 group-hover:scale-110 transition-transform shadow-xs">
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0 group-hover:scale-110 transition-transform shadow-xs">
                       <FileEdit className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="font-bold text-[11px] sm:text-xs text-white group-hover:text-amber-200 transition-colors leading-tight">
+                      <div className="font-bold text-[11px] sm:text-xs text-slate-900 dark:text-white group-hover:text-amber-800 dark:group-hover:text-amber-200 transition-colors leading-tight">
                         Éditer le chant
                       </div>
                     </div>
@@ -2216,14 +2210,14 @@ export const SongReader: React.FC<SongReaderProps> = ({
                     setShowSettingsDrawer(false);
                     setShowPdfModal(true);
                   }}
-                  className="flex items-center gap-2 p-2 sm:p-2.5 rounded-xl bg-gradient-to-br from-blue-500/20 via-indigo-600/10 to-[#18181F] hover:from-blue-500/30 hover:via-indigo-600/20 border border-blue-500/40 hover:border-blue-400 text-left transition-all cursor-pointer group shadow-md shadow-blue-950/30 active:scale-98"
+                  className="flex items-center gap-2 p-2 sm:p-2.5 rounded-xl bg-gradient-to-br from-blue-50 dark:from-blue-500/20 via-indigo-50 dark:via-indigo-600/10 to-white dark:to-[#18181F] hover:from-blue-100 dark:hover:from-blue-500/30 hover:via-indigo-100 dark:hover:via-indigo-600/20 border border-blue-500/40 hover:border-blue-400 text-left transition-all cursor-pointer group shadow-md shadow-blue-950/30 active:scale-98"
                   title="Partager (QR code, lien, PDF ou ChordPro)"
                 >
-                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0 group-hover:scale-110 transition-transform shadow-xs">
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0 group-hover:scale-110 transition-transform shadow-xs">
                     <Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="font-bold text-[11px] sm:text-xs text-white group-hover:text-blue-200 transition-colors leading-tight">
+                    <div className="font-bold text-[11px] sm:text-xs text-slate-900 dark:text-white group-hover:text-blue-800 dark:group-hover:text-blue-200 transition-colors leading-tight">
                       Partager
                     </div>
                   </div>
@@ -2232,7 +2226,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
             </div>
 
             {/* Pad d'accompagnement (Tonic Pad) */}
-            <div className="mb-3 rounded-xl bg-gradient-to-br from-sky-500/20 via-sky-600/10 to-[#18181F] hover:from-sky-500/25 hover:via-sky-600/15 border border-sky-500/40 hover:border-sky-400 p-2 sm:p-2.5 transition-all shadow-md shadow-sky-950/30">
+            <div className="mb-3 rounded-xl bg-gradient-to-br from-sky-50 dark:from-sky-500/20 via-sky-50 dark:via-sky-600/10 to-white dark:to-[#18181F] hover:from-sky-100 dark:hover:from-sky-500/25 hover:via-sky-100 dark:hover:via-sky-600/15 border border-sky-500/40 hover:border-sky-400 p-2 sm:p-2.5 transition-all shadow-md shadow-sky-950/30">
               <button
                 type="button"
                 onClick={togglePadCollapse}
@@ -2244,17 +2238,17 @@ export const SongReader: React.FC<SongReaderProps> = ({
                   <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center shrink-0 transition-transform group-hover:scale-110 shadow-xs ${
                     isPadPlaying 
                       ? 'bg-sky-400 text-black shadow-md shadow-sky-400/30' 
-                      : 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
+                      : 'bg-sky-500/20 text-sky-700 dark:text-sky-400 border border-sky-500/30'
                   }`}>
                     <Radio className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isPadPlaying ? 'animate-pulse' : ''}`} />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="font-bold text-[11px] sm:text-xs text-white group-hover:text-sky-200 transition-colors leading-tight">
+                      <span className="font-bold text-[11px] sm:text-xs text-slate-900 dark:text-white group-hover:text-sky-800 dark:group-hover:text-sky-200 transition-colors leading-tight">
                         Pad d'accompagnement
                       </span>
                       {isPadPlaying && (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-sky-500/30 text-sky-200 border border-sky-400/50">
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-sky-500/30 text-sky-700 dark:text-sky-200 border border-sky-400/50">
                           <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-ping" />
                           Actif • {CHROMATIC_NOTES[activePadSemitone]?.label}
                         </span>
@@ -2264,7 +2258,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                  <div className="w-6 h-6 rounded-lg bg-sky-500/20 group-hover:bg-sky-500/30 border border-sky-500/30 flex items-center justify-center text-sky-300 group-hover:text-white transition-all shadow-xs">
+                  <div className="w-6 h-6 rounded-lg bg-sky-500/20 group-hover:bg-sky-500/30 border border-sky-500/30 flex items-center justify-center text-sky-700 dark:text-sky-300 group-hover:text-slate-900 dark:group-hover:text-white transition-all shadow-xs">
                     {isPadCollapsed ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
                   </div>
                 </div>
@@ -2279,31 +2273,31 @@ export const SongReader: React.FC<SongReaderProps> = ({
             </div>
 
             {/* Section Affichage & Lecture */}
-            <div className="border-t border-[#282830] pt-3 mb-2.5">
-              <div className="text-[11px] font-bold text-gray-300 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
-                <SlidersHorizontal className="w-3.5 h-3.5 text-blue-400" />
+            <div className="border-t border-slate-300 dark:border-[#282830] pt-3 mb-2.5">
+              <div className="text-[11px] font-bold text-slate-700 dark:text-gray-300 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+                <SlidersHorizontal className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                 <span>Affichage & Lecture</span>
               </div>
 
               <div className="space-y-2">
                 {/* Accords */}
-                <div className="flex items-center justify-between p-2 rounded-xl bg-[#141418] border border-[#23232C] hover:border-[#2E2E3A] transition-colors">
+                <div className="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-[#141418] border border-slate-200 dark:border-[#23232C] hover:border-slate-400 dark:hover:border-[#2E2E3A] transition-colors">
                   <div className="flex items-center gap-2 min-w-0">
-                    <div className="w-7 h-7 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
+                    <div className="w-7 h-7 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
                       <Eye className="w-3.5 h-3.5" />
                     </div>
                     <div className="min-w-0">
-                      <div className="text-xs font-bold text-gray-200">Accords</div>
+                      <div className="text-xs font-bold text-slate-800 dark:text-gray-200">Accords</div>
                     </div>
                   </div>
-                  <div className="inline-flex items-center p-0.5 rounded-lg bg-[#0E0E12] border border-[#262630] shadow-inner">
+                  <div className="inline-flex items-center p-0.5 rounded-lg bg-white dark:bg-[#0E0E12] border border-slate-300 dark:border-[#262630] shadow-inner">
                     <button
                       type="button"
                       onClick={() => updateStageSettings({ showChords: true })}
                       className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                         stageSettings.showChords
-                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-xs font-bold'
-                          : 'text-gray-400 hover:text-white'
+                          ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/40 shadow-xs font-bold'
+                          : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                       }`}
                     >
                       <Eye className="w-3 h-3" />
@@ -2314,8 +2308,8 @@ export const SongReader: React.FC<SongReaderProps> = ({
                       onClick={() => updateStageSettings({ showChords: false })}
                       className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                         !stageSettings.showChords
-                          ? 'bg-[#24242E] text-white shadow-xs font-bold'
-                          : 'text-gray-400 hover:text-white'
+                          ? 'bg-[#EDF1F5] dark:bg-[#24242E] text-slate-900 dark:text-white shadow-xs font-bold'
+                          : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                       }`}
                     >
                       <EyeOff className="w-3 h-3" />
@@ -2325,33 +2319,33 @@ export const SongReader: React.FC<SongReaderProps> = ({
                 </div>
 
                 {/* Taille du texte */}
-                <div className="flex items-center justify-between p-2 rounded-xl bg-[#141418] border border-[#23232C] hover:border-[#2E2E3A] transition-colors">
+                <div className="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-[#141418] border border-slate-200 dark:border-[#23232C] hover:border-slate-400 dark:hover:border-[#2E2E3A] transition-colors">
                   <div className="flex items-center gap-2 min-w-0">
-                    <div className="w-7 h-7 rounded-lg bg-blue-500/15 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0">
+                    <div className="w-7 h-7 rounded-lg bg-blue-500/15 border border-blue-500/30 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
                       <SlidersHorizontal className="w-3.5 h-3.5" />
                     </div>
                     <div className="min-w-0">
-                      <div className="text-xs font-bold text-gray-200">Taille du texte</div>
+                      <div className="text-xs font-bold text-slate-800 dark:text-gray-200">Taille du texte</div>
                     </div>
                   </div>
-                  <div className="inline-flex items-center p-0.5 rounded-lg bg-[#0E0E12] border border-[#262630] gap-1 shadow-inner">
+                  <div className="inline-flex items-center p-0.5 rounded-lg bg-white dark:bg-[#0E0E12] border border-slate-300 dark:border-[#262630] gap-1 shadow-inner">
                     <button
                       type="button"
                       onClick={() => handleSetZoomPercentage(zoomPercentage - 10)}
                       disabled={zoomPercentage <= 60}
-                      className="w-6 h-6 rounded-md bg-[#1C1C24] hover:bg-[#282834] flex items-center justify-center text-gray-300 disabled:opacity-30 transition-colors cursor-pointer"
+                      className="w-6 h-6 rounded-md bg-[#EDF1F5] dark:bg-[#1C1C24] hover:bg-slate-200 dark:hover:bg-[#282834] flex items-center justify-center text-slate-700 dark:text-gray-300 disabled:opacity-30 transition-colors cursor-pointer"
                       title="Réduire (-10%)"
                     >
                       <Minus className="w-3.5 h-3.5" />
                     </button>
-                    <span className="font-mono font-bold text-blue-400 text-xs w-9 text-center">
+                    <span className="font-mono font-bold text-blue-600 dark:text-blue-400 text-xs w-9 text-center">
                       {zoomPercentage}%
                     </span>
                     <button
                       type="button"
                       onClick={() => handleSetZoomPercentage(zoomPercentage + 10)}
                       disabled={zoomPercentage >= 180}
-                      className="w-6 h-6 rounded-md bg-[#1C1C24] hover:bg-[#282834] flex items-center justify-center text-gray-300 disabled:opacity-30 transition-colors cursor-pointer"
+                      className="w-6 h-6 rounded-md bg-[#EDF1F5] dark:bg-[#1C1C24] hover:bg-slate-200 dark:hover:bg-[#282834] flex items-center justify-center text-slate-700 dark:text-gray-300 disabled:opacity-30 transition-colors cursor-pointer"
                       title="Agrandir (+10%)"
                     >
                       <Plus className="w-3.5 h-3.5" />
@@ -2360,7 +2354,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                       <button
                         type="button"
                         onClick={handleResetZoom}
-                        className="text-[9px] font-bold text-blue-400 hover:text-blue-300 px-1 py-0.5 rounded hover:bg-blue-950/40 transition-colors"
+                        className="text-[9px] font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 px-1 py-0.5 rounded hover:bg-blue-100 dark:hover:bg-blue-950/40 transition-colors"
                         title="Rétablir à 100%"
                       >
                         100%
@@ -2370,18 +2364,18 @@ export const SongReader: React.FC<SongReaderProps> = ({
                 </div>
 
                 {/* Défilement automatique */}
-                <div className="flex items-center justify-between p-2 rounded-xl bg-[#141418] border border-[#23232C] hover:border-[#2E2E3A] transition-colors">
+                <div className="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-[#141418] border border-slate-200 dark:border-[#23232C] hover:border-slate-400 dark:hover:border-[#2E2E3A] transition-colors">
                   <div className="flex items-center gap-2 min-w-0">
                     <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
                       stageSettings.isAutoScrolling 
-                        ? 'bg-amber-500/20 border border-amber-500/40 text-amber-400' 
-                        : 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-400'
+                        ? 'bg-amber-500/20 border border-amber-500/40 text-amber-600 dark:text-amber-400' 
+                        : 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
                     }`}>
                       <Play className="w-3.5 h-3.5 fill-current" />
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-bold text-gray-200">Défilement auto</span>
+                        <span className="text-xs font-bold text-slate-800 dark:text-gray-200">Défilement auto</span>
                       </div>
                     </div>
                   </div>
@@ -2417,10 +2411,10 @@ export const SongReader: React.FC<SongReaderProps> = ({
             </div>
 
             {/* Écouter le chant (Recherche rapide YouTube & Spotify / Lecteur intégré) */}
-            <div className="border-t border-[#282830] mt-3.5 pt-3">
-              <div className="text-[11px] font-bold text-gray-300 uppercase tracking-wider mb-2.5 flex items-center justify-between">
+            <div className="border-t border-slate-300 dark:border-[#282830] mt-3.5 pt-3">
+              <div className="text-[11px] font-bold text-slate-700 dark:text-gray-300 uppercase tracking-wider mb-2.5 flex items-center justify-between">
                 <span className="flex items-center gap-1.5">
-                  <Play className="w-3.5 h-3.5 text-blue-400" />
+                  <Play className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                   <span>Écouter le chant</span>
                 </span>
               </div>
@@ -2441,7 +2435,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                         setYoutubeInputUrl(effectiveYoutubeUrl || '');
                       }
                     }}
-                    className={`w-full flex items-center gap-2 p-2.5 ${hasYoutubeEmbed && canManageSongs ? 'pr-8' : ''} rounded-xl bg-gradient-to-br from-red-600/25 via-red-900/15 to-[#16161C] hover:from-red-600/35 hover:via-red-900/25 border border-red-500/40 hover:border-red-400 text-white font-bold text-xs transition-all cursor-pointer group shadow-md shadow-red-950/30 hover:shadow-red-950/50 active:scale-98 text-left`}
+                    className={`w-full flex items-center gap-2 p-2.5 ${hasYoutubeEmbed && canManageSongs ? 'pr-8' : ''} rounded-xl bg-gradient-to-br from-red-50 dark:from-red-600/25 via-red-50 dark:via-red-900/15 to-white dark:to-[#16161C] hover:from-red-100 dark:hover:from-red-600/35 hover:via-red-100 dark:hover:via-red-900/25 border border-red-500/40 hover:border-red-400 text-slate-900 dark:text-white font-bold text-xs transition-all cursor-pointer group shadow-sm dark:shadow-md dark:shadow-red-950/30 active:scale-98 text-left`}
                     title={hasYoutubeEmbed ? "Lancer le lecteur YouTube" : "Ajouter un lien YouTube pour ce chant"}
                   >
                     <div className="w-7 h-7 rounded-lg bg-red-600/20 border border-red-500/30 flex items-center justify-center text-red-500 shrink-0 group-hover:scale-110 group-hover:bg-red-600/30 transition-transform shadow-xs">
@@ -2450,11 +2444,11 @@ export const SongReader: React.FC<SongReaderProps> = ({
                       </svg>
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="font-bold text-xs text-white group-hover:text-red-200 transition-colors">
+                      <div className="font-bold text-xs text-slate-900 dark:text-white group-hover:text-red-800 dark:group-hover:text-red-200 transition-colors">
                         YouTube
                       </div>
                       {!hasYoutubeEmbed && (
-                        <div className="text-[10px] font-normal text-red-300/80 truncate">
+                        <div className="text-[10px] font-normal text-red-700 dark:text-red-300/80 truncate">
                           + Ajouter lien
                         </div>
                       )}
@@ -2471,8 +2465,8 @@ export const SongReader: React.FC<SongReaderProps> = ({
                       }}
                       className={`absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-colors cursor-pointer ${
                         showYoutubeConfig
-                          ? 'bg-red-500/30 text-white'
-                          : 'text-red-300/80 hover:text-white hover:bg-red-500/20'
+                          ? 'bg-red-500/30 text-slate-900 dark:text-white'
+                          : 'text-red-700 dark:text-red-300/80 hover:text-slate-900 dark:hover:text-white hover:bg-red-500/20'
                       }`}
                       title="Modifier le lien YouTube"
                       aria-label="Modifier le lien YouTube"
@@ -2500,20 +2494,20 @@ export const SongReader: React.FC<SongReaderProps> = ({
                     }}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={`w-full flex items-center gap-2 p-2.5 ${hasSpotifyEmbed && canManageSongs ? 'pr-8' : ''} rounded-xl bg-gradient-to-br from-emerald-600/25 via-emerald-900/15 to-[#16161C] hover:from-emerald-600/35 hover:via-emerald-900/25 border border-emerald-500/40 hover:border-emerald-400 text-white font-bold text-xs transition-all cursor-pointer group shadow-md shadow-emerald-950/30 hover:shadow-emerald-950/50 active:scale-98`}
+                    className={`w-full flex items-center gap-2 p-2.5 ${hasSpotifyEmbed && canManageSongs ? 'pr-8' : ''} rounded-xl bg-gradient-to-br from-emerald-50 dark:from-emerald-600/25 via-emerald-50 dark:via-emerald-900/15 to-white dark:to-[#16161C] hover:from-emerald-100 dark:hover:from-emerald-600/35 hover:via-emerald-100 dark:hover:via-emerald-900/25 border border-emerald-500/40 hover:border-emerald-400 text-slate-900 dark:text-white font-bold text-xs transition-all cursor-pointer group shadow-sm dark:shadow-md dark:shadow-emerald-950/30 active:scale-98`}
                     title={hasSpotifyEmbed ? "Écouter sur le petit lecteur Spotify sans quitter l'app" : "Ajouter un lien Spotify pour ce chant"}
                   >
-                    <div className="w-7 h-7 rounded-lg bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0 group-hover:scale-110 group-hover:bg-emerald-600/30 transition-transform shadow-xs">
+                    <div className="w-7 h-7 rounded-lg bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0 group-hover:scale-110 group-hover:bg-emerald-600/30 transition-transform shadow-xs">
                       <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
                         <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
                       </svg>
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="font-bold text-xs text-white group-hover:text-emerald-200 transition-colors">
+                      <div className="font-bold text-xs text-slate-900 dark:text-white group-hover:text-emerald-800 dark:group-hover:text-emerald-200 transition-colors">
                         Spotify
                       </div>
                       {!hasSpotifyEmbed && (
-                        <div className="text-[10px] font-normal text-emerald-300/80 truncate">
+                        <div className="text-[10px] font-normal text-emerald-700 dark:text-emerald-300/80 truncate">
                           + Ajouter lien
                         </div>
                       )}
@@ -2529,8 +2523,8 @@ export const SongReader: React.FC<SongReaderProps> = ({
                       }}
                       className={`absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-colors cursor-pointer ${
                         showSpotifyConfig
-                          ? 'bg-emerald-500/30 text-white'
-                          : 'text-emerald-300/80 hover:text-white hover:bg-emerald-500/20'
+                          ? 'bg-emerald-500/30 text-slate-900 dark:text-white'
+                          : 'text-emerald-700 dark:text-emerald-300/80 hover:text-slate-900 dark:hover:text-white hover:bg-emerald-500/20'
                       }`}
                       title="Modifier le lien Spotify"
                       aria-label="Modifier le lien Spotify"
@@ -2548,14 +2542,14 @@ export const SongReader: React.FC<SongReaderProps> = ({
                       setShowAudioPlayer(true);
                       setIsAudioPlayerMinimized(false);
                     }}
-                    className="flex items-center gap-2 p-2.5 rounded-xl bg-gradient-to-br from-blue-600/25 via-blue-900/15 to-[#16161C] hover:from-blue-600/35 hover:via-blue-900/25 border border-blue-500/40 hover:border-blue-400 text-white font-bold text-xs transition-all cursor-pointer group shadow-md shadow-blue-950/30 hover:shadow-blue-950/50 active:scale-98 col-span-2"
+                    className="flex items-center gap-2 p-2.5 rounded-xl bg-gradient-to-br from-blue-50 dark:from-blue-600/25 via-blue-50 dark:via-blue-900/15 to-white dark:to-[#16161C] hover:from-blue-100 dark:hover:from-blue-600/35 hover:via-blue-100 dark:hover:via-blue-900/25 border border-blue-500/40 hover:border-blue-400 text-slate-900 dark:text-white font-bold text-xs transition-all cursor-pointer group shadow-md shadow-blue-950/30 hover:shadow-blue-950/50 active:scale-98 col-span-2"
                     title="Écouter le fichier audio MP3 dans le lecteur"
                   >
-                    <div className="w-7 h-7 rounded-lg bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0 group-hover:scale-110 group-hover:bg-blue-600/30 transition-transform shadow-xs">
+                    <div className="w-7 h-7 rounded-lg bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0 group-hover:scale-110 group-hover:bg-blue-600/30 transition-transform shadow-xs">
                       <Music className="w-3.5 h-3.5" />
                     </div>
                     <div className="min-w-0 flex-1 text-left">
-                      <div className="font-bold text-xs text-white group-hover:text-blue-200 transition-colors">
+                      <div className="font-bold text-xs text-slate-900 dark:text-white group-hover:text-blue-800 dark:group-hover:text-blue-200 transition-colors">
                         Fichier Audio (MP3)
                       </div>
                     </div>
@@ -2565,8 +2559,8 @@ export const SongReader: React.FC<SongReaderProps> = ({
 
               {/* Panneau de configuration rapide YouTube */}
               {showYoutubeConfig && (
-                <div className="mt-2.5 p-2.5 rounded-xl bg-[#1A1416] border border-red-500/40 text-xs animate-in fade-in zoom-in-95 duration-100">
-                  <div className="text-[11px] font-bold text-red-400 mb-1 flex items-center justify-between">
+                <div className="mt-2.5 p-2.5 rounded-xl bg-slate-50 dark:bg-[#1A1416] border border-red-500/40 text-xs animate-in fade-in zoom-in-95 duration-100">
+                  <div className="text-[11px] font-bold text-red-600 dark:text-red-400 mb-1 flex items-center justify-between">
                     <span>Lier une vidéo YouTube</span>
                     <button 
                       type="button" 
@@ -2574,12 +2568,12 @@ export const SongReader: React.FC<SongReaderProps> = ({
                         setShowYoutubeConfig(false);
                         setYoutubeConfigError(null);
                       }}
-                      className="text-gray-400 hover:text-white p-0.5 cursor-pointer"
+                      className="text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white p-0.5 cursor-pointer"
                     >
                       ✕
                     </button>
                   </div>
-                  <p className="text-[10px] text-gray-400 mb-2 leading-relaxed">
+                  <p className="text-[10px] text-slate-600 dark:text-gray-400 mb-2 leading-relaxed">
                     Collez le lien YouTube pour l'enregistrer et l'écouter directement dans l'application.
                   </p>
                   <div className="flex gap-1.5 mb-2">
@@ -2597,7 +2591,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                         }
                       }}
                       placeholder="https://www.youtube.com/watch?v=..."
-                      className="flex-1 px-2.5 py-1.5 rounded-lg bg-[#1C1C22] border border-[#3A3A44] text-xs text-white placeholder-gray-500 focus:outline-none focus:border-red-500 font-mono"
+                      className="flex-1 px-2.5 py-1.5 rounded-lg bg-[#EDF1F5] dark:bg-[#1C1C22] border border-slate-300 dark:border-[#3A3A44] text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-red-500 font-mono"
                     />
                     <button
                       type="button"
@@ -2610,7 +2604,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                     </button>
                   </div>
                   {youtubeConfigError && (
-                    <p className="text-[10px] text-rose-400 font-medium mb-2 leading-snug">
+                    <p className="text-[10px] text-rose-600 dark:text-rose-400 font-medium mb-2 leading-snug">
                       {youtubeConfigError}
                     </p>
                   )}
@@ -2619,7 +2613,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                       href={`https://www.youtube.com/results?search_query=${encodeURIComponent([parsedData.title || song.title, parsedData.artist || song.artist].filter(Boolean).join(' '))}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-red-400 hover:underline flex items-center gap-1"
+                      className="text-red-600 dark:text-red-400 hover:underline flex items-center gap-1"
                     >
                       <ExternalLink className="w-3 h-3" />
                       <span>Chercher sur YouTube pour copier le lien</span>
@@ -2629,7 +2623,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                         type="button"
                         disabled={isSavingYoutube}
                         onClick={() => handleSaveYoutubeUrl('')}
-                        className="text-rose-400 hover:text-rose-300 hover:underline cursor-pointer disabled:opacity-50"
+                        className="text-rose-600 dark:text-rose-400 hover:text-rose-800 dark:hover:text-rose-300 hover:underline cursor-pointer disabled:opacity-50"
                       >
                         Retirer le lien
                       </button>
@@ -2640,18 +2634,18 @@ export const SongReader: React.FC<SongReaderProps> = ({
 
               {/* Panneau de configuration rapide Spotify */}
               {showSpotifyConfig && (
-                <div className="mt-2.5 p-2.5 rounded-xl bg-[#141822] border border-emerald-500/40 text-xs animate-in fade-in zoom-in-95 duration-100">
-                  <div className="text-[11px] font-bold text-emerald-400 mb-1 flex items-center justify-between">
+                <div className="mt-2.5 p-2.5 rounded-xl bg-slate-50 dark:bg-[#141822] border border-emerald-500/40 text-xs animate-in fade-in zoom-in-95 duration-100">
+                  <div className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 mb-1 flex items-center justify-between">
                     <span>Lier un morceau ou album Spotify</span>
                     <button 
                       type="button" 
                       onClick={() => setShowSpotifyConfig(false)}
-                      className="text-gray-400 hover:text-white p-0.5 cursor-pointer"
+                      className="text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white p-0.5 cursor-pointer"
                     >
                       ✕
                     </button>
                   </div>
-                  <p className="text-[10px] text-gray-400 mb-2 leading-relaxed">
+                  <p className="text-[10px] text-slate-600 dark:text-gray-400 mb-2 leading-relaxed">
                     Collez le lien Spotify pour l'enregistrer et l'écouter directement dans le petit lecteur.
                   </p>
                   <div className="flex gap-1.5 mb-2">
@@ -2666,7 +2660,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                         }
                       }}
                       placeholder="https://open.spotify.com/track/..."
-                      className="flex-1 px-2.5 py-1.5 rounded-lg bg-[#1C1C22] border border-[#3A3A44] text-xs text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 font-mono"
+                      className="flex-1 px-2.5 py-1.5 rounded-lg bg-[#EDF1F5] dark:bg-[#1C1C22] border border-slate-300 dark:border-[#3A3A44] text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-emerald-500 font-mono"
                     />
                     <button
                       type="button"
@@ -2682,7 +2676,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                       href={`https://open.spotify.com/search/${encodeURIComponent([parsedData.title || song.title, parsedData.artist || song.artist].filter(Boolean).join(' '))}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-emerald-400 hover:underline flex items-center gap-1"
+                      className="text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
                     >
                       <ExternalLink className="w-3 h-3" />
                       <span>Chercher sur Spotify pour copier le lien</span>
@@ -2691,7 +2685,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                       <button
                         type="button"
                         onClick={() => handleSaveSpotifyUrl('')}
-                        className="text-rose-400 hover:text-rose-300 hover:underline cursor-pointer"
+                        className="text-rose-600 dark:text-rose-400 hover:text-rose-800 dark:hover:text-rose-300 hover:underline cursor-pointer"
                       >
                         Retirer le lien
                       </button>
@@ -2709,6 +2703,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
       <div 
         ref={containerRef}
         onScroll={handleScroll}
+        data-stage-sheet="true"
         className={`flex-1 overflow-y-auto ${isWideLayout ? 'px-3 sm:px-6 lg:px-8' : 'px-3 sm:px-8 md:px-12'} pt-2 sm:pt-4 pb-28 sm:pb-32 ${stageSettings.isAutoScrolling ? 'scroll-auto' : 'scroll-smooth'} print-sheet print:p-0 print:m-0 print:overflow-visible print:h-auto print:w-full print:max-w-none`}
         style={{ 
           lineHeight: displaySettings.typography.lineSpacing,
@@ -2797,21 +2792,21 @@ export const SongReader: React.FC<SongReaderProps> = ({
 
           {/* Song Sheet Header : Mode Ultra-Compact ou Déplié */}
           {isHeaderCollapsed ? (
-            <div className="no-print border-b border-[#222224] pb-2 mb-2 sm:mb-3">
-              <div className="flex items-center justify-between gap-1.5 sm:gap-2 py-1 px-2 sm:px-2.5 rounded-lg bg-[#141418] border border-[#26262E] text-xs">
+            <div className="no-print border-b border-slate-200 dark:border-[#222224] pb-2 mb-2 sm:mb-3">
+              <div className="flex items-center justify-between gap-1.5 sm:gap-2 py-1 px-2 sm:px-2.5 rounded-lg bg-slate-50 dark:bg-[#141418] border border-slate-300 dark:border-[#26262E] text-xs">
                 {/* Left: Bouton déplier + Titre */}
                 <div className="flex items-center gap-1.5 min-w-0">
                   <button
                     type="button"
                     onClick={toggleHeaderCollapsed}
-                    className="p-1 rounded bg-[#1C1C22] hover:bg-[#282830] text-blue-400 border border-[#333] transition-colors cursor-pointer shrink-0 flex items-center justify-center"
+                    className="p-1 rounded bg-[#EDF1F5] dark:bg-[#1C1C22] hover:bg-slate-200 dark:hover:bg-[#282830] text-blue-600 dark:text-blue-400 border border-slate-300 dark:border-[#333] transition-colors cursor-pointer shrink-0 flex items-center justify-center"
                     title="Agrandir l'en-tête complète"
                     aria-label="Agrandir l'en-tête"
                   >
                     <ChevronDown className="w-3.5 h-3.5" />
                   </button>
                   {metaVis.title !== false && (
-                    <span className="font-bold text-white text-xs sm:text-sm truncate">
+                    <span className="font-bold text-slate-900 dark:text-white text-xs sm:text-sm truncate">
                       {stripParentheses(parsedData.title || song.title)}
                     </span>
                   )}
@@ -2825,7 +2820,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                       className={`p-1 rounded-md text-xs font-bold transition-all cursor-pointer shrink-0 flex items-center justify-center border ${
                         showAudioPlayer
                           ? 'bg-red-600 border-red-500 text-white shadow-xs'
-                          : 'bg-red-500/15 hover:bg-red-500/25 text-red-400 border-red-500/40 hover:border-red-400'
+                          : 'bg-red-500/15 hover:bg-red-500/25 text-red-600 dark:text-red-400 border-red-500/40 hover:border-red-400'
                       }`}
                       title={`Écouter l'enregistrement (${effectiveYoutubeUrl ? 'YouTube' : 'Audio'})`}
                       aria-label="Écouter l'enregistrement"
@@ -2845,12 +2840,12 @@ export const SongReader: React.FC<SongReaderProps> = ({
                           setIsHeaderCollapsed(false);
                           setShowKeyMenu(true);
                         }}
-                        className="px-2 py-0.5 rounded bg-[#1C1C22] border border-[#2E2E36] font-mono font-bold text-blue-400 hover:border-blue-500/50 cursor-pointer text-xs"
+                        className="px-2 py-0.5 rounded bg-[#EDF1F5] dark:bg-[#1C1C22] border border-slate-300 dark:border-[#2E2E36] font-mono font-bold text-blue-600 dark:text-blue-400 hover:border-blue-500/50 cursor-pointer text-xs"
                         title="Tonalité (cliquer pour modifier)"
                       >
                         {baseKeyDisplay}
                         {effectiveCapo > 0 && (
-                          <span className="text-purple-400 ml-1 text-[10px]">
+                          <span className="text-purple-600 dark:text-purple-400 ml-1 text-[10px]">
                             (Capo {effectiveCapo})
                           </span>
                         )}
@@ -2862,10 +2857,10 @@ export const SongReader: React.FC<SongReaderProps> = ({
                           setIsHeaderCollapsed(false);
                           setShowTempoMenu(true);
                         }}
-                        className="px-2 py-0.5 rounded bg-[#1C1C22] border border-[#2E2E36] font-mono font-bold text-emerald-400 hover:border-emerald-500/50 cursor-pointer text-xs flex items-center gap-1"
+                        className="px-2 py-0.5 rounded bg-[#EDF1F5] dark:bg-[#1C1C22] border border-slate-300 dark:border-[#2E2E36] font-mono font-bold text-emerald-600 dark:text-emerald-400 hover:border-emerald-500/50 cursor-pointer text-xs flex items-center gap-1"
                         title="Tempo / BPM (cliquer pour modifier)"
                       >
-                        <Gauge className="w-3 h-3 text-emerald-400" />
+                        <Gauge className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                         <span>{effectiveTempo}</span>
                       </button>
                     </>
@@ -2882,7 +2877,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                           className={`p-1.5 rounded-lg border text-xs font-medium flex items-center justify-center transition-colors shrink-0 cursor-pointer ${
                             isFullscreen
                               ? 'bg-blue-600 border-blue-500 text-white'
-                              : 'bg-[#1C1C1E] hover:bg-[#28282C] text-gray-300 hover:text-white border-[#333]'
+                              : 'bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-slate-200 dark:hover:bg-[#28282C] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white border-slate-300 dark:border-[#333]'
                           }`}
                           title={isFullscreen ? "Quitter le plein écran" : "Plein écran"}
                           aria-label={isFullscreen ? "Quitter le plein écran" : "Plein écran"}
@@ -2901,7 +2896,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                         className={`p-1.5 rounded-lg border transition-all shadow-xs cursor-pointer flex items-center justify-center ${
                           showSettingsDrawer
                             ? 'bg-blue-600 border-blue-500 text-white shadow-blue-500/20'
-                            : 'bg-[#1C1C1E] hover:bg-[#28282C] border-[#333] hover:border-[#444] text-gray-200 hover:text-white'
+                            : 'bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-slate-200 dark:hover:bg-[#28282C] border-slate-300 dark:border-[#333] hover:border-slate-400 dark:hover:border-[#444] text-slate-800 dark:text-gray-200 hover:text-slate-900 dark:hover:text-white'
                         }`}
                         title="Ouvrir les options et réglages"
                         aria-label="Options et réglages du chant"
@@ -2914,14 +2909,14 @@ export const SongReader: React.FC<SongReaderProps> = ({
               </div>
             </div>
           ) : (
-            <div className="no-print border-b border-[#222224] pb-2 sm:pb-3 mb-2.5 sm:mb-4">
+            <div className="no-print border-b border-slate-200 dark:border-[#222224] pb-2 sm:pb-3 mb-2.5 sm:mb-4">
               <div className="flex items-start justify-between gap-2 sm:gap-3 mb-1.5 sm:mb-2">
                 {/* Left: Title & Artist */}
                 <div className="flex-1 min-w-0 pr-1 sm:pr-2">
                   <div className="flex items-center flex-wrap gap-1.5 sm:gap-2 mb-0.5">
                     {metaVis.title !== false && (
                       <h1 
-                        className="font-bold tracking-tight text-white leading-tight break-words"
+                        className="font-bold tracking-tight text-slate-900 dark:text-white leading-tight break-words"
                         style={{ fontSize: `clamp(17px, 3.8vw, ${displaySettings.typography.titleSize}px)` }}
                       >
                         {stripParentheses(parsedData.title || song.title)}
@@ -2959,13 +2954,13 @@ export const SongReader: React.FC<SongReaderProps> = ({
                                 className="fixed inset-0 z-40" 
                                 onClick={() => setShowLanguageMenu(false)} 
                               />
-                              <div className="absolute left-0 top-full mt-1.5 z-50 w-76 max-w-[calc(100vw-32px)] bg-[#18181C] border border-[#2E2E36] rounded-xl shadow-2xl p-2.5 backdrop-blur-md">
+                              <div className="absolute left-0 top-full mt-1.5 z-50 w-76 max-w-[calc(100vw-32px)] bg-slate-50 dark:bg-[#18181C] border border-slate-300 dark:border-[#2E2E36] rounded-xl shadow-2xl p-2.5 backdrop-blur-md">
                                 {/* Bannière mode setlist si actif */}
                                 {(isInSetlist || isSetlistMode) && currentSetlist && (
-                                  <div className="mb-2.5 p-2 rounded-lg bg-blue-950/40 border border-blue-500/30 flex items-center justify-between">
+                                  <div className="mb-2.5 p-2 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-500/30 flex items-center justify-between">
                                     <div className="min-w-0 pr-1">
-                                      <div className="text-[10px] font-bold text-blue-400 uppercase tracking-wider">Setlist active</div>
-                                      <div className="text-xs font-semibold text-white truncate">{currentSetlist.name}</div>
+                                      <div className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">Setlist active</div>
+                                      <div className="text-xs font-semibold text-slate-900 dark:text-white truncate">{currentSetlist.name}</div>
                                     </div>
                                     <button
                                       type="button"
@@ -2981,10 +2976,10 @@ export const SongReader: React.FC<SongReaderProps> = ({
                                 )}
 
                               {/* Section: Langue du chant actuel & Sélecteur rapide */}
-                              <div className="mb-2.5 pb-2.5 border-b border-[#282830]">
+                              <div className="mb-2.5 pb-2.5 border-b border-slate-300 dark:border-[#282830]">
                                 <div className="flex items-center justify-between mb-1.5 px-1">
-                                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1">
-                                    <Globe className="w-3 h-3 text-blue-400" />
+                                  <span className="text-[10px] font-bold text-slate-600 dark:text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                                    <Globe className="w-3 h-3 text-blue-600 dark:text-blue-400" />
                                     <span>Langue actuelle</span>
                                   </span>
                                   <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${lMeta.badgeClass}`}>
@@ -3001,23 +2996,23 @@ export const SongReader: React.FC<SongReaderProps> = ({
                                         const newLang = e.target.value;
                                         await updateSong(song.id, { language: newLang });
                                       }}
-                                      className="w-full h-8 bg-[#121215] border border-[#333] hover:border-blue-500/60 rounded-lg px-2.5 pr-8 text-xs text-white font-medium focus:outline-none focus:border-blue-500 cursor-pointer transition-colors appearance-none"
+                                      className="w-full h-8 bg-white dark:bg-[#121215] border border-slate-300 dark:border-[#333] hover:border-blue-500/60 rounded-lg px-2.5 pr-8 text-xs text-slate-900 dark:text-white font-medium focus:outline-none focus:border-blue-500 cursor-pointer transition-colors appearance-none"
                                     >
                                       {PRESET_LANGUAGES.map((lang) => (
-                                        <option key={lang.code} value={lang.name} className="bg-[#1C1C1E] text-white">
+                                        <option key={lang.code} value={lang.name} className="bg-[#EDF1F5] dark:bg-[#1C1C1E] text-slate-900 dark:text-white">
                                           {lang.name} ({lang.code})
                                         </option>
                                       ))}
                                       {song.language && !PRESET_LANGUAGES.some(p => p.name.toLowerCase() === song.language?.toLowerCase() || p.code.toLowerCase() === song.language?.toLowerCase()) && (
-                                        <option value={song.language} className="bg-[#1C1C1E] text-white">
+                                        <option value={song.language} className="bg-[#EDF1F5] dark:bg-[#1C1C1E] text-slate-900 dark:text-white">
                                           {song.language} ({lMeta.code})
                                         </option>
                                       )}
                                     </select>
-                                    <ChevronDown className="w-3.5 h-3.5 text-gray-400 pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2" />
+                                    <ChevronDown className="w-3.5 h-3.5 text-slate-600 dark:text-gray-400 pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2" />
                                   </div>
                                 ) : (
-                                  <div className="mt-1 px-2.5 py-1.5 rounded-lg bg-[#141417] border border-[#25252D] text-[11px] text-gray-400 flex items-center justify-between">
+                                  <div className="mt-1 px-2.5 py-1.5 rounded-lg bg-slate-50 dark:bg-[#141417] border border-slate-200 dark:border-[#25252D] text-[11px] text-slate-600 dark:text-gray-400 flex items-center justify-between">
                                     <span>{lMeta.name}</span>
                                     <span className="text-[10px] text-gray-500">Lecture seule</span>
                                   </div>
@@ -3025,10 +3020,10 @@ export const SongReader: React.FC<SongReaderProps> = ({
                               </div>
 
                               {/* En-tête versions disponibles */}
-                              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-1 pb-1 flex items-center justify-between mb-1.5">
+                              <div className="text-[10px] font-bold text-slate-600 dark:text-gray-400 uppercase tracking-wider px-1 pb-1 flex items-center justify-between mb-1.5">
                                 <span>Versions disponibles</span>
                                 {linkedVersions.length > 0 && (
-                                  <span className="text-[10px] font-mono font-normal text-indigo-400 bg-indigo-950/60 px-1.5 py-0.5 rounded border border-indigo-500/30">
+                                  <span className="text-[10px] font-mono font-normal text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-1.5 py-0.5 rounded border border-indigo-500/30">
                                     {linkedVersions.length}
                                   </span>
                                 )}
@@ -3044,13 +3039,13 @@ export const SongReader: React.FC<SongReaderProps> = ({
                                     return (
                                       <div
                                         key={lv.id}
-                                        className="flex items-center justify-between gap-2 p-2 rounded-lg bg-[#141416] border border-[#26262E] hover:border-[#33333E] transition-colors"
+                                        className="flex items-center justify-between gap-2 p-2 rounded-lg bg-slate-50 dark:bg-[#141416] border border-slate-300 dark:border-[#26262E] hover:border-slate-400 dark:hover:border-[#33333E] transition-colors"
                                       >
                                         <div className="flex items-center gap-1.5 min-w-0">
                                           <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border shrink-0 ${lvMeta.badgeClass}`}>
                                             {lvMeta.code}
                                           </span>
-                                          <span className="truncate font-semibold text-white text-xs block" title={lv.title}>
+                                          <span className="truncate font-semibold text-slate-900 dark:text-white text-xs block" title={lv.title}>
                                             {lv.title}
                                           </span>
                                         </div>
@@ -3079,28 +3074,28 @@ export const SongReader: React.FC<SongReaderProps> = ({
                                   })}
                                 </div>
                               ) : (
-                                <div className="py-2 px-2 text-center text-xs text-gray-400 bg-[#141416] rounded-lg border border-[#26262E]">
+                                <div className="py-2 px-2 text-center text-xs text-slate-600 dark:text-gray-400 bg-slate-50 dark:bg-[#141416] rounded-lg border border-slate-300 dark:border-[#26262E]">
                                   Aucune autre version disponible
                                 </div>
                               )}
 
                               {/* Bouton pour ouvrir la gestion des versions : réservé aux personnes autorisées */}
                               {canManageSongs ? (
-                                <div className="pt-2 mt-2 border-t border-[#282830]">
+                                <div className="pt-2 mt-2 border-t border-slate-300 dark:border-[#282830]">
                                   <button
                                     type="button"
                                     onClick={() => {
                                       setShowLanguageMenu(false);
                                       setShowLanguageModal(true);
                                     }}
-                                    className="w-full py-1.5 px-2 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                                    className="w-full py-1.5 px-2 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-700 dark:text-indigo-300 border border-indigo-500/40 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                                   >
                                     <Plus className="w-3.5 h-3.5" />
                                     <span>Gérer les versions</span>
                                   </button>
                                 </div>
                               ) : (
-                                <div className="pt-2 mt-2 border-t border-[#282830] text-center text-[10px] text-gray-500">
+                                <div className="pt-2 mt-2 border-t border-slate-300 dark:border-[#282830] text-center text-[10px] text-gray-500">
                                   Mode consultation • Gestion des versions réservée aux responsables
                                 </div>
                               )}
@@ -3117,12 +3112,12 @@ export const SongReader: React.FC<SongReaderProps> = ({
                   {/* Durée estimée : icône + valeur (sans libellé texte) */}
                   {metaVis.duration && (
                     <div
-                      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[#18181C] border border-[#2A2A30] text-gray-300 shadow-xs"
+                      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-50 dark:bg-[#18181C] border border-slate-300 dark:border-[#2A2A30] text-slate-700 dark:text-gray-300 shadow-xs"
                       style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
                       title={`Durée estimée : ${effectiveDuration}`}
                     >
-                      <Clock className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-                      <span className="text-cyan-300 font-bold font-mono text-xs">
+                      <Clock className="w-3.5 h-3.5 text-cyan-700 dark:text-cyan-400 shrink-0" />
+                      <span className="text-cyan-700 dark:text-cyan-300 font-bold font-mono text-xs">
                         {effectiveDuration}
                       </span>
                     </div>
@@ -3142,7 +3137,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                       className={`p-1.5 sm:p-2 rounded-lg border text-xs font-medium flex items-center justify-center transition-colors shrink-0 cursor-pointer ${
                         isFullscreen
                           ? 'bg-blue-600 border-blue-500 text-white'
-                          : 'bg-[#1C1C1E] hover:bg-[#28282C] text-gray-300 hover:text-white border-[#333]'
+                          : 'bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-slate-200 dark:hover:bg-[#28282C] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white border-slate-300 dark:border-[#333]'
                       }`}
                       title={isFullscreen ? "Quitter le plein écran" : "Plein écran"}
                       aria-label={isFullscreen ? "Quitter le plein écran" : "Plein écran"}
@@ -3161,7 +3156,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                     className={`p-1.5 sm:p-2 rounded-lg border transition-all shadow-xs cursor-pointer flex items-center justify-center ${
                       showSettingsDrawer
                         ? 'bg-blue-600 border-blue-500 text-white shadow-blue-500/20'
-                        : 'bg-[#1C1C1E] hover:bg-[#28282C] border-[#333] hover:border-[#444] text-gray-200 hover:text-white'
+                        : 'bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-slate-200 dark:hover:bg-[#28282C] border-slate-300 dark:border-[#333] hover:border-slate-400 dark:hover:border-[#444] text-slate-800 dark:text-gray-200 hover:text-slate-900 dark:hover:text-white'
                     }`}
                     title="Ouvrir les options et réglages du chant"
                     aria-label="Options et réglages du chant"
@@ -3177,18 +3172,18 @@ export const SongReader: React.FC<SongReaderProps> = ({
               <div className="w-full flex items-center gap-1.5 sm:gap-2 flex-wrap mb-1.5 sm:mb-2 text-xs">
                 {metaVis.artist && song.artist && (
                   <div 
-                    className="text-gray-300 font-medium break-words shrink-0"
+                    className="text-slate-700 dark:text-gray-300 font-medium break-words shrink-0"
                     style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
                   >
                     {song.artist}
                   </div>
                 )}
                 {metaVis.artist && song.artist && metaVis.album !== false && (song.album || parsedData.album) && (
-                  <span className="text-gray-600 select-none">·</span>
+                  <span className="text-slate-500 dark:text-gray-600 select-none">·</span>
                 )}
                 {metaVis.album !== false && (song.album || parsedData.album) && (
                   <div
-                    className="inline-flex items-center gap-1 text-gray-400 break-words shrink-0"
+                    className="inline-flex items-center gap-1 text-slate-600 dark:text-gray-400 break-words shrink-0"
                     style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
                     title={`Album : ${(song.album || parsedData.album || '').trim()}`}
                   >
@@ -3206,11 +3201,11 @@ export const SongReader: React.FC<SongReaderProps> = ({
                   <button
                     type="button"
                     onClick={handleResetModulations}
-                    className="min-h-[32px] py-1 inline-flex items-center gap-1 px-2.5 rounded-lg border border-amber-500/50 bg-amber-950/30 hover:bg-amber-900/40 text-amber-300 font-medium transition-all cursor-pointer shadow-xs"
+                    className="min-h-[32px] py-1 inline-flex items-center gap-1 px-2.5 rounded-lg border border-amber-500/50 bg-amber-50 dark:bg-amber-950/30 hover:bg-amber-100 dark:hover:bg-amber-900/40 text-amber-700 dark:text-amber-300 font-medium transition-all cursor-pointer shadow-xs"
                     style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
                     title="Réinitialiser toutes les modulations (Capo / Tonalité)"
                   >
-                    <X className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <X className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
                     <span className="hidden sm:inline">Réinitialiser</span>
                   </button>
                 )}
@@ -3231,16 +3226,16 @@ export const SongReader: React.FC<SongReaderProps> = ({
                   }}
                   className={`min-h-[32px] py-1 inline-flex items-center gap-1.5 px-2.5 rounded-lg border font-mono shadow-xs transition-all cursor-pointer ${
                     showKeyMenu
-                      ? 'bg-[#1C1C22] border-blue-500 text-white ring-1 ring-blue-500/40'
-                      : 'bg-[#141416] hover:bg-[#1A1A1E] border-[#242428] hover:border-blue-500/40 text-gray-300'
+                      ? 'bg-[#EDF1F5] dark:bg-[#1C1C22] border-blue-500 text-slate-900 dark:text-white ring-1 ring-blue-500/40'
+                      : 'bg-slate-50 dark:bg-[#141416] hover:bg-slate-200/70 dark:hover:bg-[#1A1A1E] border-slate-200 dark:border-[#242428] hover:border-blue-500/40 text-slate-700 dark:text-gray-300'
                   }`}
                   style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
                   title="Cliquer pour choisir la tonalité - liste déroulante"
                 >
-                  <Music className="w-3.5 h-3.5 text-blue-400 shrink-0" style={{ width: `${Math.max(12, Math.round(displaySettings.typography.metadataSize * 0.9))}px`, height: `${Math.max(12, Math.round(displaySettings.typography.metadataSize * 0.9))}px` }} />
-                  <span className="text-gray-400 font-sans hidden sm:inline" style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}>Tonalité :</span>
-                  <span className="text-blue-400 font-bold font-mono" style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}>{baseKeyDisplay}</span>
-                  <ChevronDown className={`w-3 h-3 text-blue-400/80 transition-transform ${showKeyMenu ? 'rotate-180' : ''}`} style={{ width: `${Math.max(11, Math.round(displaySettings.typography.metadataSize * 0.8))}px`, height: `${Math.max(11, Math.round(displaySettings.typography.metadataSize * 0.8))}px` }} />
+                  <Music className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" style={{ width: `${Math.max(12, Math.round(displaySettings.typography.metadataSize * 0.9))}px`, height: `${Math.max(12, Math.round(displaySettings.typography.metadataSize * 0.9))}px` }} />
+                  <span className="text-slate-600 dark:text-gray-400 font-sans hidden sm:inline" style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}>Tonalité :</span>
+                  <span className="text-blue-600 dark:text-blue-400 font-bold font-mono" style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}>{baseKeyDisplay}</span>
+                  <ChevronDown className={`w-3 h-3 text-blue-600 dark:text-blue-400/80 transition-transform ${showKeyMenu ? 'rotate-180' : ''}`} style={{ width: `${Math.max(11, Math.round(displaySettings.typography.metadataSize * 0.8))}px`, height: `${Math.max(11, Math.round(displaySettings.typography.metadataSize * 0.8))}px` }} />
                 </button>
 
                 {showKeyMenu && (
@@ -3285,25 +3280,25 @@ export const SongReader: React.FC<SongReaderProps> = ({
                   }}
                   className={`min-h-[32px] py-1 inline-flex items-center gap-1.5 px-2.5 rounded-lg border font-mono shadow-xs transition-all cursor-pointer ${
                     showCapoMenu
-                      ? 'bg-purple-950/40 border-purple-500 text-purple-300 ring-1 ring-purple-500/40'
+                      ? 'bg-purple-50 dark:bg-purple-950/40 border-purple-500 text-purple-700 dark:text-purple-300 ring-1 ring-purple-500/40'
                       : effectiveCapo > 0
-                      ? 'bg-purple-950/30 border-purple-500/50 text-purple-300'
-                      : 'bg-[#141416] hover:bg-[#1A1A1E] border-[#242428] hover:border-purple-500/40 text-gray-300'
+                      ? 'bg-purple-50 dark:bg-purple-950/30 border-purple-500/50 text-purple-700 dark:text-purple-300'
+                      : 'bg-slate-50 dark:bg-[#141416] hover:bg-slate-200/70 dark:hover:bg-[#1A1A1E] border-slate-200 dark:border-[#242428] hover:border-purple-500/40 text-slate-700 dark:text-gray-300'
                   }`}
                   style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
                   title="Cliquer pour afficher et régler le capodastre"
                 >
-                  <SlidersHorizontal className="w-3.5 h-3.5 text-purple-400 shrink-0" style={{ width: `${Math.max(12, Math.round(displaySettings.typography.metadataSize * 0.9))}px`, height: `${Math.max(12, Math.round(displaySettings.typography.metadataSize * 0.9))}px` }} />
-                  <span className="text-gray-400 font-sans hidden sm:inline" style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}>Capo :</span>
-                  <span className="text-purple-400 font-bold font-mono" style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}>
+                  <SlidersHorizontal className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" style={{ width: `${Math.max(12, Math.round(displaySettings.typography.metadataSize * 0.9))}px`, height: `${Math.max(12, Math.round(displaySettings.typography.metadataSize * 0.9))}px` }} />
+                  <span className="text-slate-600 dark:text-gray-400 font-sans hidden sm:inline" style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}>Capo :</span>
+                  <span className="text-purple-600 dark:text-purple-400 font-bold font-mono" style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}>
                     {effectiveCapo > 0 ? effectiveCapo : '0'}
                   </span>
                   {effectiveCapo > 0 && capoPlayedKey && (
-                    <span className="text-purple-300/90 font-mono font-semibold hidden md:inline" style={{ fontSize: `${Math.max(10, displaySettings.typography.metadataSize - 1)}px` }}>
+                    <span className="text-purple-700 dark:text-purple-300/90 font-mono font-semibold hidden md:inline" style={{ fontSize: `${Math.max(10, displaySettings.typography.metadataSize - 1)}px` }}>
                       (Joué {capoPlayedKey})
                     </span>
                   )}
-                  <ChevronDown className={`w-3 h-3 text-purple-400/80 transition-transform ${showCapoMenu ? 'rotate-180' : ''}`} style={{ width: `${Math.max(11, Math.round(displaySettings.typography.metadataSize * 0.8))}px`, height: `${Math.max(11, Math.round(displaySettings.typography.metadataSize * 0.8))}px` }} />
+                  <ChevronDown className={`w-3 h-3 text-purple-600 dark:text-purple-400/80 transition-transform ${showCapoMenu ? 'rotate-180' : ''}`} style={{ width: `${Math.max(11, Math.round(displaySettings.typography.metadataSize * 0.8))}px`, height: `${Math.max(11, Math.round(displaySettings.typography.metadataSize * 0.8))}px` }} />
                 </button>
 
                 {showCapoMenu && (
@@ -3314,10 +3309,10 @@ export const SongReader: React.FC<SongReaderProps> = ({
                     />
                     <div 
                       style={capoPopoverStyle}
-                      className="absolute top-full mt-1.5 z-50 w-72 max-w-[calc(100vw-24px)] bg-[#16161A] border border-[#2E2E36] rounded-xl shadow-2xl p-2.5 backdrop-blur-md animate-in fade-in zoom-in-95 duration-100 box-border"
+                      className="absolute top-full mt-1.5 z-50 w-72 max-w-[calc(100vw-24px)] bg-slate-50 dark:bg-[#16161A] border border-slate-300 dark:border-[#2E2E36] rounded-xl shadow-2xl p-2.5 backdrop-blur-md animate-in fade-in zoom-in-95 duration-100 box-border"
                     >
-                      <div className="text-[11px] font-semibold text-gray-400 pb-2 mb-2 border-b border-[#282830] flex items-center justify-between">
-                        <span className="flex items-center gap-1.5 text-purple-300">
+                      <div className="text-[11px] font-semibold text-slate-600 dark:text-gray-400 pb-2 mb-2 border-b border-slate-300 dark:border-[#282830] flex items-center justify-between">
+                        <span className="flex items-center gap-1.5 text-purple-700 dark:text-purple-300">
                           <SlidersHorizontal className="w-3.5 h-3.5" />
                           <span>Capodastre (Personnel)</span>
                         </span>
@@ -3334,7 +3329,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                               className={`py-2 px-1.5 rounded-lg font-mono transition-colors cursor-pointer flex items-center justify-center whitespace-nowrap ${
                                 isSelected
                                   ? 'bg-purple-600 text-white font-bold shadow-xs'
-                                  : 'bg-[#1C1C22] text-gray-300 hover:bg-[#25252D] hover:text-white border border-[#2E2E36]'
+                                  : 'bg-[#EDF1F5] dark:bg-[#1C1C22] text-slate-700 dark:text-gray-300 hover:bg-slate-200 dark:hover:bg-[#25252D] hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-[#2E2E36]'
                               }`}
                             >
                               <span className={`font-bold ${fret === 0 ? 'text-[11px] font-sans' : 'text-xs'}`}>
@@ -3346,8 +3341,8 @@ export const SongReader: React.FC<SongReaderProps> = ({
                       </div>
 
                       {effectiveCapo > 0 && capoPlayedKey && (
-                        <div className="mt-2 p-1.5 rounded bg-purple-500/10 border border-purple-500/25 text-[10px] text-purple-200 leading-tight">
-                          Capo {effectiveCapo} : accords affichés en <strong className="font-mono text-white">{capoPlayedKey}</strong> (sonne en <strong className="font-mono text-blue-300">{baseKeyDisplay}</strong>).
+                        <div className="mt-2 p-1.5 rounded bg-purple-500/10 border border-purple-500/25 text-[10px] text-purple-700 dark:text-purple-200 leading-tight">
+                          Capo {effectiveCapo} : accords affichés en <strong className="font-mono text-slate-900 dark:text-white">{capoPlayedKey}</strong> (sonne en <strong className="font-mono text-blue-700 dark:text-blue-300">{baseKeyDisplay}</strong>).
                         </div>
                       )}
                     </div>
@@ -3373,22 +3368,22 @@ export const SongReader: React.FC<SongReaderProps> = ({
                   }}
                   className={`min-h-[32px] py-1 inline-flex items-center gap-1.5 px-2.5 rounded-lg border font-mono shadow-xs transition-all cursor-pointer ${
                     showTempoMenu
-                      ? 'bg-emerald-950/40 border-emerald-500 text-emerald-300 ring-1 ring-emerald-500/40'
+                      ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-500/40'
                       : isMetronomePlaying
-                        ? 'bg-emerald-950/50 border-emerald-500/60 text-emerald-300 ring-1 ring-emerald-500/40 shadow-xs'
-                        : 'bg-[#141416] hover:bg-[#1A1A1E] border-[#242428] hover:border-emerald-500/40 text-gray-300'
+                        ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-500/60 text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-500/40 shadow-xs'
+                        : 'bg-slate-50 dark:bg-[#141416] hover:bg-slate-200/70 dark:hover:bg-[#1A1A1E] border-slate-200 dark:border-[#242428] hover:border-emerald-500/40 text-slate-700 dark:text-gray-300'
                   }`}
                   style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}
                   title="Cliquer pour afficher et régler le tempo (BPM)"
                 >
-                  <Gauge className={`w-3.5 h-3.5 text-emerald-400 shrink-0 ${isMetronomePlaying ? 'animate-pulse' : ''}`} style={{ width: `${Math.max(12, Math.round(displaySettings.typography.metadataSize * 0.9))}px`, height: `${Math.max(12, Math.round(displaySettings.typography.metadataSize * 0.9))}px` }} />
-                  <span className="text-gray-400 font-sans hidden sm:inline" style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}>Tempo :</span>
-                  <span className="text-emerald-400 font-bold font-mono" style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}>{effectiveTempo}</span>
-                  <span className="text-gray-400 font-mono" style={{ fontSize: `${Math.max(10, Math.round(displaySettings.typography.metadataSize * 0.9))}px` }}>BPM</span>
+                  <Gauge className={`w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 ${isMetronomePlaying ? 'animate-pulse' : ''}`} style={{ width: `${Math.max(12, Math.round(displaySettings.typography.metadataSize * 0.9))}px`, height: `${Math.max(12, Math.round(displaySettings.typography.metadataSize * 0.9))}px` }} />
+                  <span className="text-slate-600 dark:text-gray-400 font-sans hidden sm:inline" style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}>Tempo :</span>
+                  <span className="text-emerald-600 dark:text-emerald-400 font-bold font-mono" style={{ fontSize: `${displaySettings.typography.metadataSize}px` }}>{effectiveTempo}</span>
+                  <span className="text-slate-600 dark:text-gray-400 font-mono" style={{ fontSize: `${Math.max(10, Math.round(displaySettings.typography.metadataSize * 0.9))}px` }}>BPM</span>
                   {isMetronomePlaying && (
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping inline-block shrink-0" />
                   )}
-                  <ChevronDown className={`w-3 h-3 text-emerald-400/80 transition-transform ${showTempoMenu ? 'rotate-180' : ''}`} style={{ width: `${Math.max(11, Math.round(displaySettings.typography.metadataSize * 0.8))}px`, height: `${Math.max(11, Math.round(displaySettings.typography.metadataSize * 0.8))}px` }} />
+                  <ChevronDown className={`w-3 h-3 text-emerald-600 dark:text-emerald-400/80 transition-transform ${showTempoMenu ? 'rotate-180' : ''}`} style={{ width: `${Math.max(11, Math.round(displaySettings.typography.metadataSize * 0.8))}px`, height: `${Math.max(11, Math.round(displaySettings.typography.metadataSize * 0.8))}px` }} />
                 </button>
 
                 {showTempoMenu && (
@@ -3402,22 +3397,22 @@ export const SongReader: React.FC<SongReaderProps> = ({
                     />
                     <div 
                       style={tempoPopoverStyle}
-                      className="absolute top-full mt-1.5 z-50 w-72 max-w-[calc(100vw-24px)] bg-[#16161A] border border-[#2E2E36] rounded-xl shadow-2xl p-3 backdrop-blur-md animate-in fade-in zoom-in-95 duration-100 box-border"
+                      className="absolute top-full mt-1.5 z-50 w-72 max-w-[calc(100vw-24px)] bg-slate-50 dark:bg-[#16161A] border border-slate-300 dark:border-[#2E2E36] rounded-xl shadow-2xl p-3 backdrop-blur-md animate-in fade-in zoom-in-95 duration-100 box-border"
                     >
                       {/* En-tête */}
-                      <div className="text-[11px] font-semibold text-gray-400 pb-2 mb-2 border-b border-[#282830] flex items-center justify-between">
+                      <div className="text-[11px] font-semibold text-slate-600 dark:text-gray-400 pb-2 mb-2 border-b border-slate-300 dark:border-[#282830] flex items-center justify-between">
                         <div className="flex items-center gap-1.5">
-                          <Gauge className="w-3.5 h-3.5 text-emerald-400" />
+                          <Gauge className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                           <span>Métronome Scène (Chant)</span>
                         </div>
                         <div className="flex items-center gap-1.5">
                           {isMetronomePlaying && (
-                            <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400 font-sans font-medium px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30">
+                            <span className="inline-flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-sans font-medium px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30">
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                               Actif
                             </span>
                           )}
-                          <span className="text-[10px] text-emerald-400 font-mono font-bold">{effectiveTempo} BPM</span>
+                          <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono font-bold">{effectiveTempo} BPM</span>
                         </div>
                       </div>
 
@@ -3426,7 +3421,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                         <button
                           type="button"
                           onClick={() => handleUpdateTempo(Math.max(30, effectiveTempo - 10))}
-                          className="px-2 py-1.5 rounded bg-[#202026] hover:bg-[#282832] text-gray-300 text-xs font-mono border border-[#30303A] cursor-pointer shrink-0"
+                          className="px-2 py-1.5 rounded bg-[#EDF1F5] dark:bg-[#202026] hover:bg-slate-200 dark:hover:bg-[#282832] text-slate-700 dark:text-gray-300 text-xs font-mono border border-slate-300 dark:border-[#30303A] cursor-pointer shrink-0"
                           title="-10 BPM"
                         >
                           -10
@@ -3434,7 +3429,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                         <button
                           type="button"
                           onClick={() => handleUpdateTempo(Math.max(30, effectiveTempo - 1))}
-                          className="p-1.5 rounded bg-[#202026] hover:bg-[#282832] text-gray-300 border border-[#30303A] cursor-pointer shrink-0"
+                          className="p-1.5 rounded bg-[#EDF1F5] dark:bg-[#202026] hover:bg-slate-200 dark:hover:bg-[#282832] text-slate-700 dark:text-gray-300 border border-slate-300 dark:border-[#30303A] cursor-pointer shrink-0"
                           title="-1 BPM"
                         >
                           <Minus className="w-3.5 h-3.5" />
@@ -3462,7 +3457,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                                 }}
                                 onBlur={commitTempoInput}
                                 autoFocus
-                                className="w-16 px-1 py-0.5 text-center font-mono font-bold text-base text-emerald-400 bg-[#0E0E12] border-2 border-emerald-500 rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-400 shadow-inner"
+                                className="w-16 px-1 py-0.5 text-center font-mono font-bold text-base text-emerald-600 dark:text-emerald-400 bg-white dark:bg-[#0E0E12] border-2 border-emerald-500 rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-400 shadow-inner"
                               />
                               <button
                                 type="button"
@@ -3476,7 +3471,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                                 <Check className="w-3.5 h-3.5" />
                               </button>
                             </div>
-                            <span className="text-[8px] text-emerald-400/80 font-sans tracking-tight mt-0.5">
+                            <span className="text-[8px] text-emerald-600 dark:text-emerald-400/80 font-sans tracking-tight mt-0.5">
                               Entrée pour valider
                             </span>
                           </div>
@@ -3491,11 +3486,11 @@ export const SongReader: React.FC<SongReaderProps> = ({
                                 tempoInputRef.current?.select();
                               }, 50);
                             }}
-                            className="group flex flex-col items-center justify-center px-2 py-0.5 rounded-lg hover:bg-[#202028] border border-transparent hover:border-emerald-500/40 transition-all cursor-pointer min-w-16"
+                            className="group flex flex-col items-center justify-center px-2 py-0.5 rounded-lg hover:bg-slate-200/70 dark:hover:bg-[#202028] border border-transparent hover:border-emerald-500/40 transition-all cursor-pointer min-w-16"
                             title="Cliquer pour saisir directement une valeur de tempo"
                           >
                             <div className="flex items-center gap-1">
-                              <span className="font-mono font-bold text-lg text-emerald-400 group-hover:text-emerald-300 transition-colors">
+                              <span className="font-mono font-bold text-lg text-emerald-600 dark:text-emerald-400 group-hover:text-emerald-800 dark:group-hover:text-emerald-300 transition-colors">
                                 {effectiveTempo}
                               </span>
                             </div>
@@ -3508,7 +3503,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                         <button
                           type="button"
                           onClick={() => handleUpdateTempo(Math.min(260, effectiveTempo + 1))}
-                          className="p-1.5 rounded bg-[#202026] hover:bg-[#282832] text-gray-300 border border-[#30303A] cursor-pointer shrink-0"
+                          className="p-1.5 rounded bg-[#EDF1F5] dark:bg-[#202026] hover:bg-slate-200 dark:hover:bg-[#282832] text-slate-700 dark:text-gray-300 border border-slate-300 dark:border-[#30303A] cursor-pointer shrink-0"
                           title="+1 BPM"
                         >
                           <Plus className="w-3.5 h-3.5" />
@@ -3516,7 +3511,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                         <button
                           type="button"
                           onClick={() => handleUpdateTempo(Math.min(260, effectiveTempo + 10))}
-                          className="px-2 py-1.5 rounded bg-[#202026] hover:bg-[#282832] text-gray-300 text-xs font-mono border border-[#30303A] cursor-pointer shrink-0"
+                          className="px-2 py-1.5 rounded bg-[#EDF1F5] dark:bg-[#202026] hover:bg-slate-200 dark:hover:bg-[#282832] text-slate-700 dark:text-gray-300 text-xs font-mono border border-slate-300 dark:border-[#30303A] cursor-pointer shrink-0"
                           title="+10 BPM"
                         >
                           +10
@@ -3531,7 +3526,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                           className={`py-2 px-3 rounded-lg font-semibold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                             isMetronomePlaying
                               ? 'bg-emerald-500 hover:bg-emerald-400 text-white shadow-md shadow-emerald-500/25 ring-2 ring-emerald-400/40 animate-pulse'
-                              : 'bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40'
+                              : 'bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-700 dark:text-emerald-300 border border-emerald-500/40'
                           }`}
                           title={isMetronomePlaying ? 'Arrêter le métronome' : 'Lancer le métronome'}
                         >
@@ -3553,12 +3548,12 @@ export const SongReader: React.FC<SongReaderProps> = ({
                           onClick={handleToggleScreenFlash}
                           className={`py-2 px-3 rounded-lg font-medium text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                             enableScreenFlash
-                              ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/50 shadow-xs'
-                              : 'bg-[#202026] hover:bg-[#282832] text-gray-400 hover:text-gray-200 border border-[#30303A]'
+                              ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-700 dark:text-amber-300 border border-amber-500/50 shadow-xs'
+                              : 'bg-[#EDF1F5] dark:bg-[#202026] hover:bg-slate-200 dark:hover:bg-[#282832] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200 border border-slate-300 dark:border-[#30303A]'
                           }`}
                           title={enableScreenFlash ? 'Flash d’écran actif (cliquer pour désactiver)' : 'Activer le flash d’écran sur le tempo'}
                         >
-                          <Zap className={`w-3.5 h-3.5 ${enableScreenFlash ? 'fill-amber-400 text-amber-400' : 'text-gray-400'}`} />
+                          <Zap className={`w-3.5 h-3.5 ${enableScreenFlash ? 'fill-amber-400 text-amber-600 dark:text-amber-400' : 'text-slate-600 dark:text-gray-400'}`} />
                           <span>{enableScreenFlash ? 'Flash actif' : 'Flash écran'}</span>
                         </button>
                       </div>
@@ -3567,9 +3562,9 @@ export const SongReader: React.FC<SongReaderProps> = ({
                       <button
                         type="button"
                         onClick={handleTapTempo}
-                        className="w-full py-1.5 px-3 rounded-lg bg-[#202026] hover:bg-[#282832] text-gray-300 hover:text-emerald-300 border border-[#30303A] hover:border-emerald-500/40 font-medium text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                        className="w-full py-1.5 px-3 rounded-lg bg-[#EDF1F5] dark:bg-[#202026] hover:bg-slate-200 dark:hover:bg-[#282832] text-slate-700 dark:text-gray-300 hover:text-emerald-800 dark:hover:text-emerald-300 border border-slate-300 dark:border-[#30303A] hover:border-emerald-500/40 font-medium text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                       >
-                        <Gauge className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
+                        <Gauge className="w-3.5 h-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
                         <span>Tapez le tempo (Tap)</span>
                       </button>
                     </div>
@@ -3582,11 +3577,11 @@ export const SongReader: React.FC<SongReaderProps> = ({
             {/* Note / Instructions Section (Lecture seule) */}
             {metaVis.notes && effectiveNotes ? (
               <div 
-                className="no-print mt-2 p-2 rounded-lg bg-[#111112] border border-[#222224] flex items-start gap-2.5 transition-all text-xs"
+                className="no-print mt-2 p-2 rounded-lg bg-white dark:bg-[#111112] border border-slate-200 dark:border-[#222224] flex items-start gap-2.5 transition-all text-xs"
                 style={{ fontSize: `${Math.max(11, displaySettings.typography.metadataSize)}px` }}
               >
-                <div className="text-gray-300 font-sans italic flex-1">
-                  <span className="text-amber-400/90 font-semibold not-italic mr-1.5">Note :</span>
+                <div className="text-slate-700 dark:text-gray-300 font-sans italic flex-1">
+                  <span className="text-amber-600 dark:text-amber-400/90 font-semibold not-italic mr-1.5">Note :</span>
                   {effectiveNotes}
                 </div>
               </div>
@@ -3680,7 +3675,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                         ) : null}
 
                         {section.isChorusRecall && (
-                          <span className="text-[10px] font-medium uppercase tracking-wider text-blue-300/80 border border-blue-500/30 bg-blue-950/30 px-1.5 py-0.5 rounded print:text-neutral-700 print:border-neutral-400">
+                          <span className="text-[10px] font-medium uppercase tracking-wider text-blue-700 dark:text-blue-300/80 border border-blue-500/30 bg-blue-50 dark:bg-blue-950/30 px-1.5 py-0.5 rounded print:text-neutral-700 print:border-neutral-400">
                             Rappel
                           </span>
                         )}
@@ -3688,7 +3683,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                         {/* Section Repeat Badge (Lecture seule) */}
                         {sectionRepeat > 1 && (
                           <span 
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded border bg-emerald-950/40 border-emerald-500/50 text-emerald-300 font-bold font-mono select-none print:bg-neutral-100 print:border-neutral-400 print:text-neutral-900 print:text-[9.5pt]"
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded border bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500/50 text-emerald-700 dark:text-emerald-300 font-bold font-mono select-none print:bg-neutral-100 print:border-neutral-400 print:text-neutral-900 print:text-[9.5pt]"
                             style={{ fontSize: `${Math.max(10, Math.round((displaySettings.typography?.headerSize || 12) * 0.9))}px` }}
                             title={`Répété ${sectionRepeat} fois`}
                           >
@@ -3697,14 +3692,14 @@ export const SongReader: React.FC<SongReaderProps> = ({
                                 width: `${Math.max(11, Math.round((displaySettings.typography?.headerSize || 12) * 0.9))}px`,
                                 height: `${Math.max(11, Math.round((displaySettings.typography?.headerSize || 12) * 0.9))}px` 
                               }}
-                              className="text-emerald-400 shrink-0 print:text-neutral-800" 
+                              className="text-emerald-600 dark:text-emerald-400 shrink-0 print:text-neutral-800" 
                             />
                             <span>x{sectionRepeat}</span>
                           </span>
                         )}
 
                         {(section.key || section.transposeOffset || section.tempo || section.timeSignature || section.gridShape?.raw) && (
-                          <span className="text-[11px] font-mono text-gray-300/90 print:text-neutral-700">
+                          <span className="text-[11px] font-mono text-slate-700 dark:text-gray-300/90 print:text-neutral-700">
                             {[
                               section.gridShape?.raw ? `Grille ${section.gridShape.raw}` : '',
                               section.key ? `Ton: ${transposeChord(section.key, visualChordTransposeSemitones, stageSettings.notation)}` : '',
@@ -3740,22 +3735,22 @@ export const SongReader: React.FC<SongReaderProps> = ({
           <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6 items-start">
             {/* Colonne GAUCHE : Version Normale */}
             <div className="w-full flex flex-col space-y-3">
-              <div className="sticky top-0 z-10 py-2 px-3 rounded-xl bg-[#141418]/95 backdrop-blur-md border border-blue-500/30 flex items-center justify-between text-xs shadow-md">
+              <div className="sticky top-0 z-10 py-2 px-3 rounded-xl bg-slate-50/95 dark:bg-[#141418]/95 backdrop-blur-md border border-blue-500/30 flex items-center justify-between text-xs shadow-md">
                 <div className="flex items-center gap-2 min-w-0">
                   <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border shrink-0 ${getLanguageMeta(song.language).badgeClass}`}>
                     {getLanguageMeta(song.language).code}
                   </span>
                   <div className="min-w-0">
-                    <span className="font-bold text-white text-xs truncate block">
+                    <span className="font-bold text-slate-900 dark:text-white text-xs truncate block">
                       {stripParentheses(parsedData.title || song.title)}
                     </span>
-                    <span className="text-[10px] text-blue-300 font-medium">
+                    <span className="text-[10px] text-blue-700 dark:text-blue-300 font-medium">
                       Version normale ({getLanguageMeta(song.language).name})
                     </span>
                   </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
-                  <span className="text-[10px] font-mono font-bold text-blue-400 bg-blue-950/50 px-2 py-0.5 rounded-md border border-blue-500/40">
+                  <span className="text-[10px] font-mono font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/50 px-2 py-0.5 rounded-md border border-blue-500/40">
                     Tonalité {baseKeyDisplay}
                   </span>
                 </div>
@@ -3776,19 +3771,19 @@ export const SongReader: React.FC<SongReaderProps> = ({
             <div className="w-full flex flex-col space-y-3">
               {translatedSong && parsedTranslatedData ? (
                 <>
-                  <div className="sticky top-0 z-10 py-2 px-3 rounded-xl bg-[#151522]/95 backdrop-blur-md border border-indigo-500/40 flex items-center justify-between text-xs shadow-md">
+                  <div className="sticky top-0 z-10 py-2 px-3 rounded-xl bg-slate-50/95 dark:bg-[#151522]/95 backdrop-blur-md border border-indigo-500/40 flex items-center justify-between text-xs shadow-md">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border shrink-0 ${getLanguageMeta(translatedSong.language).badgeClass}`}>
                         {getLanguageMeta(translatedSong.language).code}
                       </span>
                       <div className="min-w-0">
-                        <span className="font-bold text-white text-xs truncate block">
+                        <span className="font-bold text-slate-900 dark:text-white text-xs truncate block">
                           {stripParentheses(parsedTranslatedData.title || translatedSong.title)}
                         </span>
-                        <span className="text-[10px] text-indigo-300 font-medium">
+                        <span className="text-[10px] text-indigo-700 dark:text-indigo-300 font-medium">
                           Version traduite ({getLanguageMeta(translatedSong.language).name})
                           {alignedTranslationResult?.wasRealigned && (
-                            <span className="ml-1.5 text-emerald-300">• Structure alignée</span>
+                            <span className="ml-1.5 text-emerald-700 dark:text-emerald-300">• Structure alignée</span>
                           )}
                         </span>
                       </div>
@@ -3799,13 +3794,13 @@ export const SongReader: React.FC<SongReaderProps> = ({
                         <select
                           value={translatedSong.id}
                           onChange={(e) => setSelectedTranslatedSongId(e.target.value)}
-                          className="bg-[#1C1C26] border border-indigo-500/40 rounded-lg px-2 py-1 text-[11px] font-medium text-indigo-200 cursor-pointer focus:outline-none"
+                          className="bg-[#EDF1F5] dark:bg-[#1C1C26] border border-indigo-500/40 rounded-lg px-2 py-1 text-[11px] font-medium text-indigo-700 dark:text-indigo-200 cursor-pointer focus:outline-none"
                           title="Changer de version traduite"
                         >
                           {linkedVersions.map((lv) => {
                             const meta = getLanguageMeta(lv.language);
                             return (
-                              <option key={lv.id} value={lv.id} className="bg-[#141418] text-white">
+                              <option key={lv.id} value={lv.id} className="bg-slate-50 dark:bg-[#141418] text-slate-900 dark:text-white">
                                 {meta.code} - {lv.title}
                               </option>
                             );
@@ -3816,7 +3811,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                       <button
                         type="button"
                         onClick={() => setShowAddTranslationModal(true)}
-                        className="p-1.5 rounded-lg bg-[#222232] hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 transition-colors cursor-pointer"
+                        className="p-1.5 rounded-lg bg-[#EDF1F5] dark:bg-[#222232] hover:bg-indigo-600/30 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30 transition-colors cursor-pointer"
                         title="Ajouter ou lier une autre version traduite"
                       >
                         <Plus className="w-3.5 h-3.5" />
@@ -3825,7 +3820,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                       <button
                         type="button"
                         onClick={() => setIsBilingualMode(false)}
-                        className="p-1.5 rounded-lg bg-[#202026] hover:bg-[#2A2A34] text-gray-400 hover:text-white transition-colors cursor-pointer"
+                        className="p-1.5 rounded-lg bg-[#EDF1F5] dark:bg-[#202026] hover:bg-slate-200 dark:hover:bg-[#2A2A34] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
                         title="Quitter la vue bilingue"
                       >
                         <X className="w-3.5 h-3.5" />
@@ -3849,21 +3844,21 @@ export const SongReader: React.FC<SongReaderProps> = ({
                 </>
               ) : (
                 /* Card pour ajouter/lier la version traduite */
-                <div className="p-4 sm:p-5 rounded-2xl bg-[#14141A] border border-indigo-500/30 shadow-xl space-y-4">
-                  <div className="flex items-center justify-between pb-3 border-b border-[#242432]">
+                <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 dark:bg-[#14141A] border border-indigo-500/30 shadow-xl space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-300 dark:border-[#242432]">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center border border-indigo-500/30">
+                      <div className="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-500/30">
                         <Globe className="w-4 h-4" />
                       </div>
                       <div>
-                        <h4 className="text-xs sm:text-sm font-bold text-white">Ajouter la version traduite</h4>
-                        <p className="text-[11px] text-gray-400">Présentez la version normale à gauche et la traduction ici à droite</p>
+                        <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">Ajouter la version traduite</h4>
+                        <p className="text-[11px] text-slate-600 dark:text-gray-400">Présentez la version normale à gauche et la traduction ici à droite</p>
                       </div>
                     </div>
                     <button
                       type="button"
                       onClick={() => setIsBilingualMode(false)}
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#202028] transition-colors cursor-pointer"
+                      className="p-1.5 rounded-lg text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#202028] transition-colors cursor-pointer"
                       title="Quitter la vue bilingue"
                     >
                       <X className="w-3.5 h-3.5" />
@@ -3872,21 +3867,21 @@ export const SongReader: React.FC<SongReaderProps> = ({
 
                   <div className="space-y-3.5">
                     {/* 1. Lier un chant existant */}
-                    <div className="p-3 rounded-xl bg-[#181822] border border-[#282838] space-y-2">
+                    <div className="p-3 rounded-xl bg-[#EDF1F5] dark:bg-[#181822] border border-slate-300 dark:border-[#282838] space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-indigo-300 uppercase tracking-wider">
+                        <span className="text-[11px] font-bold text-indigo-700 dark:text-indigo-300 uppercase tracking-wider">
                           1. Lier un chant existant du répertoire
                         </span>
                         <span className="text-[10px] text-gray-500">Recherche rapide</span>
                       </div>
                       <div className="relative">
-                        <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                        <Search className="w-3.5 h-3.5 text-slate-600 dark:text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                         <input
                           type="text"
                           placeholder="Rechercher par titre ou langue..."
                           value={bilingualSearchQuery}
                           onChange={(e) => setBilingualSearchQuery(e.target.value)}
-                          className="w-full bg-[#111116] border border-[#333] rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                          className="w-full bg-white dark:bg-[#111116] border border-slate-300 dark:border-[#333] rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-indigo-500"
                         />
                       </div>
                       <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
@@ -3900,15 +3895,15 @@ export const SongReader: React.FC<SongReaderProps> = ({
                             return (
                               <div
                                 key={item.id}
-                                className="p-2 rounded-lg bg-[#121218] hover:bg-[#1A1A24] border border-[#262634] flex items-center justify-between gap-2 text-xs transition-colors"
+                                className="p-2 rounded-lg bg-white dark:bg-[#121218] hover:bg-slate-200/70 dark:hover:bg-[#1A1A24] border border-slate-300 dark:border-[#262634] flex items-center justify-between gap-2 text-xs transition-colors"
                               >
                                 <div className="min-w-0 flex items-center gap-2">
                                   <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border shrink-0 ${lMeta.badgeClass}`}>
                                     {lMeta.code}
                                   </span>
                                   <div className="min-w-0">
-                                    <div className="text-xs font-semibold text-white truncate">{item.title}</div>
-                                    <div className="text-[10px] text-gray-400 truncate">{item.artist || 'Auteur inconnu'} • {lMeta.name}</div>
+                                    <div className="text-xs font-semibold text-slate-900 dark:text-white truncate">{item.title}</div>
+                                    <div className="text-[10px] text-slate-600 dark:text-gray-400 truncate">{item.artist || 'Auteur inconnu'} • {lMeta.name}</div>
                                   </div>
                                 </div>
                                 <button
@@ -3927,33 +3922,33 @@ export const SongReader: React.FC<SongReaderProps> = ({
 
                     {/* 2. Créer une nouvelle version traduite */}
                     {canManageSongs && (
-                      <form onSubmit={handleCreateNewTranslationFromReader} className="p-3 rounded-xl bg-[#181822] border border-[#282838] space-y-2.5">
-                        <span className="text-[11px] font-bold text-blue-300 uppercase tracking-wider block">
+                      <form onSubmit={handleCreateNewTranslationFromReader} className="p-3 rounded-xl bg-[#EDF1F5] dark:bg-[#181822] border border-slate-300 dark:border-[#282838] space-y-2.5">
+                        <span className="text-[11px] font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wider block">
                           2. Ou créer une nouvelle version traduite
                         </span>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           <div>
-                            <label className="text-[10px] font-medium text-gray-400 block mb-1">Langue cible</label>
+                            <label className="text-[10px] font-medium text-slate-600 dark:text-gray-400 block mb-1">Langue cible</label>
                             <select
                               value={bilingualNewLang}
                               onChange={(e) => setBilingualNewLang(e.target.value)}
-                              className="w-full bg-[#111116] border border-[#333] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
+                              className="w-full bg-white dark:bg-[#111116] border border-slate-300 dark:border-[#333] rounded-lg px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
                             >
                               {PRESET_LANGUAGES.filter(l => l.name.toLowerCase() !== song.language?.toLowerCase()).map((lang) => (
-                                <option key={lang.code} value={lang.name} className="bg-[#141416]">
+                                <option key={lang.code} value={lang.name} className="bg-slate-50 dark:bg-[#141416]">
                                   {lang.name} ({lang.code})
                                 </option>
                               ))}
                             </select>
                           </div>
                           <div>
-                            <label className="text-[10px] font-medium text-gray-400 block mb-1">Titre de la nouvelle version</label>
+                            <label className="text-[10px] font-medium text-slate-600 dark:text-gray-400 block mb-1">Titre de la nouvelle version</label>
                             <input
                               type="text"
                               placeholder={`${song.title} - ${bilingualNewLang}`}
                               value={bilingualNewTitle}
                               onChange={(e) => setBilingualNewTitle(e.target.value)}
-                              className="w-full bg-[#111116] border border-[#333] rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                              className="w-full bg-white dark:bg-[#111116] border border-slate-300 dark:border-[#333] rounded-lg px-2.5 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-indigo-500"
                             />
                           </div>
                         </div>
@@ -3976,23 +3971,23 @@ export const SongReader: React.FC<SongReaderProps> = ({
 
           {/* Song Sheet Legal Footer: CCLI & Copyright */}
           {((metaVis.ccli && effectiveCcli) || (metaVis.copyright && effectiveCopyright)) && (
-            <div className="mt-8 pt-4 border-t border-[#222226] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs text-gray-400 print:text-neutral-600 print:border-neutral-300 print:mt-4 print:pt-2 print:break-inside-avoid">
+            <div className="mt-8 pt-4 border-t border-slate-200 dark:border-[#222226] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs text-slate-600 dark:text-gray-400 print:text-neutral-600 print:border-neutral-300 print:mt-4 print:pt-2 print:break-inside-avoid">
               {metaVis.copyright && effectiveCopyright && (
-                <div className="flex items-center gap-2 text-gray-400 min-w-0 print:text-neutral-600">
+                <div className="flex items-center gap-2 text-slate-600 dark:text-gray-400 min-w-0 print:text-neutral-600">
                   <Copyright className="w-3.5 h-3.5 text-gray-500 shrink-0 print:text-neutral-600" />
                   <span className="truncate">{effectiveCopyright}</span>
                 </div>
               )}
               {metaVis.ccli && effectiveCcli && (
                 <div className="flex items-center gap-2 shrink-0 sm:ml-auto print:text-neutral-600">
-                  <Shield className="w-3.5 h-3.5 text-blue-400 shrink-0 print:text-neutral-600" />
+                  <Shield className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0 print:text-neutral-600" />
                   <span>
                     Chant CCLI N°{' '}
                     <a
                       href={`https://songselect.ccli.com/Songs/${effectiveCcli.replace(/\D/g, '') || effectiveCcli}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="font-mono font-bold text-blue-400 hover:underline print:text-neutral-900"
+                      className="font-mono font-bold text-blue-600 dark:text-blue-400 hover:underline print:text-neutral-900"
                     >
                       {effectiveCcli}
                     </a>
@@ -4007,42 +4002,42 @@ export const SongReader: React.FC<SongReaderProps> = ({
 
       {/* Floating Auto-Scroll Control Widget (toujours disponible lors de l'activation) */}
       {(showFloatingAutoScroll || stageSettings.isAutoScrolling) && (
-        <div className="no-print fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 p-1.5 pl-3 rounded-2xl bg-[#16161C]/95 border border-[#33333F] shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-3 duration-200 text-xs max-w-[calc(100vw-32px)]">
+        <div className="no-print fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 p-1.5 pl-3 rounded-2xl bg-slate-50/95 dark:bg-[#16161C]/95 border border-slate-300 dark:border-[#33333F] shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-3 duration-200 text-xs max-w-[calc(100vw-32px)]">
           {/* Status Indicator & Progress */}
           <div className="flex items-center gap-2 shrink-0">
             <span className={`w-2 h-2 rounded-full shrink-0 ${
               stageSettings.isAutoScrolling ? 'bg-amber-400 animate-ping' : 'bg-gray-500'
             }`} />
             <div className="flex flex-col min-w-0">
-              <span className="font-bold text-white text-[11px] flex items-center gap-1.5 leading-tight">
+              <span className="font-bold text-slate-900 dark:text-white text-[11px] flex items-center gap-1.5 leading-tight">
                 <span>Défilement</span>
-                <span className="text-[10px] font-mono text-emerald-400 font-semibold bg-emerald-950/60 border border-emerald-500/30 px-1 rounded">
+                <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-semibold bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-500/30 px-1 rounded">
                   {scrollProgress}%
                 </span>
               </span>
-              <span className="text-[9px] text-gray-400 font-mono leading-tight">
+              <span className="text-[9px] text-slate-600 dark:text-gray-400 font-mono leading-tight">
                 {stageSettings.isAutoScrolling ? 'En cours' : 'En pause'} • {effectiveDuration}
               </span>
             </div>
           </div>
 
           {/* Multiplicateur de vitesse */}
-          <div className="flex items-center bg-[#101014] border border-[#262630] rounded-lg p-0.5 shrink-0">
+          <div className="flex items-center bg-white dark:bg-[#101014] border border-slate-300 dark:border-[#262630] rounded-lg p-0.5 shrink-0">
             <button
               type="button"
               onClick={() => setScrollSpeedMultiplier(prev => Math.max(0.5, Number((prev - 0.25).toFixed(2))))}
-              className="w-5 h-5 rounded flex items-center justify-center text-gray-400 hover:text-white hover:bg-[#202028] transition-colors font-bold text-xs cursor-pointer"
+              className="w-5 h-5 rounded flex items-center justify-center text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#202028] transition-colors font-bold text-xs cursor-pointer"
               title="Ralentir (-0.25x)"
             >
               -
             </button>
-            <span className="text-[10px] font-mono font-bold text-blue-400 min-w-[28px] text-center px-0.5">
+            <span className="text-[10px] font-mono font-bold text-blue-600 dark:text-blue-400 min-w-[28px] text-center px-0.5">
               {scrollSpeedMultiplier}x
             </span>
             <button
               type="button"
               onClick={() => setScrollSpeedMultiplier(prev => Math.min(3, Number((prev + 0.25).toFixed(2))))}
-              className="w-5 h-5 rounded flex items-center justify-center text-gray-400 hover:text-white hover:bg-[#202028] transition-colors font-bold text-xs cursor-pointer"
+              className="w-5 h-5 rounded flex items-center justify-center text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#202028] transition-colors font-bold text-xs cursor-pointer"
               title="Accélérer (+0.25x)"
             >
               +
@@ -4082,7 +4077,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                 scrollPosRef.current = 0;
               }
             }}
-            className="p-1.5 rounded-lg bg-[#202028] hover:bg-[#2A2A36] text-gray-300 hover:text-white transition-colors cursor-pointer shrink-0"
+            className="p-1.5 rounded-lg bg-[#EDF1F5] dark:bg-[#202028] hover:bg-slate-200 dark:hover:bg-[#2A2A36] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer shrink-0"
             title="Revenir au début du chant"
           >
             <RotateCcw className="w-3.5 h-3.5" />
@@ -4095,7 +4090,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
               updateStageSettings({ isAutoScrolling: false });
               setShowFloatingAutoScroll(false);
             }}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#202028] transition-colors cursor-pointer shrink-0"
+            className="p-1.5 rounded-lg text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#202028] transition-colors cursor-pointer shrink-0"
             title="Désactiver et fermer le défilement"
           >
             <X className="w-3.5 h-3.5" />
@@ -4110,7 +4105,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
             onClick={() => {
               if (containerRef.current) containerRef.current.scrollTop = 0;
             }}
-            className="p-2.5 rounded-full bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-200 border border-[#333] shadow-lg backdrop-blur-md transition-transform active:scale-95"
+            className="p-2.5 rounded-full bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-slate-200 dark:hover:bg-[#2A2A2D] text-slate-800 dark:text-gray-200 border border-slate-300 dark:border-[#333] shadow-lg backdrop-blur-md transition-transform active:scale-95"
             title="Revenir en haut du chant"
           >
             <ArrowUp className="w-4 h-4" />
@@ -4122,7 +4117,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
           <button
             type="button"
             onClick={onPrev}
-            className="p-2.5 rounded-lg bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-200 border border-[#333] shadow-lg backdrop-blur-md transition-all active:scale-95 flex items-center justify-center cursor-pointer"
+            className="p-2.5 rounded-lg bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-slate-200 dark:hover:bg-[#2A2A2D] text-slate-800 dark:text-gray-200 border border-slate-300 dark:border-[#333] shadow-lg backdrop-blur-md transition-all active:scale-95 flex items-center justify-center cursor-pointer"
             title="Chant précédent"
             aria-label="Chant précédent"
           >
@@ -4193,18 +4188,18 @@ export const SongReader: React.FC<SongReaderProps> = ({
           onClick={() => setShowAddTranslationModal(false)}
         >
           <div 
-            className="w-full max-w-md bg-[#16161A] border border-[#2E2E38] rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+            className="w-full max-w-md bg-slate-50 dark:bg-[#16161A] border border-slate-300 dark:border-[#2E2E38] rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-4 py-3 bg-[#1C1C22] border-b border-[#282832] flex items-center justify-between">
+            <div className="px-4 py-3 bg-[#EDF1F5] dark:bg-[#1C1C22] border-b border-slate-300 dark:border-[#282832] flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Globe className="w-4 h-4 text-indigo-400" />
-                <h3 className="text-xs sm:text-sm font-bold text-white">Ajouter une version traduite</h3>
+                <Globe className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">Ajouter une version traduite</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setShowAddTranslationModal(false)}
-                className="p-1 rounded text-gray-400 hover:text-white hover:bg-[#25252D] cursor-pointer"
+                className="p-1 rounded text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-[#25252D] cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -4212,18 +4207,18 @@ export const SongReader: React.FC<SongReaderProps> = ({
 
             <div className="p-4 space-y-4 max-h-[75vh] overflow-y-auto custom-scrollbar">
               {/* Option 1: Lier un chant */}
-              <div className="p-3 rounded-xl bg-[#141418] border border-[#282834] space-y-2">
-                <span className="text-[11px] font-bold text-indigo-300 uppercase tracking-wider block">
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#141418] border border-slate-300 dark:border-[#282834] space-y-2">
+                <span className="text-[11px] font-bold text-indigo-700 dark:text-indigo-300 uppercase tracking-wider block">
                   1. Lier un chant existant
                 </span>
                 <div className="relative">
-                  <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                  <Search className="w-3.5 h-3.5 text-slate-600 dark:text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
                     placeholder="Rechercher par titre ou langue..."
                     value={bilingualSearchQuery}
                     onChange={(e) => setBilingualSearchQuery(e.target.value)}
-                    className="w-full bg-[#111116] border border-[#333] rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                    className="w-full bg-white dark:bg-[#111116] border border-slate-300 dark:border-[#333] rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-indigo-500"
                   />
                 </div>
                 <div className="max-h-40 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
@@ -4235,12 +4230,12 @@ export const SongReader: React.FC<SongReaderProps> = ({
                     availableSongsToLinkBilingual.map((item) => {
                       const lMeta = getLanguageMeta(item.language);
                       return (
-                        <div key={item.id} className="p-2 rounded-lg bg-[#111115] hover:bg-[#1A1A22] border border-[#22222C] flex items-center justify-between gap-2 text-xs">
+                        <div key={item.id} className="p-2 rounded-lg bg-white dark:bg-[#111115] hover:bg-slate-200/70 dark:hover:bg-[#1A1A22] border border-slate-200 dark:border-[#22222C] flex items-center justify-between gap-2 text-xs">
                           <div className="min-w-0 flex items-center gap-2">
                             <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border shrink-0 ${lMeta.badgeClass}`}>
                               {lMeta.code}
                             </span>
-                            <span className="truncate text-white font-medium">{item.title}</span>
+                            <span className="truncate text-slate-900 dark:text-white font-medium">{item.title}</span>
                           </div>
                           <button
                             type="button"
@@ -4258,33 +4253,33 @@ export const SongReader: React.FC<SongReaderProps> = ({
 
               {/* Option 2: Créer une nouvelle version */}
               {canManageSongs && (
-                <form onSubmit={handleCreateNewTranslationFromReader} className="p-3 rounded-xl bg-[#141418] border border-[#282834] space-y-2.5">
-                  <span className="text-[11px] font-bold text-blue-300 uppercase tracking-wider block">
+                <form onSubmit={handleCreateNewTranslationFromReader} className="p-3 rounded-xl bg-slate-50 dark:bg-[#141418] border border-slate-300 dark:border-[#282834] space-y-2.5">
+                  <span className="text-[11px] font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wider block">
                     2. Ou créer une nouvelle version traduite
                   </span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div>
-                      <label className="text-[10px] font-medium text-gray-400 block mb-1">Langue cible</label>
+                      <label className="text-[10px] font-medium text-slate-600 dark:text-gray-400 block mb-1">Langue cible</label>
                       <select
                         value={bilingualNewLang}
                         onChange={(e) => setBilingualNewLang(e.target.value)}
-                        className="w-full bg-[#111116] border border-[#333] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
+                        className="w-full bg-white dark:bg-[#111116] border border-slate-300 dark:border-[#333] rounded-lg px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
                       >
                         {PRESET_LANGUAGES.filter(l => l.name.toLowerCase() !== song.language?.toLowerCase()).map((lang) => (
-                          <option key={lang.code} value={lang.name} className="bg-[#141416]">
+                          <option key={lang.code} value={lang.name} className="bg-slate-50 dark:bg-[#141416]">
                             {lang.name} ({lang.code})
                           </option>
                         ))}
                       </select>
                     </div>
                     <div>
-                      <label className="text-[10px] font-medium text-gray-400 block mb-1">Titre de la nouvelle version</label>
+                      <label className="text-[10px] font-medium text-slate-600 dark:text-gray-400 block mb-1">Titre de la nouvelle version</label>
                       <input
                         type="text"
                         placeholder={`${song.title} - ${bilingualNewLang}`}
                         value={bilingualNewTitle}
                         onChange={(e) => setBilingualNewTitle(e.target.value)}
-                        className="w-full bg-[#111116] border border-[#333] rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                        className="w-full bg-white dark:bg-[#111116] border border-slate-300 dark:border-[#333] rounded-lg px-2.5 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-indigo-500"
                       />
                     </div>
                   </div>
@@ -4310,24 +4305,24 @@ export const SongReader: React.FC<SongReaderProps> = ({
 
         return (
           <div 
-            className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-xs"
+            className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-xs animate-in fade-in duration-100"
             onClick={() => setShowSetlistVersionModal(false)}
           >
             <div 
-              className="w-full max-w-md bg-[#16161A] border border-[#2E2E38] rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150"
+              className="w-full max-w-md bg-slate-50 dark:bg-[#16161A] border border-slate-300 dark:border-[#2E2E38] rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header simple */}
-              <div className="px-4 py-3.5 bg-[#1B1B20] border-b border-[#282832] flex items-center justify-between">
+              <div className="px-4 py-3.5 bg-[#EDF1F5] dark:bg-[#1B1B20] border-b border-slate-300 dark:border-[#282832] flex items-center justify-between">
                 <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-7 h-7 rounded-lg bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0">
+                  <div className="w-7 h-7 rounded-lg bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
                     <Globe className="w-3.5 h-3.5" />
                   </div>
                   <div className="min-w-0">
-                    <h3 className="text-xs sm:text-sm font-bold text-white leading-none">
+                    <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white leading-none">
                       Versions disponibles
                     </h3>
-                    <p className="text-[10px] text-gray-400 truncate mt-0.5">
+                    <p className="text-[10px] text-slate-600 dark:text-gray-400 truncate mt-0.5">
                       Setlist : {currentSetlist.name}
                     </p>
                   </div>
@@ -4335,7 +4330,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowSetlistVersionModal(false)}
-                  className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-[#25252D] transition-colors cursor-pointer"
+                  className="p-1 rounded-lg text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-[#25252D] transition-colors cursor-pointer"
                   aria-label="Fermer"
                 >
                   <X className="w-4 h-4" />
@@ -4353,14 +4348,14 @@ export const SongReader: React.FC<SongReaderProps> = ({
                         return (
                           <div
                             key={lv.id}
-                            className="flex items-center justify-between gap-2.5 p-2.5 rounded-xl bg-[#121215] border border-[#26262E] hover:border-[#363642] transition-colors"
+                            className="flex items-center justify-between gap-2.5 p-2.5 rounded-xl bg-white dark:bg-[#121215] border border-slate-300 dark:border-[#26262E] hover:border-slate-400 dark:hover:border-[#363642] transition-colors"
                           >
                             {/* Version info */}
                             <div className="flex items-center gap-2 min-w-0">
                               <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border shrink-0 ${lvMeta.badgeClass}`}>
                                 {lvMeta.code}
                               </span>
-                              <span className="text-xs sm:text-sm font-semibold text-white truncate" title={lv.title}>
+                              <span className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-white truncate" title={lv.title}>
                                 {lv.title}
                               </span>
                             </div>
@@ -4370,7 +4365,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                               <button
                                 type="button"
                                 onClick={() => handleViewOnlyVersion(lv)}
-                                className="px-2 sm:px-2.5 py-1.5 rounded-lg bg-[#222228] hover:bg-[#2C2C34] text-gray-200 hover:text-white text-xs font-semibold border border-[#33333E] transition-colors cursor-pointer"
+                                className="px-2 sm:px-2.5 py-1.5 rounded-lg bg-[#EDF1F5] dark:bg-[#222228] hover:bg-slate-200 dark:hover:bg-[#2C2C34] text-slate-800 dark:text-gray-200 hover:text-slate-900 dark:hover:text-white text-xs font-semibold border border-slate-300 dark:border-[#33333E] transition-colors cursor-pointer"
                               >
                                 Afficher
                               </button>
@@ -4388,12 +4383,12 @@ export const SongReader: React.FC<SongReaderProps> = ({
                     </div>
 
                     {/* Option secondaire discrète : ajouter à la suite ou gérer */}
-                    <div className="pt-2 border-t border-[#24242C] flex items-center justify-between text-[11px]">
+                    <div className="pt-2 border-t border-slate-200 dark:border-[#24242C] flex items-center justify-between text-[11px]">
                       {linkedVersions.length === 1 ? (
                         <button
                           type="button"
                           onClick={() => handleAddAfterCurrentSongInSetlist(linkedVersions[0], true)}
-                          className="text-emerald-400 hover:text-emerald-300 font-medium flex items-center gap-1 transition-colors cursor-pointer"
+                          className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 font-medium flex items-center gap-1 transition-colors cursor-pointer"
                         >
                           <Plus className="w-3.5 h-3.5" />
                           <span>Ajouter à la suite du chant</span>
@@ -4410,7 +4405,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                           setShowSetlistVersionModal(false);
                           setShowLanguageModal(true);
                         }}
-                        className="text-gray-400 hover:text-white flex items-center gap-1 transition-colors cursor-pointer"
+                        className="text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white flex items-center gap-1 transition-colors cursor-pointer"
                       >
                         <Settings2 className="w-3.5 h-3.5" />
                         <span>Gérer les versions</span>
@@ -4420,7 +4415,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                 ) : (
                   /* Aucune version liée */
                   <div className="text-center py-5 space-y-3">
-                    <p className="text-xs text-gray-400 leading-relaxed max-w-xs mx-auto">
+                    <p className="text-xs text-slate-600 dark:text-gray-400 leading-relaxed max-w-xs mx-auto">
                       Ce chant ({currentLangMeta.name}) n'a pas encore d'autre version liée dans le répertoire.
                     </p>
                     <div className="flex items-center justify-center gap-2 flex-wrap">
@@ -4442,7 +4437,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                           setShowSetlistVersionModal(false);
                           setShowLanguageModal(true);
                         }}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#202028] hover:bg-[#282832] text-gray-200 text-xs font-semibold border border-[#333] transition-colors cursor-pointer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#EDF1F5] dark:bg-[#202028] hover:bg-slate-200 dark:hover:bg-[#282832] text-slate-800 dark:text-gray-200 text-xs font-semibold border border-slate-300 dark:border-[#333] transition-colors cursor-pointer"
                       >
                         <Plus className="w-3.5 h-3.5" />
                         <span>Lier une version</span>
@@ -4459,8 +4454,8 @@ export const SongReader: React.FC<SongReaderProps> = ({
 
       {/* Floating Toast Feedback for setlist modifications */}
       {feedbackToast && (
-        <div className="no-print fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-[#1A1A20]/95 border border-emerald-500/40 text-emerald-300 px-4 py-2.5 rounded-xl shadow-2xl backdrop-blur-md text-xs font-semibold flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
-          <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+        <div className="no-print fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-[#EDF1F5]/95 dark:bg-[#1A1A20]/95 border border-emerald-500/40 text-emerald-700 dark:text-emerald-300 px-4 py-2.5 rounded-xl shadow-2xl backdrop-blur-md text-xs font-semibold flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
           <span>{feedbackToast}</span>
         </div>
       )}
@@ -4474,18 +4469,18 @@ export const SongReader: React.FC<SongReaderProps> = ({
             <span className={`w-2 h-2 rounded-full animate-ping shrink-0 ${
               activeAudioSource === 'spotify' ? 'bg-emerald-400' : 'bg-red-500'
             }`} />
-            <span className="text-xs font-bold text-white max-w-[130px] truncate">{song.title}</span>
+            <span className="text-xs font-bold text-slate-900 dark:text-white max-w-[130px] truncate">{song.title}</span>
             <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
               activeAudioSource === 'spotify' 
-                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' 
-                : 'bg-red-500/20 text-red-300 border border-red-500/30'
+                ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30' 
+                : 'bg-red-500/20 text-red-700 dark:text-red-300 border border-red-500/30'
             }`}>
               {activeAudioSource === 'spotify' ? 'Spotify' : (activeAudioSource === 'youtube' ? 'YouTube' : 'Audio')}
             </span>
             <button
               type="button"
               onClick={() => setIsAudioPlayerMinimized(false)}
-              className="p-1 rounded-full text-gray-300 hover:text-white hover:bg-[#282830] transition-colors cursor-pointer"
+              className="p-1 rounded-full text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-[#282830] transition-colors cursor-pointer"
               title="Agrandir le lecteur"
             >
               <Maximize2 className="w-3.5 h-3.5" />
@@ -4493,20 +4488,20 @@ export const SongReader: React.FC<SongReaderProps> = ({
             <button
               type="button"
               onClick={() => setShowAudioPlayer(false)}
-              className="p-1 rounded-full text-gray-400 hover:text-white hover:bg-[#282830] transition-colors cursor-pointer"
+              className="p-1 rounded-full text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-[#282830] transition-colors cursor-pointer"
               title="Fermer le lecteur"
             >
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
         ) : (
-          <div className="no-print fixed bottom-3 right-3 sm:bottom-6 sm:right-6 z-50 w-[calc(100vw-24px)] sm:w-96 max-w-sm bg-[#16161A]/95 border border-[#333] shadow-2xl rounded-2xl p-3 backdrop-blur-md animate-in fade-in slide-in-from-bottom-3 duration-200">
-            <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#282830]">
+          <div className="no-print fixed bottom-3 right-3 sm:bottom-6 sm:right-6 z-50 w-[calc(100vw-24px)] sm:w-96 max-w-sm bg-slate-50/95 dark:bg-[#16161A]/95 border border-slate-300 dark:border-[#333] shadow-2xl rounded-2xl p-3 backdrop-blur-md animate-in fade-in slide-in-from-bottom-3 duration-200">
+            <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-300 dark:border-[#282830]">
               <div className="flex items-center gap-2 min-w-0">
                 <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
                   activeAudioSource === 'spotify' 
-                    ? 'bg-emerald-600/20 text-emerald-400' 
-                    : 'bg-red-600/20 text-red-400'
+                    ? 'bg-emerald-600/20 text-emerald-600 dark:text-emerald-400' 
+                    : 'bg-red-600/20 text-red-600 dark:text-red-400'
                 }`}>
                   {activeAudioSource === 'spotify' ? (
                     <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
@@ -4515,8 +4510,8 @@ export const SongReader: React.FC<SongReaderProps> = ({
                   )}
                 </div>
                 <div className="min-w-0">
-                  <div className="text-xs font-bold text-white truncate">{song.title}</div>
-                  <div className="text-[10px] text-gray-400 truncate">
+                  <div className="text-xs font-bold text-slate-900 dark:text-white truncate">{song.title}</div>
+                  <div className="text-[10px] text-slate-600 dark:text-gray-400 truncate">
                     {activeAudioSource === 'spotify' 
                       ? 'Lecteur Spotify' 
                       : (activeAudioSource === 'youtube' ? 'Vidéo YouTube' : 'Piste Audio')}
@@ -4529,7 +4524,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                     href={effectiveSpotifyUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#25252D] transition-colors"
+                    className="p-1.5 rounded-lg text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-[#25252D] transition-colors"
                     title="Ouvrir dans Spotify (nouvel onglet)"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
@@ -4540,7 +4535,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                     href={effectiveYoutubeUrl || `https://www.youtube.com/results?search_query=${encodeURIComponent([parsedData.title || song.title, parsedData.artist || song.artist].filter(Boolean).join(' '))}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#25252D] transition-colors"
+                    className="p-1.5 rounded-lg text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-[#25252D] transition-colors"
                     title="Ouvrir sur YouTube (nouvel onglet)"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
@@ -4551,7 +4546,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                     href={effectiveAudioUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#25252D] transition-colors"
+                    className="p-1.5 rounded-lg text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-[#25252D] transition-colors"
                     title="Ouvrir dans un nouvel onglet"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
@@ -4560,7 +4555,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsAudioPlayerMinimized(true)}
-                  className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#25252D] transition-colors cursor-pointer"
+                  className="p-1.5 rounded-lg text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-[#25252D] transition-colors cursor-pointer"
                   title="Réduire"
                 >
                   <Minimize2 className="w-3.5 h-3.5" />
@@ -4568,7 +4563,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowAudioPlayer(false)}
-                  className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#25252D] transition-colors cursor-pointer"
+                  className="p-1.5 rounded-lg text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-[#25252D] transition-colors cursor-pointer"
                   title="Fermer"
                 >
                   <X className="w-3.5 h-3.5" />
@@ -4578,15 +4573,15 @@ export const SongReader: React.FC<SongReaderProps> = ({
 
             {/* Switcher de source si plusieurs sources configurées */}
             {[Boolean(effectiveYoutubeUrl), hasSpotifyEmbed, Boolean(effectiveAudioUrl)].filter(Boolean).length > 1 && (
-              <div className="flex items-center gap-1 mb-2 p-1 bg-[#101014] rounded-lg border border-[#25252E]">
+              <div className="flex items-center gap-1 mb-2 p-1 bg-white dark:bg-[#101014] rounded-lg border border-slate-200 dark:border-[#25252E]">
                 {effectiveYoutubeUrl && (
                   <button
                     type="button"
                     onClick={() => setActiveAudioSource('youtube')}
                     className={`flex-1 py-1 px-2 rounded-md text-[10px] font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer ${
                       activeAudioSource === 'youtube'
-                        ? 'bg-red-600/30 text-red-200 border border-red-500/40'
-                        : 'text-gray-400 hover:text-white'
+                        ? 'bg-red-600/30 text-red-700 dark:text-red-200 border border-red-500/40'
+                        : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                     }`}
                   >
                     <svg className="w-3 h-3 text-red-500 fill-current" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
@@ -4599,11 +4594,11 @@ export const SongReader: React.FC<SongReaderProps> = ({
                     onClick={() => setActiveAudioSource('spotify')}
                     className={`flex-1 py-1 px-2 rounded-md text-[10px] font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer ${
                       activeAudioSource === 'spotify'
-                        ? 'bg-emerald-600/30 text-emerald-200 border border-emerald-500/40'
-                        : 'text-gray-400 hover:text-white'
+                        ? 'bg-emerald-600/30 text-emerald-700 dark:text-emerald-200 border border-emerald-500/40'
+                        : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                     }`}
                   >
-                    <svg className="w-3 h-3 text-emerald-400 fill-current" viewBox="0 0 24 24"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+                    <svg className="w-3 h-3 text-emerald-600 dark:text-emerald-400 fill-current" viewBox="0 0 24 24"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
                     <span>Spotify</span>
                   </button>
                 )}
@@ -4613,11 +4608,11 @@ export const SongReader: React.FC<SongReaderProps> = ({
                     onClick={() => setActiveAudioSource('audio')}
                     className={`flex-1 py-1 px-2 rounded-md text-[10px] font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer ${
                       activeAudioSource === 'audio'
-                        ? 'bg-blue-600/30 text-blue-200 border border-blue-500/40'
-                        : 'text-gray-400 hover:text-white'
+                        ? 'bg-blue-600/30 text-blue-700 dark:text-blue-200 border border-blue-500/40'
+                        : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                     }`}
                   >
-                    <Music className="w-3 h-3 text-blue-400" />
+                    <Music className="w-3 h-3 text-blue-600 dark:text-blue-400" />
                     <span>Audio</span>
                   </button>
                 )}
@@ -4626,7 +4621,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
 
             {/* Spotify Player Embed */}
             {activeAudioSource === 'spotify' && hasSpotifyEmbed && (
-              <div className="rounded-xl overflow-hidden border border-[#2A2A32] bg-[#121212] mb-1.5 shadow-md">
+              <div className="rounded-xl overflow-hidden border border-slate-300 dark:border-[#2A2A32] bg-white dark:bg-[#121212] mb-1.5 shadow-md">
                 <iframe
                   src={getSpotifyEmbedUrl(effectiveSpotifyUrl)!}
                   title={`Spotify: ${song.title}`}
@@ -4647,7 +4642,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
               if (embedUrl) {
                 return (
                   <div>
-                    <div className="rounded-lg overflow-hidden border border-[#2A2A32] bg-black aspect-video mb-2 shadow-md">
+                    <div className="rounded-lg overflow-hidden border border-slate-300 dark:border-[#2A2A32] bg-black aspect-video mb-2 shadow-md">
                       <iframe
                         src={embedUrl}
                         title={song.title}
@@ -4657,8 +4652,8 @@ export const SongReader: React.FC<SongReaderProps> = ({
                       />
                     </div>
                     {!effectiveYoutubeUrl && (
-                      <div className="flex items-center justify-between text-[10px] text-gray-400 px-1 mb-1">
-                        <span className="flex items-center gap-1 text-red-400 font-medium">
+                      <div className="flex items-center justify-between text-[10px] text-slate-600 dark:text-gray-400 px-1 mb-1">
+                        <span className="flex items-center gap-1 text-red-600 dark:text-red-400 font-medium">
                           <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
                           Recherche automatique YouTube
                         </span>
@@ -4666,7 +4661,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                           href={`https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-gray-400 hover:text-white hover:underline flex items-center gap-0.5"
+                          className="text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:underline flex items-center gap-0.5"
                         >
                           <span>Voir sur YouTube</span>
                           <ExternalLink className="w-2.5 h-2.5" />
@@ -4677,7 +4672,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
                 );
               }
               return (
-                <div className="p-3 bg-[#111114] rounded-lg text-center mb-2">
+                <div className="p-3 bg-white dark:bg-[#111114] rounded-lg text-center mb-2">
                   <a
                     href={`https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`}
                     target="_blank"
@@ -4694,9 +4689,9 @@ export const SongReader: React.FC<SongReaderProps> = ({
             {/* Direct Audio Stream */}
             {activeAudioSource === 'audio' && effectiveAudioUrl && (
               <div>
-                <div className="text-[10px] text-gray-400 font-medium mb-1 flex items-center justify-between">
+                <div className="text-[10px] text-slate-600 dark:text-gray-400 font-medium mb-1 flex items-center justify-between">
                   <span>Piste audio directe</span>
-                  {isDirectAudioUrl(effectiveAudioUrl) && <span className="text-[9px] text-emerald-400 font-mono">Fichier direct</span>}
+                  {isDirectAudioUrl(effectiveAudioUrl) && <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-mono">Fichier direct</span>}
                 </div>
                 <audio
                   controls

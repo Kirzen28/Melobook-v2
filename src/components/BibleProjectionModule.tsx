@@ -90,7 +90,7 @@ export const LanguageFlagIcon: React.FC<{ language: string; className?: string }
   if (language === 'Français' || language === 'FR') {
     return (
       <svg
-        className={`${className} inline-block shrink-0 rounded-xs shadow-xs overflow-hidden border border-white/15`}
+        className={`${className} inline-block shrink-0 rounded-xs shadow-xs overflow-hidden border border-slate-200 dark:border-white/15`}
         viewBox="0 0 3 2"
         role="img"
         aria-label="Drapeau Français"
@@ -105,7 +105,7 @@ export const LanguageFlagIcon: React.FC<{ language: string; className?: string }
   if (language === 'English' || language === 'EN') {
     return (
       <svg
-        className={`${className} inline-block shrink-0 rounded-xs shadow-xs overflow-hidden border border-white/15`}
+        className={`${className} inline-block shrink-0 rounded-xs shadow-xs overflow-hidden border border-slate-200 dark:border-white/15`}
         viewBox="0 0 60 30"
         role="img"
         aria-label="Drapeau Anglais"
@@ -127,7 +127,7 @@ export const LanguageFlagIcon: React.FC<{ language: string; className?: string }
   if (language === 'Español' || language === 'ES') {
     return (
       <svg
-        className={`${className} inline-block shrink-0 rounded-xs shadow-xs overflow-hidden border border-white/15`}
+        className={`${className} inline-block shrink-0 rounded-xs shadow-xs overflow-hidden border border-slate-200 dark:border-white/15`}
         viewBox="0 0 3 2"
         role="img"
         aria-label="Drapeau Espagnol"
@@ -974,14 +974,14 @@ export const BibleProjectionModule = React.forwardRef<BibleProjectionHandle, Bib
 
 
   return (
-    <div className={className ? `flex flex-col gap-4 text-gray-200 ${className}` : "bg-[#121216] border border-[#23232C] rounded-2xl p-4 sm:p-5 shadow-xl flex flex-col gap-4 text-gray-200"}>
+    <div className={className ? `flex flex-col gap-4 text-slate-800 dark:text-gray-200 ${className}` : "bg-white dark:bg-[#121216] border border-slate-200 dark:border-[#23232C] rounded-2xl p-4 sm:p-5 shadow-xl flex flex-col gap-4 text-slate-800 dark:text-gray-200"}>
       
       {/* 1. Barre de Commande Rapide, Contrôle Direct & Versions regroupées */}
       <div className="space-y-2">
         {/* Ligne 1 : Recherche + Contrôle Direct fusionné (Projeter OU En direct : Ref / < > / Arrêter) */}
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative flex-1 min-w-[200px]">
-            <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <Search className="w-4 h-4 text-slate-600 dark:text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               id="bible-quick-search-input"
               type="text"
@@ -989,14 +989,14 @@ export const BibleProjectionModule = React.forwardRef<BibleProjectionHandle, Bib
               onChange={(e) => setQuickSearchInput(e.target.value)}
               onKeyDown={handleKeyDownInput}
               placeholder="Recherche rapide (ex: Jean 3:16, Rom 8:28, Ps 23:1-4 ou mot-clé)..."
-              className="w-full bg-[#161621] border border-[#2B2B3B] focus:border-amber-500 rounded-xl pl-10 pr-8 py-2 text-xs sm:text-sm text-white placeholder:text-gray-500 focus:outline-none transition-colors shadow-inner font-sans"
+              className="w-full bg-slate-50 dark:bg-[#161621] border border-slate-300 dark:border-[#2B2B3B] focus:border-amber-500 rounded-xl pl-10 pr-8 py-2 text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-gray-500 focus:outline-none transition-colors shadow-inner font-sans"
               autoComplete="off"
             />
             {quickSearchInput && (
               <button
                 type="button"
                 onClick={() => setQuickSearchInput('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white p-1 rounded cursor-pointer"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white p-1 rounded cursor-pointer"
                 title="Effacer la recherche"
               >
                 <X className="w-3.5 h-3.5" />
@@ -1006,8 +1006,8 @@ export const BibleProjectionModule = React.forwardRef<BibleProjectionHandle, Bib
 
           {activeLiveBibleRef && (
             <div className="flex items-center gap-1.5 shrink-0 max-w-full">
-              <div className="flex items-center gap-1 bg-[#1D1812] border border-amber-500/45 rounded-xl p-1 shadow-md max-w-full">
-                <div className="flex items-center gap-1.5 px-2 text-xs font-semibold text-amber-200 min-w-0"
+              <div className="flex items-center gap-1 bg-slate-50 dark:bg-[#1D1812] border border-amber-500/45 rounded-xl p-1 shadow-md max-w-full">
+                <div className="flex items-center gap-1.5 px-2 text-xs font-semibold text-amber-700 dark:text-amber-200 min-w-0"
                   title={`Diffusion en direct : ${activeLiveBibleRef}`}
                 >
                   <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse shrink-0" />
@@ -1015,7 +1015,7 @@ export const BibleProjectionModule = React.forwardRef<BibleProjectionHandle, Bib
                     {activeLiveBibleRef}
                   </span>
                   {hasLiveMultiSlides && (
-                    <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-500/25 border border-amber-400/40 text-amber-200 shrink-0">
+                    <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-500/25 border border-amber-400/40 text-amber-700 dark:text-amber-200 shrink-0">
                       {liveSlideIndex + 1}/{liveTotalSlides}
                     </span>
                   )}
@@ -1026,7 +1026,7 @@ export const BibleProjectionModule = React.forwardRef<BibleProjectionHandle, Bib
                 <button
                   type="button"
                   onClick={handleSmartPrev}
-                  className="p-1.5 rounded-lg hover:bg-white/10 text-amber-200 flex items-center justify-center cursor-pointer transition-colors shrink-0"
+                  className="p-1.5 rounded-lg hover:bg-white/10 text-amber-700 dark:text-amber-200 flex items-center justify-center cursor-pointer transition-colors shrink-0"
                   title={hasLiveMultiSlides && liveSlideIndex > 0 ? 'Slide précédente (Flèche Gauche)' : 'Verset précédent (Flèche Gauche / Flèche Haut)'}
                 >
                   <ChevronLeft className="w-3.5 h-3.5" />
@@ -1065,7 +1065,7 @@ export const BibleProjectionModule = React.forwardRef<BibleProjectionHandle, Bib
         </div>
 
         {/* Ligne 2 : Sélecteurs de version unifiés + Mode Bilingue */}
-        <div className="bg-[#161621] border border-[#2B2B3B] rounded-xl p-1.5 flex flex-wrap items-center justify-between gap-2">
+        <div className="bg-slate-50 dark:bg-[#161621] border border-slate-300 dark:border-[#2B2B3B] rounded-xl p-1.5 flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-1.5 min-w-0 flex-1">
             {/* Version Principale */}
             <div className="relative shrink-0" ref={translationDropdownRef}>
@@ -1077,52 +1077,52 @@ export const BibleProjectionModule = React.forwardRef<BibleProjectionHandle, Bib
                 aria-expanded={isTranslationDropdownOpen}
                 className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors cursor-pointer whitespace-nowrap ${
                   isTranslationDropdownOpen
-                    ? 'bg-[#222232] border-amber-500/70 text-white'
-                    : 'bg-[#1D1D2B] border-[#2E2E40] hover:border-amber-500/50 text-gray-200'
+                    ? 'bg-[#EDF1F5] dark:bg-[#222232] border-amber-500/70 text-slate-900 dark:text-white'
+                    : 'bg-[#EDF1F5] dark:bg-[#1D1D2B] border-slate-300 dark:border-[#2E2E40] hover:border-amber-500/50 text-slate-800 dark:text-gray-200'
                 }`}
                 title={`${currentTranslation.name} — Changer la version principale`}
               >
                 <LanguageFlagIcon language={currentTranslation.language} className="w-3.5 h-2.5 shrink-0" />
-                <span className="font-mono font-bold text-amber-300 shrink-0">
+                <span className="font-mono font-bold text-amber-700 dark:text-amber-300 shrink-0">
                   {currentTranslation.shortName}
                 </span>
                 <span className="text-gray-500 hidden sm:inline" aria-hidden="true">·</span>
-                <span className="hidden sm:inline text-gray-200 truncate max-w-[130px]">
+                <span className="hidden sm:inline text-slate-800 dark:text-gray-200 truncate max-w-[130px]">
                   {currentTranslation.name}
                 </span>
-                <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-150 shrink-0 ${isTranslationDropdownOpen ? 'rotate-180 text-amber-400' : ''}`} />
+                <ChevronDown className={`w-3.5 h-3.5 text-slate-600 dark:text-gray-400 transition-transform duration-150 shrink-0 ${isTranslationDropdownOpen ? 'rotate-180 text-amber-600 dark:text-amber-400' : ''}`} />
               </button>
 
               {isTranslationDropdownOpen && (
                 <div
                   role="listbox"
-                  className="absolute left-0 top-full mt-1.5 w-72 sm:w-84 bg-[#14141B] border border-[#2D2D3D] rounded-2xl shadow-2xl p-2 z-50 max-h-96 overflow-y-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-100"
+                  className="absolute left-0 top-full mt-1.5 w-72 sm:w-84 bg-slate-50 dark:bg-[#14141B] border border-slate-300 dark:border-[#2D2D3D] rounded-2xl shadow-2xl p-2 z-50 max-h-96 overflow-y-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-100"
                 >
-                  <div className="px-2.5 py-1.5 border-b border-[#22222E] flex items-center justify-between mb-1">
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                  <div className="px-2.5 py-1.5 border-b border-slate-200 dark:border-[#22222E] flex items-center justify-between mb-1">
+                    <span className="text-[10px] font-bold text-slate-600 dark:text-gray-400 uppercase tracking-wider">
                       Versions de la Bible (PWA Hybride)
                     </span>
-                    <span className="text-[9px] text-amber-400/90 font-mono">
+                    <span className="text-[9px] text-amber-600 dark:text-amber-400/90 font-mono">
                       {filteredTranslations.length} / {BIBLE_TRANSLATIONS.length}
                     </span>
                   </div>
 
                   <div className="p-1 pb-2">
                     <div className="relative">
-                      <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <Search className="w-3.5 h-3.5 text-slate-600 dark:text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                       <input
                         type="text"
                         value={translationSearchQuery}
                         onChange={(e) => setTranslationSearchQuery(e.target.value)}
                         placeholder="Filtrer (ex: LSG, KJV, Segond, Español)..."
-                        className="w-full bg-[#181822] border border-[#2D2D3D] focus:border-amber-500 rounded-xl pl-8 pr-7 py-1.5 text-xs text-white placeholder:text-gray-500 focus:outline-none transition-all shadow-inner font-sans"
+                        className="w-full bg-[#EDF1F5] dark:bg-[#181822] border border-slate-300 dark:border-[#2D2D3D] focus:border-amber-500 rounded-xl pl-8 pr-7 py-1.5 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-gray-500 focus:outline-none transition-all shadow-inner font-sans"
                         autoFocus
                       />
                       {translationSearchQuery && (
                         <button
                           type="button"
                           onClick={() => setTranslationSearchQuery('')}
-                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white text-xs px-1 cursor-pointer"
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white text-xs px-1 cursor-pointer"
                           title="Effacer le filtre"
                         >
                           ✕
@@ -1132,8 +1132,8 @@ export const BibleProjectionModule = React.forwardRef<BibleProjectionHandle, Bib
                   </div>
 
                   {filteredTranslations.length === 0 && (
-                    <div className="py-6 px-3 text-center text-xs text-gray-400">
-                      <p className="font-medium text-gray-300">Aucune version trouvée</p>
+                    <div className="py-6 px-3 text-center text-xs text-slate-600 dark:text-gray-400">
+                      <p className="font-medium text-slate-700 dark:text-gray-300">Aucune version trouvée</p>
                       <p className="text-[11px] text-gray-500 mt-1">pour « {translationSearchQuery} »</p>
                     </div>
                   )}
@@ -1145,7 +1145,7 @@ export const BibleProjectionModule = React.forwardRef<BibleProjectionHandle, Bib
 
                     return (
                       <div key={lang} className="mb-2 last:mb-0">
-                        <div className="px-2.5 py-1 text-[10px] font-bold text-gray-400 flex items-center gap-2">
+                        <div className="px-2.5 py-1 text-[10px] font-bold text-slate-600 dark:text-gray-400 flex items-center gap-2">
                           <LanguageFlagIcon language={lang} className="w-4 h-3" />
                           <span>{langTitle}</span>
                         </div>
@@ -1164,32 +1164,32 @@ export const BibleProjectionModule = React.forwardRef<BibleProjectionHandle, Bib
                                 }}
                                 className={`w-full text-left px-2.5 py-2 rounded-xl text-xs transition-all flex items-center justify-between gap-2 cursor-pointer ${
                                   isSelected
-                                    ? 'bg-amber-600/20 border border-amber-500/40 text-amber-200 font-semibold'
-                                    : 'hover:bg-[#1E1E2A] text-gray-300 hover:text-white border border-transparent'
+                                    ? 'bg-amber-600/20 border border-amber-500/40 text-amber-700 dark:text-amber-200 font-semibold'
+                                    : 'hover:bg-slate-200/70 dark:hover:bg-[#1E1E2A] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white border border-transparent'
                                 }`}
                               >
                                 <div className="flex items-center gap-2 min-w-0 flex-1">
                                   <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold shrink-0 ${
                                     isSelected
                                       ? 'bg-amber-500 text-black'
-                                      : 'bg-[#232330] text-gray-300'
+                                      : 'bg-[#EDF1F5] dark:bg-[#232330] text-slate-700 dark:text-gray-300'
                                   }`}>
                                     {tr.shortName}
                                   </span>
                                   <div className="min-w-0 flex-1 flex items-center gap-1.5">
-                                    <span className="truncate text-xs text-gray-100">{tr.name}</span>
+                                    <span className="truncate text-xs text-slate-900 dark:text-gray-100">{tr.name}</span>
                                     {tr.year && <span className="text-[10px] text-gray-500 font-mono shrink-0">({tr.year})</span>}
                                     {tr.isOfflineReady ? (
                                       <span
                                         title="Domaine Public — 100% Hors-ligne / Immédiat"
-                                        className="shrink-0 p-0.5 rounded text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 cursor-help flex items-center justify-center"
+                                        className="shrink-0 p-0.5 rounded text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-500/30 cursor-help flex items-center justify-center"
                                       >
                                         <Zap className="w-2.5 h-2.5" />
                                       </span>
                                     ) : (
                                       <span
                                         title="Sous Licence — Extension via API en ligne"
-                                        className="shrink-0 p-0.5 rounded text-blue-400 bg-blue-950/60 border border-blue-500/30 cursor-help flex items-center justify-center"
+                                        className="shrink-0 p-0.5 rounded text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 border border-blue-500/30 cursor-help flex items-center justify-center"
                                       >
                                         <Globe className="w-2.5 h-2.5" />
                                       </span>
@@ -1197,7 +1197,7 @@ export const BibleProjectionModule = React.forwardRef<BibleProjectionHandle, Bib
                                   </div>
                                 </div>
                                 {isSelected && (
-                                  <Check className="w-4 h-4 text-amber-400 shrink-0" />
+                                  <Check className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
                                 )}
                               </button>
                             );
@@ -1207,9 +1207,9 @@ export const BibleProjectionModule = React.forwardRef<BibleProjectionHandle, Bib
                     );
                   })}
 
-                  <div className="mt-2 pt-2 border-t border-[#22222E] px-2 py-1.5 bg-black/30 rounded-xl">
-                    <p className="text-[10px] text-gray-400 leading-relaxed">
-                      💡 <span className="text-gray-300 font-semibold">Approche Hybride :</span> Versions Domaine Public (LSG, Darby, Ostervald, KJV, RVR1960, BLA) en cache immédiat hors-ligne. Versions sous licence (NBS, PDV, NVI, NTV) via l'API.
+                  <div className="mt-2 pt-2 border-t border-slate-200 dark:border-[#22222E] px-2 py-1.5 bg-black/30 rounded-xl">
+                    <p className="text-[10px] text-slate-600 dark:text-gray-400 leading-relaxed">
+                      💡 <span className="text-slate-700 dark:text-gray-300 font-semibold">Approche Hybride :</span> Versions Domaine Public (LSG, Darby, Ostervald, KJV, RVR1960, BLA) en cache immédiat hors-ligne. Versions sous licence (NBS, PDV, NVI, NTV) via l'API.
                     </p>
                   </div>
                 </div>
@@ -1220,10 +1220,10 @@ export const BibleProjectionModule = React.forwardRef<BibleProjectionHandle, Bib
               <button
                 type="button"
                 onClick={handleToggleBilingual}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-gray-300 hover:text-white bg-[#1D1D2B] hover:bg-indigo-600/25 border border-[#2E2E40] hover:border-indigo-500/50 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white bg-[#EDF1F5] dark:bg-[#1D1D2B] hover:bg-indigo-600/25 border border-slate-300 dark:border-[#2E2E40] hover:border-indigo-500/50 transition-colors cursor-pointer whitespace-nowrap shrink-0"
                 title="Activer le mode bilingue (2 versions de la Bible en simultané)"
               >
-                <Columns className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                <Columns className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
                 <span>+ Bilingue</span>
               </button>
             ) : (
@@ -1231,7 +1231,7 @@ export const BibleProjectionModule = React.forwardRef<BibleProjectionHandle, Bib
                 <button
                   type="button"
                   onClick={handleSwapTranslations}
-                  className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#232334] transition-colors cursor-pointer shrink-0"
+                  className="p-1.5 rounded-lg text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-[#232334] transition-colors cursor-pointer shrink-0"
                   title="Permuter les deux versions"
                 >
                   <ArrowLeftRight className="w-3.5 h-3.5" />
@@ -1242,31 +1242,31 @@ export const BibleProjectionModule = React.forwardRef<BibleProjectionHandle, Bib
                   <div
                     className={`flex items-center rounded-lg border transition-colors ${
                       isSecondaryDropdownOpen
-                        ? 'bg-[#222232] border-cyan-400'
-                        : 'bg-[#1D1D2B] border-cyan-500/35 hover:border-cyan-400/70'
+                        ? 'bg-[#EDF1F5] dark:bg-[#222232] border-cyan-400'
+                        : 'bg-[#EDF1F5] dark:bg-[#1D1D2B] border-cyan-500/35 hover:border-cyan-400/70'
                     }`}
                   >
                     <button
                       type="button"
                       onClick={() => setIsSecondaryDropdownOpen(v => !v)}
-                      className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-gray-200 cursor-pointer whitespace-nowrap"
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-800 dark:text-gray-200 cursor-pointer whitespace-nowrap"
                       title={`${currentSecondaryTranslation.name} — Changer la 2ème version`}
                     >
                       <LanguageFlagIcon language={currentSecondaryTranslation.language} className="w-3.5 h-2.5 shrink-0" />
-                      <span className="font-mono font-bold text-cyan-300 shrink-0">
+                      <span className="font-mono font-bold text-cyan-700 dark:text-cyan-300 shrink-0">
                         {currentSecondaryTranslation.shortName}
                       </span>
                       <span className="text-gray-500 hidden sm:inline" aria-hidden="true">·</span>
-                      <span className="hidden sm:inline text-gray-200 truncate max-w-[130px]">
+                      <span className="hidden sm:inline text-slate-800 dark:text-gray-200 truncate max-w-[130px]">
                         {currentSecondaryTranslation.name}
                       </span>
-                      <ChevronDown className={`w-3.5 h-3.5 text-cyan-400 transition-transform duration-150 shrink-0 ${isSecondaryDropdownOpen ? 'rotate-180' : ''}`} />
+                      <ChevronDown className={`w-3.5 h-3.5 text-cyan-700 dark:text-cyan-400 transition-transform duration-150 shrink-0 ${isSecondaryDropdownOpen ? 'rotate-180' : ''}`} />
                     </button>
 
                     <button
                       type="button"
                       onClick={handleToggleBilingual}
-                      className="px-1.5 py-1.5 text-gray-400 hover:text-white hover:bg-white/5 border-l border-[#2E2E40] rounded-r-lg transition-colors cursor-pointer shrink-0"
+                      className="px-1.5 py-1.5 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/5 border-l border-slate-300 dark:border-[#2E2E40] rounded-r-lg transition-colors cursor-pointer shrink-0"
                       title="Retirer la 2ème version (repasser en 1 langue)"
                     >
                       <X className="w-3.5 h-3.5" />
@@ -1276,33 +1276,33 @@ export const BibleProjectionModule = React.forwardRef<BibleProjectionHandle, Bib
                   {isSecondaryDropdownOpen && (
                     <div
                       role="listbox"
-                      className="absolute right-0 sm:left-0 sm:right-auto top-full mt-1.5 w-72 sm:w-84 bg-[#14141B] border border-cyan-500/40 rounded-2xl shadow-2xl p-2 z-50 max-h-80 overflow-y-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-100"
+                      className="absolute right-0 sm:left-0 sm:right-auto top-full mt-1.5 w-72 sm:w-84 bg-slate-50 dark:bg-[#14141B] border border-cyan-500/40 rounded-2xl shadow-2xl p-2 z-50 max-h-80 overflow-y-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-100"
                     >
-                      <div className="px-2.5 py-1.5 border-b border-[#22222E] flex items-center justify-between mb-1">
-                        <span className="text-[10px] font-bold text-cyan-300 uppercase tracking-wider">
+                      <div className="px-2.5 py-1.5 border-b border-slate-200 dark:border-[#22222E] flex items-center justify-between mb-1">
+                        <span className="text-[10px] font-bold text-cyan-700 dark:text-cyan-300 uppercase tracking-wider">
                           2ème Version (Traduction)
                         </span>
-                        <span className="text-[9px] text-cyan-400/90 font-mono">
+                        <span className="text-[9px] text-cyan-700 dark:text-cyan-400/90 font-mono">
                           {filteredSecondaryTranslations.length} / {BIBLE_TRANSLATIONS.length}
                         </span>
                       </div>
 
                       <div className="p-1 pb-2">
                         <div className="relative">
-                          <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                          <Search className="w-3.5 h-3.5 text-slate-600 dark:text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                           <input
                             type="text"
                             value={secondarySearchQuery}
                             onChange={(e) => setSecondarySearchQuery(e.target.value)}
                             placeholder="Filtrer (ex: KJV, RVR, Segond)..."
-                            className="w-full bg-[#181822] border border-[#2D2D3D] focus:border-cyan-500 rounded-xl pl-8 pr-7 py-1.5 text-xs text-white placeholder:text-gray-500 focus:outline-none transition-all font-sans"
+                            className="w-full bg-[#EDF1F5] dark:bg-[#181822] border border-slate-300 dark:border-[#2D2D3D] focus:border-cyan-500 rounded-xl pl-8 pr-7 py-1.5 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-gray-500 focus:outline-none transition-all font-sans"
                             autoFocus
                           />
                           {secondarySearchQuery && (
                             <button
                               type="button"
                               onClick={() => setSecondarySearchQuery('')}
-                              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white text-xs px-1 cursor-pointer"
+                              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white text-xs px-1 cursor-pointer"
                             >
                               ✕
                             </button>
@@ -1317,7 +1317,7 @@ export const BibleProjectionModule = React.forwardRef<BibleProjectionHandle, Bib
 
                         return (
                           <div key={lang} className="mb-2 last:mb-0">
-                            <div className="px-2.5 py-1 text-[10px] font-bold text-gray-400 flex items-center gap-2">
+                            <div className="px-2.5 py-1 text-[10px] font-bold text-slate-600 dark:text-gray-400 flex items-center gap-2">
                               <LanguageFlagIcon language={lang} className="w-4 h-3" />
                               <span>{langTitle}</span>
                             </div>
@@ -1334,22 +1334,22 @@ export const BibleProjectionModule = React.forwardRef<BibleProjectionHandle, Bib
                                     }}
                                     className={`w-full text-left px-2.5 py-1.5 rounded-xl text-xs transition-all flex items-center justify-between gap-2 cursor-pointer ${
                                       isSelected
-                                        ? 'bg-cyan-600/20 border border-cyan-500/40 text-cyan-200 font-semibold'
-                                        : 'hover:bg-[#1E1E2A] text-gray-300 hover:text-white border border-transparent'
+                                        ? 'bg-cyan-600/20 border border-cyan-500/40 text-cyan-700 dark:text-cyan-200 font-semibold'
+                                        : 'hover:bg-slate-200/70 dark:hover:bg-[#1E1E2A] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white border border-transparent'
                                     }`}
                                   >
                                     <div className="flex items-center gap-2 min-w-0 flex-1">
                                       <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold shrink-0 ${
                                         isSelected
                                           ? 'bg-cyan-500 text-black'
-                                          : 'bg-[#232330] text-gray-300'
+                                          : 'bg-[#EDF1F5] dark:bg-[#232330] text-slate-700 dark:text-gray-300'
                                       }`}>
                                         {tr.shortName}
                                       </span>
-                                      <span className="truncate text-xs text-gray-100">{tr.name}</span>
+                                      <span className="truncate text-xs text-slate-900 dark:text-gray-100">{tr.name}</span>
                                       {tr.year && <span className="text-[10px] text-gray-500 font-mono shrink-0">({tr.year})</span>}
                                     </div>
-                                    {isSelected && <Check className="w-3.5 h-3.5 text-cyan-400 shrink-0" />}
+                                    {isSelected && <Check className="w-3.5 h-3.5 text-cyan-700 dark:text-cyan-400 shrink-0" />}
                                   </button>
                                 );
                               })}
@@ -1368,14 +1368,14 @@ export const BibleProjectionModule = React.forwardRef<BibleProjectionHandle, Bib
 
         {/* Indicateur de détection en temps réel */}
         {detectedRef && (
-          <div className="flex items-center justify-between text-xs px-3 py-1.5 rounded-lg bg-amber-950/40 border border-amber-500/30 text-amber-200 animate-in fade-in duration-150">
+          <div className="flex items-center justify-between text-xs px-3 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-500/30 text-amber-700 dark:text-amber-200 animate-in fade-in duration-150">
             <span className="flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+              <Sparkles className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
               <span>
                 Passage détecté : <strong>{detectedRef.book.name} {detectedRef.chapter}:{detectedRef.verseStart || 1}{detectedRef.verseEnd && detectedRef.verseEnd !== detectedRef.verseStart ? `-${detectedRef.verseEnd}` : ''}</strong>
               </span>
             </span>
-            <span className="text-[11px] text-amber-300/80">
+            <span className="text-[11px] text-amber-700 dark:text-amber-300/80">
               Appuyez sur <kbd className="px-1 py-0.5 rounded bg-black/40 border border-amber-500/40 font-mono">Entrée</kbd> pour projeter
             </span>
           </div>
@@ -1383,19 +1383,19 @@ export const BibleProjectionModule = React.forwardRef<BibleProjectionHandle, Bib
 
         {/* Résultats de recherche par mots-clés */}
         {keywordResults.length > 0 && !detectedRef && (
-          <div className="bg-[#181822] border border-[#2B2B38] rounded-xl p-2 max-h-48 overflow-y-auto space-y-1 custom-scrollbar shadow-2xl">
-            <span className="text-[10px] uppercase font-bold text-gray-400 px-2 py-1 block">
+          <div className="bg-[#EDF1F5] dark:bg-[#181822] border border-slate-300 dark:border-[#2B2B38] rounded-xl p-2 max-h-48 overflow-y-auto space-y-1 custom-scrollbar shadow-2xl">
+            <span className="text-[10px] uppercase font-bold text-slate-600 dark:text-gray-400 px-2 py-1 block">
               Résultats de recherche ({keywordResults.length}) :
             </span>
             {keywordResults.map((kr, idx) => (
               <div
                 key={idx}
-                className="flex items-center justify-between gap-2 p-2 rounded-lg hover:bg-[#222230] text-xs cursor-pointer group transition-colors"
+                className="flex items-center justify-between gap-2 p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-[#222230] text-xs cursor-pointer group transition-colors"
                 onClick={() => handleSelectKeywordResult(kr, false)}
               >
                 <div className="min-w-0 pr-2">
-                  <span className="font-bold text-amber-300 block">{kr.referenceText}</span>
-                  <p className="text-[11px] text-gray-400 line-clamp-1 group-hover:text-gray-200">{kr.text}</p>
+                  <span className="font-bold text-amber-700 dark:text-amber-300 block">{kr.referenceText}</span>
+                  <p className="text-[11px] text-slate-600 dark:text-gray-400 line-clamp-1 group-hover:text-slate-900 dark:group-hover:text-gray-200">{kr.text}</p>
                 </div>
                 <button
                   type="button"
@@ -1416,9 +1416,9 @@ export const BibleProjectionModule = React.forwardRef<BibleProjectionHandle, Bib
 
       {/* Contrôle intuitif des slides multiples pour les versets longs (ex: Esther 8:9) */}
       {hasLiveMultiSlides && liveSlides && (
-        <div className="bg-amber-950/25 border border-amber-500/40 rounded-xl px-3 py-2 flex flex-wrap items-center justify-between gap-2 animate-in fade-in duration-150">
+        <div className="bg-amber-50 dark:bg-amber-950/25 border border-amber-500/40 rounded-xl px-3 py-2 flex flex-wrap items-center justify-between gap-2 animate-in fade-in duration-150">
           <div className="flex items-center gap-2 flex-wrap min-w-0 flex-1">
-            <span className="text-[11px] font-bold text-amber-300 uppercase tracking-wider shrink-0">
+            <span className="text-[11px] font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wider shrink-0">
               Verset long · Slide {liveSlideIndex + 1}/{liveTotalSlides}
             </span>
             <div className="flex items-center gap-1.5 flex-wrap min-w-0">
@@ -1434,11 +1434,11 @@ export const BibleProjectionModule = React.forwardRef<BibleProjectionHandle, Bib
                     className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs border transition-all cursor-pointer max-w-[230px] ${
                       isActive
                         ? 'bg-amber-500 text-black border-amber-400 font-bold shadow-xs'
-                        : 'bg-[#171722] hover:bg-[#222232] text-gray-300 border-[#2D2D3F]'
+                        : 'bg-[#EDF1F5] dark:bg-[#171722] hover:bg-slate-200 dark:hover:bg-[#222232] text-slate-700 dark:text-gray-300 border-slate-300 dark:border-[#2D2D3F]'
                     }`}
                     title={rawPreview}
                   >
-                    <span className={`font-mono font-extrabold text-[11px] shrink-0 ${isActive ? 'text-black' : 'text-amber-400'}`}>
+                    <span className={`font-mono font-extrabold text-[11px] shrink-0 ${isActive ? 'text-black' : 'text-amber-600 dark:text-amber-400'}`}>
                       {idx + 1}
                     </span>
                     <span className="truncate text-[11px] opacity-90 hidden sm:inline">
@@ -1464,7 +1464,7 @@ export const BibleProjectionModule = React.forwardRef<BibleProjectionHandle, Bib
               <button
                 type="button"
                 onClick={handleNextVerse}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#232334] hover:bg-[#2E2E42] border border-amber-500/35 text-amber-200 font-semibold text-xs transition-colors cursor-pointer whitespace-nowrap"
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#EDF1F5] dark:bg-[#232334] hover:bg-slate-200 dark:hover:bg-[#2E2E42] border border-amber-500/35 text-amber-700 dark:text-amber-200 font-semibold text-xs transition-colors cursor-pointer whitespace-nowrap"
               >
                 <span>Verset suivant</span>
                 <ChevronRight className="w-3.5 h-3.5" />
@@ -1475,19 +1475,19 @@ export const BibleProjectionModule = React.forwardRef<BibleProjectionHandle, Bib
       )}
 
       {/* 4. Navigateur Visuel : 3 Colonnes (Livres -> Chapitres -> Versets avec preview texte) */}
-      <div className="flex flex-col gap-3 pt-1 border-t border-[#22222C]">
+      <div className="flex flex-col gap-3 pt-1 border-t border-slate-200 dark:border-[#22222C]">
         <div className="flex flex-col md:flex-row gap-3 md:h-[480px]">
           
           {/* Colonne 1 : Sélecteur de Livres */}
           <div className="w-full md:w-52 shrink-0 flex flex-col gap-1.5 h-44 md:h-full">
-            <div className="flex items-center justify-between text-[11px] text-gray-400 px-0.5 shrink-0 py-0.5">
-              <span className="font-semibold text-gray-300 flex items-center gap-1.5">
-                <Book className="w-3.5 h-3.5 text-amber-400" />
+            <div className="flex items-center justify-between text-[11px] text-slate-600 dark:text-gray-400 px-0.5 shrink-0 py-0.5">
+              <span className="font-semibold text-slate-700 dark:text-gray-300 flex items-center gap-1.5">
+                <Book className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                 <span>Livres ({BIBLE_BOOKS.length})</span>
               </span>
             </div>
 
-            <div className="flex-1 min-h-0 overflow-y-auto rounded-xl border border-[#252533] bg-[#14141B] divide-y divide-[#20202C] custom-scrollbar shadow-inner">
+            <div className="flex-1 min-h-0 overflow-y-auto rounded-xl border border-slate-300 dark:border-[#252533] bg-slate-50 dark:bg-[#14141B] divide-y divide-slate-200 dark:divide-[#20202C] custom-scrollbar shadow-inner">
               {BIBLE_BOOKS.map(bk => {
                   const isSelected = selectedBook.id === bk.id;
                   const lineColor = BOOK_CATEGORY_COLORS[bk.category] || '#F59E0B';
@@ -1499,8 +1499,8 @@ export const BibleProjectionModule = React.forwardRef<BibleProjectionHandle, Bib
                       onClick={() => handleSelectBook(bk)}
                       className={`relative flex items-center justify-between w-full pl-3.5 pr-2.5 py-2 text-left text-xs transition-colors cursor-pointer select-none group ${
                         isSelected
-                          ? 'bg-[#252538] text-white font-bold shadow-xs'
-                          : 'bg-[#151520] hover:bg-[#1E1E2C] text-gray-300 hover:text-white'
+                          ? 'bg-[#EDF1F5] dark:bg-[#252538] text-slate-900 dark:text-white font-bold shadow-xs'
+                          : 'bg-slate-50 dark:bg-[#151520] hover:bg-slate-200/70 dark:hover:bg-[#1E1E2C] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white'
                       }`}
                       title={`${bk.name} (${bk.category} - ${bk.chapters} chapitres)`}
                     >
@@ -1519,11 +1519,11 @@ export const BibleProjectionModule = React.forwardRef<BibleProjectionHandle, Bib
 
           {/* Colonne 2 : Chapitres (liste verticale défilable de numéros) */}
           <div className="w-full md:w-16 shrink-0 flex flex-col gap-1.5 h-32 md:h-full">
-            <div className="flex items-center justify-center text-[11px] text-gray-400 px-0.5 shrink-0 py-0.5">
-              <span className="font-semibold text-gray-300">Chap.</span>
+            <div className="flex items-center justify-center text-[11px] text-slate-600 dark:text-gray-400 px-0.5 shrink-0 py-0.5">
+              <span className="font-semibold text-slate-700 dark:text-gray-300">Chap.</span>
             </div>
 
-            <div className="flex-1 min-h-0 overflow-y-auto rounded-xl border border-[#252533] bg-[#14141B] divide-y divide-[#20202C] custom-scrollbar shadow-inner">
+            <div className="flex-1 min-h-0 overflow-y-auto rounded-xl border border-slate-300 dark:border-[#252533] bg-slate-50 dark:bg-[#14141B] divide-y divide-slate-200 dark:divide-[#20202C] custom-scrollbar shadow-inner">
               {Array.from({ length: selectedBook.chapters }, (_, i) => i + 1).map(ch => {
                 const isCurrent = selectedChapter === ch;
                 return (
@@ -1534,8 +1534,8 @@ export const BibleProjectionModule = React.forwardRef<BibleProjectionHandle, Bib
                     onClick={() => handleSelectChapter(ch)}
                     className={`w-full py-2 text-center text-xs font-mono font-bold transition-all cursor-pointer select-none ${
                       isCurrent
-                        ? 'bg-[#252538] text-white border-l-2 border-amber-500 font-extrabold shadow-xs'
-                        : 'text-gray-400 hover:text-white hover:bg-[#1C1C28]'
+                        ? 'bg-[#EDF1F5] dark:bg-[#252538] text-slate-900 dark:text-white border-l-2 border-amber-500 font-extrabold shadow-xs'
+                        : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#1C1C28]'
                     }`}
                     title={`Chapitre ${ch}`}
                   >
@@ -1548,19 +1548,19 @@ export const BibleProjectionModule = React.forwardRef<BibleProjectionHandle, Bib
 
           {/* Colonne 3 : Versets avec preview du texte (prend le plus de place) */}
           <div className="w-full md:flex-1 min-w-0 flex flex-col gap-1.5 h-80 md:h-full">
-            <div className="flex items-center justify-between text-[11px] text-gray-400 px-1 shrink-0 py-0.5">
-              <span className="font-semibold text-gray-300 flex items-center gap-1.5 truncate">
+            <div className="flex items-center justify-between text-[11px] text-slate-600 dark:text-gray-400 px-1 shrink-0 py-0.5">
+              <span className="font-semibold text-slate-700 dark:text-gray-300 flex items-center gap-1.5 truncate">
                 <BookOpen className="w-3.5 h-3.5 text-pink-500 shrink-0" />
                 <span className="truncate">{selectedBook.name} {selectedChapter} — {chapterVerses.length} versets</span>
               </span>
-              <span className="text-[10px] font-mono text-gray-400 bg-black/40 px-1.5 py-0.2 rounded border border-white/10 shrink-0">
+              <span className="text-[10px] font-mono text-slate-600 dark:text-gray-400 bg-black/40 px-1.5 py-0.2 rounded border border-slate-200 dark:border-white/10 shrink-0">
                 {isBilingual && currentSecondaryPassage
                   ? `${currentTranslation.shortName} • ${currentSecondaryTranslation.shortName}`
                   : currentTranslation.shortName}
               </span>
             </div>
 
-            <div className="flex-1 min-h-0 overflow-y-auto rounded-xl border border-[#252533] bg-[#14141B] divide-y divide-[#1E1E2A] custom-scrollbar shadow-inner">
+            <div className="flex-1 min-h-0 overflow-y-auto rounded-xl border border-slate-300 dark:border-[#252533] bg-slate-50 dark:bg-[#14141B] divide-y divide-slate-200 dark:divide-[#1E1E2A] custom-scrollbar shadow-inner">
               {isLoadingChapter ? (
                 <div className="py-16 text-center text-xs text-gray-500 font-mono animate-pulse flex flex-col items-center gap-2">
                   <div className="w-5 h-5 border-2 border-pink-500 border-t-transparent rounded-full animate-spin" />
@@ -1585,8 +1585,8 @@ export const BibleProjectionModule = React.forwardRef<BibleProjectionHandle, Bib
                       onClick={(e) => handleSelectVerse(v.verseNumber, e.shiftKey)}
                       className={`relative flex items-start gap-3 px-3.5 py-2.5 text-left transition-colors cursor-pointer select-none group ${
                         isBoundary || inRange
-                          ? 'bg-[#282938] text-white border-l-2 border-pink-500 shadow-xs'
-                          : 'hover:bg-[#1A1A24] text-gray-300 hover:text-white'
+                          ? 'bg-[#EDF1F5] dark:bg-[#282938] text-slate-900 dark:text-white border-l-2 border-pink-500 shadow-xs'
+                          : 'hover:bg-slate-200/70 dark:hover:bg-[#1A1A24] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white'
                       }`}
                       title={autoProject ? `Verset ${v.verseNumber} (projette directement)` : `Verset ${v.verseNumber} (Shift+clic pour plage)`}
                     >
@@ -1594,12 +1594,12 @@ export const BibleProjectionModule = React.forwardRef<BibleProjectionHandle, Bib
                         {v.verseNumber}
                       </span>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs sm:text-[13px] leading-relaxed select-text text-gray-200">
+                        <p className="text-xs sm:text-[13px] leading-relaxed select-text text-slate-800 dark:text-gray-200">
                           {v.text}
                         </p>
                         {secVerse && (
-                          <p className="text-[11px] text-cyan-300/90 italic mt-1 leading-snug pl-2 border-l border-cyan-500/30">
-                            <span className="text-[9px] font-mono font-bold uppercase text-cyan-400 mr-1.5">{currentSecondaryTranslation.shortName}:</span>
+                          <p className="text-[11px] text-cyan-700 dark:text-cyan-300/90 italic mt-1 leading-snug pl-2 border-l border-cyan-500/30">
+                            <span className="text-[9px] font-mono font-bold uppercase text-cyan-700 dark:text-cyan-400 mr-1.5">{currentSecondaryTranslation.shortName}:</span>
                             {secVerse.text}
                           </p>
                         )}
@@ -1618,7 +1618,7 @@ export const BibleProjectionModule = React.forwardRef<BibleProjectionHandle, Bib
                                   className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition-colors cursor-pointer ${
                                     isSlideActive
                                       ? 'bg-amber-500 text-black border-amber-400'
-                                      : 'bg-[#1D1D2B] hover:bg-[#28283B] text-amber-200 border-amber-500/35'
+                                      : 'bg-[#EDF1F5] dark:bg-[#1D1D2B] hover:bg-slate-200 dark:hover:bg-[#28283B] text-amber-700 dark:text-amber-200 border-amber-500/35'
                                   }`}
                                 >
                                   Slide {sIdx + 1}/{liveTotalSlides}

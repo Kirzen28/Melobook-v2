@@ -1,6 +1,14 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import { useApp } from '../context/AppContext';
 import { Setlist, Song } from '../types';
+import {
+  MODAL_BACKDROP_MOTION,
+  MODAL_PANEL_MOTION,
+  NAV_SPRING,
+  POPOVER_MOTION,
+  STAGE_EASE
+} from '../utils/motionPresets';
 import { LiveSetlistPlayer } from './LiveSetlistPlayer';
 import { SetlistPdfModal } from './SetlistPdfModal';
 import { SetlistAddSongsModal } from './SetlistAddSongsModal';
@@ -18,7 +26,6 @@ import {
   Plus, 
   Clock, 
   Trash2, 
-  ChevronUp, 
   ChevronDown, 
   Music, 
   X, 
@@ -32,9 +39,12 @@ import {
   GripVertical,
   Pencil,
   Calendar,
+  CalendarCheck2,
   MoreVertical,
-  Copy
+  Copy,
+  Users
 } from 'lucide-react';
+import { getAssignmentForSetlist } from '../utils/planningUtils';
 
 export const SetlistManager: React.FC = () => {
   const { 
@@ -53,6 +63,9 @@ export const SetlistManager: React.FC = () => {
     setIsLiveSetlistOpen,
     showNotification,
     canManageSetlists,
+    canAccessPlanning,
+    planningAssignments,
+    openPlanningForSetlist,
     deepLinkSetlistId,
     clearDeepLinkSetlistId
   } = useApp();
@@ -445,7 +458,7 @@ export const SetlistManager: React.FC = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-3 sm:px-6 py-6 pb-12 text-[#E0E0E0]">
+    <div className="max-w-4xl mx-auto px-3 sm:px-6 py-6 pb-12 text-slate-900 dark:text-[#E0E0E0]">
       
       {/* Live Setlist Player Modal */}
       {isLiveSetlistOpen && activeSelectedSetlist && (
@@ -455,41 +468,55 @@ export const SetlistManager: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-wrap">
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-2 sm:gap-2.5">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2 sm:gap-2.5">
             <ListMusic className="w-5 h-5 sm:w-6 sm:h-6 text-blue-500 shrink-0" />
             <span>Setlists</span>
-            <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-[#1C1C1E] border border-[#2E2E34] text-gray-400 shrink-0">
+            <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-[#EDF1F5] dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#2E2E34] text-slate-600 dark:text-gray-400 shrink-0">
               {setlists.length}
             </span>
           </h1>
 
           {/* Mode Switch: Liste vs Calendrier */}
-          <div className="flex items-center bg-[#151518] p-1 rounded-xl border border-[#27272D] shadow-inner ml-0 sm:ml-2">
+          <div className="flex items-center bg-slate-50 dark:bg-[#151518] p-1 rounded-xl border border-slate-300 dark:border-[#27272D] shadow-inner ml-0 sm:ml-2">
             <button
               type="button"
               onClick={() => handleSetViewMode('list')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
                 viewMode === 'list'
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'text-gray-400 hover:text-white hover:bg-[#1E1E24]'
+                  ? 'text-white'
+                  : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#1E1E24]'
               }`}
               title="Afficher la vue liste"
             >
-              <ListMusic className="w-3.5 h-3.5" />
-              <span>Liste</span>
+              {viewMode === 'list' && (
+                <motion.div
+                  layoutId="setlist-view-pill"
+                  transition={NAV_SPRING}
+                  className="absolute inset-0 bg-blue-600 rounded-lg shadow-xs"
+                />
+              )}
+              <ListMusic className="w-3.5 h-3.5 relative z-10" />
+              <span className="relative z-10">Liste</span>
             </button>
             <button
               type="button"
               onClick={() => handleSetViewMode('calendar')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
                 viewMode === 'calendar'
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'text-gray-400 hover:text-white hover:bg-[#1E1E24]'
+                  ? 'text-white'
+                  : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#1E1E24]'
               }`}
               title="Afficher la vue calendrier"
             >
-              <Calendar className="w-3.5 h-3.5" />
-              <span>Calendrier</span>
+              {viewMode === 'calendar' && (
+                <motion.div
+                  layoutId="setlist-view-pill"
+                  transition={NAV_SPRING}
+                  className="absolute inset-0 bg-blue-600 rounded-lg shadow-xs"
+                />
+              )}
+              <Calendar className="w-3.5 h-3.5 relative z-10" />
+              <span className="relative z-10">Calendrier</span>
             </button>
           </div>
         </div>
@@ -539,11 +566,11 @@ export const SetlistManager: React.FC = () => {
         <>
           {/* Setlists Accordion List */}
           {setlists.length === 0 ? (
-            <div className="text-center py-16 bg-[#111112] rounded-xl border border-[#222224] p-6 max-w-2xl mx-auto">
-              <div className="w-12 h-12 rounded-xl bg-blue-600/10 border border-blue-500/20 text-blue-400 flex items-center justify-center mx-auto mb-3">
+            <div className="text-center py-16 bg-white dark:bg-[#111112] rounded-xl border border-slate-200 dark:border-[#222224] p-6 max-w-2xl mx-auto">
+              <div className="w-12 h-12 rounded-xl bg-blue-600/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center mx-auto mb-3">
                 <ListMusic className="w-6 h-6" />
               </div>
-              <h3 className="text-sm font-bold text-gray-200">Aucune setlist pour le moment</h3>
+              <h3 className="text-sm font-bold text-slate-800 dark:text-gray-200">Aucune setlist pour le moment</h3>
               <p className="text-xs text-gray-500 mt-1 max-w-sm mx-auto mb-4">
                 Créez votre première liste de chants pour organiser votre prochain événement.
               </p>
@@ -583,8 +610,8 @@ export const SetlistManager: React.FC = () => {
                   activeMenuSetlistId === st.id ? 'overflow-visible z-20 relative' : 'overflow-hidden'
                 } ${
                   isExpanded
-                    ? 'bg-[#111113] border-blue-500/50 shadow-lg shadow-blue-500/5'
-                    : 'bg-[#111112] border-[#222224] hover:border-[#333] hover:bg-[#141416]'
+                    ? 'bg-white dark:bg-[#111113] border-blue-500/50 shadow-lg shadow-blue-500/5'
+                    : 'bg-white dark:bg-[#111112] border-slate-200 dark:border-[#222224] hover:border-slate-400 dark:hover:border-[#333] hover:bg-slate-100 dark:hover:bg-[#141416]'
                 }`}
               >
                 {/* Accordion Header / Setlist Bar : clic direct sur le bloc = lancement du Live dès le 1er chant */}
@@ -611,7 +638,7 @@ export const SetlistManager: React.FC = () => {
                       });
                     }
                   }}
-                  className="p-3.5 sm:p-5 flex items-center justify-between gap-3 cursor-pointer select-none group/card hover:bg-[#151519] transition-colors"
+                  className="p-3.5 sm:p-5 flex items-center justify-between gap-3 cursor-pointer select-none group/card hover:bg-slate-200/70 dark:hover:bg-[#151519] transition-colors"
                   title={validSongs.length > 0 ? "Lancer le mode Live (dès la première chanson)" : "Dérouler la setlist"}
                 >
                   {/* Left info: Bouton déroulant + Titre + Indicateur Live */}
@@ -626,24 +653,20 @@ export const SetlistManager: React.FC = () => {
                       }}
                       className={`p-2 rounded-lg border transition-all shrink-0 cursor-pointer ${
                         isExpanded
-                          ? 'bg-blue-600/20 border-blue-500/40 text-blue-400'
-                          : 'bg-[#1C1C1E] border-[#2E2E32] text-gray-400 hover:text-white hover:bg-[#252529]'
+                          ? 'bg-blue-600/20 border-blue-500/40 text-blue-600 dark:text-blue-400'
+                          : 'bg-[#EDF1F5] dark:bg-[#1C1C1E] border-slate-300 dark:border-[#2E2E32] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-[#252529]'
                       }`}
                       title={isExpanded ? "Replier la liste" : "Dérouler la liste des chants et informations"}
                       aria-label={isExpanded ? "Replier la setlist" : "Dérouler la setlist"}
                     >
-                      {isExpanded ? (
-                        <ChevronUp className="w-4 h-4" />
-                      ) : (
-                        <ChevronDown className="w-4 h-4" />
-                      )}
+                      <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
                     </button>
 
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 min-w-0">
                         <div className="flex items-center gap-2 min-w-0">
                           <h3 className={`text-sm sm:text-base font-bold truncate transition-colors group-hover/card:text-blue-300 ${
-                            isExpanded ? 'text-blue-300' : 'text-white'
+                            isExpanded ? 'text-blue-700 dark:text-blue-300' : 'text-slate-900 dark:text-white'
                           }`}>
                             {st.name}
                           </h3>
@@ -657,10 +680,10 @@ export const SetlistManager: React.FC = () => {
                           {/* Durée totale */}
                           {totalSecs > 0 && (
                             <span 
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-cyan-950/40 border border-cyan-500/30 text-cyan-300 font-mono font-medium text-[11px] sm:text-xs shadow-xs"
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-cyan-50 dark:bg-cyan-950/40 border border-cyan-500/30 text-cyan-700 dark:text-cyan-300 font-mono font-medium text-[11px] sm:text-xs shadow-xs"
                               title="Durée totale estimée de la setlist"
                             >
-                              <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-cyan-400 shrink-0" />
+                              <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-cyan-700 dark:text-cyan-400 shrink-0" />
                               <span>{formatSetlistDuration(totalSecs)}</span>
                             </span>
                           )}
@@ -673,14 +696,34 @@ export const SetlistManager: React.FC = () => {
                               e.stopPropagation();
                               setDatePickerSetlist(st);
                             }}
-                            className="relative inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#1C1C1F] hover:bg-[#25252A] border border-[#2E2E34] hover:border-blue-500/50 text-gray-200 hover:text-white transition-all cursor-pointer group shadow-xs select-none text-[11px] sm:text-xs"
+                            className="relative inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#EDF1F5] dark:bg-[#1C1C1F] hover:bg-slate-200 dark:hover:bg-[#25252A] border border-slate-300 dark:border-[#2E2E34] hover:border-blue-500/50 text-slate-800 dark:text-gray-200 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer group shadow-xs select-none text-[11px] sm:text-xs"
                             title="Cliquer pour choisir la date dans le calendrier"
                           >
-                            <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-blue-400 group-hover:scale-110 transition-transform shrink-0" />
+                            <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform shrink-0" />
                             <span className="font-semibold capitalize truncate max-w-[140px] sm:max-w-none">
                               {st.date ? formatFriendlyDate(st.date) : 'Choisir une date'}
                             </span>
                           </button>
+
+                          {canAccessPlanning && (() => {
+                            const planned = getAssignmentForSetlist(planningAssignments, st.id);
+                            const teamCount = planned?.slots?.length || 0;
+                            if (teamCount === 0) return null;
+                            return (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openPlanningForSetlist(st.id);
+                                }}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#EDF1F5] dark:bg-[#1C1C1F] hover:bg-slate-200 dark:hover:bg-[#25252A] border border-slate-300 dark:border-[#2E2E34] text-slate-700 dark:text-gray-300 text-[11px] sm:text-xs font-medium cursor-pointer tabular-nums"
+                                title="Ouvrir le planning de cette setlist"
+                              >
+                                <Users className="w-3 h-3 text-blue-600 dark:text-blue-400 shrink-0" />
+                                <span>{teamCount} planifié{teamCount > 1 ? 's' : ''}</span>
+                              </button>
+                            );
+                          })()}
                         </div>
                       </div>
                     </div>
@@ -715,7 +758,7 @@ export const SetlistManager: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => handleOpenEditModal(st)}
-                          className="p-2 rounded-lg bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-400 hover:text-blue-400 border border-[#333] hover:border-blue-500/40 text-xs font-medium shadow-sm transition-all active:scale-95 flex items-center justify-center"
+                          className="p-2 rounded-lg bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-slate-200 dark:hover:bg-[#2A2A2D] text-slate-600 dark:text-gray-400 hover:text-blue-800 dark:hover:text-blue-400 border border-slate-300 dark:border-[#333] hover:border-blue-500/40 text-xs font-medium shadow-sm transition-all active:scale-95 flex items-center justify-center"
                           title="Modifier les infos de la setlist"
                           aria-label="Modifier les infos de la setlist"
                         >
@@ -727,7 +770,7 @@ export const SetlistManager: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => handleDuplicateSetlist(st)}
-                          className="p-2 rounded-lg bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-400 hover:text-cyan-400 border border-[#333] hover:border-cyan-500/40 text-xs font-medium shadow-sm transition-all active:scale-95 flex items-center justify-center"
+                          className="p-2 rounded-lg bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-slate-200 dark:hover:bg-[#2A2A2D] text-slate-600 dark:text-gray-400 hover:text-cyan-800 dark:hover:text-cyan-400 border border-slate-300 dark:border-[#333] hover:border-cyan-500/40 text-xs font-medium shadow-sm transition-all active:scale-95 flex items-center justify-center"
                           title="Dupliquer la setlist"
                           aria-label="Dupliquer la setlist"
                         >
@@ -735,14 +778,26 @@ export const SetlistManager: React.FC = () => {
                         </button>
                       )}
 
+                      {canAccessPlanning && (
+                        <button
+                          type="button"
+                          onClick={() => openPlanningForSetlist(st.id)}
+                          className="p-2 rounded-lg bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-blue-500/15 text-slate-700 dark:text-gray-300 hover:text-blue-800 dark:hover:text-blue-300 border border-slate-300 dark:border-[#333] hover:border-blue-500/40 text-xs font-medium shadow-sm transition-all active:scale-95 flex items-center justify-center cursor-pointer"
+                          title="Gérer le planning (musiciens, chant & régie)"
+                          aria-label="Planning"
+                        >
+                          <CalendarCheck2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                        </button>
+                      )}
+
                       <button
                         type="button"
                         onClick={() => setPdfModalSetlist(st)}
-                        className="p-2 rounded-lg bg-[#1C1C1E] hover:bg-blue-500/15 text-gray-300 hover:text-blue-300 border border-[#333] hover:border-blue-500/40 text-xs font-medium shadow-sm transition-all active:scale-95 flex items-center justify-center cursor-pointer"
+                        className="p-2 rounded-lg bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-blue-500/15 text-slate-700 dark:text-gray-300 hover:text-blue-800 dark:hover:text-blue-300 border border-slate-300 dark:border-[#333] hover:border-blue-500/40 text-xs font-medium shadow-sm transition-all active:scale-95 flex items-center justify-center cursor-pointer"
                         title="Partager (QR code, lien ou PDF)"
                         aria-label="Partager"
                       >
-                        <Share2 className="w-3.5 h-3.5 text-blue-400" />
+                        <Share2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                       </button>
 
                       {canManageSetlists && (
@@ -765,15 +820,15 @@ export const SetlistManager: React.FC = () => {
                           className={`p-2 rounded-lg border text-xs font-medium transition-all flex items-center justify-center ${
                             confirmDeleteSetlistId === st.id
                               ? 'bg-rose-600 hover:bg-rose-700 text-white border-rose-500 shadow-sm font-bold animate-pulse'
-                              : 'bg-[#1C1C1E] hover:bg-rose-500/20 text-gray-400 hover:text-rose-400 border-[#333] hover:border-rose-500/40'
+                              : 'bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-rose-500/20 text-slate-600 dark:text-gray-400 hover:text-rose-800 dark:hover:text-rose-400 border-slate-300 dark:border-[#333] hover:border-rose-500/40'
                           }`}
                           title={confirmDeleteSetlistId === st.id ? "Confirmer la suppression" : "Supprimer la setlist"}
                           aria-label={confirmDeleteSetlistId === st.id ? "Confirmer la suppression" : "Supprimer la setlist"}
                         >
                           {confirmDeleteSetlistId === st.id ? (
-                            <Check className="w-3.5 h-3.5 text-white" />
+                            <Check className="w-3.5 h-3.5 text-slate-900 dark:text-white" />
                           ) : (
-                            <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                            <Trash2 className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
                           )}
                         </button>
                       )}
@@ -789,8 +844,8 @@ export const SetlistManager: React.FC = () => {
                         }}
                         className={`p-2 rounded-lg border text-xs font-medium transition-all flex items-center justify-center ${
                           activeMenuSetlistId === st.id
-                            ? 'bg-blue-600/20 border-blue-500/50 text-blue-400'
-                            : 'bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-400 hover:text-white border-[#333]'
+                            ? 'bg-blue-600/20 border-blue-500/50 text-blue-600 dark:text-blue-400'
+                            : 'bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-slate-200 dark:hover:bg-[#2A2A2D] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white border-slate-300 dark:border-[#333]'
                         }`}
                         title="Plus d'actions"
                         aria-label="Plus d'actions"
@@ -799,11 +854,13 @@ export const SetlistManager: React.FC = () => {
                       </button>
 
                       {/* Menu déroulant mobile */}
-                      {activeMenuSetlistId === st.id && (
-                        <div 
-                          className="absolute right-0 top-full mt-1.5 w-52 bg-[#161619] border border-[#2E2E34] rounded-xl shadow-2xl py-1.5 z-40 animate-in fade-in zoom-in-95 duration-100"
-                          onClick={(e) => e.stopPropagation()}
-                        >
+                      <AnimatePresence>
+                        {activeMenuSetlistId === st.id && (
+                          <motion.div
+                            {...POPOVER_MOTION}
+                            className="absolute right-0 top-full mt-1.5 w-52 bg-slate-50 dark:bg-[#161619] border border-slate-300 dark:border-[#2E2E34] rounded-xl shadow-2xl py-1.5 z-40 origin-top-right"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                           {canManageSetlists && (
                             <button
                               type="button"
@@ -811,9 +868,9 @@ export const SetlistManager: React.FC = () => {
                                 setActiveMenuSetlistId(null);
                                 handleOpenEditModal(st);
                               }}
-                              className="w-full px-3 py-2 text-left text-xs font-medium text-gray-300 hover:text-white hover:bg-[#222228] flex items-center gap-2.5 transition-colors"
+                              className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#222228] flex items-center gap-2.5 transition-colors"
                             >
-                              <Pencil className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                              <Pencil className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
                               <span>Modifier la setlist</span>
                             </button>
                           )}
@@ -825,10 +882,24 @@ export const SetlistManager: React.FC = () => {
                                 setActiveMenuSetlistId(null);
                                 handleDuplicateSetlist(st);
                               }}
-                              className="w-full px-3 py-2 text-left text-xs font-medium text-gray-300 hover:text-white hover:bg-[#222228] flex items-center gap-2.5 transition-colors"
+                              className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#222228] flex items-center gap-2.5 transition-colors"
                             >
-                              <Copy className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                              <Copy className="w-3.5 h-3.5 text-cyan-700 dark:text-cyan-400 shrink-0" />
                               <span>Dupliquer la setlist</span>
+                            </button>
+                          )}
+
+                          {canAccessPlanning && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveMenuSetlistId(null);
+                                openPlanningForSetlist(st.id);
+                              }}
+                              className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#222228] flex items-center gap-2.5 transition-colors"
+                            >
+                              <CalendarCheck2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+                              <span>Planning équipe</span>
                             </button>
                           )}
 
@@ -838,14 +909,14 @@ export const SetlistManager: React.FC = () => {
                               setActiveMenuSetlistId(null);
                               setPdfModalSetlist(st);
                             }}
-                            className="w-full px-3 py-2 text-left text-xs font-medium text-gray-300 hover:text-white hover:bg-[#222228] flex items-center gap-2.5 transition-colors"
+                            className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#222228] flex items-center gap-2.5 transition-colors"
                           >
-                            <Share2 className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                            <Share2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
                             <span>Partager</span>
                           </button>
 
                           {canManageSetlists && (
-                            <div className="border-t border-[#25252B] my-1 pt-1">
+                            <div className="border-t border-slate-200 dark:border-[#25252B] my-1 pt-1">
                               <button
                                 type="button"
                                 onClick={() => {
@@ -865,14 +936,14 @@ export const SetlistManager: React.FC = () => {
                                 }}
                                 className={`w-full px-3 py-2 text-left text-xs font-medium flex items-center gap-2.5 transition-colors ${
                                   confirmDeleteSetlistId === st.id
-                                    ? 'bg-rose-600/20 text-rose-300 font-bold'
-                                    : 'text-rose-400 hover:bg-rose-950/20 hover:text-rose-300'
+                                    ? 'bg-rose-600/20 text-rose-700 dark:text-rose-300 font-bold'
+                                    : 'text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-950/20 hover:text-rose-800 dark:hover:text-rose-300'
                                 }`}
                               >
                                 {confirmDeleteSetlistId === st.id ? (
-                                  <Check className="w-3.5 h-3.5 text-rose-300 shrink-0" />
+                                  <Check className="w-3.5 h-3.5 text-rose-700 dark:text-rose-300 shrink-0" />
                                 ) : (
-                                  <Trash2 className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                                  <Trash2 className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400 shrink-0" />
                                 )}
                                 <span>
                                   {confirmDeleteSetlistId === st.id
@@ -882,19 +953,28 @@ export const SetlistManager: React.FC = () => {
                               </button>
                             </div>
                           )}
-                        </div>
-                      )}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
                   </div>
                 </div>
 
                 {/* Expanded Content: Songs Sequence */}
+                <AnimatePresence initial={false}>
                 {isExpanded && (
-                  <div className="px-4 sm:px-6 pb-6 pt-2 border-t border-[#1F1F24] bg-[#0C0C0E]/70 space-y-4 animate-in fade-in slide-in-from-top-1 duration-150">
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2, ease: STAGE_EASE }}
+                    className="overflow-hidden"
+                  >
+                  <div className="px-4 sm:px-6 pb-6 pt-2 border-t border-slate-200 dark:border-[#1F1F24] bg-[#F4F6F9]/70 dark:bg-[#0C0C0E]/70 space-y-4">
                     {st.notes?.trim() && (
-                      <div className="rounded-xl bg-gradient-to-r from-amber-500/20 via-amber-500/10 to-orange-500/10 border border-amber-400/50 border-l-4 border-l-amber-400 px-3.5 py-3 text-xs text-amber-50 flex items-start justify-between gap-2.5 shadow-lg shadow-amber-500/10">
+                      <div className="rounded-xl bg-gradient-to-r from-amber-50 dark:from-amber-500/20 via-amber-50 dark:via-amber-500/10 to-orange-500/10 border border-amber-400/50 border-l-4 border-l-amber-400 px-3.5 py-3 text-xs text-amber-50 flex items-start justify-between gap-2.5 shadow-lg shadow-amber-500/10">
                         <div className="min-w-0">
-                          <span className="text-[11px] font-extrabold uppercase tracking-wider text-amber-300 block mb-1">
+                          <span className="text-[11px] font-extrabold uppercase tracking-wider text-amber-700 dark:text-amber-300 block mb-1">
                             Notes
                           </span>
                           <p className="whitespace-pre-wrap break-words leading-relaxed text-amber-50/95">{st.notes}</p>
@@ -903,7 +983,7 @@ export const SetlistManager: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => handleOpenEditModal(st)}
-                            className="p-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/30 border border-amber-400/30 text-amber-300 hover:text-amber-100 transition-colors shrink-0 cursor-pointer"
+                            className="p-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/30 border border-amber-400/30 text-amber-700 dark:text-amber-300 hover:text-amber-100 transition-colors shrink-0 cursor-pointer"
                             title="Modifier les notes"
                           >
                             <Pencil className="w-3.5 h-3.5" />
@@ -914,16 +994,16 @@ export const SetlistManager: React.FC = () => {
                     {/* Songs Sequence Management */}
                     <div>
                       {validSongs.length === 0 ? (
-                        <div className="text-center py-10 bg-[#0E0E10] rounded-xl border border-dashed border-[#2A2A2E] p-4">
-                          <Music className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-                          <p className="text-xs text-gray-400">Aucun chant dans cette setlist pour l'instant.</p>
+                        <div className="text-center py-10 bg-white dark:bg-[#0E0E10] rounded-xl border border-dashed border-slate-300 dark:border-[#2A2A2E] p-4">
+                          <Music className="w-8 h-8 text-slate-500 dark:text-gray-600 mx-auto mb-2" />
+                          <p className="text-xs text-slate-600 dark:text-gray-400">Aucun chant dans cette setlist pour l'instant.</p>
                           {canManageSetlists && (
                             <button
                               onClick={() => {
                                 setSelectedSetlist(st);
                                 setIsAddSongModalOpen(true);
                               }}
-                              className="mt-2 text-xs font-bold text-blue-400 hover:underline inline-flex items-center gap-1"
+                              className="mt-2 text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1"
                             >
                               <Plus className="w-3 h-3" />
                               <span>Sélectionner des chants de la bibliothèque</span>
@@ -950,10 +1030,10 @@ export const SetlistManager: React.FC = () => {
                                 onDragEnd={handleDragEnd}
                                 className={`flex items-start justify-between gap-3 p-3 rounded-lg border transition-all duration-200 group relative ${
                                   isBeingDragged 
-                                    ? 'opacity-40 scale-[0.98] border-2 border-dashed border-blue-500 bg-blue-950/20 shadow-inner ring-2 ring-blue-500/20 cursor-grabbing'
+                                    ? 'opacity-40 scale-[0.98] border-2 border-dashed border-blue-500 bg-blue-50 dark:bg-blue-950/20 shadow-inner ring-2 ring-blue-500/20 cursor-grabbing'
                                     : isDragOver
-                                    ? 'border-2 border-blue-400 bg-gradient-to-r from-blue-950/50 to-[#121218] shadow-lg shadow-blue-500/20 ring-2 ring-blue-400/50 -translate-y-1 scale-[1.01]'
-                                    : 'bg-[#121215] border-[#222226] hover:border-blue-500/40 hover:bg-[#16161c]'
+                                    ? 'border-2 border-blue-400 bg-gradient-to-r from-blue-50 dark:from-blue-950/50 to-white dark:to-[#121218] shadow-lg shadow-blue-500/20 ring-2 ring-blue-400/50 -translate-y-1 scale-[1.01]'
+                                    : 'bg-white dark:bg-[#121215] border-slate-200 dark:border-[#222226] hover:border-blue-500/40 hover:bg-slate-200/70 dark:hover:bg-[#16161c]'
                                 }`}
                               >
                                 <div className="flex items-center gap-2.5 flex-1 min-w-0">
@@ -965,8 +1045,8 @@ export const SetlistManager: React.FC = () => {
                                       onTouchEnd={() => handleTouchEndHandle(st)}
                                       className={`p-1 rounded cursor-grab active:cursor-grabbing transition-all duration-150 touch-none shrink-0 -ml-1 ${
                                         isBeingDragged
-                                          ? 'text-blue-400 bg-blue-500/20 ring-1 ring-blue-400/40'
-                                          : 'text-gray-500 hover:text-blue-400 hover:bg-blue-500/10 active:text-blue-300 active:bg-blue-500/20'
+                                          ? 'text-blue-600 dark:text-blue-400 bg-blue-500/20 ring-1 ring-blue-400/40'
+                                          : 'text-gray-500 hover:text-blue-800 dark:hover:text-blue-400 hover:bg-blue-500/10 active:text-blue-300 active:bg-blue-500/20'
                                       }`}
                                       title="Glisser pour réorganiser"
                                     >
@@ -980,27 +1060,27 @@ export const SetlistManager: React.FC = () => {
                                     title="Lancer ce chant en mode Live"
                                   >
                                     {/* Compteur et titre dans la même balise/div sans colonne séparée */}
-                                    <h5 className="text-xs sm:text-sm font-bold text-white group-hover:text-blue-300 truncate transition-colors flex items-center gap-1.5 min-w-0">
-                                      <span className="text-blue-400 font-mono font-bold shrink-0">
+                                    <h5 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white group-hover:text-blue-800 dark:group-hover:text-blue-300 truncate transition-colors flex items-center gap-1.5 min-w-0">
+                                      <span className="text-blue-600 dark:text-blue-400 font-mono font-bold shrink-0">
                                         {index + 1}.
                                       </span>
                                       <span className="truncate">
                                         {stripParentheses(song.title)}
                                       </span>
-                                      <span className="text-[11px] sm:text-xs font-normal text-gray-400 truncate">
+                                      <span className="text-[11px] sm:text-xs font-normal text-slate-600 dark:text-gray-400 truncate">
                                         — {song.artist || 'Auteur inconnu'}
                                       </span>
                                     </h5>
 
-                                    <p className="text-[11px] text-gray-400 truncate flex items-center gap-1.5 flex-wrap mt-0.5">
-                                      <span>Tonalité : <strong className="text-blue-400">{song.key}</strong></span>
-                                      <span className="text-gray-600">•</span>
+                                    <p className="text-[11px] text-slate-600 dark:text-gray-400 truncate flex items-center gap-1.5 flex-wrap mt-0.5">
+                                      <span>Tonalité : <strong className="text-blue-600 dark:text-blue-400">{song.key}</strong></span>
+                                      <span className="text-slate-500 dark:text-gray-600">•</span>
                                       <span>{song.tempo} BPM</span>
                                       {getSongDuration(song) ? (
                                         <>
-                                          <span className="text-gray-600">•</span>
-                                          <span className="inline-flex items-center gap-1 text-cyan-400 font-mono font-medium">
-                                            <Clock className="w-2.5 h-2.5 text-cyan-400" />
+                                          <span className="text-slate-500 dark:text-gray-600">•</span>
+                                          <span className="inline-flex items-center gap-1 text-cyan-700 dark:text-cyan-400 font-mono font-medium">
+                                            <Clock className="w-2.5 h-2.5 text-cyan-700 dark:text-cyan-400" />
                                             {getSongDuration(song)}
                                           </span>
                                         </>
@@ -1017,7 +1097,7 @@ export const SetlistManager: React.FC = () => {
                                         e.stopPropagation();
                                         handleRemoveSong(st, song.id);
                                       }}
-                                      className="p-1.5 rounded-lg bg-[#1C1C1E] hover:bg-rose-500/20 text-gray-400 hover:text-rose-400 border border-[#333] transition-colors"
+                                      className="p-1.5 rounded-lg bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-rose-500/20 text-slate-600 dark:text-gray-400 hover:text-rose-800 dark:hover:text-rose-400 border border-slate-300 dark:border-[#333] transition-colors"
                                       title="Retirer de la setlist"
                                     >
                                       <X className="w-3.5 h-3.5" />
@@ -1032,7 +1112,9 @@ export const SetlistManager: React.FC = () => {
                     </div>
 
                   </div>
+                  </motion.div>
                 )}
+                </AnimatePresence>
 
               </div>
             );
@@ -1043,17 +1125,26 @@ export const SetlistManager: React.FC = () => {
       )}
 
       {/* Modal: Create Setlist */}
-      {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#111112] border border-[#222224] rounded-lg w-full max-w-md p-5 shadow-2xl">
+      <AnimatePresence>
+        {isCreateModalOpen && (
+          <motion.div
+            {...MODAL_BACKDROP_MOTION}
+            className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => setIsCreateModalOpen(false)}
+          >
+            <motion.div
+              {...MODAL_PANEL_MOTION}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-[#111112] border border-slate-200 dark:border-[#222224] rounded-lg w-full max-w-md p-5 shadow-2xl"
+            >
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <ListMusic className="w-4 h-4 text-blue-400" />
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <ListMusic className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                 <span>Nouvelle Setlist</span>
               </h3>
               <button 
                 onClick={() => setIsCreateModalOpen(false)}
-                className="text-gray-400 hover:text-white"
+                className="text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1061,7 +1152,7 @@ export const SetlistManager: React.FC = () => {
 
             <form onSubmit={handleCreateSetlist} className="space-y-3.5">
               <div>
-                <label className="block text-xs font-medium text-gray-300 mb-1">
+                <label className="block text-xs font-medium text-slate-700 dark:text-gray-300 mb-1">
                   Nom de l'événement / Setlist *
                 </label>
                 <input
@@ -1069,19 +1160,19 @@ export const SetlistManager: React.FC = () => {
                   placeholder="ex: Culte Dimanche 30 Août"
                   value={newSetName}
                   onChange={(e) => setNewSetName(e.target.value)}
-                  className="w-full bg-[#1C1C1E] border border-[#333] rounded-md px-3 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                  className="w-full bg-[#EDF1F5] dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] rounded-md px-3 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
                   autoFocus
                   required
                 />
               </div>
 
-              <div className="rounded-xl bg-[#16171C] border border-[#282A33] focus-within:border-blue-500/70 focus-within:ring-2 focus-within:ring-blue-500/15 p-3 space-y-2.5 transition-all">
+              <div className="rounded-xl bg-slate-50 dark:bg-[#16171C] border border-slate-300 dark:border-[#282A33] focus-within:border-blue-500/70 focus-within:ring-2 focus-within:ring-blue-500/15 p-3 space-y-2.5 transition-all">
                 <div className="flex items-center justify-between gap-2">
-                  <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-200">
-                    <Calendar className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                  <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-800 dark:text-gray-200">
+                    <Calendar className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
                     <span>Date de l'événement</span>
                   </label>
-                  <span className="text-[11px] font-medium text-blue-300 bg-blue-500/10 border border-blue-500/25 px-2 py-0.5 rounded-md capitalize truncate">
+                  <span className="text-[11px] font-medium text-blue-700 dark:text-blue-300 bg-blue-500/10 border border-blue-500/25 px-2 py-0.5 rounded-md capitalize truncate">
                     {formatFriendlyDate(newSetDate)}
                   </span>
                 </div>
@@ -1118,8 +1209,8 @@ export const SetlistManager: React.FC = () => {
                             onClick={() => setNewSetDate(qd.value)}
                             className={`px-2 py-1 rounded-md text-[11px] font-medium border transition-all cursor-pointer ${
                               isActive
-                                ? 'bg-blue-600/25 border-blue-500/60 text-blue-300 shadow-xs'
-                                : 'bg-[#1D1F26] border-[#2C2F3A] text-gray-400 hover:text-gray-200 hover:border-[#3D4150]'
+                                ? 'bg-blue-600/25 border-blue-500/60 text-blue-700 dark:text-blue-300 shadow-xs'
+                                : 'bg-[#EDF1F5] dark:bg-[#1D1F26] border-slate-300 dark:border-[#2C2F3A] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200 hover:border-slate-400 dark:hover:border-[#3D4150]'
                             }`}
                           >
                             {qd.label}
@@ -1132,7 +1223,7 @@ export const SetlistManager: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-300 mb-1">
+                <label className="block text-xs font-medium text-slate-700 dark:text-gray-300 mb-1">
                   Notes pour la setlist
                 </label>
                 <textarea
@@ -1141,15 +1232,15 @@ export const SetlistManager: React.FC = () => {
                   placeholder="Consignes, transitions, thème du culte..."
                   value={newSetNotes}
                   onChange={(e) => setNewSetNotes(e.target.value)}
-                  className="w-full bg-[#1C1C1E] border border-[#333] rounded-md px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 resize-y"
+                  className="w-full bg-[#EDF1F5] dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] rounded-md px-3 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-blue-500 resize-y"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#222224]">
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200 dark:border-[#222224]">
                 <button
                   type="button"
                   onClick={() => setIsCreateModalOpen(false)}
-                  className="px-3.5 py-1.5 rounded-md text-xs font-medium text-gray-400 hover:bg-[#1C1C1E]"
+                  className="px-3.5 py-1.5 rounded-md text-xs font-medium text-slate-600 dark:text-gray-400 hover:bg-slate-200/70 dark:hover:bg-[#1C1C1E]"
                 >
                   Annuler
                 </button>
@@ -1162,9 +1253,10 @@ export const SetlistManager: React.FC = () => {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Modal: Add Songs to Active Setlist */}
       {activeSelectedSetlist && (
@@ -1189,18 +1281,27 @@ export const SetlistManager: React.FC = () => {
       )}
 
       {/* Modal: Edit Setlist Metadata */}
-      {editingSetlist && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#111112] border border-[#222224] rounded-xl w-full max-w-md p-5 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between mb-4 pb-3 border-b border-[#222224]">
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <Pencil className="w-4 h-4 text-blue-400" />
+      <AnimatePresence>
+        {editingSetlist && (
+          <motion.div
+            {...MODAL_BACKDROP_MOTION}
+            className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => setEditingSetlist(null)}
+          >
+            <motion.div
+              {...MODAL_PANEL_MOTION}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-[#111112] border border-slate-200 dark:border-[#222224] rounded-xl w-full max-w-md p-5 shadow-2xl"
+            >
+            <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-200 dark:border-[#222224]">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Pencil className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                 <span>Modifier les métadonnées de la setlist</span>
               </h3>
               <button 
                 type="button"
                 onClick={() => setEditingSetlist(null)}
-                className="text-gray-400 hover:text-white p-1 rounded-md hover:bg-[#1C1C1E] transition-colors"
+                className="text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white p-1 rounded-md hover:bg-slate-200/70 dark:hover:bg-[#1C1C1E] transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1208,21 +1309,21 @@ export const SetlistManager: React.FC = () => {
 
             <form onSubmit={handleSaveEdit} className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-gray-300 mb-1">
+                <label className="block text-xs font-medium text-slate-700 dark:text-gray-300 mb-1">
                   Nom de la setlist *
                 </label>
                 <input
                   type="text"
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
-                  className="w-full bg-[#1C1C1E] border border-[#333] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 transition-colors"
+                  className="w-full bg-[#EDF1F5] dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 transition-colors"
                   autoFocus
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-300 mb-1">
+                <label className="block text-xs font-medium text-slate-700 dark:text-gray-300 mb-1">
                   Date de l'événement
                 </label>
                 <DarkDateInput
@@ -1232,7 +1333,7 @@ export const SetlistManager: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-300 mb-1">
+                <label className="block text-xs font-medium text-slate-700 dark:text-gray-300 mb-1">
                   Notes pour la setlist
                 </label>
                 <textarea
@@ -1241,15 +1342,15 @@ export const SetlistManager: React.FC = () => {
                   placeholder="Consignes, transitions, thème du culte..."
                   value={editNotes}
                   onChange={(e) => setEditNotes(e.target.value)}
-                  className="w-full bg-[#1C1C1E] border border-[#333] rounded-lg px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors resize-y"
+                  className="w-full bg-[#EDF1F5] dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors resize-y"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#222224]">
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200 dark:border-[#222224]">
                 <button
                   type="button"
                   onClick={() => setEditingSetlist(null)}
-                  className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-gray-400 hover:bg-[#1C1C1E] transition-colors"
+                  className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 dark:text-gray-400 hover:bg-slate-200/70 dark:hover:bg-[#1C1C1E] transition-colors"
                 >
                   Annuler
                 </button>
@@ -1263,9 +1364,10 @@ export const SetlistManager: React.FC = () => {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
 
 

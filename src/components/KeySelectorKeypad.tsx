@@ -84,14 +84,14 @@ export const KeySelectorKeypad: React.FC<KeySelectorKeypadProps> = ({
   const displayKey = `${parsed.root}${parsed.accidental}${parsed.isMinor ? 'm' : ''}`;
 
   return (
-    <div className={`w-[295px] sm:w-[325px] bg-[#141416] border border-[#2A2A2E] rounded-xl p-2.5 shadow-2xl ${className}`}>
+    <div className={`w-[295px] sm:w-[325px] bg-slate-50 dark:bg-[#141416] border border-slate-300 dark:border-[#2A2A2E] rounded-xl p-2.5 shadow-2xl ${className}`}>
       {/* Header avec état actuel et bouton fermer */}
-      <div className="flex items-center justify-between pb-1.5 mb-1.5 border-b border-white/10">
+      <div className="flex items-center justify-between pb-1.5 mb-1.5 border-b border-slate-200 dark:border-white/10">
         <div className="flex items-center gap-1.5">
-          <span className="text-[11px] font-semibold text-gray-300">
-            {title} <strong className="text-blue-400 font-mono text-xs">{displayKey}</strong>
+          <span className="text-[11px] font-semibold text-slate-700 dark:text-gray-300">
+            {title} <strong className="text-blue-600 dark:text-blue-400 font-mono text-xs">{displayKey}</strong>
           </span>
-          <span className="text-[10px] text-gray-400">
+          <span className="text-[10px] text-slate-600 dark:text-gray-400">
             ({parsed.isMinor ? 'Mineur' : 'Majeur'})
           </span>
         </div>
@@ -99,7 +99,7 @@ export const KeySelectorKeypad: React.FC<KeySelectorKeypadProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="text-gray-400 hover:text-white p-0.5 rounded transition-colors cursor-pointer"
+            className="text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white p-0.5 rounded transition-colors cursor-pointer"
             title="Fermer"
           >
             <X className="w-3.5 h-3.5" />
@@ -118,8 +118,8 @@ export const KeySelectorKeypad: React.FC<KeySelectorKeypadProps> = ({
               onClick={() => handleSelectRoot(note)}
               className={`h-8 sm:h-9 rounded-lg text-xs sm:text-sm font-bold transition-all flex items-center justify-center cursor-pointer select-none active:scale-95 ${
                 isSelected
-                  ? 'bg-[#2563EB] text-white shadow-md shadow-blue-600/40 ring-1 ring-blue-400'
-                  : 'bg-[#252528] hover:bg-[#323236] text-gray-200 hover:text-white border border-white/5'
+                  ? 'bg-[#EDF1F5] dark:bg-[#2563EB] text-slate-900 dark:text-white shadow-md shadow-blue-600/40 ring-1 ring-blue-400'
+                  : 'bg-[#EDF1F5] dark:bg-[#252528] hover:bg-slate-200 dark:hover:bg-[#323236] text-slate-800 dark:text-gray-200 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-white/5'
               }`}
             >
               {note}
@@ -139,10 +139,10 @@ export const KeySelectorKeypad: React.FC<KeySelectorKeypadProps> = ({
               onClick={() => handleToggleAccidental('b')}
               className={`h-8 rounded-lg text-base font-bold transition-all flex items-center justify-center select-none active:scale-95 ${
                 isFlatDisabled
-                  ? 'opacity-20 cursor-not-allowed bg-[#18181A] text-gray-600 border border-transparent'
+                  ? 'opacity-20 cursor-not-allowed bg-slate-50 dark:bg-[#18181A] text-slate-500 dark:text-gray-600 border border-transparent'
                   : parsed.accidental === 'b'
-                  ? 'bg-[#2563EB] text-white shadow-md shadow-blue-600/40 ring-1 ring-blue-400 cursor-pointer'
-                  : 'bg-[#252528] hover:bg-[#323236] text-gray-200 hover:text-white border border-white/5 cursor-pointer'
+                  ? 'bg-[#EDF1F5] dark:bg-[#2563EB] text-slate-900 dark:text-white shadow-md shadow-blue-600/40 ring-1 ring-blue-400 cursor-pointer'
+                  : 'bg-[#EDF1F5] dark:bg-[#252528] hover:bg-slate-200 dark:hover:bg-[#323236] text-slate-800 dark:text-gray-200 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-white/5 cursor-pointer'
               }`}
               title={isFlatDisabled ? "Bémol (♭) non disponible pour Fa (F) et Do (C)" : "Bémol (♭)"}
             >
@@ -155,10 +155,10 @@ export const KeySelectorKeypad: React.FC<KeySelectorKeypadProps> = ({
               onClick={() => handleToggleAccidental('#')}
               className={`h-8 rounded-lg text-base font-bold transition-all flex items-center justify-center select-none active:scale-95 ${
                 isSharpDisabled
-                  ? 'opacity-20 cursor-not-allowed bg-[#18181A] text-gray-600 border border-transparent'
+                  ? 'opacity-20 cursor-not-allowed bg-slate-50 dark:bg-[#18181A] text-slate-500 dark:text-gray-600 border border-transparent'
                   : parsed.accidental === '#'
-                  ? 'bg-[#2563EB] text-white shadow-md shadow-blue-600/40 ring-1 ring-blue-400 cursor-pointer'
-                  : 'bg-[#252528] hover:bg-[#323236] text-gray-200 hover:text-white border border-white/5 cursor-pointer'
+                  ? 'bg-[#EDF1F5] dark:bg-[#2563EB] text-slate-900 dark:text-white shadow-md shadow-blue-600/40 ring-1 ring-blue-400 cursor-pointer'
+                  : 'bg-[#EDF1F5] dark:bg-[#252528] hover:bg-slate-200 dark:hover:bg-[#323236] text-slate-800 dark:text-gray-200 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-white/5 cursor-pointer'
               }`}
               title={isSharpDisabled ? "Dièse (♯) non disponible pour Mi (E) et Si (B)" : "Dièse (♯)"}
             >
@@ -167,7 +167,7 @@ export const KeySelectorKeypad: React.FC<KeySelectorKeypadProps> = ({
           </div>
 
           {/* Petit séparateur vertical discret */}
-          <div className="w-[1.5px] h-6 bg-[#333338] mx-0.5 shrink-0 rounded-full" />
+          <div className="w-[1.5px] h-6 bg-[#EDF1F5] dark:bg-[#333338] mx-0.5 shrink-0 rounded-full" />
 
           {/* Groupe Majeur / Mineur */}
           <div className="grid grid-cols-2 gap-1 flex-[1.4]">
@@ -176,8 +176,8 @@ export const KeySelectorKeypad: React.FC<KeySelectorKeypadProps> = ({
               onClick={() => handleSelectMode(false)}
               className={`h-8 rounded-lg text-xs font-semibold transition-all flex items-center justify-center cursor-pointer select-none active:scale-95 ${
                 !parsed.isMinor
-                  ? 'bg-[#2563EB] text-white shadow-md shadow-blue-600/40 ring-1 ring-blue-400'
-                  : 'bg-[#252528] hover:bg-[#323236] text-gray-200 hover:text-white border border-white/5'
+                  ? 'bg-[#EDF1F5] dark:bg-[#2563EB] text-slate-900 dark:text-white shadow-md shadow-blue-600/40 ring-1 ring-blue-400'
+                  : 'bg-[#EDF1F5] dark:bg-[#252528] hover:bg-slate-200 dark:hover:bg-[#323236] text-slate-800 dark:text-gray-200 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-white/5'
               }`}
             >
               Majeur
@@ -188,8 +188,8 @@ export const KeySelectorKeypad: React.FC<KeySelectorKeypadProps> = ({
               onClick={() => handleSelectMode(true)}
               className={`h-8 rounded-lg text-xs font-semibold transition-all flex items-center justify-center cursor-pointer select-none active:scale-95 ${
                 parsed.isMinor
-                  ? 'bg-[#2563EB] text-white shadow-md shadow-blue-600/40 ring-1 ring-blue-400'
-                  : 'bg-[#252528] hover:bg-[#323236] text-gray-200 hover:text-white border border-white/5'
+                  ? 'bg-[#EDF1F5] dark:bg-[#2563EB] text-slate-900 dark:text-white shadow-md shadow-blue-600/40 ring-1 ring-blue-400'
+                  : 'bg-[#EDF1F5] dark:bg-[#252528] hover:bg-slate-200 dark:hover:bg-[#323236] text-slate-800 dark:text-gray-200 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-white/5'
               }`}
             >
               Mineur
@@ -205,10 +205,10 @@ export const KeySelectorKeypad: React.FC<KeySelectorKeypadProps> = ({
             onClick={() => handleToggleAccidental('b')}
             className={`h-8 rounded-lg text-base font-bold transition-all flex items-center justify-center select-none active:scale-95 ${
               isFlatDisabled
-                ? 'opacity-20 cursor-not-allowed bg-[#18181A] text-gray-600 border border-transparent'
+                ? 'opacity-20 cursor-not-allowed bg-slate-50 dark:bg-[#18181A] text-slate-500 dark:text-gray-600 border border-transparent'
                 : parsed.accidental === 'b'
-                ? 'bg-[#2563EB] text-white shadow-md shadow-blue-600/40 ring-1 ring-blue-400 cursor-pointer'
-                : 'bg-[#252528] hover:bg-[#323236] text-gray-200 hover:text-white border border-white/5 cursor-pointer'
+                ? 'bg-[#EDF1F5] dark:bg-[#2563EB] text-slate-900 dark:text-white shadow-md shadow-blue-600/40 ring-1 ring-blue-400 cursor-pointer'
+                : 'bg-[#EDF1F5] dark:bg-[#252528] hover:bg-slate-200 dark:hover:bg-[#323236] text-slate-800 dark:text-gray-200 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-white/5 cursor-pointer'
             }`}
             title={isFlatDisabled ? "Bémol (♭) non disponible pour Fa (F) et Do (C)" : "Bémol (♭)"}
           >
@@ -221,10 +221,10 @@ export const KeySelectorKeypad: React.FC<KeySelectorKeypadProps> = ({
             onClick={() => handleToggleAccidental('#')}
             className={`h-8 rounded-lg text-base font-bold transition-all flex items-center justify-center select-none active:scale-95 ${
               isSharpDisabled
-                ? 'opacity-20 cursor-not-allowed bg-[#18181A] text-gray-600 border border-transparent'
+                ? 'opacity-20 cursor-not-allowed bg-slate-50 dark:bg-[#18181A] text-slate-500 dark:text-gray-600 border border-transparent'
                 : parsed.accidental === '#'
-                ? 'bg-[#2563EB] text-white shadow-md shadow-blue-600/40 ring-1 ring-blue-400 cursor-pointer'
-                : 'bg-[#252528] hover:bg-[#323236] text-gray-200 hover:text-white border border-white/5 cursor-pointer'
+                ? 'bg-[#EDF1F5] dark:bg-[#2563EB] text-slate-900 dark:text-white shadow-md shadow-blue-600/40 ring-1 ring-blue-400 cursor-pointer'
+                : 'bg-[#EDF1F5] dark:bg-[#252528] hover:bg-slate-200 dark:hover:bg-[#323236] text-slate-800 dark:text-gray-200 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-white/5 cursor-pointer'
             }`}
             title={isSharpDisabled ? "Dièse (♯) non disponible pour Mi (E) et Si (B)" : "Dièse (♯)"}
           >

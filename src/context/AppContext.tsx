@@ -19,8 +19,20 @@ import {
   SyncStatus,
   NotificationType,
   AppNotification,
-  CustomPad
+  CustomPad,
+  PlanningTeam,
+  PlanningAvailability,
+  PlanningAssignment,
+  PlanningAvailabilityStatus,
+  PlanningPole
 } from '../types';
+import {
+  getTodayIsoDate,
+  isValidIsoDate,
+  makeAvailabilityDocId,
+  sanitizePlanningSlots,
+  sanitizePlanningTeamMembers
+} from '../utils/planningUtils';
 import {
   ALL_ACCESSES,
   accessesToLegacyRole,
@@ -139,7 +151,8 @@ const DEFAULT_STAGE_SETTINGS: StageSettings = {
   theme: 'dark',
   capo: 0,
   showMetronome: false,
-  soundMetronome: false
+  soundMetronome: false,
+  reduceMotion: false
 };
 
 interface AppContextType {
@@ -164,8 +177,8 @@ interface AppContextType {
   currentLibrary: Group | null;
   songs: Song[];
   setlists: Setlist[];
-  activeTab: 'repertoire' | 'setlists' | 'stage' | 'groups' | 'editor' | 'settings' | 'tuner' | 'presentation' | 'roadmap';
-  setActiveTab: (tab: 'repertoire' | 'setlists' | 'stage' | 'groups' | 'editor' | 'settings' | 'tuner' | 'presentation' | 'roadmap') => void;
+  activeTab: 'repertoire' | 'setlists' | 'planning' | 'stage' | 'groups' | 'editor' | 'settings' | 'tuner' | 'presentation' | 'roadmap';
+  setActiveTab: (tab: 'repertoire' | 'setlists' | 'planning' | 'stage' | 'groups' | 'editor' | 'settings' | 'tuner' | 'presentation' | 'roadmap') => void;
   editorSubTab: 'data' | 'chords';
   setEditorSubTab: (tab: 'data' | 'chords') => void;
   selectedSong: Song | null;
@@ -291,6 +304,8 @@ interface AppContextType {
   canAccessGroupsView: boolean;
   canManageSongs: boolean;
   canManageSetlists: boolean;
+  canAccessPlanning: boolean;
+  canManagePlanning: boolean;
   canManageGroups: boolean;
   canAccessSettings: boolean;
   
@@ -317,16 +332,38 @@ interface AppContextType {
   // Per-account personal capo (defaults to 0)
   personalCapos: Record<string, number>;
   setPersonalCapo: (capoKey: string, fret: number) => Promise<void>;
+
+  // Gestion de planning
+  planningTeams: PlanningTeam[];
+  planningAvailabilities: PlanningAvailability[];
+  planningAssignments: PlanningAssignment[];
+  selectedPlanningTargetId: string | null;
+  setSelectedPlanningTargetId: (id: string | null) => void;
+  openPlanningForSetlist: (setlistId: string) => void;
+  createPlanningTeam: (data: Omit<PlanningTeam, 'id' | 'groupId' | 'createdAt' | 'updatedAt'>) => Promise<string>;
+  updatePlanningTeam: (id: string, data: Partial<Pick<PlanningTeam, 'name' | 'description' | 'color' | 'members'>>) => Promise<void>;
+  deletePlanningTeam: (id: string) => Promise<void>;
+  setPlanningAvailability: (data: {
+    date: string;
+    status: PlanningAvailabilityStatus;
+    preferredPoles?: PlanningPole[];
+    note?: string;
+    targetUid?: string;
+    targetDisplayName?: string;
+  }) => Promise<void>;
+  deletePlanningAvailability: (id: string) => Promise<void>;
+  savePlanningAssignment: (data: Omit<PlanningAssignment, 'groupId' | 'createdAt' | 'updatedAt'> & { id?: string }) => Promise<string>;
+  deletePlanningAssignment: (id: string) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Navigation & Selection
-  const [activeTab, setActiveTabState] = useState<'repertoire' | 'setlists' | 'stage' | 'groups' | 'editor' | 'settings' | 'tuner' | 'presentation' | 'roadmap'>(() => {
+  const [activeTab, setActiveTabState] = useState<'repertoire' | 'setlists' | 'planning' | 'stage' | 'groups' | 'editor' | 'settings' | 'tuner' | 'presentation' | 'roadmap'>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('songbook_active_tab');
-      if (saved && ['repertoire', 'setlists', 'stage', 'groups', 'editor', 'settings', 'tuner', 'presentation', 'roadmap'].includes(saved)) {
+      if (saved && ['repertoire', 'setlists', 'planning', 'stage', 'groups', 'editor', 'settings', 'tuner', 'presentation', 'roadmap'].includes(saved)) {
         return saved as any;
       }
     }
@@ -348,6 +385,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     isRegieOnly: false,
     canAccessRepertoire: true,
     canAccessSetlistsView: true,
+    canAccessPlanning: true,
     canAccessStage: true,
     canAccessProjection: true,
     canAccessGroupsView: true,
@@ -355,21 +393,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     canAccessSettings: true
   });
 
-  const setActiveTab = useCallback((tab: 'repertoire' | 'setlists' | 'stage' | 'groups' | 'editor' | 'settings' | 'tuner' | 'presentation' | 'roadmap') => {
+  const setActiveTab = useCallback((tab: 'repertoire' | 'setlists' | 'planning' | 'stage' | 'groups' | 'editor' | 'settings' | 'tuner' | 'presentation' | 'roadmap') => {
     const p = permissionsRef.current;
     let resolvedTab = tab;
     if (tab === 'roadmap') {
       resolvedTab = 'roadmap';
     } else if (isGuest) {
-      if (tab === 'editor' || tab === 'groups' || tab === 'settings') {
+      if (tab === 'editor' || tab === 'groups' || tab === 'settings' || tab === 'planning') {
         resolvedTab = 'repertoire';
       }
     } else if (p.isRegieOnly) {
-      resolvedTab = 'presentation';
+      resolvedTab = tab === 'planning' ? 'planning' : 'presentation';
     } else {
       const fallback = p.canAccessRepertoire ? 'repertoire' : p.canAccessSetlistsView ? 'setlists' : 'presentation';
       if (tab === 'repertoire' && !p.canAccessRepertoire) resolvedTab = fallback;
       else if (tab === 'setlists' && !p.canAccessSetlistsView) resolvedTab = fallback;
+      else if (tab === 'planning' && !p.canAccessPlanning) resolvedTab = fallback;
       else if (tab === 'stage' && !p.canAccessStage) resolvedTab = fallback;
       else if (tab === 'editor' && !p.canManageSongs) resolvedTab = fallback;
       else if (tab === 'groups' && !p.canAccessGroupsView) resolvedTab = fallback;
@@ -388,7 +427,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [isGuest]);
 
   useEffect(() => {
-    if (isGuest && (activeTab === 'editor' || activeTab === 'groups' || activeTab === 'settings')) {
+    if (isGuest && (activeTab === 'editor' || activeTab === 'groups' || activeTab === 'settings' || activeTab === 'planning')) {
       setActiveTabState('repertoire');
     }
   }, [isGuest, activeTab]);
@@ -570,6 +609,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [setlists, setSetlists] = useState<Setlist[]>([]);
   const [setlistHistory, setSetlistHistory] = useState<SetlistHistoryRecord[]>([]);
   const [customPads, setCustomPads] = useState<CustomPad[]>([]);
+  const [planningTeams, setPlanningTeams] = useState<PlanningTeam[]>([]);
+  const [planningAvailabilities, setPlanningAvailabilities] = useState<PlanningAvailability[]>([]);
+  const [planningAssignments, setPlanningAssignments] = useState<PlanningAssignment[]>([]);
+  const [selectedPlanningTargetId, setSelectedPlanningTargetId] = useState<string | null>(null);
 
   const songsRef = useRef<Song[]>(songs);
   const setlistsRef = useRef<Setlist[]>(setlists);
@@ -621,7 +664,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const parsed = JSON.parse(saved);
         return {
           ...DEFAULT_STAGE_SETTINGS,
-          ...parsed
+          ...parsed,
+          theme: parsed.theme === 'light' ? 'light' : 'dark',
+          reduceMotion: parsed.reduceMotion === true
         };
       } catch (e) {}
     }
@@ -1155,43 +1200,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Stage settings save
   const updateStageSettings = useCallback((newSettings: Partial<StageSettings>) => {
     setStageSettings(prev => {
-      const updated = { ...prev, ...newSettings };
+      const updated: StageSettings = {
+        ...prev,
+        ...newSettings,
+        theme: (newSettings.theme ?? prev.theme) === 'light' ? 'light' : 'dark'
+      };
       localStorage.setItem('songbook_stage_settings', JSON.stringify(updated));
       return updated;
     });
     showNotification('Enregistré');
   }, [showNotification]);
 
-  // Sync theme mode (dark, light, system) with document root
+  // Sync manual theme mode (dark by default, or light) and reduced motion preference with document root
   useEffect(() => {
-    const applyTheme = () => {
-      const currentTheme = stageSettings.theme || 'dark';
-      let isLight = false;
-
-      if (currentTheme === 'light') {
-        isLight = true;
-      } else if (currentTheme === 'system') {
-        isLight = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
-      }
-
-      if (isLight) {
-        document.documentElement.classList.add('light-theme');
-        document.documentElement.classList.remove('dark-theme');
-      } else {
-        document.documentElement.classList.remove('light-theme');
-        document.documentElement.classList.add('dark-theme');
-      }
-    };
-
-    applyTheme();
-
-    if (stageSettings.theme === 'system' && typeof window !== 'undefined' && window.matchMedia) {
-      const mediaQuery = window.matchMedia('(prefers-color-scheme: light)');
-      const handleChange = () => applyTheme();
-      mediaQuery.addEventListener('change', handleChange);
-      return () => mediaQuery.removeEventListener('change', handleChange);
+    const isPresentation = typeof window !== 'undefined' && (
+      new URLSearchParams(window.location.search).get('mode') === 'presentation' ||
+      window.location.hash === '#presentation'
+    );
+    const isLight = !isPresentation && stageSettings.theme === 'light';
+    const root = document.documentElement;
+    if (isLight) {
+      root.classList.remove('dark', 'dark-theme');
+      root.classList.add('light-theme');
+    } else {
+      root.classList.remove('light-theme');
+      root.classList.add('dark', 'dark-theme');
     }
-  }, [stageSettings.theme]);
+    root.classList.toggle('reduce-motion', Boolean(stageSettings.reduceMotion));
+    const metaTheme = document.querySelector('meta[name="theme-color"]');
+    if (metaTheme) {
+      metaTheme.setAttribute('content', isLight ? '#F4F6F9' : '#090d16');
+    }
+  }, [stageSettings.theme, stageSettings.reduceMotion]);
 
   // Save cache to localStorage scoped strictly per library ID
   useEffect(() => {
@@ -1211,6 +1251,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       localStorage.setItem(`songbook_cached_setlist_history_${currentGroup.id}`, JSON.stringify(setlistHistory));
     }
   }, [setlistHistory, currentGroup?.id, isGuest]);
+
+  useEffect(() => {
+    if (currentGroup?.id && !isGuest) {
+      try {
+        localStorage.setItem(`songbook_cached_planning_teams_${currentGroup.id}`, JSON.stringify(planningTeams));
+        localStorage.setItem(`songbook_cached_planning_avail_${currentGroup.id}`, JSON.stringify(planningAvailabilities));
+        localStorage.setItem(`songbook_cached_planning_assign_${currentGroup.id}`, JSON.stringify(planningAssignments));
+      } catch {}
+    }
+  }, [planningTeams, planningAvailabilities, planningAssignments, currentGroup?.id, isGuest]);
 
   useEffect(() => {
     if (currentUser && !isGuest) {
@@ -1355,6 +1405,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setSetlists([]);
         setSetlistHistory([]);
         setCustomPads([]);
+        setPlanningTeams([]);
+        setPlanningAvailabilities([]);
+        setPlanningAssignments([]);
+        setSelectedPlanningTargetId(null);
         setAllUsers([]);
         setSelectedSong(null);
         setSelectedSetlist(null);
@@ -1449,6 +1503,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSetlists([]);
     setSetlistHistory([]);
     setCustomPads([]);
+    setPlanningTeams([]);
+    setPlanningAvailabilities([]);
+    setPlanningAssignments([]);
+    setSelectedPlanningTargetId(null);
     setSelectedSong(null);
     setSelectedSetlist(null);
     setAllGroups(prev => [...prev.filter(g => g.id !== newId), newGroup]);
@@ -1574,6 +1632,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setSetlists([]);
       setSetlistHistory([]);
       setCustomPads([]);
+      setPlanningTeams([]);
+      setPlanningAvailabilities([]);
+      setPlanningAssignments([]);
+      setSelectedPlanningTargetId(null);
       setSelectedSong(null);
       setSelectedSetlist(null);
       setAllGroups(prev => [...prev.filter(g => g.id !== matchedGroup!.id), matchedGroup!]);
@@ -1662,6 +1724,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSetlists([]);
     setSetlistHistory([]);
     setCustomPads([]);
+    setPlanningTeams([]);
+    setPlanningAvailabilities([]);
+    setPlanningAssignments([]);
+    setSelectedPlanningTargetId(null);
     setAllUsers([]);
     setSelectedSong(null);
     setSelectedSetlist(null);
@@ -1695,6 +1761,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSetlists([]);
     setSetlistHistory([]);
     setCustomPads([]);
+    setPlanningTeams([]);
+    setPlanningAvailabilities([]);
+    setPlanningAssignments([]);
+    setSelectedPlanningTargetId(null);
     setAllUsers([]);
     setSelectedSong(null);
     setSelectedSetlist(null);
@@ -1911,6 +1981,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setSetlists([]);
       setSetlistHistory([]);
       setCustomPads([]);
+      setPlanningTeams([]);
+      setPlanningAvailabilities([]);
+      setPlanningAssignments([]);
       setSelectedSong(null);
       setSelectedSetlist(null);
       return;
@@ -1933,11 +2006,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const cachedSetlists = loadLibraryLocalCache<Setlist>(`songbook_cached_setlists_${targetGroupId}`);
       const cachedHistory = loadLibraryLocalCache<SetlistHistoryRecord>(`songbook_cached_setlist_history_${targetGroupId}`);
       const cachedPads = loadLibraryLocalCache<CustomPad>(`songbook_cached_custom_pads_${targetGroupId}`);
+      const cachedPlanningTeams = loadLibraryLocalCache<PlanningTeam>(`songbook_cached_planning_teams_${targetGroupId}`);
+      const cachedPlanningAvail = loadLibraryLocalCache<PlanningAvailability>(`songbook_cached_planning_avail_${targetGroupId}`);
+      const cachedPlanningAssign = loadLibraryLocalCache<PlanningAssignment>(`songbook_cached_planning_assign_${targetGroupId}`);
 
       setSongs(cachedSongs);
       setSetlists(cachedSetlists);
       setSetlistHistory(cachedHistory);
       setCustomPads(cachedPads);
+      setPlanningTeams(cachedPlanningTeams);
+      setPlanningAvailabilities(cachedPlanningAvail);
+      setPlanningAssignments(cachedPlanningAssign);
       setSelectedSong(cachedSongs[0] || null);
       setSelectedSetlist(null);
     }
@@ -2117,11 +2196,61 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     });
 
+    // 5. Sync Planning collections (members only)
+    let unsubPlanningTeams: (() => void) | null = null;
+    let unsubPlanningAvail: (() => void) | null = null;
+    let unsubPlanningAssign: (() => void) | null = null;
+
+    if (!isGuest && currentUser?.uid) {
+      unsubPlanningTeams = onSnapshot(collection(db, 'groups', targetGroupId, 'planning_teams'), (snapshot) => {
+        const list: PlanningTeam[] = [];
+        snapshot.forEach((d) => {
+          list.push({ id: d.id, ...d.data(), groupId: targetGroupId } as PlanningTeam);
+        });
+        setPlanningTeams(list.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'fr')));
+      }, (error) => {
+        if (error?.code !== 'unavailable') {
+          console.warn('Firestore planning teams snapshot notice:', error.message);
+        }
+      });
+
+      unsubPlanningAvail = onSnapshot(collection(db, 'groups', targetGroupId, 'planning_availabilities'), (snapshot) => {
+        const list: PlanningAvailability[] = [];
+        snapshot.forEach((d) => {
+          list.push({ id: d.id, ...d.data(), groupId: targetGroupId } as PlanningAvailability);
+        });
+        setPlanningAvailabilities(list);
+      }, (error) => {
+        if (error?.code !== 'unavailable') {
+          console.warn('Firestore planning availabilities snapshot notice:', error.message);
+        }
+      });
+
+      unsubPlanningAssign = onSnapshot(collection(db, 'groups', targetGroupId, 'planning_assignments'), (snapshot) => {
+        const list: PlanningAssignment[] = [];
+        snapshot.forEach((d) => {
+          list.push({ id: d.id, ...d.data(), groupId: targetGroupId } as PlanningAssignment);
+        });
+        setPlanningAssignments(list.sort((a, b) => (a.date || '').localeCompare(b.date || '')));
+      }, (error) => {
+        if (error?.code !== 'unavailable') {
+          console.warn('Firestore planning assignments snapshot notice:', error.message);
+        }
+      });
+    } else {
+      setPlanningTeams([]);
+      setPlanningAvailabilities([]);
+      setPlanningAssignments([]);
+    }
+
     return () => {
       unsubSongs();
       unsubSetlists();
       if (unsubHistory) unsubHistory();
       unsubPads();
+      if (unsubPlanningTeams) unsubPlanningTeams();
+      if (unsubPlanningAvail) unsubPlanningAvail();
+      if (unsubPlanningAssign) unsubPlanningAssign();
     };
   }, [currentGroup?.id, currentUser?.uid, isGuest]);
 
@@ -2807,6 +2936,296 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [setlistHistory, currentGroup?.id]);
 
+  // Gestion de planning Actions (scopées dans /groups/{groupId}/planning_*)
+  const createPlanningTeam = useCallback(async (
+    data: Omit<PlanningTeam, 'id' | 'groupId' | 'createdAt' | 'updatedAt'>
+  ): Promise<string> => {
+    if (blockIfGuest()) return '';
+    const groupId = currentGroup?.id;
+    if (!groupId) return '';
+    const newId = 'team_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 6);
+    const cleanName = (data.name || '').trim().slice(0, 120) || 'Équipe';
+    const cleanDesc = data.description ? data.description.trim().slice(0, 500) : undefined;
+    const cleanColor = data.color ? data.color.trim().slice(0, 32) : 'blue';
+    const cleanMembers = sanitizePlanningTeamMembers(data.members || []);
+
+    const newTeam: PlanningTeam = stripUndefined({
+      id: newId,
+      groupId,
+      name: cleanName,
+      description: cleanDesc,
+      color: cleanColor,
+      members: cleanMembers,
+      createdBy: currentUser?.uid,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    });
+
+    setPlanningTeams(prev => [...prev, newTeam].sort((a, b) => a.name.localeCompare(b.name, 'fr')));
+    showNotification('Groupe enregistré');
+
+    try {
+      await setDoc(doc(db, 'groups', groupId, 'planning_teams', newId), stripUndefined({
+        ...newTeam,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }));
+    } catch (e: any) {
+      if (e?.code === 'permission-denied') {
+        handleFirestoreError(e, OperationType.CREATE, `groups/${groupId}/planning_teams/${newId}`);
+      }
+      console.warn('Saved planning team locally:', e);
+    }
+
+    return newId;
+  }, [blockIfGuest, currentGroup?.id, currentUser?.uid, showNotification]);
+
+  const updatePlanningTeam = useCallback(async (
+    id: string,
+    data: Partial<Pick<PlanningTeam, 'name' | 'description' | 'color' | 'members'>>
+  ): Promise<void> => {
+    if (blockIfGuest()) return;
+    const groupId = planningTeams.find(t => t.id === id)?.groupId || currentGroup?.id;
+    if (!groupId) return;
+
+    const patch: Partial<PlanningTeam> = stripUndefined({
+      name: data.name !== undefined ? (data.name.trim().slice(0, 120) || 'Équipe') : undefined,
+      description: data.description !== undefined ? data.description.trim().slice(0, 500) : undefined,
+      color: data.color !== undefined ? data.color.trim().slice(0, 32) : undefined,
+      members: data.members !== undefined ? sanitizePlanningTeamMembers(data.members) : undefined,
+      updatedAt: new Date().toISOString()
+    });
+
+    setPlanningTeams(prev =>
+      prev.map(t => (t.id === id ? { ...t, ...patch } : t)).sort((a, b) => a.name.localeCompare(b.name, 'fr'))
+    );
+    showNotification('Groupe mis à jour');
+
+    try {
+      await updateDoc(doc(db, 'groups', groupId, 'planning_teams', id), stripUndefined({
+        ...patch,
+        updatedAt: serverTimestamp()
+      }));
+    } catch (e: any) {
+      if (e?.code === 'permission-denied') {
+        handleFirestoreError(e, OperationType.UPDATE, `groups/${groupId}/planning_teams/${id}`);
+      }
+      console.warn('Updated planning team locally:', e);
+    }
+  }, [blockIfGuest, planningTeams, currentGroup?.id, showNotification]);
+
+  const deletePlanningTeam = useCallback(async (id: string): Promise<void> => {
+    if (blockIfGuest()) return;
+    const groupId = planningTeams.find(t => t.id === id)?.groupId || currentGroup?.id;
+    setPlanningTeams(prev => prev.filter(t => t.id !== id));
+    showNotification({ title: 'Groupe supprimé', type: 'info' });
+    if (!groupId) return;
+
+    try {
+      await deleteDoc(doc(db, 'groups', groupId, 'planning_teams', id));
+    } catch (e: any) {
+      if (e?.code === 'permission-denied') {
+        handleFirestoreError(e, OperationType.DELETE, `groups/${groupId}/planning_teams/${id}`);
+      }
+      console.warn('Deleted planning team locally:', e);
+    }
+  }, [blockIfGuest, planningTeams, currentGroup?.id, showNotification]);
+
+  const setPlanningAvailability = useCallback(async (data: {
+    date: string;
+    status: PlanningAvailabilityStatus;
+    preferredPoles?: PlanningPole[];
+    note?: string;
+    targetUid?: string;
+    targetDisplayName?: string;
+  }): Promise<void> => {
+    if (blockIfGuest()) return;
+    const groupId = currentGroup?.id;
+    const uid = data.targetUid || currentUser?.uid;
+    if (!groupId || !uid || !isValidIsoDate(data.date)) return;
+
+    const cleanDate = data.date.trim().slice(0, 10);
+    const docId = makeAvailabilityDocId(cleanDate, uid);
+    const displayName = (
+      data.targetDisplayName ||
+      (uid === currentUser?.uid ? currentUser.displayName : allUsers.find(u => u.uid === uid)?.displayName) ||
+      'Musicien'
+    ).trim().slice(0, 120);
+    const cleanPoles = Array.isArray(data.preferredPoles)
+      ? Array.from(new Set(data.preferredPoles.filter((p): p is PlanningPole => p === 'musique' || p === 'chant' || p === 'regie'))).slice(0, 5)
+      : undefined;
+    const cleanNote = data.note !== undefined ? data.note.trim().slice(0, 300) : undefined;
+
+    const payload: PlanningAvailability = stripUndefined({
+      id: docId,
+      groupId,
+      date: cleanDate,
+      uid,
+      displayName,
+      status: data.status,
+      preferredPoles: cleanPoles,
+      note: cleanNote,
+      updatedAt: new Date().toISOString()
+    });
+
+    setPlanningAvailabilities(prev => [...prev.filter(a => a.id !== docId), payload]);
+    showNotification('Disponibilité enregistrée');
+
+    const docRef = doc(db, 'groups', groupId, 'planning_availabilities', docId);
+    const exists = planningAvailabilities.some(a => a.id === docId);
+
+    try {
+      if (exists) {
+        await updateDoc(docRef, stripUndefined({
+          status: data.status,
+          displayName,
+          preferredPoles: cleanPoles ?? null,
+          note: cleanNote ?? null,
+          updatedAt: serverTimestamp()
+        }));
+      } else {
+        await setDoc(docRef, stripUndefined({
+          ...payload,
+          updatedAt: serverTimestamp()
+        }));
+      }
+    } catch (e: any) {
+      if (e?.code === 'not-found') {
+        try {
+          await setDoc(docRef, stripUndefined({
+            ...payload,
+            updatedAt: serverTimestamp()
+          }));
+        } catch (err: any) {
+          if (err?.code === 'permission-denied') {
+            handleFirestoreError(err, OperationType.WRITE, `groups/${groupId}/planning_availabilities/${docId}`);
+          }
+        }
+      } else if (e?.code === 'permission-denied') {
+        handleFirestoreError(e, OperationType.WRITE, `groups/${groupId}/planning_availabilities/${docId}`);
+      } else {
+        console.warn('Saved planning availability locally:', e);
+      }
+    }
+  }, [blockIfGuest, currentGroup?.id, currentUser?.uid, currentUser?.displayName, allUsers, planningAvailabilities, showNotification]);
+
+  const deletePlanningAvailability = useCallback(async (id: string): Promise<void> => {
+    if (blockIfGuest()) return;
+    const groupId = planningAvailabilities.find(a => a.id === id)?.groupId || currentGroup?.id;
+    setPlanningAvailabilities(prev => prev.filter(a => a.id !== id));
+    showNotification({ title: 'Disponibilité effacée', type: 'info' });
+    if (!groupId) return;
+
+    try {
+      await deleteDoc(doc(db, 'groups', groupId, 'planning_availabilities', id));
+    } catch (e: any) {
+      if (e?.code === 'permission-denied') {
+        handleFirestoreError(e, OperationType.DELETE, `groups/${groupId}/planning_availabilities/${id}`);
+      }
+      console.warn('Deleted planning availability locally:', e);
+    }
+  }, [blockIfGuest, planningAvailabilities, currentGroup?.id, showNotification]);
+
+  const savePlanningAssignment = useCallback(async (
+    data: Omit<PlanningAssignment, 'groupId' | 'createdAt' | 'updatedAt'> & { id?: string }
+  ): Promise<string> => {
+    if (blockIfGuest()) return '';
+    const groupId = currentGroup?.id;
+    if (!groupId) return '';
+
+    const resolvedId = (data.id && data.id.trim())
+      || (data.setlistId && data.setlistId.trim())
+      || ('plan_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 6));
+    const safeDate = isValidIsoDate(data.date) ? data.date.trim().slice(0, 10) : getTodayIsoDate();
+    const safeTitle = (data.title || data.setlistName || 'Événement').trim().slice(0, 200) || 'Événement';
+    const cleanSlots = sanitizePlanningSlots(data.slots || []);
+
+    const existing = planningAssignments.find(a => a.id === resolvedId);
+    const payload: PlanningAssignment = stripUndefined({
+      id: resolvedId,
+      groupId,
+      setlistId: data.setlistId ?? null,
+      setlistName: data.setlistName ? data.setlistName.trim().slice(0, 200) : null,
+      date: safeDate,
+      title: safeTitle,
+      callTime: data.callTime !== undefined ? (data.callTime ? data.callTime.trim().slice(0, 20) : null) : (existing?.callTime ?? null),
+      serviceTime: data.serviceTime !== undefined ? (data.serviceTime ? data.serviceTime.trim().slice(0, 20) : null) : (existing?.serviceTime ?? null),
+      location: data.location !== undefined ? (data.location ? data.location.trim().slice(0, 200) : null) : (existing?.location ?? null),
+      teamPresetId: data.teamPresetId !== undefined ? data.teamPresetId : (existing?.teamPresetId ?? null),
+      teamPresetName: data.teamPresetName !== undefined ? (data.teamPresetName ? data.teamPresetName.trim().slice(0, 120) : null) : (existing?.teamPresetName ?? null),
+      slots: cleanSlots,
+      notes: data.notes !== undefined ? (data.notes ? data.notes.trim().slice(0, 5000) : null) : (existing?.notes ?? null),
+      updatedBy: currentUser?.uid || null,
+      updatedByName: currentUser?.displayName ? currentUser.displayName.slice(0, 120) : null,
+      createdAt: existing?.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }) as PlanningAssignment;
+
+    setPlanningAssignments(prev =>
+      [...prev.filter(a => a.id !== resolvedId), payload].sort((a, b) => a.date.localeCompare(b.date))
+    );
+    showNotification('Planning enregistré');
+
+    const docRef = doc(db, 'groups', groupId, 'planning_assignments', resolvedId);
+    try {
+      if (existing) {
+        const { id: _id, groupId: _gid, createdAt: _ca, ...updateFields } = payload;
+        await updateDoc(docRef, {
+          ...updateFields,
+          updatedAt: serverTimestamp()
+        });
+      } else {
+        await setDoc(docRef, {
+          ...payload,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+      }
+    } catch (e: any) {
+      if (e?.code === 'not-found') {
+        try {
+          await setDoc(docRef, {
+            ...payload,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          });
+        } catch (err: any) {
+          if (err?.code === 'permission-denied') {
+            handleFirestoreError(err, OperationType.WRITE, `groups/${groupId}/planning_assignments/${resolvedId}`);
+          }
+        }
+      } else if (e?.code === 'permission-denied') {
+        handleFirestoreError(e, OperationType.WRITE, `groups/${groupId}/planning_assignments/${resolvedId}`);
+      } else {
+        console.warn('Saved planning assignment locally:', e);
+      }
+    }
+
+    return resolvedId;
+  }, [blockIfGuest, currentGroup?.id, currentUser?.uid, currentUser?.displayName, planningAssignments, showNotification]);
+
+  const deletePlanningAssignment = useCallback(async (id: string): Promise<void> => {
+    if (blockIfGuest()) return;
+    const groupId = planningAssignments.find(a => a.id === id)?.groupId || currentGroup?.id;
+    setPlanningAssignments(prev => prev.filter(a => a.id !== id));
+    showNotification({ title: 'Planning supprimé', type: 'info' });
+    if (!groupId) return;
+
+    try {
+      await deleteDoc(doc(db, 'groups', groupId, 'planning_assignments', id));
+    } catch (e: any) {
+      if (e?.code === 'permission-denied') {
+        handleFirestoreError(e, OperationType.DELETE, `groups/${groupId}/planning_assignments/${id}`);
+      }
+      console.warn('Deleted planning assignment locally:', e);
+    }
+  }, [blockIfGuest, planningAssignments, currentGroup?.id, showNotification]);
+
+  const openPlanningForSetlist = useCallback((setlistId: string) => {
+    setSelectedPlanningTargetId(setlistId);
+    setActiveTab('planning');
+  }, [setActiveTab]);
+
   // Helper permission check pour la bibliothèque ciblée
   const isLibraryAdminForGroup = useCallback((group?: Group | null): boolean => {
     if (!group || !currentUser?.uid) return false;
@@ -2873,6 +3292,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSetlists([]);
     setSetlistHistory([]);
     setCustomPads([]);
+    setPlanningTeams([]);
+    setPlanningAvailabilities([]);
+    setPlanningAssignments([]);
+    setSelectedPlanningTargetId(null);
     setSelectedSong(null);
     setSelectedSetlist(null);
     setAllGroups(prev => [...prev.filter(g => g.id !== newId), newGroup]);
@@ -3674,6 +4097,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const canManageSongs = !isGuest && (effectiveAccesses.includes('admin') || effectiveAccesses.includes('chants'));
   const canManageSetlists = !isGuest && (effectiveAccesses.includes('admin') || effectiveAccesses.includes('setlists'));
+  const canAccessPlanning = !isGuest && Boolean(currentUser);
+  const canManagePlanning = canManageSetlists;
   const canManageGroups = !isGuest && effectiveAccesses.includes('admin');
   const canAccessSettings = !isGuest && !isRegieOnly && canAccessRepertoire;
 
@@ -3681,6 +4106,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     isRegieOnly,
     canAccessRepertoire,
     canAccessSetlistsView,
+    canAccessPlanning,
     canAccessStage,
     canAccessProjection,
     canAccessGroupsView,
@@ -3691,7 +4117,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     if (isGuest || !currentUser) return;
     if (isRegieOnly) {
-      if (activeTab !== 'presentation' && activeTab !== 'roadmap') {
+      if (activeTab !== 'presentation' && activeTab !== 'planning' && activeTab !== 'roadmap') {
         setActiveTabState('presentation');
       }
       setIsPianoOpen(false);
@@ -3704,6 +4130,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (
       (activeTab === 'repertoire' && !canAccessRepertoire) ||
       (activeTab === 'setlists' && !canAccessSetlistsView) ||
+      (activeTab === 'planning' && !canAccessPlanning) ||
       (activeTab === 'stage' && !canAccessStage) ||
       (activeTab === 'editor' && !canManageSongs) ||
       (activeTab === 'groups' && !canAccessGroupsView) ||
@@ -3719,6 +4146,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     activeTab,
     canAccessRepertoire,
     canAccessSetlistsView,
+    canAccessPlanning,
     canAccessStage,
     canManageSongs,
     canAccessGroupsView,
@@ -3758,6 +4186,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       canAccessGroupsView,
       canManageSongs,
       canManageSetlists,
+      canAccessPlanning,
+      canManagePlanning,
       canManageGroups,
       canAccessSettings,
       allUsers,
@@ -3864,7 +4294,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       deleteCustomPad,
       uploadPadAudio,
       personalCapos,
-      setPersonalCapo
+      setPersonalCapo,
+      planningTeams,
+      planningAvailabilities,
+      planningAssignments,
+      selectedPlanningTargetId,
+      setSelectedPlanningTargetId,
+      openPlanningForSetlist,
+      createPlanningTeam,
+      updatePlanningTeam,
+      deletePlanningTeam,
+      setPlanningAvailability,
+      deletePlanningAvailability,
+      savePlanningAssignment,
+      deletePlanningAssignment
     }}>
       {children}
     </AppContext.Provider>

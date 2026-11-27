@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
+import { MODAL_BACKDROP_MOTION, SHEET_PANEL_MOTION } from '../utils/motionPresets';
 import { 
   X, 
   Play, 
@@ -287,33 +289,41 @@ export const MetronomePopup: React.FC = () => {
 
   const currentSound = SOUND_OPTIONS.find(s => s.id === sound) || SOUND_OPTIONS[0];
 
-  if (!isMetronomeOpen) return null;
-
   return (
-    <div 
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs select-none"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          setIsMetronomeOpen(false);
-        }
-      }}
-    >
-      <div 
-        className={`w-full sm:max-w-lg bg-[#141416] border ${
-          flashActive ? 'border-amber-400 shadow-amber-500/20' : 'border-[#2B2B30]'
-        } rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden text-[#E0E0E0] animate-in slide-in-from-bottom-6 sm:fade-in duration-200 transition-colors`}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Métronome"
-      >
+    <AnimatePresence>
+      {isMetronomeOpen && (
+        <motion.div
+          initial={MODAL_BACKDROP_MOTION.initial}
+          animate={MODAL_BACKDROP_MOTION.animate}
+          exit={MODAL_BACKDROP_MOTION.exit}
+          transition={MODAL_BACKDROP_MOTION.transition}
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs select-none"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setIsMetronomeOpen(false);
+            }
+          }}
+        >
+          <motion.div
+            initial={SHEET_PANEL_MOTION.initial}
+            animate={SHEET_PANEL_MOTION.animate}
+            exit={SHEET_PANEL_MOTION.exit}
+            transition={SHEET_PANEL_MOTION.transition}
+            className={`w-full sm:max-w-lg bg-[#141416] border ${
+              flashActive ? 'border-amber-400 shadow-amber-500/20' : 'border-slate-300 dark:border-[#2B2B30]'
+            } rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden text-[#E0E0E0] transition-colors`}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Métronome"
+          >
         {/* Header Bar */}
-        <div className="px-4 py-2.5 bg-[#18181B] border-b border-[#26262B] flex items-center justify-between gap-2 shrink-0">
+        <div className="px-4 py-2.5 bg-slate-50 dark:bg-[#18181B] border-b border-slate-200 dark:border-[#26262B] flex items-center justify-between gap-2 shrink-0">
           <div className="flex items-center gap-2">
-            <div className={`p-1.5 rounded-md ${isPlaying ? 'bg-blue-600/20 text-blue-400' : 'bg-[#222] text-gray-400'}`}>
+            <div className={`p-1.5 rounded-md ${isPlaying ? 'bg-blue-600/20 text-blue-600 dark:text-blue-400' : 'bg-[#EDF1F5] dark:bg-[#222] text-slate-600 dark:text-gray-400'}`}>
               <MetronomeIcon className="w-4 h-4" />
             </div>
             <div>
-              <span className="text-sm font-bold text-white tracking-wide">Métronome</span>
+              <span className="text-sm font-bold text-slate-900 dark:text-white tracking-wide">Métronome</span>
             </div>
           </div>
 
@@ -324,13 +334,13 @@ export const MetronomePopup: React.FC = () => {
               onClick={() => setEnableScreenFlash(prev => !prev)}
               className={`p-1.5 rounded-md border transition-all cursor-pointer flex items-center gap-1.5 ${
                 enableScreenFlash 
-                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-xs' 
-                  : 'bg-[#1F1F24] hover:bg-[#28282F] text-gray-400 hover:text-white border-[#333]'
+                  ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500/40 shadow-xs' 
+                  : 'bg-[#EDF1F5] dark:bg-[#1F1F24] hover:bg-slate-200 dark:hover:bg-[#28282F] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white border-slate-300 dark:border-[#333]'
               }`}
               title={enableScreenFlash ? "Désactiver le flash visuel de l'écran" : "Activer le flash visuel de l'écran à chaque temps"}
               aria-label="Flash visuel"
             >
-              <Zap className={`w-4 h-4 ${enableScreenFlash ? 'text-amber-400 fill-amber-400' : 'text-gray-400'}`} />
+              <Zap className={`w-4 h-4 ${enableScreenFlash ? 'text-amber-600 dark:text-amber-400 fill-amber-400' : 'text-slate-600 dark:text-gray-400'}`} />
               <span className="text-[11px] font-semibold hidden sm:inline">
                 {enableScreenFlash ? 'Flash On' : 'Flash'}
               </span>
@@ -341,18 +351,18 @@ export const MetronomePopup: React.FC = () => {
               onClick={handleToggleMute}
               className={`p-1.5 rounded-md border text-gray-300 hover:text-white transition-colors cursor-pointer ${
                 isMuted 
-                  ? 'bg-rose-500/20 text-rose-400 border-rose-500/30' 
-                  : 'bg-[#1F1F24] hover:bg-[#28282F] border-[#333]'
+                  ? 'bg-rose-500/20 text-rose-600 dark:text-rose-400 border-rose-500/30' 
+                  : 'bg-[#EDF1F5] dark:bg-[#1F1F24] hover:bg-slate-200 dark:hover:bg-[#28282F] border-slate-300 dark:border-[#333]'
               }`}
               title={isMuted ? 'Activer le son' : 'Couper le son'}
             >
-              {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4 text-blue-400" />}
+              {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />}
             </button>
 
             {/* Close */}
             <button
               onClick={() => setIsMetronomeOpen(false)}
-              className="p-1.5 rounded-md bg-[#1F1F24] hover:bg-rose-900/30 text-gray-400 hover:text-rose-300 border border-[#333] hover:border-rose-500/40 transition-colors cursor-pointer"
+              className="p-1.5 rounded-md bg-[#EDF1F5] dark:bg-[#1F1F24] hover:bg-rose-100 dark:hover:bg-rose-900/30 text-slate-600 dark:text-gray-400 hover:text-rose-800 dark:hover:text-rose-300 border border-slate-300 dark:border-[#333] hover:border-rose-500/40 transition-colors cursor-pointer"
               title="Fermer le métronome"
             >
               <X className="w-4 h-4" />
@@ -364,7 +374,7 @@ export const MetronomePopup: React.FC = () => {
         <div className="p-4 sm:p-5 flex flex-col gap-3.5 sm:gap-4 overflow-visible">
           
           {/* Visual Beat Indicator Dots */}
-          <div className="bg-[#0F0F12] border border-[#222226] rounded-xl p-3 sm:p-4 flex flex-col items-center justify-center">
+          <div className="bg-white dark:bg-[#0F0F12] border border-slate-200 dark:border-[#222226] rounded-xl p-3 sm:p-4 flex flex-col items-center justify-center">
             <div className="flex items-center justify-center gap-2 sm:gap-3 flex-wrap">
               {Array.from({ length: beatsPerMeasure }).map((_, index) => {
                 const isCurrent = isPlaying && activeBeat === index;
@@ -384,8 +394,8 @@ export const MetronomePopup: React.FC = () => {
                             ? 'bg-amber-400 text-black scale-110 shadow-lg shadow-amber-400/50 ring-2 ring-amber-300'
                             : 'bg-blue-500 text-white scale-110 shadow-lg shadow-blue-500/50 ring-2 ring-blue-300'
                           : isDownbeat
-                          ? 'bg-[#25252B] text-amber-300/80 border border-amber-500/40'
-                          : 'bg-[#1C1C20] text-gray-500 border border-[#2C2C32]'
+                          ? 'bg-[#EDF1F5] dark:bg-[#25252B] text-amber-700 dark:text-amber-300/80 border border-amber-500/40'
+                          : 'bg-[#EDF1F5] dark:bg-[#1C1C20] text-gray-500 border border-slate-300 dark:border-[#2C2C32]'
                       }`}
                     >
                       {index + 1}
@@ -417,14 +427,14 @@ export const MetronomePopup: React.FC = () => {
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => handleBpmStep(-5)}
-                  className="px-2 py-1.5 rounded-lg bg-[#1B1B1F] hover:bg-[#26262B] text-gray-300 hover:text-white border border-[#2F2F36] text-xs font-semibold transition-all active:scale-95 cursor-pointer"
+                  className="px-2 py-1.5 rounded-lg bg-[#EDF1F5] dark:bg-[#1B1B1F] hover:bg-slate-200 dark:hover:bg-[#26262B] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-[#2F2F36] text-xs font-semibold transition-all active:scale-95 cursor-pointer"
                   title="-5 BPM"
                 >
                   -5
                 </button>
                 <button
                   onClick={() => handleBpmStep(-1)}
-                  className="p-2 rounded-lg bg-[#1B1B1F] hover:bg-[#26262B] text-gray-300 hover:text-white border border-[#2F2F36] transition-all active:scale-95 cursor-pointer"
+                  className="p-2 rounded-lg bg-[#EDF1F5] dark:bg-[#1B1B1F] hover:bg-slate-200 dark:hover:bg-[#26262B] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-[#2F2F36] transition-all active:scale-95 cursor-pointer"
                   title="-1 BPM"
                 >
                   <Minus className="w-4 h-4" />
@@ -433,10 +443,10 @@ export const MetronomePopup: React.FC = () => {
 
               {/* Large BPM number */}
               <div className="flex flex-col items-center px-4 py-1 min-w-[130px]">
-                <span className="text-4xl sm:text-5xl font-black font-mono tracking-tight text-white leading-none">
+                <span className="text-4xl sm:text-5xl font-black font-mono tracking-tight text-slate-900 dark:text-white leading-none">
                   {bpm}
                 </span>
-                <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest mt-1">
+                <span className="text-[11px] font-semibold text-slate-600 dark:text-gray-400 uppercase tracking-widest mt-1">
                   BPM
                 </span>
               </div>
@@ -445,14 +455,14 @@ export const MetronomePopup: React.FC = () => {
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => handleBpmStep(1)}
-                  className="p-2 rounded-lg bg-[#1B1B1F] hover:bg-[#26262B] text-gray-300 hover:text-white border border-[#2F2F36] transition-all active:scale-95 cursor-pointer"
+                  className="p-2 rounded-lg bg-[#EDF1F5] dark:bg-[#1B1B1F] hover:bg-slate-200 dark:hover:bg-[#26262B] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-[#2F2F36] transition-all active:scale-95 cursor-pointer"
                   title="+1 BPM"
                 >
                   <Plus className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => handleBpmStep(5)}
-                  className="px-2 py-1.5 rounded-lg bg-[#1B1B1F] hover:bg-[#26262B] text-gray-300 hover:text-white border border-[#2F2F36] text-xs font-semibold transition-all active:scale-95 cursor-pointer"
+                  className="px-2 py-1.5 rounded-lg bg-[#EDF1F5] dark:bg-[#1B1B1F] hover:bg-slate-200 dark:hover:bg-[#26262B] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-[#2F2F36] text-xs font-semibold transition-all active:scale-95 cursor-pointer"
                   title="+5 BPM"
                 >
                   +5
@@ -468,7 +478,7 @@ export const MetronomePopup: React.FC = () => {
                 max={260}
                 value={bpm}
                 onChange={(e) => handleBpmChange(Number(e.target.value))}
-                className="w-full h-2 bg-[#232328] rounded-lg appearance-none cursor-pointer accent-blue-500"
+                className="w-full h-2 bg-[#EDF1F5] dark:bg-[#232328] rounded-lg appearance-none cursor-pointer accent-blue-500"
               />
               <div className="flex justify-between text-[10px] font-mono text-gray-500 mt-1">
                 <span>30</span>
@@ -508,21 +518,21 @@ export const MetronomePopup: React.FC = () => {
             {/* Tap Tempo Button */}
             <button
               onClick={handleTap}
-              className="flex flex-col items-center justify-center py-2.5 rounded-xl bg-[#1D1D22] hover:bg-[#26262D] text-gray-200 hover:text-white border border-[#33333C] transition-all active:scale-95 cursor-pointer"
+              className="flex flex-col items-center justify-center py-2.5 rounded-xl bg-[#EDF1F5] dark:bg-[#1D1D22] hover:bg-slate-200 dark:hover:bg-[#26262D] text-slate-800 dark:text-gray-200 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-[#33333C] transition-all active:scale-95 cursor-pointer"
             >
               <span className="font-bold text-xs uppercase tracking-wider">Tap Tempo</span>
-              <span className="text-[10px] text-blue-400 font-mono mt-0.5 truncate max-w-full px-2">
+              <span className="text-[10px] text-blue-600 dark:text-blue-400 font-mono mt-0.5 truncate max-w-full px-2">
                 {tapFeedback || 'Tapez en rythme'}
               </span>
             </button>
           </div>
 
           {/* Advanced Controls Toolbar - Grille de 3 éléments avec uniquement les textes utiles */}
-          <div ref={dropdownContainerRef} className="grid grid-cols-3 gap-2 bg-[#101014] border border-[#222228] rounded-xl p-2.5 sm:p-3 text-xs">
+          <div ref={dropdownContainerRef} className="grid grid-cols-3 gap-2 bg-white dark:bg-[#101014] border border-slate-200 dark:border-[#222228] rounded-xl p-2.5 sm:p-3 text-xs">
             {/* 1. Mesure */}
             <div className="relative">
-              <div className="flex items-center gap-1.5 mb-1.5 text-[11px] font-semibold text-gray-300">
-                <Clock className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+              <div className="flex items-center gap-1.5 mb-1.5 text-[11px] font-semibold text-slate-700 dark:text-gray-300">
+                <Clock className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
                 <span className="truncate">Mesure</span>
               </div>
 
@@ -531,24 +541,24 @@ export const MetronomePopup: React.FC = () => {
                 onClick={() => setActiveDropdown(prev => prev === 'signature' ? null : 'signature')}
                 className={`w-full flex items-center justify-between px-2 sm:px-2.5 py-2 rounded-lg border text-xs font-semibold transition-all cursor-pointer ${
                   activeDropdown === 'signature'
-                    ? 'bg-[#181822] border-blue-500 ring-2 ring-blue-500/25 text-white'
-                    : 'bg-[#141418] hover:bg-[#1A1A22] border-[#252530] hover:border-gray-500 text-gray-200'
+                    ? 'bg-[#EDF1F5] dark:bg-[#181822] border-blue-500 ring-2 ring-blue-500/25 text-slate-900 dark:text-white'
+                    : 'bg-slate-50 dark:bg-[#141418] hover:bg-slate-200/70 dark:hover:bg-[#1A1A22] border-slate-300 dark:border-[#252530] hover:border-gray-500 text-slate-800 dark:text-gray-200'
                 }`}
                 aria-expanded={activeDropdown === 'signature'}
                 aria-haspopup="listbox"
                 aria-label="Sélectionner la mesure"
               >
-                <span className="font-mono font-bold text-blue-400 text-xs truncate">
+                <span className="font-mono font-bold text-blue-600 dark:text-blue-400 text-xs truncate">
                   {currentSignature.label}
                 </span>
-                <ChevronDown className={`w-3.5 h-3.5 text-gray-400 shrink-0 transition-transform duration-200 ${activeDropdown === 'signature' ? 'rotate-180 text-blue-400' : ''}`} />
+                <ChevronDown className={`w-3.5 h-3.5 text-slate-600 dark:text-gray-400 shrink-0 transition-transform duration-200 ${activeDropdown === 'signature' ? 'rotate-180 text-blue-600 dark:text-blue-400' : ''}`} />
               </button>
 
               {activeDropdown === 'signature' && (
                 <div 
                   role="listbox"
                   aria-label="Mesures disponibles"
-                  className="absolute left-0 min-w-full sm:min-w-[120px] bottom-full mb-1.5 z-40 bg-[#141418] border border-[#2B2B36] rounded-xl shadow-2xl p-1 max-h-48 overflow-y-auto custom-scrollbar space-y-0.5 animate-in fade-in zoom-in-95 duration-100"
+                  className="absolute left-0 min-w-full sm:min-w-[120px] bottom-full mb-1.5 z-40 bg-slate-50 dark:bg-[#141418] border border-slate-300 dark:border-[#2B2B36] rounded-xl shadow-2xl p-1 max-h-48 overflow-y-auto custom-scrollbar space-y-0.5 animate-in fade-in zoom-in-95 duration-100"
                 >
                   {SIGNATURE_OPTIONS.map((sig) => {
                     const isSelected = beatsPerMeasure === sig.beats;
@@ -564,12 +574,12 @@ export const MetronomePopup: React.FC = () => {
                         }}
                         className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer text-left ${
                           isSelected
-                            ? 'bg-blue-600/20 text-blue-300 font-bold border border-blue-500/30 shadow-xs'
-                            : 'text-gray-300 hover:text-white hover:bg-[#1A1A22] border border-transparent'
+                            ? 'bg-blue-600/20 text-blue-700 dark:text-blue-300 font-bold border border-blue-500/30 shadow-xs'
+                            : 'text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#1A1A22] border border-transparent'
                         }`}
                       >
                         <span className="font-mono font-bold">{sig.label}</span>
-                        {isSelected && <Check className="w-3.5 h-3.5 text-blue-400 shrink-0 ml-1.5" />}
+                        {isSelected && <Check className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0 ml-1.5" />}
                       </button>
                     );
                   })}
@@ -579,8 +589,8 @@ export const MetronomePopup: React.FC = () => {
 
             {/* 2. Subdivision */}
             <div className="relative">
-              <div className="flex items-center gap-1.5 mb-1.5 text-[11px] font-semibold text-gray-300">
-                <Music className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+              <div className="flex items-center gap-1.5 mb-1.5 text-[11px] font-semibold text-slate-700 dark:text-gray-300">
+                <Music className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
                 <span className="truncate">Subdivision</span>
               </div>
 
@@ -589,29 +599,29 @@ export const MetronomePopup: React.FC = () => {
                 onClick={() => setActiveDropdown(prev => prev === 'subdivision' ? null : 'subdivision')}
                 className={`w-full flex items-center justify-between px-2 sm:px-2.5 py-2 rounded-lg border text-xs font-semibold transition-all cursor-pointer ${
                   activeDropdown === 'subdivision'
-                    ? 'bg-[#181822] border-indigo-500 ring-2 ring-indigo-500/25 text-white'
-                    : 'bg-[#141418] hover:bg-[#1A1A22] border-[#252530] hover:border-gray-500 text-gray-200'
+                    ? 'bg-[#EDF1F5] dark:bg-[#181822] border-indigo-500 ring-2 ring-indigo-500/25 text-slate-900 dark:text-white'
+                    : 'bg-slate-50 dark:bg-[#141418] hover:bg-slate-200/70 dark:hover:bg-[#1A1A22] border-slate-300 dark:border-[#252530] hover:border-gray-500 text-slate-800 dark:text-gray-200'
                 }`}
                 aria-expanded={activeDropdown === 'subdivision'}
                 aria-haspopup="listbox"
                 aria-label="Sélectionner la subdivision"
               >
                 <div className="flex items-center gap-1.5 truncate">
-                  <span className="font-serif font-bold text-indigo-400 shrink-0">
+                  <span className="font-serif font-bold text-indigo-600 dark:text-indigo-400 shrink-0">
                     {currentSubdivision.notation}
                   </span>
-                  <span className="text-gray-300 truncate text-[11px] sm:text-xs">
+                  <span className="text-slate-700 dark:text-gray-300 truncate text-[11px] sm:text-xs">
                     {currentSubdivision.label}
                   </span>
                 </div>
-                <ChevronDown className={`w-3.5 h-3.5 text-gray-400 shrink-0 transition-transform duration-200 ${activeDropdown === 'subdivision' ? 'rotate-180 text-indigo-400' : ''}`} />
+                <ChevronDown className={`w-3.5 h-3.5 text-slate-600 dark:text-gray-400 shrink-0 transition-transform duration-200 ${activeDropdown === 'subdivision' ? 'rotate-180 text-indigo-600 dark:text-indigo-400' : ''}`} />
               </button>
 
               {activeDropdown === 'subdivision' && (
                 <div 
                   role="listbox"
                   aria-label="Subdivisions disponibles"
-                  className="absolute left-1/2 -translate-x-1/2 min-w-full sm:min-w-[130px] bottom-full mb-1.5 z-40 bg-[#141418] border border-[#2B2B36] rounded-xl shadow-2xl p-1 space-y-0.5 animate-in fade-in zoom-in-95 duration-100"
+                  className="absolute left-1/2 -translate-x-1/2 min-w-full sm:min-w-[130px] bottom-full mb-1.5 z-40 bg-slate-50 dark:bg-[#141418] border border-slate-300 dark:border-[#2B2B36] rounded-xl shadow-2xl p-1 space-y-0.5 animate-in fade-in zoom-in-95 duration-100"
                 >
                   {SUBDIVISION_OPTIONS.map((subItem) => {
                     const isSelected = subdivision === subItem.sub;
@@ -627,17 +637,17 @@ export const MetronomePopup: React.FC = () => {
                         }}
                         className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer text-left ${
                           isSelected
-                            ? 'bg-indigo-600/20 text-indigo-300 font-bold border border-indigo-500/30 shadow-xs'
-                            : 'text-gray-300 hover:text-white hover:bg-[#1A1A22] border border-transparent'
+                            ? 'bg-indigo-600/20 text-indigo-700 dark:text-indigo-300 font-bold border border-indigo-500/30 shadow-xs'
+                            : 'text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#1A1A22] border border-transparent'
                         }`}
                       >
                         <div className="flex items-center gap-2">
-                          <span className="font-serif font-bold text-indigo-400 w-5 text-center">
+                          <span className="font-serif font-bold text-indigo-600 dark:text-indigo-400 w-5 text-center">
                             {subItem.notation}
                           </span>
                           <span>{subItem.label}</span>
                         </div>
-                        {isSelected && <Check className="w-3.5 h-3.5 text-indigo-400 shrink-0 ml-1.5" />}
+                        {isSelected && <Check className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0 ml-1.5" />}
                       </button>
                     );
                   })}
@@ -647,8 +657,8 @@ export const MetronomePopup: React.FC = () => {
 
             {/* 3. Son */}
             <div className="relative">
-              <div className="flex items-center gap-1.5 mb-1.5 text-[11px] font-semibold text-gray-300">
-                <Volume2 className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <div className="flex items-center gap-1.5 mb-1.5 text-[11px] font-semibold text-slate-700 dark:text-gray-300">
+                <Volume2 className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
                 <span className="truncate">Son</span>
               </div>
 
@@ -657,8 +667,8 @@ export const MetronomePopup: React.FC = () => {
                 onClick={() => setActiveDropdown(prev => prev === 'sound' ? null : 'sound')}
                 className={`w-full flex items-center justify-between px-2 sm:px-2.5 py-2 rounded-lg border text-xs font-semibold transition-all cursor-pointer ${
                   activeDropdown === 'sound'
-                    ? 'bg-[#181822] border-amber-500 ring-2 ring-amber-500/25 text-white'
-                    : 'bg-[#141418] hover:bg-[#1A1A22] border-[#252530] hover:border-gray-500 text-gray-200'
+                    ? 'bg-[#EDF1F5] dark:bg-[#181822] border-amber-500 ring-2 ring-amber-500/25 text-slate-900 dark:text-white'
+                    : 'bg-slate-50 dark:bg-[#141418] hover:bg-slate-200/70 dark:hover:bg-[#1A1A22] border-slate-300 dark:border-[#252530] hover:border-gray-500 text-slate-800 dark:text-gray-200'
                 }`}
                 aria-expanded={activeDropdown === 'sound'}
                 aria-haspopup="listbox"
@@ -666,18 +676,18 @@ export const MetronomePopup: React.FC = () => {
               >
                 <div className="flex items-center gap-1.5 truncate">
                   <span className="text-sm shrink-0">{currentSound.icon}</span>
-                  <span className="text-gray-300 truncate text-[11px] sm:text-xs">
+                  <span className="text-slate-700 dark:text-gray-300 truncate text-[11px] sm:text-xs">
                     {currentSound.label}
                   </span>
                 </div>
-                <ChevronDown className={`w-3.5 h-3.5 text-gray-400 shrink-0 transition-transform duration-200 ${activeDropdown === 'sound' ? 'rotate-180 text-amber-400' : ''}`} />
+                <ChevronDown className={`w-3.5 h-3.5 text-slate-600 dark:text-gray-400 shrink-0 transition-transform duration-200 ${activeDropdown === 'sound' ? 'rotate-180 text-amber-600 dark:text-amber-400' : ''}`} />
               </button>
 
               {activeDropdown === 'sound' && (
                 <div 
                   role="listbox"
                   aria-label="Sons disponibles"
-                  className="absolute right-0 min-w-full sm:min-w-[130px] bottom-full mb-1.5 z-40 bg-[#141418] border border-[#2B2B36] rounded-xl shadow-2xl p-1 space-y-0.5 animate-in fade-in zoom-in-95 duration-100"
+                  className="absolute right-0 min-w-full sm:min-w-[130px] bottom-full mb-1.5 z-40 bg-slate-50 dark:bg-[#141418] border border-slate-300 dark:border-[#2B2B36] rounded-xl shadow-2xl p-1 space-y-0.5 animate-in fade-in zoom-in-95 duration-100"
                 >
                   {SOUND_OPTIONS.map((soundItem) => {
                     const isSelected = sound === soundItem.id;
@@ -693,15 +703,15 @@ export const MetronomePopup: React.FC = () => {
                         }}
                         className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer text-left ${
                           isSelected
-                            ? 'bg-amber-600/20 text-amber-300 font-bold border border-amber-500/30 shadow-xs'
-                            : 'text-gray-300 hover:text-white hover:bg-[#1A1A22] border border-transparent'
+                            ? 'bg-amber-600/20 text-amber-700 dark:text-amber-300 font-bold border border-amber-500/30 shadow-xs'
+                            : 'text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#1A1A22] border border-transparent'
                         }`}
                       >
                         <div className="flex items-center gap-2">
                           <span className="text-sm">{soundItem.icon}</span>
                           <span>{soundItem.label}</span>
                         </div>
-                        {isSelected && <Check className="w-3.5 h-3.5 text-amber-400 shrink-0 ml-1.5" />}
+                        {isSelected && <Check className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0 ml-1.5" />}
                       </button>
                     );
                   })}
@@ -711,8 +721,10 @@ export const MetronomePopup: React.FC = () => {
           </div>
 
         </div>
-      </div>
-    </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 };
 

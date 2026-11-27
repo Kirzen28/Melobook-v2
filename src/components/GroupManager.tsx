@@ -97,9 +97,9 @@ const AccessFilterDropdown: React.FC<{
         onClick={() => setIsOpen(prev => !prev)}
         className={`px-2.5 py-1 rounded-lg border text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer shadow-xs min-w-[155px] justify-between whitespace-nowrap ${
           isOpen
-            ? 'bg-[#1C1C24] border-blue-500 ring-2 ring-blue-500/30 text-white'
+            ? 'bg-[#EDF1F5] dark:bg-[#1C1C24] border-blue-500 ring-2 ring-blue-500/30 text-slate-900 dark:text-white'
             : !currentMeta
-            ? 'bg-[#16161C] border-[#262632] text-gray-300 hover:border-[#383846] hover:text-white'
+            ? 'bg-slate-50 dark:bg-[#16161C] border-slate-300 dark:border-[#262632] text-slate-700 dark:text-gray-300 hover:border-slate-400 dark:hover:border-[#383846] hover:text-slate-900 dark:hover:text-white'
             : `${currentMeta.badgeStyle} hover:brightness-110`
         }`}
         aria-expanded={isOpen}
@@ -109,13 +109,13 @@ const AccessFilterDropdown: React.FC<{
           <span>{currentMeta ? `Accès ${currentMeta.label}` : 'Tous les accès'}</span>
         </span>
         <ChevronDown className={`w-3.5 h-3.5 opacity-70 transition-transform duration-200 shrink-0 ${
-          isOpen ? 'rotate-180 opacity-100 text-blue-400' : ''
+          isOpen ? 'rotate-180 opacity-100 text-blue-600 dark:text-blue-400' : ''
         }`} />
       </button>
 
       {isOpen && (
-        <div className="absolute left-0 sm:left-auto sm:right-0 top-full mt-1.5 w-56 bg-[#121217] border border-[#2E2E38] rounded-xl shadow-2xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
-          <div className="px-2 py-1 mb-1 border-b border-[#24242C]">
+        <div className="absolute left-0 sm:left-auto sm:right-0 top-full mt-1.5 w-56 bg-white dark:bg-[#121217] border border-slate-300 dark:border-[#2E2E38] rounded-xl shadow-2xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+          <div className="px-2 py-1 mb-1 border-b border-slate-200 dark:border-[#24242C]">
             <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Filtrer par accès</span>
           </div>
           <div className="space-y-0.5">
@@ -124,15 +124,15 @@ const AccessFilterDropdown: React.FC<{
               onClick={() => { onChange('all'); setIsOpen(false); }}
               className={`w-full px-2.5 py-1.5 rounded-lg text-xs font-medium flex items-center gap-2 transition-all cursor-pointer text-left ${
                 value === 'all'
-                  ? 'bg-blue-600/20 text-blue-300 border border-blue-500/40'
-                  : 'text-gray-300 hover:bg-[#1E1E26] hover:text-white border border-transparent'
+                  ? 'bg-blue-600/20 text-blue-700 dark:text-blue-300 border border-blue-500/40'
+                  : 'text-slate-700 dark:text-gray-300 hover:bg-slate-200/70 dark:hover:bg-[#1E1E26] hover:text-slate-900 dark:hover:text-white border border-transparent'
               }`}
             >
-              <span className="w-5 h-5 rounded-md flex items-center justify-center shrink-0 bg-[#26262E] text-gray-400 border border-[#333]">
+              <span className="w-5 h-5 rounded-md flex items-center justify-center shrink-0 bg-[#EDF1F5] dark:bg-[#26262E] text-slate-600 dark:text-gray-400 border border-slate-300 dark:border-[#333]">
                 <Users className="w-3 h-3" />
               </span>
               <span className="flex-1 truncate">Tous les accès</span>
-              {value === 'all' && <Check className="w-3.5 h-3.5 text-blue-400 shrink-0" />}
+              {value === 'all' && <Check className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />}
             </button>
 
             {ACCESS_ORDER.map((accKey) => {
@@ -146,15 +146,15 @@ const AccessFilterDropdown: React.FC<{
                   onClick={() => { onChange(accKey); setIsOpen(false); }}
                   className={`w-full px-2.5 py-1.5 rounded-lg text-xs font-medium flex items-center gap-2 transition-all cursor-pointer text-left ${
                     isSelected
-                      ? 'bg-blue-600/20 text-blue-300 border border-blue-500/40'
-                      : 'text-gray-300 hover:bg-[#1E1E26] hover:text-white border border-transparent'
+                      ? 'bg-blue-600/20 text-blue-700 dark:text-blue-300 border border-blue-500/40'
+                      : 'text-slate-700 dark:text-gray-300 hover:bg-slate-200/70 dark:hover:bg-[#1E1E26] hover:text-slate-900 dark:hover:text-white border border-transparent'
                   }`}
                 >
                   <span className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 ${meta.iconBoxStyle}`}>
                     <Icon className="w-3 h-3" />
                   </span>
                   <span className="flex-1 truncate">{meta.label}</span>
-                  {isSelected && <Check className="w-3.5 h-3.5 text-blue-400 shrink-0" />}
+                  {isSelected && <Check className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />}
                 </button>
               );
             })}
@@ -207,7 +207,7 @@ const AccessSelectorDropdown: React.FC<{
     ? ACCESS_DEFINITIONS.admin.badgeStyle
     : value.length === 1
     ? ACCESS_DEFINITIONS[value[0]].badgeStyle
-    : 'bg-[#181820] text-gray-200 border-[#2E2E3A]';
+    : 'bg-[#EDF1F5] dark:bg-[#181820] text-slate-800 dark:text-gray-200 border-slate-300 dark:border-[#2E2E3A]';
 
   return (
     <div ref={containerRef} className={`relative inline-block text-left ${className}`}>
@@ -217,7 +217,7 @@ const AccessSelectorDropdown: React.FC<{
         onClick={() => setIsOpen(prev => !prev)}
         className={`px-2.5 py-1.5 rounded-lg border text-xs font-semibold flex items-center justify-between gap-2 transition-all cursor-pointer shadow-xs max-w-[230px] whitespace-nowrap ${
           isOpen
-            ? 'bg-[#1C1C24] border-blue-500 ring-2 ring-blue-500/30 text-white'
+            ? 'bg-[#EDF1F5] dark:bg-[#1C1C24] border-blue-500 ring-2 ring-blue-500/30 text-slate-900 dark:text-white'
             : `${triggerStyle} hover:brightness-110`
         } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         aria-expanded={isOpen}
@@ -225,38 +225,38 @@ const AccessSelectorDropdown: React.FC<{
       >
         <span className="flex items-center gap-1.5 min-w-0">
           {hasAdmin ? (
-            <Shield className="w-3.5 h-3.5 shrink-0 text-blue-400" />
+            <Shield className="w-3.5 h-3.5 shrink-0 text-blue-600 dark:text-blue-400" />
           ) : value.length === 1 && value[0] === 'regie' ? (
-            <Monitor className="w-3.5 h-3.5 shrink-0 text-cyan-400" />
+            <Monitor className="w-3.5 h-3.5 shrink-0 text-cyan-700 dark:text-cyan-400" />
           ) : (
-            <ShieldCheck className="w-3.5 h-3.5 shrink-0 text-gray-400" />
+            <ShieldCheck className="w-3.5 h-3.5 shrink-0 text-slate-600 dark:text-gray-400" />
           )}
           <span className="truncate">{summaryLabel}</span>
         </span>
-        <ChevronDown className={`w-3.5 h-3.5 opacity-70 transition-transform duration-200 shrink-0 ${isOpen ? 'rotate-180 opacity-100 text-blue-400' : ''}`} />
+        <ChevronDown className={`w-3.5 h-3.5 opacity-70 transition-transform duration-200 shrink-0 ${isOpen ? 'rotate-180 opacity-100 text-blue-600 dark:text-blue-400' : ''}`} />
       </button>
 
       {isOpen && (
         <div
-          className={`absolute ${align === 'right' ? 'left-0 sm:left-auto sm:right-0' : 'left-0'} top-full mt-1.5 w-[min(21rem,calc(100vw-2.5rem))] sm:w-96 bg-[#121217] border border-[#2E2E38] rounded-xl shadow-2xl p-2.5 z-50 animate-in fade-in zoom-in-95 duration-100 text-left`}
+          className={`absolute ${align === 'right' ? 'left-0 sm:left-auto sm:right-0' : 'left-0'} top-full mt-1.5 w-[min(21rem,calc(100vw-2.5rem))] sm:w-96 bg-white dark:bg-[#121217] border border-slate-300 dark:border-[#2E2E38] rounded-xl shadow-2xl p-2.5 z-50 animate-in fade-in zoom-in-95 duration-100 text-left`}
         >
-          <div className="flex items-center justify-between px-2 py-1.5 border-b border-[#24242C] mb-2">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-white">
-              <Shield className="w-3.5 h-3.5 text-blue-400" />
+          <div className="flex items-center justify-between px-2 py-1.5 border-b border-slate-200 dark:border-[#24242C] mb-2">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900 dark:text-white">
+              <Shield className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
               <span>Accès cumulables (cette bibliothèque)</span>
             </div>
             <button
               type="button"
               onClick={() => setIsOpen(false)}
-              className="text-[11px] text-gray-400 hover:text-white px-1.5 py-0.5 rounded hover:bg-[#1E1E26] cursor-pointer"
+              className="text-[11px] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white px-1.5 py-0.5 rounded hover:bg-slate-200/70 dark:hover:bg-[#1E1E26] cursor-pointer"
             >
               Fermer
             </button>
           </div>
 
           {isOwner && (
-            <div className="mb-2 px-2.5 py-2 rounded-lg bg-blue-600/10 border border-blue-500/30 text-[11px] text-blue-200 flex items-center gap-2">
-              <Lock className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+            <div className="mb-2 px-2.5 py-2 rounded-lg bg-blue-600/10 border border-blue-500/30 text-[11px] text-blue-700 dark:text-blue-200 flex items-center gap-2">
+              <Lock className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
               <span>Propriétaire de la bibliothèque : tous les accès restent activés en permanence.</span>
             </div>
           )}
@@ -282,13 +282,13 @@ const AccessSelectorDropdown: React.FC<{
                   } ${
                     isChecked
                       ? 'bg-blue-600/12 border-blue-500/50'
-                      : 'bg-[#18181E] hover:bg-[#202028] border-[#262630] hover:border-[#383846]'
+                      : 'bg-slate-50 dark:bg-[#18181E] hover:bg-slate-200/70 dark:hover:bg-[#202028] border-slate-300 dark:border-[#262630] hover:border-slate-400 dark:hover:border-[#383846]'
                   }`}
                 >
                   <div className={`w-4 h-4 mt-0.5 rounded border flex items-center justify-center shrink-0 transition-colors ${
                     isChecked
                       ? 'bg-blue-600 border-blue-500 text-white'
-                      : 'bg-[#121216] border-[#444]'
+                      : 'bg-white dark:bg-[#121216] border-slate-300 dark:border-[#444]'
                   }`}>
                     {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
                   </div>
@@ -298,15 +298,15 @@ const AccessSelectorDropdown: React.FC<{
                       <span className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 ${meta.iconBoxStyle}`}>
                         <Icon className="w-3 h-3" />
                       </span>
-                      <span className="font-bold text-xs text-white">{meta.label}</span>
+                      <span className="font-bold text-xs text-slate-900 dark:text-white">{meta.label}</span>
                       {accKey === 'admin' && (
-                        <span className="text-[10px] text-blue-300 font-medium">· Accès complet</span>
+                        <span className="text-[10px] text-blue-700 dark:text-blue-300 font-medium">· Accès complet</span>
                       )}
                       {accKey === 'regie' && (
-                        <span className="text-[10px] text-cyan-300 font-medium">· Projections uniquement</span>
+                        <span className="text-[10px] text-cyan-700 dark:text-cyan-300 font-medium">· Projections uniquement</span>
                       )}
                     </div>
-                    <p className="text-[11px] text-gray-400 leading-snug mt-1">
+                    <p className="text-[11px] text-slate-600 dark:text-gray-400 leading-snug mt-1">
                       {meta.description}
                     </p>
                   </div>
@@ -315,9 +315,9 @@ const AccessSelectorDropdown: React.FC<{
             })}
           </div>
 
-          <div className="px-2 pt-2 mt-2 border-t border-[#24242C] text-[10px] text-gray-400 flex items-center justify-between gap-2">
+          <div className="px-2 pt-2 mt-2 border-t border-slate-200 dark:border-[#24242C] text-[10px] text-slate-600 dark:text-gray-400 flex items-center justify-between gap-2">
             <span>Cochez un ou plusieurs accès</span>
-            <span className="text-emerald-400 font-medium">Effet immédiat</span>
+            <span className="text-emerald-600 dark:text-emerald-400 font-medium">Effet immédiat</span>
           </div>
         </div>
       )}
@@ -580,12 +580,12 @@ export const GroupManager: React.FC = () => {
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-3 sm:px-6 py-6 pb-12 text-[#E0E0E0]">
+    <div className="max-w-5xl mx-auto px-3 sm:px-6 py-6 pb-12 text-slate-900 dark:text-[#E0E0E0]">
       
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-wrap">
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-2 sm:gap-2.5">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2 sm:gap-2.5">
             <Library className="w-5 h-5 sm:w-6 sm:h-6 text-blue-500 shrink-0" />
             <span>Gestion des Bibliothèques</span>
           </h1>
@@ -593,15 +593,15 @@ export const GroupManager: React.FC = () => {
       </div>
 
       {/* Espace Unifié : Sélection de Bibliothèque, Actions & Rôles des Membres */}
-      <div className="bg-[#111112] border border-[#222224] rounded-2xl p-4 sm:p-6 mb-8 shadow-sm space-y-6">
+      <div className="bg-white dark:bg-[#111112] border border-slate-200 dark:border-[#222224] rounded-2xl p-4 sm:p-6 mb-8 shadow-sm space-y-6">
         
         {/* 1. En-tête unifié : Sélecteur de bibliothèque, Actions, Invitation & Accès Invité */}
-        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 pb-5 border-b border-[#222224]">
+        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 pb-5 border-b border-slate-200 dark:border-[#222224]">
           {/* Colonne gauche : Sélecteur + identité + partages */}
           <div className="flex-1 min-w-0 space-y-2.5">
             <div className="flex items-center gap-2 flex-wrap">
               <div className="relative inline-flex items-center min-w-[210px] max-w-full">
-                <Library className="w-3.5 h-3.5 text-blue-400 absolute left-3 pointer-events-none shrink-0" />
+                <Library className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 absolute left-3 pointer-events-none shrink-0" />
                 <select
                   aria-label="Choisir la bibliothèque active"
                   value={currentGroup?.id || ''}
@@ -609,7 +609,7 @@ export const GroupManager: React.FC = () => {
                     if (e.target.value) switchGroup(e.target.value);
                   }}
                   disabled={groups.length === 0}
-                  className="appearance-none bg-[#16161C] hover:bg-[#1C1C24] border border-[#2E2E3A] focus:border-blue-500 rounded-lg pl-8 pr-8 py-1.5 text-xs sm:text-sm font-bold text-white focus:outline-none transition-colors cursor-pointer max-w-full truncate"
+                  className="appearance-none bg-slate-50 dark:bg-[#16161C] hover:bg-slate-200/70 dark:hover:bg-[#1C1C24] border border-slate-300 dark:border-[#2E2E3A] focus:border-blue-500 rounded-lg pl-8 pr-8 py-1.5 text-xs sm:text-sm font-bold text-slate-900 dark:text-white focus:outline-none transition-colors cursor-pointer max-w-full truncate"
                 >
                   {groups.length === 0 ? (
                     <option value="">Aucune bibliothèque</option>
@@ -620,18 +620,18 @@ export const GroupManager: React.FC = () => {
                         const isOwner = Boolean(currentUser?.uid && g.ownerId === currentUser.uid);
                         const memberCount = (g.members || []).length;
                         return (
-                          <option key={g.id || `group-${index}`} value={g.id} className="bg-[#141418] text-white">
+                          <option key={g.id || `group-${index}`} value={g.id} className="bg-slate-50 dark:bg-[#141418] text-slate-900 dark:text-white">
                             {g.name} ({isOwner ? 'Propriétaire' : 'Membre'} · {memberCount} membre{memberCount > 1 ? 's' : ''})
                           </option>
                         );
                       })
                   )}
                 </select>
-                <ChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-2.5 pointer-events-none shrink-0" />
+                <ChevronDown className="w-3.5 h-3.5 text-slate-600 dark:text-gray-400 absolute right-2.5 pointer-events-none shrink-0" />
               </div>
 
               {currentGroup && !canManageGroups && (
-                <span className="text-[10px] text-gray-500 flex items-center gap-1 font-medium bg-[#16161A] px-2 py-0.5 rounded border border-[#222228]">
+                <span className="text-[10px] text-gray-500 flex items-center gap-1 font-medium bg-slate-50 dark:bg-[#16161A] px-2 py-0.5 rounded border border-slate-200 dark:border-[#222228]">
                   <Lock className="w-3 h-3 text-gray-500" />
                   <span>Consultation seule</span>
                 </span>
@@ -642,25 +642,25 @@ export const GroupManager: React.FC = () => {
               isEditingGroup ? (
                 <form onSubmit={handleSaveGroupEdit} className="mt-2 space-y-2.5 max-w-lg">
                   <div>
-                    <label className="text-[11px] font-semibold text-gray-400 block mb-1">Nom de la bibliothèque :</label>
+                    <label className="text-[11px] font-semibold text-slate-600 dark:text-gray-400 block mb-1">Nom de la bibliothèque :</label>
                     <input
                       type="text"
                       value={editGroupName}
                       onChange={(e) => setEditGroupName(e.target.value)}
-                      className="w-full bg-[#1C1C1E] border border-[#333] rounded px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                      className="w-full bg-[#EDF1F5] dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] rounded px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
                       required
                     />
                   </div>
                   <div>
-                    <label className="text-[11px] font-semibold text-gray-400 block mb-1">Description :</label>
+                    <label className="text-[11px] font-semibold text-slate-600 dark:text-gray-400 block mb-1">Description :</label>
                     <input
                       type="text"
                       value={editGroupDesc}
                       onChange={(e) => setEditGroupDesc(e.target.value)}
-                      className="w-full bg-[#1C1C1E] border border-[#333] rounded px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                      className="w-full bg-[#EDF1F5] dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] rounded px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
                     />
                   </div>
-                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-[#222228]">
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-200 dark:border-[#222228]">
                     <div className="flex items-center gap-2">
                       <button
                         type="submit"
@@ -672,7 +672,7 @@ export const GroupManager: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setIsEditingGroup(false)}
-                        className="px-3 py-1 rounded bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 text-xs transition-colors cursor-pointer"
+                        className="px-3 py-1 rounded bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-slate-200 dark:hover:bg-[#2A2A2D] text-slate-700 dark:text-gray-300 text-xs transition-colors cursor-pointer"
                       >
                         Annuler
                       </button>
@@ -682,7 +682,7 @@ export const GroupManager: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setLibraryToDelete(currentGroup)}
-                        className="text-[11px] text-rose-400 hover:text-rose-300 hover:underline flex items-center gap-1 cursor-pointer py-1"
+                        className="text-[11px] text-rose-600 dark:text-rose-400 hover:text-rose-800 dark:hover:text-rose-300 hover:underline flex items-center gap-1 cursor-pointer py-1"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                         <span>Supprimer cette bibliothèque...</span>
@@ -693,7 +693,7 @@ export const GroupManager: React.FC = () => {
               ) : (
                 <div className="space-y-2">
                   {currentGroup.description && (
-                    <p className="text-xs text-gray-300">
+                    <p className="text-xs text-slate-700 dark:text-gray-300">
                       {currentGroup.description}
                     </p>
                   )}
@@ -703,35 +703,35 @@ export const GroupManager: React.FC = () => {
                       const isOwner = Boolean(currentUser?.uid && currentGroup.ownerId === currentUser.uid);
                       return (
                         <div className="flex flex-wrap items-center gap-2">
-                          <div className="inline-flex flex-wrap items-center gap-2 px-3 py-1.5 rounded-lg bg-[#16161C] border border-[#2A2A35]">
-                            <KeyRound className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                            <div className="text-[11px] text-gray-400">
+                          <div className="inline-flex flex-wrap items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-[#16161C] border border-slate-300 dark:border-[#2A2A35]">
+                            <KeyRound className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+                            <div className="text-[11px] text-slate-600 dark:text-gray-400">
                               Code bibliothèque :{' '}
-                              <span className="font-mono font-bold text-blue-300 tracking-wider select-all">
+                              <span className="font-mono font-bold text-blue-700 dark:text-blue-300 tracking-wider select-all">
                                 {currentGroup.inviteCode}
                               </span>
                             </div>
                             <button
                               type="button"
                               onClick={handleCopyInviteCode}
-                              className="px-2 py-0.5 rounded bg-[#1E1E26] hover:bg-[#282834] text-gray-200 border border-[#343440] text-[10px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                              className="px-2 py-0.5 rounded bg-[#EDF1F5] dark:bg-[#1E1E26] hover:bg-slate-200 dark:hover:bg-[#282834] text-slate-800 dark:text-gray-200 border border-slate-300 dark:border-[#343440] text-[10px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
                             >
-                              {isCopied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                              {isCopied ? <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-3 h-3" />}
                               <span>{isCopied ? 'Copié' : 'Copier'}</span>
                             </button>
                             <button
                               type="button"
                               onClick={handleCopyInviteLink}
-                              className="px-2 py-0.5 rounded bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 text-[10px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                              className="px-2 py-0.5 rounded bg-blue-600/20 hover:bg-blue-600/30 text-blue-700 dark:text-blue-300 border border-blue-500/30 text-[10px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
                               title="Copier le lien unique de la bibliothèque"
                             >
-                              {isMemberLinkCopied ? <Check className="w-3 h-3 text-emerald-400" /> : <Link2 className="w-3 h-3" />}
+                              {isMemberLinkCopied ? <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" /> : <Link2 className="w-3 h-3" />}
                               <span>{isMemberLinkCopied ? 'Lien copié' : 'Copier le lien'}</span>
                             </button>
                             <button
                               type="button"
                               onClick={() => setIsQrModalOpen(true)}
-                              className="px-2 py-0.5 rounded bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-[10px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                              className="px-2 py-0.5 rounded bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30 text-[10px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
                               title="Afficher et télécharger le QR Code de la bibliothèque"
                             >
                               <QrCode className="w-3 h-3" />
@@ -740,9 +740,9 @@ export const GroupManager: React.FC = () => {
                           </div>
 
                           {isOwner && (
-                            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#16161C] border border-[#2A2A35]">
-                              <Eye className={`w-3.5 h-3.5 shrink-0 ${currentGroup.guestEnabled ? 'text-emerald-400' : 'text-gray-500'}`} />
-                              <span className="text-[11px] text-gray-400">Visiteurs sans compte :</span>
+                            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-[#16161C] border border-slate-300 dark:border-[#2A2A35]">
+                              <Eye className={`w-3.5 h-3.5 shrink-0 ${currentGroup.guestEnabled ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-500'}`} />
+                              <span className="text-[11px] text-slate-600 dark:text-gray-400">Visiteurs sans compte :</span>
                               <button
                                 type="button"
                                 role="switch"
@@ -755,7 +755,7 @@ export const GroupManager: React.FC = () => {
                               >
                                 <span
                                   className={`relative inline-flex h-4.5 w-8 shrink-0 items-center rounded-full border border-transparent transition-colors duration-200 ${
-                                    currentGroup.guestEnabled ? 'bg-emerald-500' : 'bg-[#2E2E36]'
+                                    currentGroup.guestEnabled ? 'bg-emerald-500' : 'bg-[#EDF1F5] dark:bg-[#2E2E36]'
                                   }`}
                                 >
                                   <span
@@ -765,7 +765,7 @@ export const GroupManager: React.FC = () => {
                                   />
                                 </span>
                                 <span className={`text-[10px] font-semibold flex items-center gap-1 ${
-                                  currentGroup.guestEnabled ? 'text-emerald-300' : 'text-gray-400 group-hover:text-gray-200'
+                                  currentGroup.guestEnabled ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-600 dark:text-gray-400 group-hover:text-slate-900 dark:group-hover:text-gray-200'
                                 }`}>
                                   {isUpdatingGuestMode && <Loader2 className="w-3 h-3 animate-spin" />}
                                   <span>{currentGroup.guestEnabled ? 'Lecture seule activée' : 'Désactivé'}</span>
@@ -793,16 +793,16 @@ export const GroupManager: React.FC = () => {
                     className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95"
                     title="Assigner des membres à cette bibliothèque avec le multiselect"
                   >
-                    <UserPlus className="w-3.5 h-3.5 text-white" />
+                    <UserPlus className="w-3.5 h-3.5 text-slate-900 dark:text-white" />
                     <span>Assigner des membres</span>
                   </button>
                   <button
                     type="button"
                     onClick={startEditGroup}
-                    className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 hover:text-white border border-[#333] flex items-center gap-1.5 transition-colors cursor-pointer"
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-slate-200 dark:hover:bg-[#2A2A2D] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-[#333] flex items-center gap-1.5 transition-colors cursor-pointer"
                     title="Modifier le nom et la description"
                   >
-                    <Pencil className="w-3.5 h-3.5 text-blue-400" />
+                    <Pencil className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                     <span>Gérer</span>
                   </button>
                 </>
@@ -811,10 +811,10 @@ export const GroupManager: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setLibraryToDelete(currentGroup)}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-600/10 hover:bg-rose-600/20 text-rose-400 hover:text-rose-300 border border-rose-500/30 flex items-center gap-1.5 transition-colors cursor-pointer"
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-600/10 hover:bg-rose-600/20 text-rose-600 dark:text-rose-400 hover:text-rose-800 dark:hover:text-rose-300 border border-rose-500/30 flex items-center gap-1.5 transition-colors cursor-pointer"
                   title="Supprimer définitivement cette bibliothèque"
                 >
-                  <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                  <Trash2 className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
                   <span>Supprimer</span>
                 </button>
               )}
@@ -824,21 +824,21 @@ export const GroupManager: React.FC = () => {
 
         {/* 2. Section Accès & Membres */}
         <div>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-[#222224]/60">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-200/60 dark:border-[#222224]/60">
               <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-lg bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0">
+                <div className="w-7 h-7 rounded-lg bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
                   <Shield className="w-3.5 h-3.5" />
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="text-xs sm:text-sm font-bold text-white">Accès & Membres</h3>
+                  <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">Accès & Membres</h3>
 
                   <button
                     type="button"
                     onClick={() => setIsRoleMatrixOpen(true)}
-                    className="px-2.5 py-1 rounded-lg bg-blue-600/15 hover:bg-blue-600/25 text-blue-300 hover:text-white border border-blue-500/30 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95"
+                    className="px-2.5 py-1 rounded-lg bg-blue-600/15 hover:bg-blue-600/25 text-blue-700 dark:text-blue-300 hover:text-slate-900 dark:hover:text-white border border-blue-500/30 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95"
                     title="Consulter le tableau comparatif des accès cumulables"
                   >
-                    <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />
+                    <ShieldCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                     <span>Tableau des accès</span>
                   </button>
                 </div>
@@ -858,7 +858,7 @@ export const GroupManager: React.FC = () => {
 
                 {!canManageGroups && !currentUser ? (
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-400">Mode invité</span>
+                    <span className="text-xs text-slate-600 dark:text-gray-400">Mode invité</span>
                     <button
                       type="button"
                       onClick={() => setIsAuthModalOpen(true)}
@@ -875,9 +875,9 @@ export const GroupManager: React.FC = () => {
             <>
             {/* Filtrage des membres de la bibliothèque active */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 mb-3">
-              <div className="text-xs font-semibold text-gray-300 flex items-center gap-2">
+              <div className="text-xs font-semibold text-slate-700 dark:text-gray-300 flex items-center gap-2">
                 <span>Membres de cette bibliothèque</span>
-                <span className="px-2 py-0.5 rounded-md bg-[#16161C] border border-[#262632] text-blue-400 font-bold">
+                <span className="px-2 py-0.5 rounded-md bg-slate-50 dark:bg-[#16161C] border border-slate-300 dark:border-[#262632] text-blue-600 dark:text-blue-400 font-bold">
                   {libraryMembersCount}
                 </span>
               </div>
@@ -890,13 +890,13 @@ export const GroupManager: React.FC = () => {
 
             {/* Barre d'actions en masse lorsque plusieurs membres sont cochés */}
             {canManageGroups && selectedUserUids.length > 0 && (
-              <div className="mb-3 p-2.5 rounded-xl bg-blue-950/30 border border-blue-500/35 flex flex-wrap items-center justify-between gap-2 text-xs">
-                <div className="flex items-center gap-2 text-blue-200 font-semibold">
+              <div className="mb-3 p-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-500/35 flex flex-wrap items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-2 text-blue-700 dark:text-blue-200 font-semibold">
                   <span>{selectedUserUids.length} membre{selectedUserUids.length > 1 ? 's' : ''} sélectionné{selectedUserUids.length > 1 ? 's' : ''}</span>
                   <button
                     type="button"
                     onClick={() => setSelectedUserUids([])}
-                    className="text-[11px] text-gray-400 hover:text-white underline cursor-pointer font-normal"
+                    className="text-[11px] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white underline cursor-pointer font-normal"
                   >
                     Effacer
                   </button>
@@ -917,19 +917,19 @@ export const GroupManager: React.FC = () => {
                         type="button"
                         disabled={isBulkActionLoading}
                         onClick={() => setBulkLibraryMenuOpen(prev => !prev)}
-                        className="px-2.5 py-1.5 rounded-lg bg-[#181822] hover:bg-[#22222E] border border-[#2E2E3A] text-gray-200 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+                        className="px-2.5 py-1.5 rounded-lg bg-[#EDF1F5] dark:bg-[#181822] hover:bg-slate-200/70 dark:hover:bg-[#22222E] border border-slate-300 dark:border-[#2E2E3A] text-slate-800 dark:text-gray-200 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
                       >
-                        <Library className="w-3.5 h-3.5 text-blue-400" />
+                        <Library className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                         <span>Ajouter à…</span>
                       </button>
                       {bulkLibraryMenuOpen && (
-                        <div className="absolute right-0 top-full mt-1 w-56 bg-[#121217] border border-[#2E2E38] rounded-xl shadow-2xl p-1.5 z-50">
+                        <div className="absolute right-0 top-full mt-1 w-56 bg-white dark:bg-[#121217] border border-slate-300 dark:border-[#2E2E38] rounded-xl shadow-2xl p-1.5 z-50">
                           {groups.filter(g => g.id !== currentGroup?.id).map(g => (
                             <button
                               key={g.id}
                               type="button"
                               onClick={() => handleBulkAddToLibrary(g.id)}
-                              className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-gray-200 hover:bg-[#1E1E26] truncate cursor-pointer"
+                              className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-slate-800 dark:text-gray-200 hover:bg-slate-200/70 dark:hover:bg-[#1E1E26] truncate cursor-pointer"
                             >
                               {g.name}
                             </button>
@@ -943,7 +943,7 @@ export const GroupManager: React.FC = () => {
                     type="button"
                     disabled={isBulkActionLoading}
                     onClick={handleBulkRemoveFromCurrentLibrary}
-                    className="px-2.5 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                    className="px-2.5 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/30 text-xs font-semibold flex items-center gap-1 cursor-pointer"
                   >
                     <UserMinus className="w-3.5 h-3.5" />
                     <span>Retirer</span>
@@ -953,7 +953,7 @@ export const GroupManager: React.FC = () => {
                     type="button"
                     disabled={isBulkActionLoading}
                     onClick={() => setIsBulkDeleteModalOpen(true)}
-                    className="px-2.5 py-1.5 rounded-lg bg-rose-600/20 hover:bg-rose-600/30 text-rose-200 border border-rose-500/40 text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                    className="px-2.5 py-1.5 rounded-lg bg-rose-600/20 hover:bg-rose-600/30 text-rose-700 dark:text-rose-200 border border-rose-500/40 text-xs font-semibold flex items-center gap-1 cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     <span>Supprimer</span>
@@ -964,22 +964,22 @@ export const GroupManager: React.FC = () => {
 
             {/* Liste des utilisateurs inscrits avec gestion d'accès cumulables et assignation */}
             {libraryMembersCount > 0 ? (
-              <div className="border border-[#222228] rounded-lg bg-[#141416]">
+              <div className="border border-slate-200 dark:border-[#222228] rounded-lg bg-slate-50 dark:bg-[#141416]">
                 {/* Barre d'en-tête de la liste */}
-                <div className="px-3 py-2 bg-[#101014] border-b border-[#222228] rounded-t-lg flex items-center justify-between text-[11px] text-gray-400">
+                <div className="px-3 py-2 bg-white dark:bg-[#101014] border-b border-slate-200 dark:border-[#222228] rounded-t-lg flex items-center justify-between text-[11px] text-slate-600 dark:text-gray-400">
                   <div className="flex items-center gap-2.5">
                     {canManageGroups && (
                       <button
                         type="button"
                         onClick={toggleSelectAll}
-                        className="flex items-center gap-2 hover:text-white transition-colors cursor-pointer"
+                        className="flex items-center gap-2 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
                       >
                         <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${
                           isAllSelected 
                             ? 'bg-blue-600 border-blue-500 text-white shadow-xs' 
                             : isSomeSelected
-                            ? 'bg-blue-600/40 border-blue-400 text-white'
-                            : 'border-[#444] bg-[#181820]'
+                            ? 'bg-blue-600/40 border-blue-400 text-slate-900 dark:text-white'
+                            : 'border-slate-300 dark:border-[#444] bg-[#EDF1F5] dark:bg-[#181820]'
                         }`}>
                           {isAllSelected ? (
                             <Check className="w-3 h-3 stroke-[3]" />
@@ -987,19 +987,19 @@ export const GroupManager: React.FC = () => {
                             <span className="w-2 h-0.5 bg-white rounded" />
                           ) : null}
                         </div>
-                        <span className="font-semibold text-xs text-gray-300">
+                        <span className="font-semibold text-xs text-slate-700 dark:text-gray-300">
                           {isAllSelected ? 'Tout désélectionner' : 'Sélectionner tout'}
                         </span>
                       </button>
                     )}
                     {!canManageGroups && <span>Membres inscrits</span>}
                   </div>
-                  <div className="text-[11px] text-gray-400">
+                  <div className="text-[11px] text-slate-600 dark:text-gray-400">
                     {filteredUsers.length} affiché{filteredUsers.length > 1 ? 's' : ''}
                   </div>
                 </div>
 
-                <div className="divide-y divide-[#222228]">
+                <div className="divide-y divide-slate-200 dark:divide-[#222228]">
                   {filteredUsers.map((u, index) => {
                     const memberAccesses = resolveMemberAccesses(currentGroup, u.uid, u.role, u.accesses);
                     const isOwner = Boolean(currentGroup?.ownerId && currentGroup.ownerId === u.uid);
@@ -1016,7 +1016,7 @@ export const GroupManager: React.FC = () => {
                       <div 
                         key={userKey} 
                         className={`p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3 text-xs transition-colors ${
-                          isSelected ? 'bg-blue-600/10' : 'hover:bg-[#181820]/60'
+                          isSelected ? 'bg-blue-600/10' : 'hover:bg-slate-200/70/60 dark:hover:bg-[#181820]/60'
                         }`}
                       >
                         <div className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -1028,7 +1028,7 @@ export const GroupManager: React.FC = () => {
                               title={isSelected ? 'Désélectionner' : 'Sélectionner'}
                             >
                               <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${
-                                isSelected ? 'bg-blue-600 border-blue-500 text-white shadow-xs' : 'border-[#444] bg-[#181820] hover:border-blue-400'
+                                isSelected ? 'bg-blue-600 border-blue-500 text-white shadow-xs' : 'border-slate-300 dark:border-[#444] bg-[#EDF1F5] dark:bg-[#181820] hover:border-blue-400'
                               }`}>
                                 {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
                               </div>
@@ -1042,31 +1042,31 @@ export const GroupManager: React.FC = () => {
                             iconClass="w-3.5 h-3.5"
                             fallbackClassName={
                               isMemberAdmin 
-                                ? 'bg-blue-600/30 text-blue-300 border border-blue-500/40' 
+                                ? 'bg-blue-600/30 text-blue-700 dark:text-blue-300 border border-blue-500/40' 
                                 : isMemberSetlists
-                                ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/40'
+                                ? 'bg-emerald-600/30 text-emerald-700 dark:text-emerald-300 border border-emerald-500/40'
                                 : isMemberChants
-                                ? 'bg-amber-600/30 text-amber-300 border border-amber-500/40'
+                                ? 'bg-amber-600/30 text-amber-700 dark:text-amber-300 border border-amber-500/40'
                                 : isRegieOnlyMember
-                                ? 'bg-cyan-600/30 text-cyan-300 border border-cyan-500/40'
-                                : 'bg-[#222228] text-gray-300 border border-[#333]'
+                                ? 'bg-cyan-600/30 text-cyan-700 dark:text-cyan-300 border border-cyan-500/40'
+                                : 'bg-[#EDF1F5] dark:bg-[#222228] text-slate-700 dark:text-gray-300 border border-slate-300 dark:border-[#333]'
                             }
                           />
                           <div className="min-w-0 flex-1">
-                            <div className="font-semibold text-white flex items-center gap-1.5 min-w-0">
+                            <div className="font-semibold text-slate-900 dark:text-white flex items-center gap-1.5 min-w-0">
                               <span className="truncate">{u.displayName || 'Utilisateur'}</span>
                               {isSelf && (
-                                <span className="text-[9px] px-1.5 py-0.2 rounded bg-blue-600/20 text-blue-300 border border-blue-500/30 font-medium shrink-0">
+                                <span className="text-[9px] px-1.5 py-0.2 rounded bg-blue-600/20 text-blue-700 dark:text-blue-300 border border-blue-500/30 font-medium shrink-0">
                                   Vous
                                 </span>
                               )}
                               {isOwner && (
-                                <span className="text-[10px] text-blue-400 font-medium shrink-0">
+                                <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium shrink-0">
                                   · Propriétaire
                                 </span>
                               )}
                             </div>
-                            <div className="text-[11px] text-gray-400 truncate font-mono">
+                            <div className="text-[11px] text-slate-600 dark:text-gray-400 truncate font-mono">
                               {u.email || 'Sans e-mail'}
                             </div>
                           </div>
@@ -1078,7 +1078,7 @@ export const GroupManager: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => removeMemberFromGroup(currentGroup.id, u.uid)}
-                                className="order-2 sm:order-1 px-2.5 py-1.5 sm:px-2 sm:py-1 rounded-lg sm:rounded text-[11px] sm:text-[10px] font-semibold text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 transition-colors cursor-pointer flex items-center gap-1.5 sm:gap-1 shrink-0"
+                                className="order-2 sm:order-1 px-2.5 py-1.5 sm:px-2 sm:py-1 rounded-lg sm:rounded text-[11px] sm:text-[10px] font-semibold text-rose-600 dark:text-rose-400 hover:text-rose-800 dark:hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 transition-colors cursor-pointer flex items-center gap-1.5 sm:gap-1 shrink-0"
                                 title="Retirer de cette bibliothèque"
                               >
                                 <UserMinus className="w-3.5 h-3.5 sm:w-3 sm:h-3" />
@@ -1088,7 +1088,7 @@ export const GroupManager: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => assignMembersToGroup(currentGroup.id, [u.uid])}
-                                className="order-2 sm:order-1 px-2.5 py-1.5 sm:px-2 sm:py-1 rounded-lg sm:rounded text-[11px] sm:text-[10px] font-semibold text-blue-400 hover:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 transition-colors cursor-pointer flex items-center gap-1.5 sm:gap-1 shrink-0"
+                                className="order-2 sm:order-1 px-2.5 py-1.5 sm:px-2 sm:py-1 rounded-lg sm:rounded text-[11px] sm:text-[10px] font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 transition-colors cursor-pointer flex items-center gap-1.5 sm:gap-1 shrink-0"
                                 title="Assigner à cette bibliothèque"
                               >
                                 <UserPlus className="w-3.5 h-3.5 sm:w-3 sm:h-3" />
@@ -1109,10 +1109,10 @@ export const GroupManager: React.FC = () => {
                           ) : (
                             <span className={`order-1 sm:order-2 px-2.5 py-1 rounded-md text-[11px] font-semibold border whitespace-nowrap ${
                               isMemberAdmin 
-                                ? 'bg-blue-600/20 text-blue-300 border-blue-500/40' 
+                                ? 'bg-blue-600/20 text-blue-700 dark:text-blue-300 border-blue-500/40' 
                                 : isRegieOnlyMember
-                                ? 'bg-cyan-600/20 text-cyan-300 border-cyan-500/40'
-                                : 'bg-[#1C1C1E] text-gray-300 border-[#333]'
+                                ? 'bg-cyan-600/20 text-cyan-700 dark:text-cyan-300 border-cyan-500/40'
+                                : 'bg-[#EDF1F5] dark:bg-[#1C1C1E] text-slate-700 dark:text-gray-300 border-slate-300 dark:border-[#333]'
                             }`}>
                               {formatAccessSummary(memberAccesses)}
                             </span>
@@ -1124,7 +1124,7 @@ export const GroupManager: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <div className="p-3 text-center text-xs text-gray-500 bg-[#141416] rounded-lg border border-[#222228]">
+              <div className="p-3 text-center text-xs text-gray-500 bg-slate-50 dark:bg-[#141416] rounded-lg border border-slate-200 dark:border-[#222228]">
                 Aucun compte utilisateur enregistré dans la base pour le moment.
               </div>
             )}
@@ -1133,26 +1133,26 @@ export const GroupManager: React.FC = () => {
         </div>
 
       {/* Section : Rejoindre ou Créer une Bibliothèque (Deux colonnes sur laptop, deux lignes sur smartphone et tablette) */}
-      <div className="bg-[#111112] border border-[#222224] rounded-xl p-4 sm:p-5 mb-8 shadow-sm">
+      <div className="bg-white dark:bg-[#111112] border border-slate-200 dark:border-[#222224] rounded-xl p-4 sm:p-5 mb-8 shadow-sm">
         {/* Titre de section */}
-        <div className="flex items-center justify-between gap-3 pb-3 mb-4 border-b border-[#222224]">
+        <div className="flex items-center justify-between gap-3 pb-3 mb-4 border-b border-slate-200 dark:border-[#222224]">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
               <Library className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-white">Rejoindre ou Créer une Bibliothèque</h3>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Rejoindre ou Créer une Bibliothèque</h3>
             </div>
           </div>
         </div>
 
         {/* Grille : 2 colonnes en laptop (lg:), 2 lignes en smartphone et tablette (grid-cols-1) */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 divide-y lg:divide-y-0 lg:divide-x divide-[#222228]">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 divide-y lg:divide-y-0 lg:divide-x divide-slate-200 dark:divide-[#222228]">
           {/* Colonne / Ligne 1 : Rejoindre une bibliothèque existante */}
           <div className="space-y-3 pr-0 lg:pr-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                <KeyRound className="w-3.5 h-3.5 text-blue-400" />
+              <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <KeyRound className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                 Rejoindre une bibliothèque existante
               </span>
             </div>
@@ -1163,7 +1163,7 @@ export const GroupManager: React.FC = () => {
                 placeholder="Code exemple LOUAN7"
                 value={joinCodeInput}
                 onChange={(e) => setJoinCodeInput(e.target.value.toUpperCase())}
-                className="flex-1 bg-[#16161A] border border-[#2A2A32] rounded-lg px-3 py-1.5 text-center font-mono font-bold text-xs tracking-widest text-blue-400 placeholder-gray-600 focus:outline-none focus:border-blue-500"
+                className="flex-1 bg-slate-50 dark:bg-[#16161A] border border-slate-300 dark:border-[#2A2A32] rounded-lg px-3 py-1.5 text-center font-mono font-bold text-xs tracking-widest text-blue-600 dark:text-blue-400 placeholder-gray-600 focus:outline-none focus:border-blue-500"
                 maxLength={8}
                 required
               />
@@ -1177,7 +1177,7 @@ export const GroupManager: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsJoinQrScannerOpen(true)}
-                className="px-3 py-1.5 rounded-lg bg-[#18181E] hover:bg-[#22222C] border border-[#2E2E3A] text-cyan-300 hover:text-cyan-200 font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+                className="px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-[#18181E] hover:bg-slate-200/70 dark:hover:bg-[#22222C] border border-slate-300 dark:border-[#2E2E3A] text-cyan-700 dark:text-cyan-300 hover:text-cyan-800 dark:hover:text-cyan-200 font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
                 title="Scanner un QR code d'invitation membre"
               >
                 <QrCode className="w-3.5 h-3.5" />
@@ -1186,13 +1186,13 @@ export const GroupManager: React.FC = () => {
             </form>
 
             {joinStatus === 'success' && (
-              <div className="p-2 rounded-lg bg-emerald-500/15 text-emerald-300 text-xs font-semibold border border-emerald-500/30 text-center flex items-center justify-center gap-1.5">
+              <div className="p-2 rounded-lg bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-xs font-semibold border border-emerald-500/30 text-center flex items-center justify-center gap-1.5">
                 <Check className="w-3.5 h-3.5" />
                 <span>Bibliothèque rejointe avec succès !</span>
               </div>
             )}
             {joinStatus === 'error' && (
-              <div className="p-2 rounded-lg bg-rose-500/15 text-rose-300 text-xs font-semibold border border-rose-500/30 text-center">
+              <div className="p-2 rounded-lg bg-rose-500/15 text-rose-700 dark:text-rose-300 text-xs font-semibold border border-rose-500/30 text-center">
                 Code d'invitation introuvable.
               </div>
             )}
@@ -1201,8 +1201,8 @@ export const GroupManager: React.FC = () => {
           {/* Colonne / Ligne 2 : Créer une nouvelle bibliothèque */}
           <div className="space-y-3 pt-4 lg:pt-0 lg:pl-5">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                <Plus className="w-3.5 h-3.5 text-blue-400" />
+              <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <Plus className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                 Créer une nouvelle bibliothèque
               </span>
             </div>
@@ -1215,7 +1215,7 @@ export const GroupManager: React.FC = () => {
                     placeholder="Nom de la bibliothèque"
                     value={newGroupName}
                     onChange={(e) => setNewGroupName(e.target.value)}
-                    className="flex-1 bg-[#16161A] border border-[#2A2A32] rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                    className="flex-1 bg-slate-50 dark:bg-[#16161A] border border-slate-300 dark:border-[#2A2A32] rounded-lg px-2.5 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-blue-500"
                     required
                   />
                   <input
@@ -1223,7 +1223,7 @@ export const GroupManager: React.FC = () => {
                     placeholder="Description facultative"
                     value={newGroupDesc}
                     onChange={(e) => setNewGroupDesc(e.target.value)}
-                    className="flex-1 bg-[#16161A] border border-[#2A2A32] rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                    className="flex-1 bg-slate-50 dark:bg-[#16161A] border border-slate-300 dark:border-[#2A2A32] rounded-lg px-2.5 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-blue-500"
                   />
                 </div>
                 <button
@@ -1234,7 +1234,7 @@ export const GroupManager: React.FC = () => {
                   Créer la bibliothèque
                 </button>
                 {createStatus && (
-                  <div className="p-2 rounded-lg bg-emerald-500/15 text-emerald-300 text-xs font-semibold border border-emerald-500/30 text-center flex items-center justify-center gap-1.5">
+                  <div className="p-2 rounded-lg bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-xs font-semibold border border-emerald-500/30 text-center flex items-center justify-center gap-1.5">
                     <Check className="w-3.5 h-3.5" />
                     <span>{createStatus}</span>
                   </div>
@@ -1258,34 +1258,34 @@ export const GroupManager: React.FC = () => {
       {/* Modal de suppression de bibliothèque avec avertissement et options */}
       {libraryToDelete && (
         <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
-          <div className="bg-[#141418] border border-[#2E2E38] rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
+          <div className="bg-slate-50 dark:bg-[#141418] border border-slate-300 dark:border-[#2E2E38] rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
             {/* Header */}
             <div className="flex items-start gap-3.5">
-              <div className="w-10 h-10 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-600 dark:text-rose-400 shrink-0">
                 <Trash2 className="w-5 h-5" />
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-base font-bold text-white">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
                   Supprimer la bibliothèque ?
                 </h3>
-                <p className="text-xs text-gray-300 mt-0.5 truncate">
-                  « <strong className="text-white">{libraryToDelete.name}</strong> »
+                <p className="text-xs text-slate-700 dark:text-gray-300 mt-0.5 truncate">
+                  « <strong className="text-slate-900 dark:text-white">{libraryToDelete.name}</strong> »
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => !isDeletingLibrary && setLibraryToDelete(null)}
-                className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-[#202028] transition-colors cursor-pointer"
+                className="p-1 rounded-lg text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#202028] transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             {/* Avertissement */}
-            <div className="p-3 rounded-xl bg-rose-950/30 border border-rose-500/30 text-rose-200 text-xs flex items-start gap-2.5">
-              <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+            <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-500/30 text-rose-700 dark:text-rose-200 text-xs flex items-start gap-2.5">
+              <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
               <div className="leading-relaxed">
-                Cette action est <strong>irréversible</strong>. Les musiciens utilisant le code d'invitation <span className="font-mono font-bold text-white bg-black/40 px-1 py-0.5 rounded">{libraryToDelete.inviteCode}</span> ne pourront plus y accéder.
+                Cette action est <strong>irréversible</strong>. Les musiciens utilisant le code d'invitation <span className="font-mono font-bold text-slate-900 dark:text-white bg-black/40 px-1 py-0.5 rounded">{libraryToDelete.inviteCode}</span> ne pourront plus y accéder.
               </div>
             </div>
 
@@ -1294,17 +1294,17 @@ export const GroupManager: React.FC = () => {
               const songCount = songs.filter(s => s.groupId === libraryToDelete.id).length;
               const setlistCount = setlists.filter(st => st.groupId === libraryToDelete.id).length;
               return (
-                <div className="bg-[#0D0D10] border border-[#222228] rounded-xl p-3 text-xs space-y-2">
-                  <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                <div className="bg-[#F4F6F9] dark:bg-[#0D0D10] border border-slate-200 dark:border-[#222228] rounded-xl p-3 text-xs space-y-2">
+                  <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-600 dark:text-gray-400">
                     Contenu rattaché à cette bibliothèque :
                   </div>
-                  <div className="grid grid-cols-2 gap-2 text-gray-300">
-                    <div className="p-2 rounded-lg bg-[#16161C] border border-[#262632] flex items-center gap-2">
-                      <BookOpen className="w-3.5 h-3.5 text-blue-400" />
+                  <div className="grid grid-cols-2 gap-2 text-slate-700 dark:text-gray-300">
+                    <div className="p-2 rounded-lg bg-slate-50 dark:bg-[#16161C] border border-slate-300 dark:border-[#262632] flex items-center gap-2">
+                      <BookOpen className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                       <span><strong>{songCount}</strong> chant{songCount > 1 ? 's' : ''}</span>
                     </div>
-                    <div className="p-2 rounded-lg bg-[#16161C] border border-[#262632] flex items-center gap-2">
-                      <Layers className="w-3.5 h-3.5 text-blue-400" />
+                    <div className="p-2 rounded-lg bg-slate-50 dark:bg-[#16161C] border border-slate-300 dark:border-[#262632] flex items-center gap-2">
+                      <Layers className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                       <span><strong>{setlistCount}</strong> setlist{setlistCount > 1 ? 's' : ''}</span>
                     </div>
                   </div>
@@ -1314,9 +1314,9 @@ export const GroupManager: React.FC = () => {
                       type="checkbox"
                       checked={deleteAssociatedData}
                       onChange={(e) => setDeleteAssociatedData(e.target.checked)}
-                      className="w-4 h-4 rounded border-[#333] text-rose-600 focus:ring-0 focus:outline-none accent-rose-600 cursor-pointer"
+                      className="w-4 h-4 rounded border-slate-300 dark:border-[#333] text-rose-600 focus:ring-0 focus:outline-none accent-rose-600 cursor-pointer"
                     />
-                    <span className="text-[11px] text-gray-300">
+                    <span className="text-[11px] text-slate-700 dark:text-gray-300">
                       Supprimer également tous les chants et setlists rattachés
                     </span>
                   </label>
@@ -1325,12 +1325,12 @@ export const GroupManager: React.FC = () => {
             })()}
 
             {/* Actions */}
-            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-[#222228]">
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-200 dark:border-[#222228]">
               <button
                 type="button"
                 disabled={isDeletingLibrary}
                 onClick={() => setLibraryToDelete(null)}
-                className="px-3.5 py-2 rounded-xl bg-[#1E1E24] hover:bg-[#282832] text-gray-300 hover:text-white text-xs font-semibold transition-colors cursor-pointer"
+                className="px-3.5 py-2 rounded-xl bg-[#EDF1F5] dark:bg-[#1E1E24] hover:bg-slate-200 dark:hover:bg-[#282832] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white text-xs font-semibold transition-colors cursor-pointer"
               >
                 Annuler
               </button>
@@ -1375,32 +1375,32 @@ export const GroupManager: React.FC = () => {
       {/* Modal de confirmation suppression de comptes en masse */}
       {isBulkDeleteModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="w-full max-w-md bg-[#16161C] border border-[#2E2E3C] rounded-2xl p-5 sm:p-6 shadow-2xl space-y-4">
-            <div className="flex items-center gap-3 text-rose-400">
+          <div className="w-full max-w-md bg-slate-50 dark:bg-[#16161C] border border-slate-300 dark:border-[#2E2E3C] rounded-2xl p-5 sm:p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-rose-600 dark:text-rose-400">
               <div className="w-10 h-10 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center shrink-0">
-                <AlertTriangle className="w-5 h-5 text-rose-400" />
+                <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-400" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-white">Supprimer {selectedUserUids.length} compte{selectedUserUids.length > 1 ? 's' : ''} ?</h3>
-                <p className="text-xs text-gray-400">Action irréversible sur la base de données</p>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">Supprimer {selectedUserUids.length} compte{selectedUserUids.length > 1 ? 's' : ''} ?</h3>
+                <p className="text-xs text-slate-600 dark:text-gray-400">Action irréversible sur la base de données</p>
               </div>
             </div>
 
-            <p className="text-xs text-gray-300 leading-relaxed">
+            <p className="text-xs text-slate-700 dark:text-gray-300 leading-relaxed">
               Les comptes sélectionnés seront définitivement supprimés et automatiquement retirés de toutes les bibliothèques partagées.
             </p>
 
             {currentUser && selectedUserUids.includes(currentUser.uid) && (
-              <div className="p-2.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[11px]">
+              <div className="p-2.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-[11px]">
                 Information : votre propre compte actif restera préservé et ne sera pas supprimé.
               </div>
             )}
 
-            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-[#262634]">
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-300 dark:border-[#262634]">
               <button
                 type="button"
                 onClick={() => setIsBulkDeleteModalOpen(false)}
-                className="px-3.5 py-1.5 rounded-lg bg-[#202028] hover:bg-[#2A2A34] text-gray-300 hover:text-white text-xs font-semibold transition-colors cursor-pointer"
+                className="px-3.5 py-1.5 rounded-lg bg-[#EDF1F5] dark:bg-[#202028] hover:bg-slate-200 dark:hover:bg-[#2A2A34] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white text-xs font-semibold transition-colors cursor-pointer"
               >
                 Annuler
               </button>

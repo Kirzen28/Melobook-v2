@@ -242,12 +242,12 @@ export const GuestQrScannerModal: React.FC<GuestQrScannerModalProps> = ({
       aria-modal="true"
       aria-label={isMember ? "Scanner un QR code d'invitation" : "Scanner le QR code d'une bibliothèque"}
     >
-      <div className="w-full max-w-md bg-[#121215] border border-[#282832] rounded-2xl overflow-hidden shadow-2xl">
+      <div className="w-full max-w-md bg-white dark:bg-[#121215] border border-slate-300 dark:border-[#282832] rounded-2xl overflow-hidden shadow-2xl">
         {/* Header */}
-        <div className="px-4 py-3.5 bg-[#16161B] border-b border-[#24242E] flex items-center justify-between gap-2">
+        <div className="px-4 py-3.5 bg-slate-50 dark:bg-[#16161B] border-b border-slate-200 dark:border-[#24242E] flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <QrCode className={`w-4 h-4 shrink-0 ${isMember ? 'text-blue-400' : 'text-cyan-400'}`} />
-            <h3 className="text-sm font-bold text-white truncate">
+            <QrCode className={`w-4 h-4 shrink-0 ${isMember ? 'text-blue-600 dark:text-blue-400' : 'text-cyan-700 dark:text-cyan-400'}`} />
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white truncate">
               {isMember ? "Scanner le QR code d'une bibliothèque" : "Scanner le QR code d'une bibliothèque"}
             </h3>
           </div>
@@ -256,7 +256,7 @@ export const GuestQrScannerModal: React.FC<GuestQrScannerModalProps> = ({
               <button
                 type="button"
                 onClick={() => setFacingMode((prev) => (prev === 'environment' ? 'user' : 'environment'))}
-                className="p-1.5 rounded-lg bg-[#1E1E26] hover:bg-[#2A2A35] text-gray-300 hover:text-white border border-[#30303C] transition-colors cursor-pointer"
+                className="p-1.5 rounded-lg bg-[#EDF1F5] dark:bg-[#1E1E26] hover:bg-slate-200 dark:hover:bg-[#2A2A35] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-[#30303C] transition-colors cursor-pointer"
                 title="Changer de caméra"
                 aria-label="Changer de caméra"
               >
@@ -269,7 +269,7 @@ export const GuestQrScannerModal: React.FC<GuestQrScannerModalProps> = ({
                 stopCamera();
                 onClose();
               }}
-              className="p-1.5 rounded-lg bg-[#1E1E26] hover:bg-[#2A2A35] text-gray-300 hover:text-white border border-[#30303C] transition-colors cursor-pointer"
+              className="p-1.5 rounded-lg bg-[#EDF1F5] dark:bg-[#1E1E26] hover:bg-slate-200 dark:hover:bg-[#2A2A35] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-[#30303C] transition-colors cursor-pointer"
               aria-label="Fermer le scanner"
             >
               <X className="w-4 h-4" />
@@ -280,7 +280,7 @@ export const GuestQrScannerModal: React.FC<GuestQrScannerModalProps> = ({
         {/* Body */}
         <div className="p-4 space-y-3.5">
           {/* Camera Preview Box */}
-          <div className="relative aspect-square max-h-[300px] w-full mx-auto rounded-xl overflow-hidden bg-[#09090B] border border-[#262630] flex items-center justify-center">
+          <div className="relative aspect-square max-h-[300px] w-full mx-auto rounded-xl overflow-hidden bg-[#F4F6F9] dark:bg-[#09090B] border border-slate-300 dark:border-[#262630] flex items-center justify-center">
             <video
               ref={videoRef}
               playsInline
@@ -302,18 +302,18 @@ export const GuestQrScannerModal: React.FC<GuestQrScannerModalProps> = ({
             )}
 
             {cameraState === 'starting' && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-gray-400 text-xs p-4 text-center">
-                <RefreshCw className="w-5 h-5 animate-spin text-cyan-400" />
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-slate-600 dark:text-gray-400 text-xs p-4 text-center">
+                <RefreshCw className="w-5 h-5 animate-spin text-cyan-700 dark:text-cyan-400" />
                 <span>Démarrage de la caméra...</span>
               </div>
             )}
 
             {cameraState === 'error' && (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 text-center p-5">
-                <div className="w-10 h-10 rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                <div className="w-10 h-10 rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400">
                   <Camera className="w-5 h-5" />
                 </div>
-                <p className="text-xs text-gray-300 leading-relaxed max-w-xs">
+                <p className="text-xs text-slate-700 dark:text-gray-300 leading-relaxed max-w-xs">
                   {errorText}
                 </p>
               </div>
@@ -321,13 +321,13 @@ export const GuestQrScannerModal: React.FC<GuestQrScannerModalProps> = ({
           </div>
 
           {scanFeedback && (
-            <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" />
+            <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-xs flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
               <span>{scanFeedback}</span>
             </div>
           )}
 
-          <p className="text-[11px] text-gray-400 text-center leading-relaxed">
+          <p className="text-[11px] text-slate-600 dark:text-gray-400 text-center leading-relaxed">
             {isMember
               ? "Pointez la caméra vers le QR code partagé pour rejoindre cette bibliothèque."
               : "Pointez la caméra vers le QR code de la bibliothèque pour consulter chants et setlists en lecture seule."}
@@ -345,9 +345,9 @@ export const GuestQrScannerModal: React.FC<GuestQrScannerModalProps> = ({
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="flex-1 py-2 px-3 rounded-xl bg-[#1A1A22] hover:bg-[#24242E] text-gray-200 border border-[#2E2E3A] text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+              className="flex-1 py-2 px-3 rounded-xl bg-[#EDF1F5] dark:bg-[#1A1A22] hover:bg-slate-200 dark:hover:bg-[#24242E] text-slate-800 dark:text-gray-200 border border-slate-300 dark:border-[#2E2E3A] text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
             >
-              <Upload className="w-3.5 h-3.5 text-cyan-400" />
+              <Upload className="w-3.5 h-3.5 text-cyan-700 dark:text-cyan-400" />
               <span>Importer une image QR</span>
             </button>
             <button
@@ -356,7 +356,7 @@ export const GuestQrScannerModal: React.FC<GuestQrScannerModalProps> = ({
                 stopCamera();
                 onClose();
               }}
-              className="py-2 px-3.5 rounded-xl bg-[#18181D] hover:bg-[#22222A] text-gray-400 hover:text-white border border-[#282832] text-xs font-medium transition-colors cursor-pointer"
+              className="py-2 px-3.5 rounded-xl bg-slate-50 dark:bg-[#18181D] hover:bg-slate-200/70 dark:hover:bg-[#22222A] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-[#282832] text-xs font-medium transition-colors cursor-pointer"
             >
               Annuler
             </button>

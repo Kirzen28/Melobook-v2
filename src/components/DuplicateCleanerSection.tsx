@@ -471,26 +471,26 @@ export const DuplicateCleanerSection: React.FC<DuplicateCleanerSectionProps> = (
   };
 
   return (
-    <div className="bg-[#111112] border border-[#222224] rounded-xl overflow-hidden shadow-sm transition-colors hover:border-[#303036]">
+    <div className="bg-white dark:bg-[#111112] border border-slate-200 dark:border-[#222224] rounded-xl overflow-hidden shadow-sm transition-colors hover:border-slate-400 dark:hover:border-[#303036]">
       {/* En-tête de section */}
       <div 
         onClick={onToggle}
         className={`w-full text-left p-3.5 sm:p-4.5 flex items-center justify-between gap-3 ${
-          onToggle ? 'cursor-pointer hover:bg-[#151518]/50' : ''
+          onToggle ? 'cursor-pointer hover:bg-slate-100/50 dark:hover:bg-[#151518]/50' : ''
         } transition-colors select-none`}
       >
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-8 h-8 rounded-lg bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 shrink-0">
+          <div className="w-8 h-8 rounded-lg bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-600 dark:text-rose-400 shrink-0">
             <Copy className="w-4 h-4" />
           </div>
-          <h2 className="text-sm font-bold text-white truncate">
+          <h2 className="text-sm font-bold text-slate-900 dark:text-white truncate">
             Nettoyage des Doublons
           </h2>
         </div>
 
         {onToggle && (
           <div className="flex items-center gap-2 shrink-0">
-            <div className={`p-1.5 rounded-lg bg-[#18181C] border border-[#2B2B30] text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180 text-rose-400 border-rose-500/30' : ''}`}>
+            <div className={`p-1.5 rounded-lg bg-slate-50 dark:bg-[#18181C] border border-slate-300 dark:border-[#2B2B30] text-slate-600 dark:text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180 text-rose-600 dark:text-rose-400 border-rose-500/30' : ''}`}>
               <ChevronDown className="w-4 h-4" />
             </div>
           </div>
@@ -499,25 +499,25 @@ export const DuplicateCleanerSection: React.FC<DuplicateCleanerSectionProps> = (
 
       {/* Contenu de la section (pliable sur tous les appareils) */}
       <div className={`p-4 sm:p-5 pt-0 sm:pt-0 ${isOpen ? 'block' : 'hidden'}`}>
-        <div className="border-t border-[#222224] mb-4" />
+        <div className="border-t border-slate-200 dark:border-[#222224] mb-4" />
 
         {/* Sélecteur de cible : Chants / Artistes / Catégories */}
-        <div className="flex flex-wrap items-center justify-between gap-2.5 pb-3 mb-4 border-b border-[#1E1E22]">
-          <div className="flex items-center bg-[#18181A] border border-[#2B2B30] rounded-lg p-0.5 text-xs">
+        <div className="flex flex-wrap items-center justify-between gap-2.5 pb-3 mb-4 border-b border-slate-200 dark:border-[#1E1E22]">
+          <div className="flex items-center bg-slate-50 dark:bg-[#18181A] border border-slate-300 dark:border-[#2B2B30] rounded-lg p-0.5 text-xs">
             <button
               type="button"
               onClick={() => setActiveTab('songs')}
               className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
                 activeTab === 'songs'
                   ? 'bg-rose-600 text-white shadow-xs'
-                  : 'text-gray-400 hover:text-white'
+                  : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               <Music className="w-3.5 h-3.5" />
               <span>Chants</span>
               {duplicateGroups.length > 0 && (
                 <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-                  activeTab === 'songs' ? 'bg-black/25 text-white' : 'bg-rose-500/20 text-rose-300'
+                  activeTab === 'songs' ? 'bg-black/25 text-slate-900 dark:text-white' : 'bg-rose-500/20 text-rose-700 dark:text-rose-300'
                 }`}>
                   {duplicateGroups.length}
                 </span>
@@ -529,14 +529,14 @@ export const DuplicateCleanerSection: React.FC<DuplicateCleanerSectionProps> = (
               className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
                 activeTab === 'artists'
                   ? 'bg-rose-600 text-white shadow-xs'
-                  : 'text-gray-400 hover:text-white'
+                  : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               <Users className="w-3.5 h-3.5" />
               <span>Artistes</span>
               {artistDuplicateGroups.length > 0 && (
                 <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-                  activeTab === 'artists' ? 'bg-black/25 text-white' : 'bg-amber-500/20 text-amber-300'
+                  activeTab === 'artists' ? 'bg-black/25 text-slate-900 dark:text-white' : 'bg-amber-500/20 text-amber-700 dark:text-amber-300'
                 }`}>
                   {artistDuplicateGroups.length}
                 </span>
@@ -548,14 +548,14 @@ export const DuplicateCleanerSection: React.FC<DuplicateCleanerSectionProps> = (
               className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
                 activeTab === 'categories'
                   ? 'bg-rose-600 text-white shadow-xs'
-                  : 'text-gray-400 hover:text-white'
+                  : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               <Tag className="w-3.5 h-3.5" />
               <span>Catégories</span>
               {categoryDuplicateGroups.length > 0 && (
                 <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-                  activeTab === 'categories' ? 'bg-black/25 text-white' : 'bg-amber-500/20 text-amber-300'
+                  activeTab === 'categories' ? 'bg-black/25 text-slate-900 dark:text-white' : 'bg-amber-500/20 text-amber-700 dark:text-amber-300'
                 }`}>
                   {categoryDuplicateGroups.length}
                 </span>
@@ -566,15 +566,15 @@ export const DuplicateCleanerSection: React.FC<DuplicateCleanerSectionProps> = (
           {/* Critère de détection selon l'onglet */}
           {activeTab === 'songs' ? (
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-[11px] text-gray-400 font-medium">Critère :</span>
-              <div className="flex items-center bg-[#18181A] border border-[#2B2B30] rounded-lg p-0.5 text-xs">
+              <span className="text-[11px] text-slate-600 dark:text-gray-400 font-medium">Critère :</span>
+              <div className="flex items-center bg-slate-50 dark:bg-[#18181A] border border-slate-300 dark:border-[#2B2B30] rounded-lg p-0.5 text-xs">
                 <button
                   type="button"
                   onClick={() => setCriteria('title_only')}
                   className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
                     criteria === 'title_only'
                       ? 'bg-blue-600 text-white shadow-xs'
-                      : 'text-gray-400 hover:text-white'
+                      : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                   title="Compare les titres uniquement sans tenir compte de la casse ni des accents"
                 >
@@ -586,7 +586,7 @@ export const DuplicateCleanerSection: React.FC<DuplicateCleanerSectionProps> = (
                   className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
                     criteria === 'title_and_artist'
                       ? 'bg-blue-600 text-white shadow-xs'
-                      : 'text-gray-400 hover:text-white'
+                      : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                   title="Compare le titre et l'artiste"
                 >
@@ -598,7 +598,7 @@ export const DuplicateCleanerSection: React.FC<DuplicateCleanerSectionProps> = (
                   className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
                     criteria === 'similar_content'
                       ? 'bg-blue-600 text-white shadow-xs'
-                      : 'text-gray-400 hover:text-white'
+                      : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                   title="Compare le début des paroles pour détecter les copies identiques"
                 >
@@ -608,15 +608,15 @@ export const DuplicateCleanerSection: React.FC<DuplicateCleanerSectionProps> = (
             </div>
           ) : (
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-[11px] text-gray-400 font-medium">Détection :</span>
-              <div className="flex items-center bg-[#18181A] border border-[#2B2B30] rounded-lg p-0.5 text-xs">
+              <span className="text-[11px] text-slate-600 dark:text-gray-400 font-medium">Détection :</span>
+              <div className="flex items-center bg-slate-50 dark:bg-[#18181A] border border-slate-300 dark:border-[#2B2B30] rounded-lg p-0.5 text-xs">
                 <button
                   type="button"
                   onClick={() => setNameMatchMode('exact_norm')}
                   className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
                     nameMatchMode === 'exact_norm'
                       ? 'bg-blue-600 text-white shadow-xs'
-                      : 'text-gray-400 hover:text-white'
+                      : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                   title="Détecte les différences de majuscules, accents, espaces ou tirets"
                 >
@@ -628,7 +628,7 @@ export const DuplicateCleanerSection: React.FC<DuplicateCleanerSectionProps> = (
                   className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
                     nameMatchMode === 'similar'
                       ? 'bg-blue-600 text-white shadow-xs'
-                      : 'text-gray-400 hover:text-white'
+                      : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                   title="Inclut les pluriels et légères fautes de frappe"
                 >
@@ -641,7 +641,7 @@ export const DuplicateCleanerSection: React.FC<DuplicateCleanerSectionProps> = (
 
       {/* Notification de résultat */}
       {lastCleanResult && (
-        <div className="mb-4 p-3 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2 animate-in fade-in duration-200">
+        <div className="mb-4 p-3 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs flex items-center gap-2 animate-in fade-in duration-200">
           <CheckCircle2 className="w-4 h-4 shrink-0" />
           <span>{lastCleanResult}</span>
         </div>
@@ -650,14 +650,14 @@ export const DuplicateCleanerSection: React.FC<DuplicateCleanerSectionProps> = (
       {/* CONTENU ONGLET CHANTS */}
       {activeTab === 'songs' && (
       duplicateGroups.length === 0 ? (
-        <div className="p-6 rounded-xl bg-[#151518] border border-[#252528] text-center flex flex-col items-center justify-center">
-          <div className="w-10 h-10 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mb-2.5">
+        <div className="p-6 rounded-xl bg-slate-50 dark:bg-[#151518] border border-slate-200 dark:border-[#252528] text-center flex flex-col items-center justify-center">
+          <div className="w-10 h-10 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 mb-2.5">
             <CheckCircle2 className="w-5 h-5" />
           </div>
-          <h3 className="text-sm font-bold text-white mb-1">
+          <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-1">
             Aucun doublon détecté
           </h3>
-          <p className="text-xs text-gray-400 max-w-md">
+          <p className="text-xs text-slate-600 dark:text-gray-400 max-w-md">
             L'analyse des {songs.length} chants de votre bibliothèque n'a révélé aucun titre en double avec le filtre actif.
           </p>
         </div>
@@ -666,24 +666,24 @@ export const DuplicateCleanerSection: React.FC<DuplicateCleanerSectionProps> = (
         <div className="space-y-4">
           
           {/* Barre d'action supérieure */}
-          <div className="p-3 rounded-lg bg-[#18181A] border border-[#28282D] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#18181A] border border-slate-300 dark:border-[#28282D] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs text-gray-300 font-medium">
-                <strong className="text-rose-400 font-bold">{totalToDeleteCount}</strong> doublons sélectionnés pour suppression
+              <span className="text-xs text-slate-700 dark:text-gray-300 font-medium">
+                <strong className="text-rose-600 dark:text-rose-400 font-bold">{totalToDeleteCount}</strong> doublons sélectionnés pour suppression
               </span>
               <span className="text-gray-500">•</span>
               <button
                 type="button"
                 onClick={() => handleToggleSelectAll(true)}
-                className="text-[11px] text-blue-400 hover:text-blue-300 hover:underline cursor-pointer"
+                className="text-[11px] text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline cursor-pointer"
               >
                 Tout cocher
               </button>
-              <span className="text-gray-600">|</span>
+              <span className="text-slate-500 dark:text-gray-600">|</span>
               <button
                 type="button"
                 onClick={() => handleToggleSelectAll(false)}
-                className="text-[11px] text-gray-400 hover:text-gray-200 hover:underline cursor-pointer"
+                className="text-[11px] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200 hover:underline cursor-pointer"
               >
                 Tout décocher
               </button>
@@ -691,12 +691,12 @@ export const DuplicateCleanerSection: React.FC<DuplicateCleanerSectionProps> = (
 
             <div className="flex items-center gap-3">
               {/* Option préservation des listes */}
-              <label className="flex items-center gap-1.5 text-[11px] text-gray-300 cursor-pointer select-none">
+              <label className="flex items-center gap-1.5 text-[11px] text-slate-700 dark:text-gray-300 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={migrateSetlists}
                   onChange={(e) => setMigrateSetlists(e.target.checked)}
-                  className="rounded border-[#444] bg-[#222] text-blue-600 focus:ring-0 w-3.5 h-3.5"
+                  className="rounded border-slate-300 dark:border-[#444] bg-[#EDF1F5] dark:bg-[#222] text-blue-600 focus:ring-0 w-3.5 h-3.5"
                 />
                 <span>Préserver les listes en remplaçant par la version gardée</span>
               </label>
@@ -723,23 +723,23 @@ export const DuplicateCleanerSection: React.FC<DuplicateCleanerSectionProps> = (
               return (
                 <div
                   key={group.id}
-                  className="rounded-xl bg-[#141416] border border-[#252528] overflow-hidden"
+                  className="rounded-xl bg-slate-50 dark:bg-[#141416] border border-slate-200 dark:border-[#252528] overflow-hidden"
                 >
                   {/* Barre de titre du groupe */}
                   <div
                     onClick={() => setUserCollapsedGroups(prev => ({ ...prev, [group.id]: !prev[group.id] }))}
-                    className="px-3.5 py-2.5 bg-[#18181C] border-b border-[#222226] flex items-center justify-between cursor-pointer hover:bg-[#1C1C20] transition-colors"
+                    className="px-3.5 py-2.5 bg-slate-50 dark:bg-[#18181C] border-b border-slate-200 dark:border-[#222226] flex items-center justify-between cursor-pointer hover:bg-slate-200/70 dark:hover:bg-[#1C1C20] transition-colors"
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-5 h-5 rounded bg-amber-500/20 text-amber-300 flex items-center justify-center text-[10px] font-bold shrink-0">
+                      <div className="w-5 h-5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 flex items-center justify-center text-[10px] font-bold shrink-0">
                         {group.songs.length}
                       </div>
                       <div className="truncate">
-                        <span className="font-bold text-white text-xs">
+                        <span className="font-bold text-slate-900 dark:text-white text-xs">
                           {group.songs[0].title}
                         </span>
                         {group.songs[0].artist && (
-                          <span className="text-[11px] text-gray-400 ml-2">
+                          <span className="text-[11px] text-slate-600 dark:text-gray-400 ml-2">
                             • {group.songs[0].artist}
                           </span>
                         )}
@@ -747,13 +747,13 @@ export const DuplicateCleanerSection: React.FC<DuplicateCleanerSectionProps> = (
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-[10px] text-gray-400 hidden sm:inline">
+                      <span className="text-[10px] text-slate-600 dark:text-gray-400 hidden sm:inline">
                         1 conservé • {group.songs.length - 1} doublons
                       </span>
                       {isExpanded ? (
-                        <ChevronUp className="w-4 h-4 text-gray-400" />
+                        <ChevronUp className="w-4 h-4 text-slate-600 dark:text-gray-400" />
                       ) : (
-                        <ChevronDown className="w-4 h-4 text-gray-400" />
+                        <ChevronDown className="w-4 h-4 text-slate-600 dark:text-gray-400" />
                       )}
                     </div>
                   </div>
@@ -773,10 +773,10 @@ export const DuplicateCleanerSection: React.FC<DuplicateCleanerSectionProps> = (
                             key={song.id}
                             className={`p-2.5 rounded-lg border transition-all ${
                               isKept
-                                ? 'bg-emerald-950/20 border-emerald-500/40'
+                                ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-500/40'
                                 : isMarkedForDelete
-                                ? 'bg-rose-950/15 border-rose-500/30'
-                                : 'bg-[#18181A] border-[#2A2A2E]'
+                                ? 'bg-rose-50 dark:bg-rose-950/15 border-rose-500/30'
+                                : 'bg-slate-50 dark:bg-[#18181A] border-slate-300 dark:border-[#2A2A2E]'
                             }`}
                           >
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -798,29 +798,29 @@ export const DuplicateCleanerSection: React.FC<DuplicateCleanerSectionProps> = (
 
                                 <div className="min-w-0">
                                   <div className="flex items-center gap-1.5 flex-wrap">
-                                    <span className="font-semibold text-white text-xs truncate">
+                                    <span className="font-semibold text-slate-900 dark:text-white text-xs truncate">
                                       {song.title}
                                     </span>
                                     {isKept && (
-                                      <span className="px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9px] font-bold">
+                                      <span className="px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 text-[9px] font-bold">
                                         À CONSERVER
                                       </span>
                                     )}
                                     {isRecommended && (
-                                      <span className="px-1.5 py-0.2 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30 text-[9px] font-medium" title="Version la plus complète">
+                                      <span className="px-1.5 py-0.2 rounded bg-blue-500/20 text-blue-700 dark:text-blue-300 border border-blue-500/30 text-[9px] font-medium" title="Version la plus complète">
                                         Plus complet
                                       </span>
                                     )}
                                   </div>
 
                                   {/* Métadonnées */}
-                                  <div className="flex items-center gap-2 mt-1 text-[10px] text-gray-400 flex-wrap">
-                                    {song.artist && <span>Artiste : <strong className="text-gray-300">{song.artist}</strong></span>}
-                                    {song.key && <span>Tonalité : <strong className="text-amber-400 font-mono">{song.key}</strong></span>}
-                                    {song.tempo ? <span>Tempo : <strong className="text-gray-300">{song.tempo} bpm</strong></span> : null}
-                                    <span>Lignes : <strong className="text-gray-300">{(song.contentChordPro || '').split('\n').length}</strong></span>
+                                  <div className="flex items-center gap-2 mt-1 text-[10px] text-slate-600 dark:text-gray-400 flex-wrap">
+                                    {song.artist && <span>Artiste : <strong className="text-slate-700 dark:text-gray-300">{song.artist}</strong></span>}
+                                    {song.key && <span>Tonalité : <strong className="text-amber-600 dark:text-amber-400 font-mono">{song.key}</strong></span>}
+                                    {song.tempo ? <span>Tempo : <strong className="text-slate-700 dark:text-gray-300">{song.tempo} bpm</strong></span> : null}
+                                    <span>Lignes : <strong className="text-slate-700 dark:text-gray-300">{(song.contentChordPro || '').split('\n').length}</strong></span>
                                     {inSetlists.length > 0 && (
-                                      <span className="text-cyan-400 flex items-center gap-0.5">
+                                      <span className="text-cyan-700 dark:text-cyan-400 flex items-center gap-0.5">
                                         <ListMusic className="w-2.5 h-2.5" />
                                         Dans {inSetlists.length} listes
                                       </span>
@@ -835,10 +835,10 @@ export const DuplicateCleanerSection: React.FC<DuplicateCleanerSectionProps> = (
                                 <button
                                   type="button"
                                   onClick={() => setPreviewSongId(isPreviewOpen ? null : song.id)}
-                                  className="p-1 rounded bg-[#222226] hover:bg-[#2C2C30] text-gray-300 hover:text-white border border-[#333] text-[11px] flex items-center gap-1 transition-colors cursor-pointer"
+                                  className="p-1 rounded bg-[#EDF1F5] dark:bg-[#222226] hover:bg-slate-200 dark:hover:bg-[#2C2C30] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-[#333] text-[11px] flex items-center gap-1 transition-colors cursor-pointer"
                                   title="Aperçu du contenu"
                                 >
-                                  {isPreviewOpen ? <EyeOff className="w-3 h-3 text-blue-400" /> : <Eye className="w-3 h-3 text-gray-400" />}
+                                  {isPreviewOpen ? <EyeOff className="w-3 h-3 text-blue-600 dark:text-blue-400" /> : <Eye className="w-3 h-3 text-slate-600 dark:text-gray-400" />}
                                   <span className="hidden sm:inline">Aperçu</span>
                                 </button>
 
@@ -848,8 +848,8 @@ export const DuplicateCleanerSection: React.FC<DuplicateCleanerSectionProps> = (
                                     onClick={() => handleToggleSongDelete(song.id, group.id)}
                                     className={`px-2 py-1 rounded text-[11px] font-semibold border flex items-center gap-1.5 cursor-pointer transition-colors ${
                                       isMarkedForDelete
-                                        ? 'bg-rose-600/20 text-rose-300 border-rose-500/40 hover:bg-rose-600/30'
-                                        : 'bg-[#222] text-gray-400 border-[#333] hover:text-white'
+                                        ? 'bg-rose-600/20 text-rose-700 dark:text-rose-300 border-rose-500/40 hover:bg-rose-600/30'
+                                        : 'bg-[#EDF1F5] dark:bg-[#222] text-slate-600 dark:text-gray-400 border-slate-300 dark:border-[#333] hover:text-slate-900 dark:hover:text-white'
                                     }`}
                                   >
                                     <input
@@ -867,7 +867,7 @@ export const DuplicateCleanerSection: React.FC<DuplicateCleanerSectionProps> = (
 
                             {/* Tiroir d'aperçu paroles / accords */}
                             {isPreviewOpen && (
-                              <div className="mt-2.5 pt-2 border-t border-[#26262B] text-xs font-mono text-gray-300 bg-[#0E0E10] p-2.5 rounded-md max-h-48 overflow-y-auto leading-relaxed whitespace-pre-wrap select-text">
+                              <div className="mt-2.5 pt-2 border-t border-slate-200 dark:border-[#26262B] text-xs font-mono text-slate-700 dark:text-gray-300 bg-white dark:bg-[#0E0E10] p-2.5 rounded-md max-h-48 overflow-y-auto leading-relaxed whitespace-pre-wrap select-text">
                                 {song.contentChordPro || 'Aucun contenu'}
                               </div>
                             )}
@@ -887,40 +887,40 @@ export const DuplicateCleanerSection: React.FC<DuplicateCleanerSectionProps> = (
       {/* CONTENU ONGLET ARTISTES / CATÉGORIES */}
       {(activeTab === 'artists' || activeTab === 'categories') && (
         activeNameGroups.length === 0 ? (
-          <div className="p-6 rounded-xl bg-[#151518] border border-[#252528] text-center flex flex-col items-center justify-center">
-            <div className="w-10 h-10 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mb-2.5">
+          <div className="p-6 rounded-xl bg-slate-50 dark:bg-[#151518] border border-slate-200 dark:border-[#252528] text-center flex flex-col items-center justify-center">
+            <div className="w-10 h-10 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 mb-2.5">
               <CheckCircle2 className="w-5 h-5" />
             </div>
-            <h3 className="text-sm font-bold text-white mb-1">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-1">
               {activeTab === 'artists'
                 ? "Aucun doublon d'artiste détecté"
                 : 'Aucune catégorie en double détectée'}
             </h3>
-            <p className="text-xs text-gray-400 max-w-md">
+            <p className="text-xs text-slate-600 dark:text-gray-400 max-w-md">
               L'analyse de {activeUniqueCount} {activeTab === 'artists' ? 'artistes' : 'catégories'} sur {songs.length} chants n'a révélé aucune variante en double avec ce critère.
             </p>
           </div>
         ) : (
           <div className="space-y-4">
             {/* Barre d'action supérieure */}
-            <div className="p-3 rounded-lg bg-[#18181A] border border-[#28282D] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#18181A] border border-slate-300 dark:border-[#28282D] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs text-gray-300 font-medium">
-                  <strong className="text-amber-400 font-bold">{totalVariantsToMergeCount}</strong> variante(s) sélectionnée(s) pour fusion
+                <span className="text-xs text-slate-700 dark:text-gray-300 font-medium">
+                  <strong className="text-amber-600 dark:text-amber-400 font-bold">{totalVariantsToMergeCount}</strong> variante(s) sélectionnée(s) pour fusion
                 </span>
                 <span className="text-gray-500">•</span>
                 <button
                   type="button"
                   onClick={() => handleToggleSelectAllVariants(true)}
-                  className="text-[11px] text-blue-400 hover:text-blue-300 hover:underline cursor-pointer"
+                  className="text-[11px] text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline cursor-pointer"
                 >
                   Tout cocher
                 </button>
-                <span className="text-gray-600">|</span>
+                <span className="text-slate-500 dark:text-gray-600">|</span>
                 <button
                   type="button"
                   onClick={() => handleToggleSelectAllVariants(false)}
-                  className="text-[11px] text-gray-400 hover:text-gray-200 hover:underline cursor-pointer"
+                  className="text-[11px] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200 hover:underline cursor-pointer"
                 >
                   Tout décocher
                 </button>
@@ -946,29 +946,29 @@ export const DuplicateCleanerSection: React.FC<DuplicateCleanerSectionProps> = (
                 return (
                   <div
                     key={group.id}
-                    className="rounded-xl bg-[#141416] border border-[#252528] overflow-hidden"
+                    className="rounded-xl bg-slate-50 dark:bg-[#141416] border border-slate-200 dark:border-[#252528] overflow-hidden"
                   >
                     <div
                       onClick={() => setNameCollapsedGroups(prev => ({ ...prev, [group.id]: !prev[group.id] }))}
-                      className="px-3.5 py-2.5 bg-[#18181C] border-b border-[#222226] flex items-center justify-between cursor-pointer hover:bg-[#1C1C20] transition-colors"
+                      className="px-3.5 py-2.5 bg-slate-50 dark:bg-[#18181C] border-b border-slate-200 dark:border-[#222226] flex items-center justify-between cursor-pointer hover:bg-slate-200/70 dark:hover:bg-[#1C1C20] transition-colors"
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-5 h-5 rounded bg-amber-500/20 text-amber-300 flex items-center justify-center text-[10px] font-bold shrink-0">
+                        <div className="w-5 h-5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 flex items-center justify-center text-[10px] font-bold shrink-0">
                           {group.variants.length}
                         </div>
-                        <span className="font-bold text-white text-xs truncate">
+                        <span className="font-bold text-slate-900 dark:text-white text-xs truncate">
                           {keepName}
                         </span>
                       </div>
 
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-[10px] text-gray-400 hidden sm:inline">
+                        <span className="text-[10px] text-slate-600 dark:text-gray-400 hidden sm:inline">
                           1 conservé • {group.variants.length - 1} variante(s)
                         </span>
                         {isExpanded ? (
-                          <ChevronUp className="w-4 h-4 text-gray-400" />
+                          <ChevronUp className="w-4 h-4 text-slate-600 dark:text-gray-400" />
                         ) : (
-                          <ChevronDown className="w-4 h-4 text-gray-400" />
+                          <ChevronDown className="w-4 h-4 text-slate-600 dark:text-gray-400" />
                         )}
                       </div>
                     </div>
@@ -985,10 +985,10 @@ export const DuplicateCleanerSection: React.FC<DuplicateCleanerSectionProps> = (
                               key={variant.name}
                               className={`p-2.5 rounded-lg border transition-all flex items-center justify-between gap-2 ${
                                 isKept
-                                  ? 'bg-emerald-950/20 border-emerald-500/40'
+                                  ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-500/40'
                                   : isMarked
-                                  ? 'bg-rose-950/15 border-rose-500/30'
-                                  : 'bg-[#18181A] border-[#2A2A2E]'
+                                  ? 'bg-rose-50 dark:bg-rose-950/15 border-rose-500/30'
+                                  : 'bg-slate-50 dark:bg-[#18181A] border-slate-300 dark:border-[#2A2A2E]'
                               }`}
                             >
                               <div className="flex items-center gap-2.5 min-w-0">
@@ -1007,32 +1007,32 @@ export const DuplicateCleanerSection: React.FC<DuplicateCleanerSectionProps> = (
 
                                 <div className="min-w-0">
                                   <div className="flex items-center gap-1.5 flex-wrap">
-                                    <span className="font-semibold text-white text-xs truncate">
+                                    <span className="font-semibold text-slate-900 dark:text-white text-xs truncate">
                                       {variant.name}
                                     </span>
                                     {isKept && (
-                                      <span className="px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9px] font-bold">
+                                      <span className="px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 text-[9px] font-bold">
                                         À CONSERVER
                                       </span>
                                     )}
                                     {isRecommended && (
-                                      <span className="px-1.5 py-0.2 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30 text-[9px] font-medium">
+                                      <span className="px-1.5 py-0.2 rounded bg-blue-500/20 text-blue-700 dark:text-blue-300 border border-blue-500/30 text-[9px] font-medium">
                                         Recommandé
                                       </span>
                                     )}
                                     {variant.isDefault && (
-                                      <span className="px-1.5 py-0.2 rounded bg-[#222226] text-gray-300 border border-[#333] text-[9px]">
+                                      <span className="px-1.5 py-0.2 rounded bg-[#EDF1F5] dark:bg-[#222226] text-slate-700 dark:text-gray-300 border border-slate-300 dark:border-[#333] text-[9px]">
                                         Par défaut
                                       </span>
                                     )}
                                     {variant.isCustom && (
-                                      <span className="px-1.5 py-0.2 rounded bg-purple-500/15 text-purple-300 border border-purple-500/30 text-[9px]">
+                                      <span className="px-1.5 py-0.2 rounded bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30 text-[9px]">
                                         Personnalisée
                                       </span>
                                     )}
                                   </div>
-                                  <div className="text-[10px] text-gray-400 mt-0.5">
-                                    Utilisé sur <strong className="text-gray-300">{variant.songCount}</strong> chant{variant.songCount > 1 ? 's' : ''}
+                                  <div className="text-[10px] text-slate-600 dark:text-gray-400 mt-0.5">
+                                    Utilisé sur <strong className="text-slate-700 dark:text-gray-300">{variant.songCount}</strong> chant{variant.songCount > 1 ? 's' : ''}
                                   </div>
                                 </div>
                               </div>
@@ -1043,8 +1043,8 @@ export const DuplicateCleanerSection: React.FC<DuplicateCleanerSectionProps> = (
                                   onClick={() => handleToggleVariantMerge(group.id, variant.name)}
                                   className={`px-2 py-1 rounded text-[11px] font-semibold border flex items-center gap-1.5 cursor-pointer transition-colors shrink-0 ${
                                     isMarked
-                                      ? 'bg-rose-600/20 text-rose-300 border-rose-500/40 hover:bg-rose-600/30'
-                                      : 'bg-[#222] text-gray-400 border-[#333] hover:text-white'
+                                      ? 'bg-rose-600/20 text-rose-700 dark:text-rose-300 border-rose-500/40 hover:bg-rose-600/30'
+                                      : 'bg-[#EDF1F5] dark:bg-[#222] text-slate-600 dark:text-gray-400 border-slate-300 dark:border-[#333] hover:text-slate-900 dark:hover:text-white'
                                   }`}
                                 >
                                   <GitMerge className="w-3 h-3" />
@@ -1071,33 +1071,33 @@ export const DuplicateCleanerSection: React.FC<DuplicateCleanerSectionProps> = (
           role="dialog"
           aria-modal="true"
         >
-          <div className="bg-[#18181B] border border-[#2E2E33] rounded-2xl max-w-md w-full p-5 shadow-2xl space-y-4">
-            <div className="flex items-center gap-3 text-rose-400">
+          <div className="bg-slate-50 dark:bg-[#18181B] border border-slate-300 dark:border-[#2E2E33] rounded-2xl max-w-md w-full p-5 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-rose-600 dark:text-rose-400">
               <div className="w-9 h-9 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center shrink-0">
                 <AlertTriangle className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-white">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
                   Confirmer la suppression des doublons
                 </h3>
-                <p className="text-[11px] text-gray-400">
+                <p className="text-[11px] text-slate-600 dark:text-gray-400">
                   Cette action retirera définitivement les versions sélectionnées.
                 </p>
               </div>
             </div>
 
-            <div className="p-3.5 rounded-xl bg-[#111112] border border-[#252528] text-xs space-y-2">
-              <div className="flex items-center justify-between text-gray-300">
+            <div className="p-3.5 rounded-xl bg-white dark:bg-[#111112] border border-slate-200 dark:border-[#252528] text-xs space-y-2">
+              <div className="flex items-center justify-between text-slate-700 dark:text-gray-300">
                 <span>Chants à supprimer :</span>
-                <strong className="text-rose-400 font-bold">{totalToDeleteCount} chants</strong>
+                <strong className="text-rose-600 dark:text-rose-400 font-bold">{totalToDeleteCount} chants</strong>
               </div>
-              <div className="flex items-center justify-between text-gray-300">
+              <div className="flex items-center justify-between text-slate-700 dark:text-gray-300">
                 <span>Groupes nettoyés :</span>
-                <strong className="text-white font-bold">{duplicateGroups.length} groupes</strong>
+                <strong className="text-slate-900 dark:text-white font-bold">{duplicateGroups.length} groupes</strong>
               </div>
               {migrateSetlists && (
-                <div className="pt-2 border-t border-[#202024] text-[11px] text-cyan-300 flex items-center gap-1.5">
-                  <Check className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                <div className="pt-2 border-t border-slate-200 dark:border-[#202024] text-[11px] text-cyan-700 dark:text-cyan-300 flex items-center gap-1.5">
+                  <Check className="w-3.5 h-3.5 text-cyan-700 dark:text-cyan-400 shrink-0" />
                   <span>Les listes contenant des doublons seront automatiquement mises à jour avec la version conservée.</span>
                 </div>
               )}
@@ -1105,11 +1105,11 @@ export const DuplicateCleanerSection: React.FC<DuplicateCleanerSectionProps> = (
 
             {isDeleting && deleteProgress && (
               <div className="space-y-1.5 pt-1">
-                <div className="flex justify-between text-[11px] text-gray-400 font-mono">
+                <div className="flex justify-between text-[11px] text-slate-600 dark:text-gray-400 font-mono">
                   <span>Suppression en cours...</span>
                   <span>{deleteProgress.current} / {deleteProgress.total}</span>
                 </div>
-                <div className="w-full h-1.5 bg-[#252528] rounded-full overflow-hidden">
+                <div className="w-full h-1.5 bg-[#EDF1F5] dark:bg-[#252528] rounded-full overflow-hidden">
                   <div 
                     className="h-full bg-rose-500 transition-all duration-150"
                     style={{ width: `${(deleteProgress.current / deleteProgress.total) * 100}%` }}
@@ -1123,7 +1123,7 @@ export const DuplicateCleanerSection: React.FC<DuplicateCleanerSectionProps> = (
                 type="button"
                 disabled={isDeleting}
                 onClick={() => setIsConfirmModalOpen(false)}
-                className="px-3.5 py-1.5 rounded-lg bg-[#222] hover:bg-[#28282D] text-gray-300 hover:text-white border border-[#333] text-xs font-semibold transition-colors cursor-pointer"
+                className="px-3.5 py-1.5 rounded-lg bg-[#EDF1F5] dark:bg-[#222] hover:bg-slate-200 dark:hover:bg-[#28282D] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-[#333] text-xs font-semibold transition-colors cursor-pointer"
               >
                 Annuler
               </button>
@@ -1157,39 +1157,39 @@ export const DuplicateCleanerSection: React.FC<DuplicateCleanerSectionProps> = (
           role="dialog"
           aria-modal="true"
         >
-          <div className="bg-[#18181B] border border-[#2E2E33] rounded-2xl max-w-md w-full p-5 shadow-2xl space-y-4">
-            <div className="flex items-center gap-3 text-amber-400">
+          <div className="bg-slate-50 dark:bg-[#18181B] border border-slate-300 dark:border-[#2E2E33] rounded-2xl max-w-md w-full p-5 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-amber-600 dark:text-amber-400">
               <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center shrink-0">
                 <GitMerge className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-white">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
                   Confirmer la fusion des {activeTab === 'artists' ? 'artistes' : 'catégories'}
                 </h3>
-                <p className="text-[11px] text-gray-400">
+                <p className="text-[11px] text-slate-600 dark:text-gray-400">
                   Les variantes sélectionnées seront remplacées par le nom conservé sur tous les chants concernés.
                 </p>
               </div>
             </div>
 
-            <div className="p-3.5 rounded-xl bg-[#111112] border border-[#252528] text-xs space-y-2">
-              <div className="flex items-center justify-between text-gray-300">
+            <div className="p-3.5 rounded-xl bg-white dark:bg-[#111112] border border-slate-200 dark:border-[#252528] text-xs space-y-2">
+              <div className="flex items-center justify-between text-slate-700 dark:text-gray-300">
                 <span>Variantes fusionnées :</span>
-                <strong className="text-rose-400 font-bold">{totalVariantsToMergeCount}</strong>
+                <strong className="text-rose-600 dark:text-rose-400 font-bold">{totalVariantsToMergeCount}</strong>
               </div>
-              <div className="flex items-center justify-between text-gray-300">
+              <div className="flex items-center justify-between text-slate-700 dark:text-gray-300">
                 <span>Chants mis à jour :</span>
-                <strong className="text-white font-bold">{pendingNameSongUpdates.length}</strong>
+                <strong className="text-slate-900 dark:text-white font-bold">{pendingNameSongUpdates.length}</strong>
               </div>
             </div>
 
             {isMergingNames && nameMergeProgress && (
               <div className="space-y-1.5 pt-1">
-                <div className="flex justify-between text-[11px] text-gray-400 font-mono">
+                <div className="flex justify-between text-[11px] text-slate-600 dark:text-gray-400 font-mono">
                   <span>Mise à jour en cours...</span>
                   <span>{nameMergeProgress.current} / {nameMergeProgress.total}</span>
                 </div>
-                <div className="w-full h-1.5 bg-[#252528] rounded-full overflow-hidden">
+                <div className="w-full h-1.5 bg-[#EDF1F5] dark:bg-[#252528] rounded-full overflow-hidden">
                   <div
                     className="h-full bg-rose-500 transition-all duration-150"
                     style={{ width: `${(nameMergeProgress.current / Math.max(1, nameMergeProgress.total)) * 100}%` }}
@@ -1203,7 +1203,7 @@ export const DuplicateCleanerSection: React.FC<DuplicateCleanerSectionProps> = (
                 type="button"
                 disabled={isMergingNames}
                 onClick={() => setIsNameConfirmOpen(false)}
-                className="px-3.5 py-1.5 rounded-lg bg-[#222] hover:bg-[#28282D] text-gray-300 hover:text-white border border-[#333] text-xs font-semibold transition-colors cursor-pointer"
+                className="px-3.5 py-1.5 rounded-lg bg-[#EDF1F5] dark:bg-[#222] hover:bg-slate-200 dark:hover:bg-[#28282D] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-[#333] text-xs font-semibold transition-colors cursor-pointer"
               >
                 Annuler
               </button>

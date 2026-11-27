@@ -64,7 +64,7 @@ export const SyncStatusBadge: React.FC = () => {
     synced: {
       label: 'Synchronisé',
       shortLabel: 'Sync',
-      colorBadge: 'bg-emerald-950/40 border-emerald-500/40 text-emerald-400 hover:border-emerald-400/60',
+      colorBadge: 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:border-emerald-400/60',
       dotColor: 'bg-emerald-400',
       icon: Check,
       spin: false,
@@ -74,7 +74,7 @@ export const SyncStatusBadge: React.FC = () => {
     syncing: {
       label: 'Synchronisation...',
       shortLabel: 'Sync...',
-      colorBadge: 'bg-blue-950/50 border-blue-500/50 text-blue-300',
+      colorBadge: 'bg-blue-50 dark:bg-blue-950/50 border-blue-500/50 text-blue-700 dark:text-blue-300',
       dotColor: 'bg-blue-400 animate-ping',
       icon: RefreshCw,
       spin: true,
@@ -84,7 +84,7 @@ export const SyncStatusBadge: React.FC = () => {
     offline: {
       label: 'Hors-ligne',
       shortLabel: 'Hors-ligne',
-      colorBadge: 'bg-amber-950/40 border-amber-500/40 text-amber-300 hover:border-amber-400/60',
+      colorBadge: 'bg-amber-50 dark:bg-amber-950/40 border-amber-500/40 text-amber-700 dark:text-amber-300 hover:border-amber-400/60',
       dotColor: 'bg-amber-400',
       icon: WifiOff,
       spin: false,
@@ -94,7 +94,7 @@ export const SyncStatusBadge: React.FC = () => {
     error: {
       label: 'Erreur sync',
       shortLabel: 'Erreur',
-      colorBadge: 'bg-rose-950/50 border-rose-500/50 text-rose-300 hover:border-rose-400/60',
+      colorBadge: 'bg-rose-50 dark:bg-rose-950/50 border-rose-500/50 text-rose-700 dark:text-rose-300 hover:border-rose-400/60',
       dotColor: 'bg-rose-500',
       icon: AlertCircle,
       spin: false,
@@ -104,7 +104,7 @@ export const SyncStatusBadge: React.FC = () => {
   }[syncStatus] || {
     label: 'Synchronisé',
     shortLabel: 'Sync',
-    colorBadge: 'bg-emerald-950/40 border-emerald-500/40 text-emerald-400',
+    colorBadge: 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500/40 text-emerald-600 dark:text-emerald-400',
     dotColor: 'bg-emerald-400',
     icon: Check,
     spin: false,
@@ -141,17 +141,17 @@ export const SyncStatusBadge: React.FC = () => {
 
       {/* Popover Card */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-[#121214] border border-[#2A2A2E] rounded-xl shadow-2xl p-4 z-50 text-xs animate-in fade-in zoom-in-95 duration-150">
+        <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-white dark:bg-[#121214] border border-slate-300 dark:border-[#2A2A2E] rounded-xl shadow-2xl p-4 z-50 text-xs animate-in fade-in zoom-in-95 duration-150">
           {/* Header */}
-          <div className="flex items-center justify-between pb-2.5 border-b border-[#222226]">
+          <div className="flex items-center justify-between pb-2.5 border-b border-slate-200 dark:border-[#222226]">
             <div className="flex items-center gap-2">
-              <Cloud className="w-4 h-4 text-blue-400" />
-              <h4 className="font-bold text-white text-sm tracking-tight">Synchronisation</h4>
+              <Cloud className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+              <h4 className="font-bold text-slate-900 dark:text-white text-sm tracking-tight">Synchronisation</h4>
             </div>
             <button
               type="button"
               onClick={() => setIsOpen(false)}
-              className="text-gray-400 hover:text-white p-1 rounded hover:bg-[#1E1E22] transition-colors"
+              className="text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white p-1 rounded hover:bg-slate-200/70 dark:hover:bg-[#1E1E22] transition-colors"
               title="Fermer"
             >
               <X className="w-3.5 h-3.5" />
@@ -159,35 +159,35 @@ export const SyncStatusBadge: React.FC = () => {
           </div>
 
           {/* Status Details Banner */}
-          <div className="mt-3 p-2.5 rounded-lg bg-[#18181B] border border-[#2A2A2E] flex items-start gap-2.5">
-            <div className="mt-0.5 p-1 rounded bg-[#222226]">
-              <IconComponent className={`w-4 h-4 ${config.spin ? 'animate-spin text-blue-400' : ''}`} />
+          <div className="mt-3 p-2.5 rounded-lg bg-slate-50 dark:bg-[#18181B] border border-slate-300 dark:border-[#2A2A2E] flex items-start gap-2.5">
+            <div className="mt-0.5 p-1 rounded bg-[#EDF1F5] dark:bg-[#222226]">
+              <IconComponent className={`w-4 h-4 ${config.spin ? 'animate-spin text-blue-600 dark:text-blue-400' : ''}`} />
             </div>
             <div className="flex-1">
-              <p className="font-semibold text-white">{config.title}</p>
-              <p className="text-[11px] text-gray-400 mt-0.5 leading-relaxed">{config.description}</p>
+              <p className="font-semibold text-slate-900 dark:text-white">{config.title}</p>
+              <p className="text-[11px] text-slate-600 dark:text-gray-400 mt-0.5 leading-relaxed">{config.description}</p>
             </div>
           </div>
 
           {/* Quick Metrics */}
           <div className="mt-3 grid grid-cols-2 gap-2 text-[11px]">
-            <div className="p-2 rounded bg-[#18181B] border border-[#26262A] flex items-center gap-2">
-              <HardDrive className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+            <div className="p-2 rounded bg-slate-50 dark:bg-[#18181B] border border-slate-200 dark:border-[#26262A] flex items-center gap-2">
+              <HardDrive className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
               <div>
-                <p className="text-gray-400 text-[10px]">IndexedDB & SW</p>
-                <p className="font-bold text-gray-200">{offlineStats.songCount || songs.length} chants en cache</p>
+                <p className="text-slate-600 dark:text-gray-400 text-[10px]">IndexedDB & SW</p>
+                <p className="font-bold text-slate-800 dark:text-gray-200">{offlineStats.songCount || songs.length} chants en cache</p>
               </div>
             </div>
-            <div className="p-2 rounded bg-[#18181B] border border-[#26262A] flex items-center gap-2">
-              <Database className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            <div className="p-2 rounded bg-slate-50 dark:bg-[#18181B] border border-slate-200 dark:border-[#26262A] flex items-center gap-2">
+              <Database className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
               <div>
-                <p className="text-gray-400 text-[10px]">Setlists</p>
-                <p className="font-bold text-gray-200">{offlineStats.setlistCount || setlists.length} stockées</p>
+                <p className="text-slate-600 dark:text-gray-400 text-[10px]">Setlists</p>
+                <p className="font-bold text-slate-800 dark:text-gray-200">{offlineStats.setlistCount || setlists.length} stockées</p>
               </div>
             </div>
           </div>
 
-          <div className="mt-2.5 px-2 py-1.5 rounded bg-[#18181B]/70 border border-[#26262A] text-[10px] text-gray-400 flex items-center gap-1.5">
+          <div className="mt-2.5 px-2 py-1.5 rounded bg-slate-50/70 dark:bg-[#18181B]/70 border border-slate-200 dark:border-[#26262A] text-[10px] text-slate-600 dark:text-gray-400 flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
             <span>Chants et setlists stockés en local dans IndexedDB pour répétitions hors-ligne</span>
           </div>
@@ -202,17 +202,17 @@ export const SyncStatusBadge: React.FC = () => {
                 await cacheAllSongsOffline();
                 setIsCaching(false);
               }}
-              className="w-full py-1.5 px-2.5 rounded-lg bg-[#18181B] hover:bg-[#222226] border border-[#333338] text-gray-200 hover:text-white font-medium text-[11px] flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              className="w-full py-1.5 px-2.5 rounded-lg bg-slate-50 dark:bg-[#18181B] hover:bg-slate-200/70 dark:hover:bg-[#222226] border border-slate-300 dark:border-[#333338] text-slate-800 dark:text-gray-200 hover:text-slate-900 dark:hover:text-white font-medium text-[11px] flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
             >
-              <FolderDown className={`w-3.5 h-3.5 text-emerald-400 ${isCaching ? 'animate-bounce' : ''}`} />
+              <FolderDown className={`w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 ${isCaching ? 'animate-bounce' : ''}`} />
               <span>{isCaching ? 'Mise en cache IndexedDB...' : 'Mettre tout le répertoire en cache local'}</span>
             </button>
           </div>
 
           {/* Last sync time */}
-          <div className="mt-3 flex items-center justify-between text-[11px] text-gray-400 px-1">
+          <div className="mt-3 flex items-center justify-between text-[11px] text-slate-600 dark:text-gray-400 px-1">
             <span>Dernière synchronisation</span>
-            <span className="font-medium text-gray-300">{formatLastSync(lastSyncedAt)}</span>
+            <span className="font-medium text-slate-700 dark:text-gray-300">{formatLastSync(lastSyncedAt)}</span>
           </div>
 
           {/* Bouton d'installation si disponible */}
@@ -224,7 +224,7 @@ export const SyncStatusBadge: React.FC = () => {
                   promptInstall();
                   setIsOpen(false);
                 }}
-                className="w-full py-1.5 px-2.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                className="w-full py-1.5 px-2.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-700 dark:text-emerald-300 font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
               >
                 <Download className="w-3.5 h-3.5" />
                 <span>Installer l'application PWA</span>
@@ -233,7 +233,7 @@ export const SyncStatusBadge: React.FC = () => {
           )}
 
           {/* Manual Trigger Button */}
-          <div className="mt-3 pt-2.5 border-t border-[#222226]">
+          <div className="mt-3 pt-2.5 border-t border-slate-200 dark:border-[#222226]">
             <button
               type="button"
               disabled={syncStatus === 'syncing' || isOffline}
@@ -242,9 +242,9 @@ export const SyncStatusBadge: React.FC = () => {
               }}
               className={`w-full py-2 px-3 rounded-lg flex items-center justify-center gap-2 font-semibold text-xs transition-all ${
                 isOffline
-                  ? 'bg-[#18181B] border border-[#2A2A2E] text-gray-500 cursor-not-allowed'
+                  ? 'bg-slate-50 dark:bg-[#18181B] border border-slate-300 dark:border-[#2A2A2E] text-gray-500 cursor-not-allowed'
                   : syncStatus === 'syncing'
-                    ? 'bg-blue-600/30 text-blue-300 border border-blue-500/30 cursor-wait'
+                    ? 'bg-blue-600/30 text-blue-700 dark:text-blue-300 border border-blue-500/30 cursor-wait'
                     : 'bg-blue-600 hover:bg-blue-500 text-white shadow-md active:scale-98 cursor-pointer'
               }`}
             >

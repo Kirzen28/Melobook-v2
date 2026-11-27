@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
+import { MODAL_BACKDROP_MOTION, NAV_SPRING, STAGE_EASE } from '../utils/motionPresets';
 import { useApp } from '../context/AppContext';
 import { 
   ArrowLeft, 
@@ -16,7 +18,6 @@ import {
   Music,
   Sun,
   Moon,
-  Monitor,
   Maximize2,
   Minimize2,
   X,
@@ -44,7 +45,8 @@ import {
   SlidersHorizontal,
   Shield,
   Copyright,
-  Disc
+  Disc,
+  Sparkles
 } from 'lucide-react';
 import { useMidi } from '../context/MidiContext';
 import { MidiSettingsModal } from './MidiSettingsModal';
@@ -58,7 +60,8 @@ import {
   DEFAULT_SONG_METADATA_VISIBILITY,
   DEFAULT_PREVIEW_METADATA,
   getSectionBorderStyles,
-  getSectionColor 
+  getSectionColor,
+  getReadableChordColor
 } from '../utils/displayDefaults';
 import { SectionColors, SongTypographySettings, SectionBorders, SongMetadataVisibility, PreviewMetadataVisibility } from '../types';
 import { transposeChord, stripParentheses, LATIN_NOTES } from '../utils/chordUtils';
@@ -127,20 +130,20 @@ const PointNClickInspector: React.FC<PointNClickInspectorProps> = ({
   const currentSectionColor = selection.sectionType ? sectionColors[selection.sectionType] : '#3B82F6';
 
   return (
-    <div className="sticky top-0 z-30 mb-3 p-3 sm:p-4 rounded-xl bg-[#16161B]/95 backdrop-blur-md border border-blue-500/50 shadow-2xl space-y-3 animate-in fade-in zoom-in-95 duration-150">
+    <div className="sticky top-0 z-30 mb-3 p-3 sm:p-4 rounded-xl bg-slate-50/95 dark:bg-[#16161B]/95 backdrop-blur-md border border-blue-500/50 shadow-2xl space-y-3 animate-in fade-in zoom-in-95 duration-150">
       {/* Top title bar */}
-      <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-[#2A2A34]">
+      <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-300 dark:border-[#2A2A34]">
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-lg bg-blue-500/20 text-blue-400 border border-blue-500/30 flex items-center justify-center shrink-0">
+          <div className="w-6 h-6 rounded-lg bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 flex items-center justify-center shrink-0">
             {selection.type === 'title' && <Heading1 className="w-3.5 h-3.5" />}
             {selection.type === 'metadata' && <Tag className="w-3.5 h-3.5" />}
-            {selection.type === 'chord' && <Music className="w-3.5 h-3.5 text-amber-400" />}
-            {selection.type === 'lyrics' && <Type className="w-3.5 h-3.5 text-cyan-400" />}
-            {selection.type === 'sectionHeader' && <Bookmark className="w-3.5 h-3.5 text-emerald-400" />}
-            {selection.type === 'sectionCard' && <Layers className="w-3.5 h-3.5 text-purple-400" />}
+            {selection.type === 'chord' && <Music className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />}
+            {selection.type === 'lyrics' && <Type className="w-3.5 h-3.5 text-cyan-700 dark:text-cyan-400" />}
+            {selection.type === 'sectionHeader' && <Bookmark className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />}
+            {selection.type === 'sectionCard' && <Layers className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />}
           </div>
           <div>
-            <span className="text-xs font-bold text-white tracking-wide">
+            <span className="text-xs font-bold text-slate-900 dark:text-white tracking-wide">
               {selection.label}
             </span>
           </div>
@@ -149,7 +152,7 @@ const PointNClickInspector: React.FC<PointNClickInspectorProps> = ({
         <button
           type="button"
           onClick={onClose}
-          className="p-1.5 rounded-lg bg-[#222228] hover:bg-[#2E2E38] text-gray-400 hover:text-white transition-colors cursor-pointer"
+          className="p-1.5 rounded-lg bg-[#EDF1F5] dark:bg-[#222228] hover:bg-slate-200 dark:hover:bg-[#2E2E38] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
           title="Fermer l'inspecteur"
         >
           <X className="w-3.5 h-3.5" />
@@ -161,23 +164,23 @@ const PointNClickInspector: React.FC<PointNClickInspectorProps> = ({
       {selection.type === 'title' && (
         <div className="space-y-2">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-gray-300 font-medium">Taille du titre :</span>
+            <span className="text-slate-700 dark:text-gray-300 font-medium">Taille du titre :</span>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => updateTypography('titleSize', Math.max(16, typography.titleSize - 1))}
-                className="w-7 h-7 rounded-lg bg-[#222228] hover:bg-blue-600 text-white font-bold flex items-center justify-center transition-colors active:scale-95 cursor-pointer text-sm"
+                className="w-7 h-7 rounded-lg bg-[#EDF1F5] dark:bg-[#222228] hover:bg-blue-600 text-white font-bold flex items-center justify-center transition-colors active:scale-95 cursor-pointer text-sm"
                 title="Diminuer"
               >
                 -
               </button>
-              <span className="font-mono font-bold text-white text-xs px-2 py-0.5 rounded bg-[#101014] border border-[#2B2B32] min-w-[54px] text-center">
+              <span className="font-mono font-bold text-slate-900 dark:text-white text-xs px-2 py-0.5 rounded bg-white dark:bg-[#101014] border border-slate-300 dark:border-[#2B2B32] min-w-[54px] text-center">
                 {typography.titleSize} px
               </span>
               <button
                 type="button"
                 onClick={() => updateTypography('titleSize', Math.min(48, typography.titleSize + 1))}
-                className="w-7 h-7 rounded-lg bg-[#222228] hover:bg-blue-600 text-white font-bold flex items-center justify-center transition-colors active:scale-95 cursor-pointer text-sm"
+                className="w-7 h-7 rounded-lg bg-[#EDF1F5] dark:bg-[#222228] hover:bg-blue-600 text-white font-bold flex items-center justify-center transition-colors active:scale-95 cursor-pointer text-sm"
                 title="Augmenter"
               >
                 +
@@ -191,7 +194,7 @@ const PointNClickInspector: React.FC<PointNClickInspectorProps> = ({
             step={1}
             value={typography.titleSize}
             onChange={(e) => updateTypography('titleSize', Number(e.target.value))}
-            className="w-full h-1.5 bg-[#25252C] rounded-lg appearance-none cursor-pointer accent-blue-500"
+            className="w-full h-1.5 bg-[#EDF1F5] dark:bg-[#25252C] rounded-lg appearance-none cursor-pointer accent-blue-500"
           />
         </div>
       )}
@@ -200,23 +203,23 @@ const PointNClickInspector: React.FC<PointNClickInspectorProps> = ({
       {selection.type === 'metadata' && (
         <div className="space-y-2">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-gray-300 font-medium">Taille des métadonnées (artiste, catégories, CCLI, copyright...) :</span>
+            <span className="text-slate-700 dark:text-gray-300 font-medium">Taille des métadonnées (artiste, catégories, CCLI, copyright...) :</span>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => updateTypography('metadataSize', Math.max(10, typography.metadataSize - 1))}
-                className="w-7 h-7 rounded-lg bg-[#222228] hover:bg-blue-600 text-white font-bold flex items-center justify-center transition-colors active:scale-95 cursor-pointer text-sm"
+                className="w-7 h-7 rounded-lg bg-[#EDF1F5] dark:bg-[#222228] hover:bg-blue-600 text-white font-bold flex items-center justify-center transition-colors active:scale-95 cursor-pointer text-sm"
                 title="Diminuer"
               >
                 -
               </button>
-              <span className="font-mono font-bold text-white text-xs px-2 py-0.5 rounded bg-[#101014] border border-[#2B2B32] min-w-[54px] text-center">
+              <span className="font-mono font-bold text-slate-900 dark:text-white text-xs px-2 py-0.5 rounded bg-white dark:bg-[#101014] border border-slate-300 dark:border-[#2B2B32] min-w-[54px] text-center">
                 {typography.metadataSize} px
               </span>
               <button
                 type="button"
                 onClick={() => updateTypography('metadataSize', Math.min(22, typography.metadataSize + 1))}
-                className="w-7 h-7 rounded-lg bg-[#222228] hover:bg-blue-600 text-white font-bold flex items-center justify-center transition-colors active:scale-95 cursor-pointer text-sm"
+                className="w-7 h-7 rounded-lg bg-[#EDF1F5] dark:bg-[#222228] hover:bg-blue-600 text-white font-bold flex items-center justify-center transition-colors active:scale-95 cursor-pointer text-sm"
                 title="Augmenter"
               >
                 +
@@ -230,7 +233,7 @@ const PointNClickInspector: React.FC<PointNClickInspectorProps> = ({
             step={1}
             value={typography.metadataSize}
             onChange={(e) => updateTypography('metadataSize', Number(e.target.value))}
-            className="w-full h-1.5 bg-[#25252C] rounded-lg appearance-none cursor-pointer accent-blue-500"
+            className="w-full h-1.5 bg-[#EDF1F5] dark:bg-[#25252C] rounded-lg appearance-none cursor-pointer accent-blue-500"
           />
         </div>
       )}
@@ -240,23 +243,23 @@ const PointNClickInspector: React.FC<PointNClickInspectorProps> = ({
         <div className="space-y-3">
           <div className="space-y-1.5">
             <div className="flex items-center justify-between text-xs">
-              <span className="text-gray-300 font-medium">Taille des accords :</span>
+              <span className="text-slate-700 dark:text-gray-300 font-medium">Taille des accords :</span>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => updateTypography('chordSize', Math.max(11, typography.chordSize - 1))}
-                  className="w-7 h-7 rounded-lg bg-[#222228] hover:bg-blue-600 text-white font-bold flex items-center justify-center transition-colors active:scale-95 cursor-pointer text-sm"
+                  className="w-7 h-7 rounded-lg bg-[#EDF1F5] dark:bg-[#222228] hover:bg-blue-600 text-white font-bold flex items-center justify-center transition-colors active:scale-95 cursor-pointer text-sm"
                   title="Diminuer"
                 >
                   -
                 </button>
-                <span className="font-mono font-bold text-amber-300 text-xs px-2 py-0.5 rounded bg-[#101014] border border-[#2B2B32] min-w-[54px] text-center">
+                <span className="font-mono font-bold text-amber-700 dark:text-amber-300 text-xs px-2 py-0.5 rounded bg-white dark:bg-[#101014] border border-slate-300 dark:border-[#2B2B32] min-w-[54px] text-center">
                   {typography.chordSize} px
                 </span>
                 <button
                   type="button"
                   onClick={() => updateTypography('chordSize', Math.min(36, typography.chordSize + 1))}
-                  className="w-7 h-7 rounded-lg bg-[#222228] hover:bg-blue-600 text-white font-bold flex items-center justify-center transition-colors active:scale-95 cursor-pointer text-sm"
+                  className="w-7 h-7 rounded-lg bg-[#EDF1F5] dark:bg-[#222228] hover:bg-blue-600 text-white font-bold flex items-center justify-center transition-colors active:scale-95 cursor-pointer text-sm"
                   title="Augmenter"
                 >
                   +
@@ -270,14 +273,14 @@ const PointNClickInspector: React.FC<PointNClickInspectorProps> = ({
               step={1}
               value={typography.chordSize}
               onChange={(e) => updateTypography('chordSize', Number(e.target.value))}
-              className="w-full h-1.5 bg-[#25252C] rounded-lg appearance-none cursor-pointer accent-amber-500"
+              className="w-full h-1.5 bg-[#EDF1F5] dark:bg-[#25252C] rounded-lg appearance-none cursor-pointer accent-amber-500"
             />
           </div>
 
-          <div className="space-y-2 pt-2 border-t border-[#25252E]">
+          <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-[#25252E]">
             <div className="flex items-center justify-between text-xs">
-              <span className="text-gray-300 font-medium flex items-center gap-1.5">
-                <Palette className="w-3.5 h-3.5 text-amber-400" />
+              <span className="text-slate-700 dark:text-gray-300 font-medium flex items-center gap-1.5">
+                <Palette className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                 Couleur des accords
               </span>
               <span className="text-[11px] font-mono font-bold" style={{ color: chordColor }}>
@@ -323,23 +326,23 @@ const PointNClickInspector: React.FC<PointNClickInspectorProps> = ({
         <div className="space-y-3">
           <div className="space-y-1.5">
             <div className="flex items-center justify-between text-xs">
-              <span className="text-gray-300 font-medium">Taille des paroles :</span>
+              <span className="text-slate-700 dark:text-gray-300 font-medium">Taille des paroles :</span>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => updateTypography('lyricsSize', Math.max(12, typography.lyricsSize - 1))}
-                  className="w-7 h-7 rounded-lg bg-[#222228] hover:bg-blue-600 text-white font-bold flex items-center justify-center transition-colors active:scale-95 cursor-pointer text-sm"
+                  className="w-7 h-7 rounded-lg bg-[#EDF1F5] dark:bg-[#222228] hover:bg-blue-600 text-white font-bold flex items-center justify-center transition-colors active:scale-95 cursor-pointer text-sm"
                   title="Diminuer"
                 >
                   -
                 </button>
-                <span className="font-mono font-bold text-cyan-300 text-xs px-2 py-0.5 rounded bg-[#101014] border border-[#2B2B32] min-w-[54px] text-center">
+                <span className="font-mono font-bold text-cyan-700 dark:text-cyan-300 text-xs px-2 py-0.5 rounded bg-white dark:bg-[#101014] border border-slate-300 dark:border-[#2B2B32] min-w-[54px] text-center">
                   {typography.lyricsSize} px
                 </span>
                 <button
                   type="button"
                   onClick={() => updateTypography('lyricsSize', Math.min(38, typography.lyricsSize + 1))}
-                  className="w-7 h-7 rounded-lg bg-[#222228] hover:bg-blue-600 text-white font-bold flex items-center justify-center transition-colors active:scale-95 cursor-pointer text-sm"
+                  className="w-7 h-7 rounded-lg bg-[#EDF1F5] dark:bg-[#222228] hover:bg-blue-600 text-white font-bold flex items-center justify-center transition-colors active:scale-95 cursor-pointer text-sm"
                   title="Augmenter"
                 >
                   +
@@ -353,32 +356,32 @@ const PointNClickInspector: React.FC<PointNClickInspectorProps> = ({
               step={1}
               value={typography.lyricsSize}
               onChange={(e) => updateTypography('lyricsSize', Number(e.target.value))}
-              className="w-full h-1.5 bg-[#25252C] rounded-lg appearance-none cursor-pointer accent-cyan-500"
+              className="w-full h-1.5 bg-[#EDF1F5] dark:bg-[#25252C] rounded-lg appearance-none cursor-pointer accent-cyan-500"
             />
           </div>
 
-          <div className="space-y-1.5 pt-2 border-t border-[#25252E]">
+          <div className="space-y-1.5 pt-2 border-t border-slate-200 dark:border-[#25252E]">
             <div className="flex items-center justify-between text-xs">
-              <span className="text-gray-300 font-medium flex items-center gap-1.5">
-                <MoveVertical className="w-3.5 h-3.5 text-blue-400" />
+              <span className="text-slate-700 dark:text-gray-300 font-medium flex items-center gap-1.5">
+                <MoveVertical className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                 Interligne (hauteur de ligne) :
               </span>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => updateTypography('lineSpacing', Math.max(1.1, Number((typography.lineSpacing - 0.1).toFixed(1))))}
-                  className="w-7 h-7 rounded-lg bg-[#222228] hover:bg-blue-600 text-white font-bold flex items-center justify-center transition-colors active:scale-95 cursor-pointer text-sm"
+                  className="w-7 h-7 rounded-lg bg-[#EDF1F5] dark:bg-[#222228] hover:bg-blue-600 text-white font-bold flex items-center justify-center transition-colors active:scale-95 cursor-pointer text-sm"
                   title="Diminuer"
                 >
                   -
                 </button>
-                <span className="font-mono font-bold text-white text-xs px-2 py-0.5 rounded bg-[#101014] border border-[#2B2B32] min-w-[54px] text-center">
+                <span className="font-mono font-bold text-slate-900 dark:text-white text-xs px-2 py-0.5 rounded bg-white dark:bg-[#101014] border border-slate-300 dark:border-[#2B2B32] min-w-[54px] text-center">
                   {typography.lineSpacing.toFixed(1)}x
                 </span>
                 <button
                   type="button"
                   onClick={() => updateTypography('lineSpacing', Math.min(2.2, Number((typography.lineSpacing + 0.1).toFixed(1))))}
-                  className="w-7 h-7 rounded-lg bg-[#222228] hover:bg-blue-600 text-white font-bold flex items-center justify-center transition-colors active:scale-95 cursor-pointer text-sm"
+                  className="w-7 h-7 rounded-lg bg-[#EDF1F5] dark:bg-[#222228] hover:bg-blue-600 text-white font-bold flex items-center justify-center transition-colors active:scale-95 cursor-pointer text-sm"
                   title="Augmenter"
                 >
                   +
@@ -392,7 +395,7 @@ const PointNClickInspector: React.FC<PointNClickInspectorProps> = ({
               step={0.1}
               value={typography.lineSpacing}
               onChange={(e) => updateTypography('lineSpacing', Number(e.target.value))}
-              className="w-full h-1.5 bg-[#25252C] rounded-lg appearance-none cursor-pointer accent-blue-500"
+              className="w-full h-1.5 bg-[#EDF1F5] dark:bg-[#25252C] rounded-lg appearance-none cursor-pointer accent-blue-500"
             />
           </div>
         </div>
@@ -403,23 +406,23 @@ const PointNClickInspector: React.FC<PointNClickInspectorProps> = ({
         <div className="space-y-3">
           <div className="space-y-1.5">
             <div className="flex items-center justify-between text-xs">
-              <span className="text-gray-300 font-medium">Taille du badge :</span>
+              <span className="text-slate-700 dark:text-gray-300 font-medium">Taille du badge :</span>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => updateTypography('headerSize', Math.max(10, typography.headerSize - 1))}
-                  className="w-7 h-7 rounded-lg bg-[#222228] hover:bg-blue-600 text-white font-bold flex items-center justify-center transition-colors active:scale-95 cursor-pointer text-sm"
+                  className="w-7 h-7 rounded-lg bg-[#EDF1F5] dark:bg-[#222228] hover:bg-blue-600 text-white font-bold flex items-center justify-center transition-colors active:scale-95 cursor-pointer text-sm"
                   title="Diminuer"
                 >
                   -
                 </button>
-                <span className="font-mono font-bold text-emerald-300 text-xs px-2 py-0.5 rounded bg-[#101014] border border-[#2B2B32] min-w-[54px] text-center">
+                <span className="font-mono font-bold text-emerald-700 dark:text-emerald-300 text-xs px-2 py-0.5 rounded bg-white dark:bg-[#101014] border border-slate-300 dark:border-[#2B2B32] min-w-[54px] text-center">
                   {typography.headerSize} px
                 </span>
                 <button
                   type="button"
                   onClick={() => updateTypography('headerSize', Math.min(24, typography.headerSize + 1))}
-                  className="w-7 h-7 rounded-lg bg-[#222228] hover:bg-blue-600 text-white font-bold flex items-center justify-center transition-colors active:scale-95 cursor-pointer text-sm"
+                  className="w-7 h-7 rounded-lg bg-[#EDF1F5] dark:bg-[#222228] hover:bg-blue-600 text-white font-bold flex items-center justify-center transition-colors active:scale-95 cursor-pointer text-sm"
                   title="Augmenter"
                 >
                   +
@@ -433,13 +436,13 @@ const PointNClickInspector: React.FC<PointNClickInspectorProps> = ({
               step={1}
               value={typography.headerSize}
               onChange={(e) => updateTypography('headerSize', Number(e.target.value))}
-              className="w-full h-1.5 bg-[#25252C] rounded-lg appearance-none cursor-pointer accent-emerald-500"
+              className="w-full h-1.5 bg-[#EDF1F5] dark:bg-[#25252C] rounded-lg appearance-none cursor-pointer accent-emerald-500"
             />
           </div>
 
-          <div className="space-y-2 pt-2 border-t border-[#25252E]">
+          <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-[#25252E]">
             <div className="flex items-center justify-between text-xs">
-              <span className="text-gray-300 font-medium flex items-center gap-1.5">
+              <span className="text-slate-700 dark:text-gray-300 font-medium flex items-center gap-1.5">
                 <Palette className="w-3.5 h-3.5" style={{ color: currentSectionColor }} />
                 Couleur de la section ({selection.label})
               </span>
@@ -486,23 +489,23 @@ const PointNClickInspector: React.FC<PointNClickInspectorProps> = ({
         <div className="space-y-3">
           <div className="space-y-1.5">
             <div className="flex items-center justify-between text-xs">
-              <span className="text-gray-300 font-medium">Espacement entre sections :</span>
+              <span className="text-slate-700 dark:text-gray-300 font-medium">Espacement entre sections :</span>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => updateTypography('sectionSpacing', Math.max(0, (typography.sectionSpacing ?? 4) - 2))}
-                  className="w-7 h-7 rounded-lg bg-[#222228] hover:bg-blue-600 text-white font-bold flex items-center justify-center transition-colors active:scale-95 cursor-pointer text-sm"
+                  className="w-7 h-7 rounded-lg bg-[#EDF1F5] dark:bg-[#222228] hover:bg-blue-600 text-white font-bold flex items-center justify-center transition-colors active:scale-95 cursor-pointer text-sm"
                   title="Diminuer"
                 >
                   -
                 </button>
-                <span className="font-mono font-bold text-purple-300 text-xs px-2 py-0.5 rounded bg-[#101014] border border-[#2B2B32] min-w-[54px] text-center">
+                <span className="font-mono font-bold text-purple-700 dark:text-purple-300 text-xs px-2 py-0.5 rounded bg-white dark:bg-[#101014] border border-slate-300 dark:border-[#2B2B32] min-w-[54px] text-center">
                   {(typography.sectionSpacing ?? 4)} px
                 </span>
                 <button
                   type="button"
                   onClick={() => updateTypography('sectionSpacing', Math.min(32, (typography.sectionSpacing ?? 4) + 2))}
-                  className="w-7 h-7 rounded-lg bg-[#222228] hover:bg-blue-600 text-white font-bold flex items-center justify-center transition-colors active:scale-95 cursor-pointer text-sm"
+                  className="w-7 h-7 rounded-lg bg-[#EDF1F5] dark:bg-[#222228] hover:bg-blue-600 text-white font-bold flex items-center justify-center transition-colors active:scale-95 cursor-pointer text-sm"
                   title="Augmenter"
                 >
                   +
@@ -516,12 +519,12 @@ const PointNClickInspector: React.FC<PointNClickInspectorProps> = ({
               step={2}
               value={typography.sectionSpacing ?? 4}
               onChange={(e) => updateTypography('sectionSpacing', Number(e.target.value))}
-              className="w-full h-1.5 bg-[#25252C] rounded-lg appearance-none cursor-pointer accent-purple-500"
+              className="w-full h-1.5 bg-[#EDF1F5] dark:bg-[#25252C] rounded-lg appearance-none cursor-pointer accent-purple-500"
             />
           </div>
 
-          <div className="space-y-1.5 pt-2 border-t border-[#25252E]">
-            <span className="text-xs text-gray-300 font-medium">Style de bordure des sections :</span>
+          <div className="space-y-1.5 pt-2 border-t border-slate-200 dark:border-[#25252E]">
+            <span className="text-xs text-slate-700 dark:text-gray-300 font-medium">Style de bordure des sections :</span>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
               {[
                 { label: 'Bordure Gauche', borders: { left: true, right: false, top: false, bottom: false } },
@@ -533,7 +536,7 @@ const PointNClickInspector: React.FC<PointNClickInspectorProps> = ({
                   key={b.label}
                   type="button"
                   onClick={() => applyBorderPreset(b.borders)}
-                  className="py-1 px-2 rounded-lg bg-[#202026] hover:bg-[#2A2A34] text-[11px] font-medium text-gray-300 hover:text-white transition-colors cursor-pointer border border-[#333]"
+                  className="py-1 px-2 rounded-lg bg-[#EDF1F5] dark:bg-[#202026] hover:bg-slate-200 dark:hover:bg-[#2A2A34] text-[11px] font-medium text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer border border-slate-300 dark:border-[#333]"
                 >
                   {b.label}
                 </button>
@@ -681,10 +684,7 @@ export const SettingsView: React.FC = () => {
     });
   };
 
-  const isSystemLight = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
-  const effectivePreviewTheme = stageSettings.theme === 'system'
-    ? (isSystemLight ? 'light' : 'dark')
-    : (stageSettings.theme || 'dark');
+  const effectivePreviewTheme: 'dark' | 'light' = stageSettings.theme === 'light' ? 'light' : 'dark';
 
   // Visibilité des métadonnées synchronisée en temps réel (aperçu et mode scène des chants)
   const previewMetadata: SongMetadataVisibility = displaySettings.metadataVisibility || DEFAULT_SONG_METADATA_VISIBILITY;
@@ -957,40 +957,40 @@ export const SettingsView: React.FC = () => {
         )}
 
         {/* Panneau de sélection interactive des métadonnées de l'aperçu */}
-        <div className="p-2.5 sm:p-3 rounded-xl bg-[#16161B]/95 border border-[#282834] space-y-2.5 shadow-md">
+        <div className="p-2.5 sm:p-3 rounded-xl bg-slate-50/95 dark:bg-[#16161B]/95 border border-slate-300 dark:border-[#282834] space-y-2.5 shadow-md">
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-1.5 whitespace-nowrap">
-              <SlidersHorizontal className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-              <span className="text-xs font-bold text-white">
+              <SlidersHorizontal className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+              <span className="text-xs font-bold text-slate-900 dark:text-white">
                 Métadonnées affichées (Aperçu & Mode Scène) :
               </span>
             </div>
             
             <div className="flex items-center gap-2 flex-wrap">
               <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="px-1.5 py-0.5 rounded-full bg-blue-950/70 text-blue-300 border border-blue-500/30 font-mono text-[10px] font-bold">
+                <span className="px-1.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-500/30 font-mono text-[10px] font-bold">
                   {activeMetadataCount}/{METADATA_TOGGLE_ITEMS.length}
                 </span>
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-950/60 text-emerald-300 border border-emerald-500/30 text-[10px] font-medium" title="Tout changement est sauvegardé automatiquement et appliqué immédiatement dans le lecteur de chants / mode scène">
-                  <Check className="w-2.5 h-2.5 text-emerald-400" />
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 text-[10px] font-medium" title="Tout changement est sauvegardé automatiquement et appliqué immédiatement dans le lecteur de chants / mode scène">
+                  <Check className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-400" />
                   <span>Enregistré auto</span>
                 </span>
               </div>
 
-              <div className="flex items-center gap-1.5 text-xs pl-0 sm:pl-2 sm:border-l sm:border-[#2C2C38]">
+              <div className="flex items-center gap-1.5 text-xs pl-0 sm:pl-2 sm:border-l border-slate-300 dark:sm:border-[#2C2C38]">
                 <button
                   type="button"
                   onClick={handleShowAllPreviewMetadata}
-                  className="text-[11px] font-semibold text-blue-400 hover:text-blue-300 transition-colors cursor-pointer"
+                  className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors cursor-pointer"
                   title="Afficher toutes les métadonnées dans l'aperçu et le mode scène"
                 >
                   Tout afficher
                 </button>
-                <span className="text-gray-600">•</span>
+                <span className="text-slate-500 dark:text-gray-600">•</span>
                 <button
                   type="button"
                   onClick={handleHideAllPreviewMetadata}
-                  className="text-[11px] font-semibold text-gray-400 hover:text-gray-300 transition-colors cursor-pointer"
+                  className="text-[11px] font-semibold text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-300 transition-colors cursor-pointer"
                   title="Masquer toutes les métadonnées dans l'aperçu et le mode scène"
                 >
                   Tout masquer
@@ -1010,27 +1010,27 @@ export const SettingsView: React.FC = () => {
                   onClick={() => togglePreviewMetadata(item.key)}
                   className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer border active:scale-95 ${
                     isVisible
-                      ? 'bg-blue-600/20 text-blue-300 border-blue-500/40 hover:bg-blue-600/30 shadow-xs ring-1 ring-blue-500/20'
-                      : 'bg-[#121216] text-gray-500 border-[#25252D] hover:text-gray-300 hover:border-gray-600 line-through opacity-70'
+                      ? 'bg-blue-600/20 text-blue-700 dark:text-blue-300 border-blue-500/40 hover:bg-blue-600/30 shadow-xs ring-1 ring-blue-500/20'
+                      : 'bg-white dark:bg-[#121216] text-gray-500 border-slate-200 dark:border-[#25252D] hover:text-slate-900 dark:hover:text-gray-300 hover:border-gray-600 line-through opacity-70'
                   }`}
                   title={`${isVisible ? 'Cliquer pour masquer' : 'Cliquer pour afficher'} ${item.label} (sauvegardé automatiquement pour l'aperçu & le mode scène)`}
                 >
-                  {item.key === 'sectionHeaders' && <Layers className="w-3 h-3 text-blue-400" />}
-                  {item.key === 'title' && <Heading1 className="w-3 h-3 text-blue-400" />}
-                  {item.key === 'language' && <Globe className="w-3 h-3 text-blue-400" />}
-                  {item.key === 'duration' && <Clock className="w-3 h-3 text-cyan-400" />}
-                  {item.key === 'artist' && <Type className="w-3 h-3 text-gray-300" />}
-                  {item.key === 'album' && <Disc className="w-3 h-3 text-gray-300" />}
-                  {item.key === 'tags' && <Tag className="w-3 h-3 text-blue-400" />}
-                  {item.key === 'ccli' && <Shield className="w-3 h-3 text-blue-400" />}
-                  {item.key === 'copyright' && <Copyright className="w-3 h-3 text-emerald-400" />}
-                  {item.key === 'controlsBar' && <Music className="w-3 h-3 text-amber-400" />}
-                  {item.key === 'notes' && <Bookmark className="w-3 h-3 text-emerald-400" />}
-                  {item.key === 'actions' && <Maximize2 className="w-3 h-3 text-purple-400" />}
-                  {item.key === 'vocalArrangement' && <Mic className="w-3 h-3 text-purple-400" />}
+                  {item.key === 'sectionHeaders' && <Layers className="w-3 h-3 text-blue-600 dark:text-blue-400" />}
+                  {item.key === 'title' && <Heading1 className="w-3 h-3 text-blue-600 dark:text-blue-400" />}
+                  {item.key === 'language' && <Globe className="w-3 h-3 text-blue-600 dark:text-blue-400" />}
+                  {item.key === 'duration' && <Clock className="w-3 h-3 text-cyan-700 dark:text-cyan-400" />}
+                  {item.key === 'artist' && <Type className="w-3 h-3 text-slate-700 dark:text-gray-300" />}
+                  {item.key === 'album' && <Disc className="w-3 h-3 text-slate-700 dark:text-gray-300" />}
+                  {item.key === 'tags' && <Tag className="w-3 h-3 text-blue-600 dark:text-blue-400" />}
+                  {item.key === 'ccli' && <Shield className="w-3 h-3 text-blue-600 dark:text-blue-400" />}
+                  {item.key === 'copyright' && <Copyright className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />}
+                  {item.key === 'controlsBar' && <Music className="w-3 h-3 text-amber-600 dark:text-amber-400" />}
+                  {item.key === 'notes' && <Bookmark className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />}
+                  {item.key === 'actions' && <Maximize2 className="w-3 h-3 text-purple-600 dark:text-purple-400" />}
+                  {item.key === 'vocalArrangement' && <Mic className="w-3 h-3 text-purple-600 dark:text-purple-400" />}
                   <span>{item.label}</span>
                   {isVisible ? (
-                    <Check className="w-2.5 h-2.5 text-blue-400 ml-0.5 stroke-[3]" />
+                    <Check className="w-2.5 h-2.5 text-blue-600 dark:text-blue-400 ml-0.5 stroke-[3]" />
                   ) : (
                     <EyeOff className="w-2.5 h-2.5 text-gray-500 ml-0.5" />
                   )}
@@ -1040,10 +1040,10 @@ export const SettingsView: React.FC = () => {
           </div>
 
           {/* Palette d'accès direct aux couleurs des 9 sections */}
-          <div className="pt-2 border-t border-[#252530] flex flex-col gap-2">
+          <div className="pt-2 border-t border-slate-300 dark:border-[#252530] flex flex-col gap-2">
             <div className="flex items-center gap-1.5 whitespace-nowrap">
-              <Palette className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-              <span className="text-xs font-bold text-white">Couleurs des sections :</span>
+              <Palette className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+              <span className="text-xs font-bold text-slate-900 dark:text-white">Couleurs des sections :</span>
             </div>
             <div className="flex items-center gap-1.5 flex-wrap">
               {SECTION_TYPES_LIST.map((secMeta) => {
@@ -1082,7 +1082,7 @@ export const SettingsView: React.FC = () => {
         </div>
 
         {/* En-tête du chant reproduisant fidèlement SongReader */}
-        <div className="border-b border-[#222224] pb-2.5 flex flex-col gap-2">
+        <div className="border-b border-slate-200 dark:border-[#222224] pb-2.5 flex flex-col gap-2">
           {/* Ligne 1: Titre, Langue, Durée & Boutons d'action */}
           <div className="flex items-start justify-between gap-2 sm:gap-3 mb-0.5">
             <div className="flex-1 min-w-0 pr-1 sm:pr-2">
@@ -1095,7 +1095,7 @@ export const SettingsView: React.FC = () => {
                     }}
                     className={`font-bold tracking-tight leading-tight break-words cursor-pointer transition-all rounded px-1.5 py-0.5 -mx-1.5 ${
                       selectedPreviewElement?.type === 'title'
-                        ? 'ring-2 ring-blue-500 bg-blue-500/20 text-white'
+                        ? 'ring-2 ring-blue-500 bg-blue-500/20 text-slate-900 dark:text-white'
                         : 'hover:ring-1 hover:ring-blue-400/50 hover:bg-blue-500/5'
                     } ${
                       effectivePreviewTheme === 'light' ? 'text-[#18181B]' : 'text-white'
@@ -1136,13 +1136,13 @@ export const SettingsView: React.FC = () => {
                     } ${
                       effectivePreviewTheme === 'light'
                         ? 'bg-gray-100 border-gray-300 text-gray-700'
-                        : 'bg-[#18181C] border-[#2A2A30]'
+                        : 'bg-slate-50 dark:bg-[#18181C] border-slate-300 dark:border-[#2A2A30]'
                     }`}
                     style={{ fontSize: `${typography.metadataSize}px` }}
                     title={`Durée estimée : ${activeSongData.duration} - Cliquer pour ajuster la taille`}
                   >
-                    <Clock className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-                    <span className="text-cyan-300 font-bold font-mono text-xs">
+                    <Clock className="w-3.5 h-3.5 text-cyan-700 dark:text-cyan-400 shrink-0" />
+                    <span className="text-cyan-700 dark:text-cyan-300 font-bold font-mono text-xs">
                       {activeSongData.duration}
                     </span>
                   </div>
@@ -1164,10 +1164,10 @@ export const SettingsView: React.FC = () => {
                 }`}
                 title="Boutons d'action du lecteur de scène"
               >
-                <div className="p-1.5 rounded-lg border text-xs font-medium flex items-center justify-center bg-[#1C1C1E] text-gray-300 border-[#333]">
+                <div className="p-1.5 rounded-lg border text-xs font-medium flex items-center justify-center bg-[#EDF1F5] dark:bg-[#1C1C1E] text-slate-700 dark:text-gray-300 border-slate-300 dark:border-[#333]">
                   <Maximize2 className="w-3.5 h-3.5" />
                 </div>
-                <div className="p-1.5 rounded-lg bg-[#1C1C1E] border border-[#333] text-gray-200 flex items-center justify-center">
+                <div className="p-1.5 rounded-lg bg-[#EDF1F5] dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] text-slate-800 dark:text-gray-200 flex items-center justify-center">
                   <Settings2 className="w-3.5 h-3.5" />
                 </div>
               </div>
@@ -1185,7 +1185,7 @@ export const SettingsView: React.FC = () => {
                   }}
                   className={`font-medium break-words shrink-0 cursor-pointer transition-all rounded px-1.5 py-0.5 -mx-1.5 ${
                     selectedPreviewElement?.type === 'metadata'
-                      ? 'ring-2 ring-blue-500 bg-blue-500/20 text-blue-200'
+                      ? 'ring-2 ring-blue-500 bg-blue-500/20 text-blue-700 dark:text-blue-200'
                       : 'hover:ring-1 hover:ring-blue-400/50 hover:bg-blue-500/5'
                   } ${
                     effectivePreviewTheme === 'light' ? 'text-gray-600' : 'text-gray-300'
@@ -1204,7 +1204,7 @@ export const SettingsView: React.FC = () => {
                     setSelectedPreviewElement({ type: 'metadata', label: 'Album' });
                   }}
                   className={`inline-flex items-center gap-1 break-words shrink-0 cursor-pointer transition-all rounded px-1.5 py-0.5 ${
-                    previewMetadata.artist ? 'sm:border-l sm:border-[#2A2A2E] sm:pl-2' : ''
+                    previewMetadata.artist ? 'sm:border-l border-slate-300 dark:sm:border-[#2A2A2E] sm:pl-2' : ''
                   } ${
                     effectivePreviewTheme === 'light' ? 'text-gray-500' : 'text-gray-400'
                   }`}
@@ -1223,7 +1223,7 @@ export const SettingsView: React.FC = () => {
                     setSelectedPreviewElement({ type: 'metadata', label: 'Catégories / Tags' });
                   }}
                   className={`w-full sm:w-auto flex items-center gap-1 sm:gap-1.5 flex-wrap cursor-pointer ${
-                    previewMetadata.artist ? 'sm:border-l sm:border-[#2A2A2E] sm:pl-2' : ''
+                    previewMetadata.artist ? 'sm:border-l border-slate-300 dark:sm:border-[#2A2A2E] sm:pl-2' : ''
                   }`}
                   style={{ fontSize: `${typography.metadataSize}px` }}
                   title="Catégories du chant - Cliquer pour ajuster la taille"
@@ -1236,11 +1236,11 @@ export const SettingsView: React.FC = () => {
                       } ${
                         effectivePreviewTheme === 'light'
                           ? 'bg-gray-100 border-gray-300 text-gray-700'
-                          : 'bg-[#18181C] border-[#2A2A30]'
+                          : 'bg-slate-50 dark:bg-[#18181C] border-slate-300 dark:border-[#2A2A30]'
                       }`}
                       style={{ fontSize: `${typography.metadataSize}px` }}
                     >
-                      <Tag className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-blue-400" />
+                      <Tag className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-blue-600 dark:text-blue-400" />
                       <span>{cat}</span>
                     </span>
                   ))}
@@ -1254,7 +1254,7 @@ export const SettingsView: React.FC = () => {
                     setSelectedPreviewElement({ type: 'metadata', label: 'CCLI' });
                   }}
                   className={`flex items-center gap-1 cursor-pointer ${
-                    (previewMetadata.artist || (previewMetadata.tags && activeSongData.tags.length > 0)) ? 'sm:border-l sm:border-[#2A2A2E] sm:pl-2' : ''
+                    (previewMetadata.artist || (previewMetadata.tags && activeSongData.tags.length > 0)) ? 'sm:border-l border-slate-300 dark:sm:border-[#2A2A2E] sm:pl-2' : ''
                   }`}
                   style={{ fontSize: `${typography.metadataSize}px` }}
                   title="Numéro CCLI SongSelect"
@@ -1263,11 +1263,11 @@ export const SettingsView: React.FC = () => {
                     className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border font-semibold shadow-xs ${
                       effectivePreviewTheme === 'light'
                         ? 'bg-blue-50 border-blue-200 text-blue-700'
-                        : 'bg-[#18181C] border-[#2A2A30] text-blue-300 font-mono'
+                        : 'bg-slate-50 dark:bg-[#18181C] border-slate-300 dark:border-[#2A2A30] text-blue-700 dark:text-blue-300 font-mono'
                     }`}
                     style={{ fontSize: `${typography.metadataSize}px` }}
                   >
-                    <Shield className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-blue-400 shrink-0" />
+                    <Shield className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-blue-600 dark:text-blue-400 shrink-0" />
                     <span>CCLI #{activeSongData.ccli}</span>
                   </span>
                 </div>
@@ -1280,7 +1280,7 @@ export const SettingsView: React.FC = () => {
                     setSelectedPreviewElement({ type: 'metadata', label: 'Copyright' });
                   }}
                   className={`flex items-center gap-1 cursor-pointer ${
-                    ((previewMetadata.artist || (previewMetadata.tags && activeSongData.tags.length > 0) || (previewMetadata.ccli && activeSongData.ccli))) ? 'sm:border-l sm:border-[#2A2A2E] sm:pl-2' : ''
+                    ((previewMetadata.artist || (previewMetadata.tags && activeSongData.tags.length > 0) || (previewMetadata.ccli && activeSongData.ccli))) ? 'sm:border-l border-slate-300 dark:sm:border-[#2A2A2E] sm:pl-2' : ''
                   }`}
                   style={{ fontSize: `${typography.metadataSize}px` }}
                   title={`Copyright : ${activeSongData.copyright}`}
@@ -1289,7 +1289,7 @@ export const SettingsView: React.FC = () => {
                     className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border shadow-xs max-w-[220px] truncate ${
                       effectivePreviewTheme === 'light'
                         ? 'bg-gray-100 border-gray-300 text-gray-700'
-                        : 'bg-[#18181C] border-[#2A2A30] text-gray-400'
+                        : 'bg-slate-50 dark:bg-[#18181C] border-slate-300 dark:border-[#2A2A30] text-slate-600 dark:text-gray-400'
                     }`}
                     style={{ fontSize: `${typography.metadataSize}px` }}
                   >
@@ -1321,16 +1321,16 @@ export const SettingsView: React.FC = () => {
                 className={`min-h-[32px] py-1 inline-flex items-center gap-1.5 px-2.5 rounded-lg border font-mono shadow-xs ${
                   effectivePreviewTheme === 'light'
                     ? 'bg-gray-100 border-gray-300 text-gray-700'
-                    : 'bg-[#141416] border-[#242428] text-gray-300'
+                    : 'bg-slate-50 dark:bg-[#141416] border-slate-200 dark:border-[#242428] text-slate-700 dark:text-gray-300'
                 }`}
                 style={{ fontSize: `${typography.metadataSize}px` }}
               >
-                <Music className="w-3.5 h-3.5 text-blue-400 shrink-0" style={{ width: `${Math.max(12, Math.round(typography.metadataSize * 0.9))}px`, height: `${Math.max(12, Math.round(typography.metadataSize * 0.9))}px` }} />
-                <span className="text-gray-400 font-sans hidden sm:inline" style={{ fontSize: `${typography.metadataSize}px` }}>Tonalité :</span>
-                <span className="text-blue-400 font-bold font-mono" style={{ fontSize: `${typography.metadataSize}px` }}>
+                <Music className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" style={{ width: `${Math.max(12, Math.round(typography.metadataSize * 0.9))}px`, height: `${Math.max(12, Math.round(typography.metadataSize * 0.9))}px` }} />
+                <span className="text-slate-600 dark:text-gray-400 font-sans hidden sm:inline" style={{ fontSize: `${typography.metadataSize}px` }}>Tonalité :</span>
+                <span className="text-blue-600 dark:text-blue-400 font-bold font-mono" style={{ fontSize: `${typography.metadataSize}px` }}>
                   {stageSettings.notation === 'latin' ? (LATIN_NOTES[activeSongData.key] || activeSongData.key) : activeSongData.key}
                 </span>
-                <ChevronDown className="w-3 h-3 text-blue-400/80" style={{ width: `${Math.max(11, Math.round(typography.metadataSize * 0.8))}px`, height: `${Math.max(11, Math.round(typography.metadataSize * 0.8))}px` }} />
+                <ChevronDown className="w-3 h-3 text-blue-600 dark:text-blue-400/80" style={{ width: `${Math.max(11, Math.round(typography.metadataSize * 0.8))}px`, height: `${Math.max(11, Math.round(typography.metadataSize * 0.8))}px` }} />
               </div>
 
               {/* Capo */}
@@ -1338,16 +1338,16 @@ export const SettingsView: React.FC = () => {
                 className={`min-h-[32px] py-1 inline-flex items-center gap-1.5 px-2.5 rounded-lg border font-mono shadow-xs ${
                   effectivePreviewTheme === 'light'
                     ? 'bg-gray-100 border-gray-300 text-gray-700'
-                    : 'bg-[#141416] border-[#242428] text-gray-300'
+                    : 'bg-slate-50 dark:bg-[#141416] border-slate-200 dark:border-[#242428] text-slate-700 dark:text-gray-300'
                 }`}
                 style={{ fontSize: `${typography.metadataSize}px` }}
               >
-                <SlidersHorizontal className="w-3.5 h-3.5 text-purple-400 shrink-0" style={{ width: `${Math.max(12, Math.round(typography.metadataSize * 0.9))}px`, height: `${Math.max(12, Math.round(typography.metadataSize * 0.9))}px` }} />
-                <span className="text-gray-400 font-sans shrink-0 hidden sm:inline" style={{ fontSize: `${typography.metadataSize}px` }}>Capo :</span>
-                <span className="text-purple-400 font-bold font-mono" style={{ fontSize: `${typography.metadataSize}px` }}>
+                <SlidersHorizontal className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" style={{ width: `${Math.max(12, Math.round(typography.metadataSize * 0.9))}px`, height: `${Math.max(12, Math.round(typography.metadataSize * 0.9))}px` }} />
+                <span className="text-slate-600 dark:text-gray-400 font-sans shrink-0 hidden sm:inline" style={{ fontSize: `${typography.metadataSize}px` }}>Capo :</span>
+                <span className="text-purple-600 dark:text-purple-400 font-bold font-mono" style={{ fontSize: `${typography.metadataSize}px` }}>
                   {stageSettings.capo || 0}
                 </span>
-                <ChevronDown className="w-3 h-3 text-purple-400/80" style={{ width: `${Math.max(11, Math.round(typography.metadataSize * 0.8))}px`, height: `${Math.max(11, Math.round(typography.metadataSize * 0.8))}px` }} />
+                <ChevronDown className="w-3 h-3 text-purple-600 dark:text-purple-400/80" style={{ width: `${Math.max(11, Math.round(typography.metadataSize * 0.8))}px`, height: `${Math.max(11, Math.round(typography.metadataSize * 0.8))}px` }} />
               </div>
 
               {/* Tempo */}
@@ -1355,15 +1355,15 @@ export const SettingsView: React.FC = () => {
                 className={`min-h-[32px] py-1 inline-flex items-center gap-1.5 px-2.5 rounded-lg border font-mono shadow-xs ${
                   effectivePreviewTheme === 'light'
                     ? 'bg-gray-100 border-gray-300 text-gray-700'
-                    : 'bg-[#141416] border-[#242428] text-gray-300'
+                    : 'bg-slate-50 dark:bg-[#141416] border-slate-200 dark:border-[#242428] text-slate-700 dark:text-gray-300'
                 }`}
                 style={{ fontSize: `${typography.metadataSize}px` }}
               >
-                <Gauge className="w-3.5 h-3.5 text-emerald-400 shrink-0" style={{ width: `${Math.max(12, Math.round(typography.metadataSize * 0.9))}px`, height: `${Math.max(12, Math.round(typography.metadataSize * 0.9))}px` }} />
-                <span className="text-gray-400 font-sans hidden sm:inline" style={{ fontSize: `${typography.metadataSize}px` }}>Tempo :</span>
-                <span className="text-emerald-400 font-bold font-mono" style={{ fontSize: `${typography.metadataSize}px` }}>{activeSongData.tempo}</span>
-                <span className="text-gray-400 font-mono" style={{ fontSize: `${Math.max(10, Math.round(typography.metadataSize * 0.9))}px` }}>BPM</span>
-                <ChevronDown className="w-3 h-3 text-emerald-400/80" style={{ width: `${Math.max(11, Math.round(typography.metadataSize * 0.8))}px`, height: `${Math.max(11, Math.round(typography.metadataSize * 0.8))}px` }} />
+                <Gauge className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" style={{ width: `${Math.max(12, Math.round(typography.metadataSize * 0.9))}px`, height: `${Math.max(12, Math.round(typography.metadataSize * 0.9))}px` }} />
+                <span className="text-slate-600 dark:text-gray-400 font-sans hidden sm:inline" style={{ fontSize: `${typography.metadataSize}px` }}>Tempo :</span>
+                <span className="text-emerald-600 dark:text-emerald-400 font-bold font-mono" style={{ fontSize: `${typography.metadataSize}px` }}>{activeSongData.tempo}</span>
+                <span className="text-slate-600 dark:text-gray-400 font-mono" style={{ fontSize: `${Math.max(10, Math.round(typography.metadataSize * 0.9))}px` }}>BPM</span>
+                <ChevronDown className="w-3 h-3 text-emerald-600 dark:text-emerald-400/80" style={{ width: `${Math.max(11, Math.round(typography.metadataSize * 0.8))}px`, height: `${Math.max(11, Math.round(typography.metadataSize * 0.8))}px` }} />
               </div>
             </div>
           )}
@@ -1382,13 +1382,13 @@ export const SettingsView: React.FC = () => {
               } ${
                 effectivePreviewTheme === 'light'
                   ? 'bg-amber-50/60 border-amber-200/80'
-                  : 'bg-[#111112] border-[#222224]'
+                  : 'bg-white dark:bg-[#111112] border-slate-200 dark:border-[#222224]'
               }`}
               style={{ fontSize: `${Math.max(11, typography.metadataSize)}px` }}
               title="Note du chant - Cliquer pour ajuster la taille"
             >
-              <div className="text-gray-300 font-sans italic flex-1">
-                <span className="text-amber-400/90 font-semibold not-italic mr-1.5">Note :</span>
+              <div className="text-slate-700 dark:text-gray-300 font-sans italic flex-1">
+                <span className="text-amber-600 dark:text-amber-400/90 font-semibold not-italic mr-1.5">Note :</span>
                 <span className={effectivePreviewTheme === 'light' ? 'text-gray-700' : 'text-gray-300'}>
                   {activeSongData.notes}
                 </span>
@@ -1452,7 +1452,7 @@ export const SettingsView: React.FC = () => {
                         }}
                         className={`inline-block font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border shadow-xs select-none cursor-pointer transition-all ${
                           isHeaderSelected
-                            ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-[#0E0E10] scale-105'
+                            ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-white dark:ring-offset-[#0E0E10] scale-105'
                             : 'hover:scale-105 hover:ring-1 hover:ring-blue-400/60'
                         }`}
                         style={{
@@ -1476,10 +1476,10 @@ export const SettingsView: React.FC = () => {
                             label: `Arrangement vocal (${sec.vocalArrangement})`
                           });
                         }}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#1B1626] border border-purple-500/30 text-purple-300 text-[11px] font-medium shadow-xs hover:bg-purple-950/60 transition-colors"
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#EDF1F5] dark:bg-[#1B1626] border border-purple-500/30 text-purple-700 dark:text-purple-300 text-[11px] font-medium shadow-xs hover:bg-purple-100 dark:hover:bg-purple-950/60 transition-colors"
                         title="Arrangement vocal de la section"
                       >
-                        <Mic className="w-3 h-3 text-purple-400 shrink-0" />
+                        <Mic className="w-3 h-3 text-purple-600 dark:text-purple-400 shrink-0" />
                         <span>{sec.vocalArrangement}</span>
                       </div>
                     )}
@@ -1507,7 +1507,7 @@ export const SettingsView: React.FC = () => {
                                     ? 'ring-2 ring-blue-500 bg-blue-500/20'
                                     : 'hover:ring-1 hover:ring-blue-400/60 hover:bg-blue-500/10'
                                 } ${displayedChord ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
-                                style={{ fontSize: `${typography.chordSize}px`, color: chordColor }}
+                                style={{ fontSize: `${typography.chordSize}px`, color: getReadableChordColor(chordColor, effectivePreviewTheme === 'light') }}
                                 title="Cliquer pour modifier la taille et la couleur des accords"
                               >
                                 {displayedChord || '\u00A0'}
@@ -1541,19 +1541,19 @@ export const SettingsView: React.FC = () => {
 
         {/* Song Sheet Legal Footer: CCLI & Copyright */}
         {((previewMetadata.ccli && activeSongData.ccli) || (previewMetadata.copyright && activeSongData.copyright)) && (
-          <div className="mt-6 pt-3 border-t border-[#222226] flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px] text-gray-400">
+          <div className="mt-6 pt-3 border-t border-slate-200 dark:border-[#222226] flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px] text-slate-600 dark:text-gray-400">
             {previewMetadata.copyright && activeSongData.copyright && (
-              <div className="flex items-center gap-1.5 text-gray-400 min-w-0">
+              <div className="flex items-center gap-1.5 text-slate-600 dark:text-gray-400 min-w-0">
                 <Copyright className="w-3 h-3 text-gray-500 shrink-0" />
                 <span className="truncate">{activeSongData.copyright}</span>
               </div>
             )}
             {previewMetadata.ccli && activeSongData.ccli && (
               <div className="flex items-center gap-1.5 shrink-0 sm:ml-auto">
-                <Shield className="w-3 h-3 text-blue-400 shrink-0" />
+                <Shield className="w-3 h-3 text-blue-600 dark:text-blue-400 shrink-0" />
                 <span>
                   Chant CCLI N°{' '}
-                  <span className="font-mono font-bold text-blue-400">
+                  <span className="font-mono font-bold text-blue-600 dark:text-blue-400">
                     {activeSongData.ccli}
                   </span>
                 </span>
@@ -1566,15 +1566,15 @@ export const SettingsView: React.FC = () => {
   };
 
   return (
-    <div className="h-[calc(100vh-64px)] flex flex-col bg-[#0A0A0B] text-white overflow-hidden">
+    <div className="h-[calc(100vh-64px)] flex flex-col bg-[#F4F6F9] dark:bg-[#0A0A0B] text-slate-900 dark:text-white overflow-hidden">
       
       {/* Top Header Bar */}
-      <div className="settings-header-bar border-b border-[#222224] bg-[#111112]/90 backdrop-blur-md px-4 sm:px-6 lg:px-8 py-3 shrink-0 z-30">
+      <div className="settings-header-bar border-b border-slate-200 dark:border-[#222224] bg-white/90 dark:bg-[#111112]/90 backdrop-blur-md px-4 sm:px-6 lg:px-8 py-3 shrink-0 z-30">
         <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <button
             onClick={() => setActiveTab('repertoire')}
-            className="p-1.5 rounded-lg hover:bg-[#222224] text-gray-400 hover:text-white transition-colors"
+            className="p-1.5 rounded-lg hover:bg-slate-200/70 dark:hover:bg-[#222224] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-colors"
             title="Retour au Répertoire"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -1582,7 +1582,7 @@ export const SettingsView: React.FC = () => {
           <div>
             <div className="flex items-center gap-2">
               <Sliders className="w-5 h-5 text-blue-500" />
-              <h1 className="text-base sm:text-lg font-bold text-white tracking-tight">
+              <h1 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight">
                 Réglages
               </h1>
             </div>
@@ -1593,17 +1593,17 @@ export const SettingsView: React.FC = () => {
           <button
             type="button"
             onClick={toggleAllCategories}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 hover:text-white border border-[#333] text-xs font-semibold transition-all active:scale-95 cursor-pointer"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-slate-200 dark:hover:bg-[#2A2A2D] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-[#333] text-xs font-semibold transition-all active:scale-95 cursor-pointer"
             title={allCollapsed ? "Tout déplier (toutes les sections)" : "Tout plier (toutes les sections)"}
           >
             {allCollapsed ? (
               <>
-                <ChevronsDown className="w-3.5 h-3.5 text-blue-400" />
+                <ChevronsDown className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                 <span className="hidden sm:inline">Tout déplier</span>
               </>
             ) : (
               <>
-                <ChevronsUp className="w-3.5 h-3.5 text-blue-400" />
+                <ChevronsUp className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                 <span className="hidden sm:inline">Tout plier</span>
               </>
             )}
@@ -1611,10 +1611,10 @@ export const SettingsView: React.FC = () => {
 
           <button
             onClick={handleReset}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#1C1C1E] hover:bg-[#2A2A2D] text-gray-300 hover:text-white border border-[#333] text-xs font-semibold transition-all active:scale-95 cursor-pointer"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-slate-200 dark:hover:bg-[#2A2A2D] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-[#333] text-xs font-semibold transition-all active:scale-95 cursor-pointer"
             title="Rétablir les polices et couleurs par défaut"
           >
-            <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
+            <RotateCcw className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
             <span className="hidden sm:inline">Réinitialiser</span>
           </button>
         </div>
@@ -1622,12 +1622,20 @@ export const SettingsView: React.FC = () => {
       </div>
 
       {/* Notification Toast */}
-      {showNotification && (
-        <div className="absolute top-16 left-6 z-50 px-4 py-2 rounded-lg bg-green-600/90 border border-green-500 text-white text-xs font-medium flex items-center gap-2 shadow-2xl animate-in fade-in slide-in-from-top-2">
-          <Check className="w-4 h-4" />
-          <span>{showNotification}</span>
-        </div>
-      )}
+      <AnimatePresence>
+        {showNotification && (
+          <motion.div
+            initial={{ opacity: 0, y: -10, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -8, scale: 0.96 }}
+            transition={{ duration: 0.16, ease: STAGE_EASE }}
+            className="absolute top-16 left-6 z-50 px-4 py-2 rounded-lg bg-emerald-600 text-white border border-emerald-500 text-xs font-medium flex items-center gap-2 shadow-2xl"
+          >
+            <Check className="w-4 h-4" />
+            <span>{showNotification}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Main Workspace */}
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -1635,50 +1643,162 @@ export const SettingsView: React.FC = () => {
         {/* SCROLLABLE SETTINGS PANEL */}
         <div className="flex-1 w-full max-w-4xl mx-auto overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-5 pb-24">
           
+          {/* DEDICATED TOP APPEARANCE SWITCHER (DARK DEFAULT / DAYLIGHT LIGHT) */}
+          <section
+            aria-label="Apparence de l'application"
+            className="bg-white dark:bg-[#111112] border border-slate-200 dark:border-[#222224] rounded-xl p-4 sm:p-5 shadow-xs transition-colors divide-y divide-slate-200 dark:divide-[#222224] space-y-4"
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5">
+              <div className="flex items-start sm:items-center gap-3 min-w-0">
+                <div className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 transition-colors ${
+                  stageSettings.theme === 'light'
+                    ? 'bg-amber-50 border-amber-200 text-amber-600 dark:bg-amber-500/15 dark:border-amber-500/30 dark:text-amber-400'
+                    : 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-500/15 dark:border-blue-500/30 dark:text-blue-400'
+                }`}>
+                  {stageSettings.theme === 'light' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                </div>
+                <div className="min-w-0">
+                  <h2 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
+                    Apparence de l&apos;application
+                  </h2>
+                  <p className="text-xs text-slate-600 dark:text-gray-400 mt-0.5">
+                    Basculez manuellement entre le thème sombre (par défaut) et le thème clair pour une lisibilité optimale en plein jour.
+                  </p>
+                </div>
+              </div>
+
+              <div
+                role="group"
+                aria-label="Choix du thème"
+                className="flex items-center gap-1 p-1 rounded-xl bg-slate-100 dark:bg-[#18181C] border border-slate-200 dark:border-[#2B2B30] shrink-0 self-start sm:self-center"
+              >
+                <button
+                  id="btn-theme-dark"
+                  type="button"
+                  aria-pressed={stageSettings.theme !== 'light'}
+                  onClick={() => updateStageSettings({ theme: 'dark' })}
+                  className={`relative z-10 min-h-[40px] px-3.5 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer whitespace-nowrap ${
+                    stageSettings.theme !== 'light'
+                      ? 'text-white'
+                      : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#24242A]'
+                  }`}
+                >
+                  {stageSettings.theme !== 'light' && (
+                    <motion.span
+                      layoutId="settings-theme-pill"
+                      className="absolute inset-0 bg-blue-600 rounded-lg shadow-sm -z-10"
+                      transition={NAV_SPRING}
+                    />
+                  )}
+                  <Moon className="w-4 h-4 shrink-0" />
+                  <span>Sombre</span>
+                </button>
+                <button
+                  id="btn-theme-light"
+                  type="button"
+                  aria-pressed={stageSettings.theme === 'light'}
+                  onClick={() => updateStageSettings({ theme: 'light' })}
+                  className={`relative z-10 min-h-[40px] px-3.5 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer whitespace-nowrap ${
+                    stageSettings.theme === 'light'
+                      ? 'text-white'
+                      : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#24242A]'
+                  }`}
+                >
+                  {stageSettings.theme === 'light' && (
+                    <motion.span
+                      layoutId="settings-theme-pill"
+                      className="absolute inset-0 bg-blue-600 rounded-lg shadow-sm -z-10"
+                      transition={NAV_SPRING}
+                    />
+                  )}
+                  <Sun className="w-4 h-4 shrink-0" />
+                  <span>Clair</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Animations / Reduce Motion Toggle */}
+            <div className="pt-4 flex items-center justify-between gap-4">
+              <div className="flex items-start sm:items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-lg bg-slate-100 dark:bg-[#18181C] border border-slate-200 dark:border-[#2B2B30] flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
+                  <Sparkles className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white block">
+                    Réduire les animations
+                  </span>
+                  <p className="text-xs text-slate-600 dark:text-gray-400 mt-0.5">
+                    Désactive les transitions animées (suit également le réglage système de votre appareil).
+                  </p>
+                </div>
+              </div>
+
+              <button
+                id="btn-toggle-reduce-motion"
+                type="button"
+                role="switch"
+                aria-checked={Boolean(stageSettings.reduceMotion)}
+                aria-label="Réduire les animations"
+                onClick={() => updateStageSettings({ reduceMotion: !stageSettings.reduceMotion })}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                  stageSettings.reduceMotion ? 'bg-blue-600' : 'bg-[#EDF1F5] dark:bg-[#2E2E34]'
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-lg ring-0 transition-transform duration-200 ease-in-out ${
+                    stageSettings.reduceMotion ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+          </section>
+
           {/* USER AVATAR SELECTOR */}
           {!isGuest && <UserAvatarSelector />}
 
           {/* 1. STAGE DISPLAY & NOTATION SETTINGS */}
-          <div className="bg-[#111112] border border-[#222224] rounded-xl overflow-hidden shadow-sm transition-colors hover:border-[#303036]">
+          <div className="bg-white dark:bg-[#111112] border border-slate-200 dark:border-[#222224] rounded-xl overflow-hidden shadow-sm transition-colors hover:border-slate-400 dark:hover:border-[#303036]">
             {/* Header / Trigger */}
             <div 
               onClick={() => toggleCategory('display')}
-              className="w-full text-left p-3.5 sm:p-4.5 flex items-center justify-between gap-3 cursor-pointer transition-colors hover:bg-[#151518]/50 select-none"
+              className="w-full text-left p-3.5 sm:p-4.5 flex items-center justify-between gap-3 cursor-pointer transition-colors hover:bg-slate-100/50 dark:hover:bg-[#151518]/50 select-none"
             >
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 shrink-0">
+                <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
                   <Music className="w-4 h-4" />
                 </div>
-                <h2 className="text-sm font-bold text-white truncate">
+                <h2 className="text-sm font-bold text-slate-900 dark:text-white truncate">
                   Affichage & Thème
                 </h2>
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
-                <div className={`p-1.5 rounded-lg bg-[#18181C] border border-[#2B2B30] text-gray-400 transition-transform duration-200 ${openCategories.display ? 'rotate-180 text-blue-400 border-blue-500/30' : ''}`}>
+                <div className={`p-1.5 rounded-lg bg-slate-50 dark:bg-[#18181C] border border-slate-300 dark:border-[#2B2B30] text-slate-600 dark:text-gray-400 transition-transform duration-200 ${openCategories.display ? 'rotate-180 text-blue-600 dark:text-blue-400 border-blue-500/30' : ''}`}>
                   <ChevronDown className="w-4 h-4" />
                 </div>
               </div>
             </div>
 
             {/* Content (Collapsible on all devices) */}
-            <div className={`p-4 sm:p-5 pt-0 sm:pt-0 ${openCategories.display ? 'block' : 'hidden'}`}>
-              <div className="border-t border-[#222224] mb-4" />
+            <div className="accordion-grid" data-open={openCategories.display ? 'true' : 'false'}>
+              <div className="accordion-inner">
+                <div className="p-4 sm:p-5 pt-0 sm:pt-0">
+              <div className="border-t border-slate-200 dark:border-[#222224] mb-4" />
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               
               {/* Notation Selection */}
-              <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex flex-col justify-between gap-2.5">
+              <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#18181A] border border-slate-200 dark:border-[#262629] flex flex-col justify-between gap-2.5">
                 <div>
-                  <span className="text-xs font-bold text-gray-200 block">Notation</span>
+                  <span className="text-xs font-bold text-slate-800 dark:text-gray-200 block">Notation</span>
                 </div>
-                <div className="theme-toggle-group flex items-center gap-1 bg-[#121214] p-0.5 rounded-lg border border-[#2B2B30]">
+                <div className="theme-toggle-group flex items-center gap-1 bg-white dark:bg-[#121214] p-0.5 rounded-lg border border-slate-300 dark:border-[#2B2B30]">
                   <button
                     type="button"
                     onClick={() => updateStageSettings({ notation: 'latin' })}
                     className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-all ${
                       stageSettings.notation === 'latin'
                         ? 'bg-blue-600 text-white shadow-xs'
-                        : 'theme-toggle-inactive text-gray-400 hover:text-white'
+                        : 'theme-toggle-inactive text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                     }`}
                   >
                     Do Ré Mi
@@ -1689,7 +1809,7 @@ export const SettingsView: React.FC = () => {
                     className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-all ${
                       stageSettings.notation === 'standard'
                         ? 'bg-blue-600 text-white shadow-xs'
-                        : 'theme-toggle-inactive text-gray-400 hover:text-white'
+                        : 'theme-toggle-inactive text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                     }`}
                   >
                     A B C
@@ -1698,11 +1818,11 @@ export const SettingsView: React.FC = () => {
               </div>
 
               {/* Columns Toggle */}
-              <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex flex-col justify-between gap-2.5">
+              <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#18181A] border border-slate-200 dark:border-[#262629] flex flex-col justify-between gap-2.5">
                 <div>
-                  <span className="text-xs font-bold text-gray-200 block">Disposition</span>
+                  <span className="text-xs font-bold text-slate-800 dark:text-gray-200 block">Disposition</span>
                 </div>
-                <div className="theme-toggle-group flex items-center gap-1 bg-[#121214] p-0.5 rounded-lg border border-[#2B2B30]">
+                <div className="theme-toggle-group flex items-center gap-1 bg-white dark:bg-[#121214] p-0.5 rounded-lg border border-slate-300 dark:border-[#2B2B30]">
                   {([1, 2, 3, 4, 5] as const).map((cols) => {
                     const activeCols = typeof stageSettings.columns === 'number' && stageSettings.columns >= 1 && stageSettings.columns <= 5
                       ? stageSettings.columns
@@ -1715,7 +1835,7 @@ export const SettingsView: React.FC = () => {
                         className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                           activeCols === cols
                             ? 'bg-blue-600 text-white shadow-xs'
-                            : 'theme-toggle-inactive text-gray-400 hover:text-white'
+                            : 'theme-toggle-inactive text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                         }`}
                         title={`Afficher sur ${cols} colonne${cols > 1 ? 's' : ''}`}
                       >
@@ -1727,20 +1847,20 @@ export const SettingsView: React.FC = () => {
               </div>
 
               {/* Theme Mode Toggle */}
-              <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex flex-col justify-between gap-2.5">
+              <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#18181A] border border-slate-200 dark:border-[#262629] flex flex-col justify-between gap-2.5">
                 <div>
-                  <span className="text-xs font-bold text-gray-200 block">Thème</span>
+                  <span className="text-xs font-bold text-slate-800 dark:text-gray-200 block">Thème</span>
                 </div>
-                <div className="theme-toggle-group flex items-center gap-1 bg-[#121214] p-0.5 rounded-lg border border-[#2B2B30]">
+                <div className="theme-toggle-group flex items-center gap-1 bg-white dark:bg-[#121214] p-0.5 rounded-lg border border-slate-300 dark:border-[#2B2B30]">
                   <button
                     type="button"
                     onClick={() => updateStageSettings({ theme: 'dark' })}
-                    className={`flex-1 py-1.5 rounded-md text-xs font-semibold flex items-center justify-center gap-1 transition-all ${
-                      stageSettings.theme === 'dark'
+                    className={`flex-1 py-1.5 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                      stageSettings.theme !== 'light'
                         ? 'bg-blue-600 text-white shadow-xs'
-                        : 'theme-toggle-inactive text-gray-400 hover:text-white'
+                        : 'theme-toggle-inactive text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                     }`}
-                    title="Mode sombre"
+                    title="Mode sombre (par défaut)"
                   >
                     <Moon className="w-3.5 h-3.5 shrink-0" />
                     <span>Sombre</span>
@@ -1748,39 +1868,26 @@ export const SettingsView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => updateStageSettings({ theme: 'light' })}
-                    className={`flex-1 py-1.5 rounded-md text-xs font-semibold flex items-center justify-center gap-1 transition-all ${
+                    className={`flex-1 py-1.5 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                       stageSettings.theme === 'light'
                         ? 'bg-blue-600 text-white shadow-xs'
-                        : 'theme-toggle-inactive text-gray-400 hover:text-white'
+                        : 'theme-toggle-inactive text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                     }`}
                     title="Mode clair"
                   >
                     <Sun className="w-3.5 h-3.5 shrink-0" />
                     <span>Clair</span>
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => updateStageSettings({ theme: 'system' })}
-                    className={`flex-1 py-1.5 rounded-md text-xs font-semibold flex items-center justify-center gap-1 transition-all ${
-                      stageSettings.theme === 'system'
-                        ? 'bg-blue-600 text-white shadow-xs'
-                        : 'theme-toggle-inactive text-gray-400 hover:text-white'
-                    }`}
-                    title="Synchronisé avec le système"
-                  >
-                    <Monitor className="w-3.5 h-3.5 shrink-0" />
-                    <span>Système</span>
-                  </button>
                 </div>
               </div>
 
               {/* Repertoire Card: Album Visibility */}
-              <div className="p-3 rounded-lg bg-[#18181A] border border-[#262629] flex items-center justify-between gap-3 sm:col-span-2 lg:col-span-3">
+              <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#18181A] border border-slate-200 dark:border-[#262629] flex items-center justify-between gap-3 sm:col-span-2 lg:col-span-3">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <Disc className="w-4 h-4 text-blue-400 shrink-0" />
+                  <Disc className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
                   <div className="min-w-0">
-                    <span className="text-xs font-bold text-gray-200 block">Album dans le répertoire</span>
-                    <span className="text-[11px] text-gray-400 block truncate">
+                    <span className="text-xs font-bold text-slate-800 dark:text-gray-200 block">Album dans le répertoire</span>
+                    <span className="text-[11px] text-slate-600 dark:text-gray-400 block truncate">
                       Afficher le nom de l&apos;album sur les cartes de la liste des chants
                     </span>
                   </div>
@@ -1789,7 +1896,7 @@ export const SettingsView: React.FC = () => {
                   type="button"
                   onClick={() => updateSongCardMetadata({ showAlbum: !(songCardMetadata.showAlbum !== false) })}
                   className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
-                    songCardMetadata.showAlbum !== false ? 'bg-blue-600' : 'bg-[#2E2E34]'
+                    songCardMetadata.showAlbum !== false ? 'bg-blue-600' : 'bg-[#EDF1F5] dark:bg-[#2E2E34]'
                   }`}
                   aria-label="Afficher l'album dans le répertoire"
                 >
@@ -1802,23 +1909,25 @@ export const SettingsView: React.FC = () => {
               </div>
 
             </div>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
 
           {/* 2. PERSONNALISATION VISUELLE INTERACTIVE */}
-          <div className="bg-[#111112] border border-[#222224] rounded-xl overflow-hidden shadow-sm transition-colors hover:border-[#303036]">
+          <div className="bg-white dark:bg-[#111112] border border-slate-200 dark:border-[#222224] rounded-xl overflow-hidden shadow-sm transition-colors hover:border-slate-400 dark:hover:border-[#303036]">
             {/* Header / Trigger */}
             <div 
               onClick={() => {
               setIsMobilePreviewFullscreen(true);
             }}
-            className="w-full text-left p-3.5 sm:p-4.5 flex items-center justify-between gap-3 cursor-pointer transition-colors hover:bg-[#151518]/50 select-none"
+            className="w-full text-left p-3.5 sm:p-4.5 flex items-center justify-between gap-3 cursor-pointer transition-colors hover:bg-slate-100/50 dark:hover:bg-[#151518]/50 select-none"
           >
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 shrink-0">
+              <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
                 <MousePointerClick className="w-4 h-4" />
               </div>
-              <h2 className="text-sm font-bold text-white truncate">
+              <h2 className="text-sm font-bold text-slate-900 dark:text-white truncate">
                 Personnalisation Visuelle Interactive
               </h2>
             </div>
@@ -1841,17 +1950,17 @@ export const SettingsView: React.FC = () => {
           </div>
 
           {/* 4. MIDI DEVICES & FOOT PEDAL CONTROLS */}
-          <div className="bg-[#111112] border border-[#222224] rounded-xl overflow-hidden shadow-sm transition-colors hover:border-[#303036]">
+          <div className="bg-white dark:bg-[#111112] border border-slate-200 dark:border-[#222224] rounded-xl overflow-hidden shadow-sm transition-colors hover:border-slate-400 dark:hover:border-[#303036]">
             {/* Header / Trigger */}
             <div 
               onClick={() => toggleCategory('midi')}
-              className="w-full text-left p-3.5 sm:p-4.5 flex items-center justify-between gap-3 cursor-pointer transition-colors hover:bg-[#151518]/50 select-none"
+              className="w-full text-left p-3.5 sm:p-4.5 flex items-center justify-between gap-3 cursor-pointer transition-colors hover:bg-slate-100/50 dark:hover:bg-[#151518]/50 select-none"
             >
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 shrink-0">
+                <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
                   <Radio className="w-4 h-4" />
                 </div>
-                <h2 className="text-sm font-bold text-white truncate">
+                <h2 className="text-sm font-bold text-slate-900 dark:text-white truncate">
                   Contrôle MIDI & Pédaliers
                 </h2>
               </div>
@@ -1870,7 +1979,7 @@ export const SettingsView: React.FC = () => {
                 </button>
 
                 <div className="flex items-center gap-2">
-                  <div className={`p-1.5 rounded-lg bg-[#18181C] border border-[#2B2B30] text-gray-400 transition-transform duration-200 ${openCategories.midi ? 'rotate-180 text-blue-400 border-blue-500/30' : ''}`}>
+                  <div className={`p-1.5 rounded-lg bg-slate-50 dark:bg-[#18181C] border border-slate-300 dark:border-[#2B2B30] text-slate-600 dark:text-gray-400 transition-transform duration-200 ${openCategories.midi ? 'rotate-180 text-blue-600 dark:text-blue-400 border-blue-500/30' : ''}`}>
                     <ChevronDown className="w-4 h-4" />
                   </div>
                 </div>
@@ -1878,18 +1987,20 @@ export const SettingsView: React.FC = () => {
             </div>
 
             {/* Content (Collapsible on all devices) */}
-            <div className={`p-4 sm:p-5 pt-0 sm:pt-0 ${openCategories.midi ? 'block' : 'hidden'}`}>
-              <div className="border-t border-[#222224] mb-4" />
+            <div className="accordion-grid" data-open={openCategories.midi ? 'true' : 'false'}>
+              <div className="accordion-inner">
+                <div className="p-4 sm:p-5 pt-0 sm:pt-0">
+              <div className="border-t border-slate-200 dark:border-[#222224] mb-4" />
 
             {/* Quick status & master toggle */}
             <div className="space-y-4">
-              <div className="p-3.5 rounded-lg bg-[#18181A] border border-[#262629] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="p-3.5 rounded-lg bg-slate-50 dark:bg-[#18181A] border border-slate-200 dark:border-[#262629] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <button
                     type="button"
                     onClick={() => setIsMidiEnabled(!isMidiEnabled)}
                     className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
-                      isMidiEnabled ? 'bg-blue-600' : 'bg-[#2E2E34]'
+                      isMidiEnabled ? 'bg-blue-600' : 'bg-[#EDF1F5] dark:bg-[#2E2E34]'
                     }`}
                   >
                     <span
@@ -1899,10 +2010,10 @@ export const SettingsView: React.FC = () => {
                     />
                   </button>
                   <div>
-                    <span className="text-xs font-bold text-gray-200 block">
+                    <span className="text-xs font-bold text-slate-800 dark:text-gray-200 block">
                       {isMidiEnabled ? 'Écoute MIDI active' : 'Écoute MIDI désactivée'}
                     </span>
-                    <span className="text-[11px] text-gray-400">
+                    <span className="text-[11px] text-slate-600 dark:text-gray-400">
                       {isMidiEnabled 
                         ? 'Les commandes de votre pédalier sont traitées en direct' 
                         : 'Mise en veille du récepteur MIDI'}
@@ -1914,20 +2025,20 @@ export const SettingsView: React.FC = () => {
                   <button
                     type="button"
                     onClick={refreshMidiDevices}
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#202024] hover:bg-[#28282E] text-gray-300 hover:text-white border border-[#333] text-xs font-medium transition-colors"
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#EDF1F5] dark:bg-[#202024] hover:bg-slate-200 dark:hover:bg-[#28282E] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-[#333] text-xs font-medium transition-colors"
                     title="Actualiser la liste des périphériques connectés"
                   >
-                    <RefreshCw className="w-3.5 h-3.5 text-blue-400" />
+                    <RefreshCw className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                     <span>Détecter</span>
                   </button>
                 </div>
               </div>
 
               {/* Connected Devices summary */}
-              <div className="p-3 rounded-lg bg-[#141416] border border-[#242428] space-y-2">
+              <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#141416] border border-slate-200 dark:border-[#242428] space-y-2">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-gray-400 font-medium">Périphériques détectés :</span>
-                  <span className="font-mono text-gray-300">
+                  <span className="text-slate-600 dark:text-gray-400 font-medium">Périphériques détectés :</span>
+                  <span className="font-mono text-slate-700 dark:text-gray-300">
                     {midiDevices.length > 0 
                       ? midiDevices.map(d => d.name).join(', ') 
                       : 'Aucun périphérique MIDI branché'}
@@ -1935,9 +2046,9 @@ export const SettingsView: React.FC = () => {
                 </div>
 
                 {/* Real-time MIDI Monitor */}
-                <div className="flex items-center justify-between text-xs pt-2 border-t border-[#222226]">
-                  <span className="text-gray-400 font-medium">Dernier signal reçu :</span>
-                  <span className="font-mono text-[11px] text-blue-400">
+                <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-200 dark:border-[#222226]">
+                  <span className="text-slate-600 dark:text-gray-400 font-medium">Dernier signal reçu :</span>
+                  <span className="font-mono text-[11px] text-blue-600 dark:text-blue-400">
                     {lastMidiEvent 
                       ? `${lastMidiEvent.type.toUpperCase()} #${lastMidiEvent.number} (val: ${lastMidiEvent.value}, ch: ${lastMidiEvent.channel})` 
                       : 'En attente...'}
@@ -1947,24 +2058,24 @@ export const SettingsView: React.FC = () => {
 
               {/* Quick Mappings Grid Preview */}
               <div>
-                <span className="text-xs font-bold text-gray-300 block mb-2">
+                <span className="text-xs font-bold text-slate-700 dark:text-gray-300 block mb-2">
                   Commandes assignées par défaut :
                 </span>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                   {midiMappings.slice(0, 4).map(mapping => (
                     <div 
                       key={mapping.id}
-                      className="p-2.5 rounded-lg bg-[#18181A] border border-[#262629] flex items-center justify-between"
+                      className="p-2.5 rounded-lg bg-slate-50 dark:bg-[#18181A] border border-slate-200 dark:border-[#262629] flex items-center justify-between"
                     >
                       <div className="truncate mr-2">
-                        <span className="text-gray-200 font-semibold block truncate">
+                        <span className="text-slate-800 dark:text-gray-200 font-semibold block truncate">
                           {mapping.label}
                         </span>
-                        <span className="text-[10px] text-gray-400 truncate block">
+                        <span className="text-[10px] text-slate-600 dark:text-gray-400 truncate block">
                           {mapping.name}
                         </span>
                       </div>
-                      <span className="px-2 py-0.5 rounded font-mono font-bold text-[10px] bg-[#222226] text-blue-300 border border-[#333] shrink-0">
+                      <span className="px-2 py-0.5 rounded font-mono font-bold text-[10px] bg-[#EDF1F5] dark:bg-[#222226] text-blue-700 dark:text-blue-300 border border-slate-300 dark:border-[#333] shrink-0">
                         {mapping.type.toUpperCase()} #{mapping.number}
                       </span>
                     </div>
@@ -1973,8 +2084,8 @@ export const SettingsView: React.FC = () => {
               </div>
 
               {/* Quick Presets Bar */}
-              <div className="pt-2 border-t border-[#242428] flex flex-wrap items-center justify-between gap-2">
-                <span className="text-[11px] text-gray-400 font-medium">Préréglages rapides :</span>
+              <div className="pt-2 border-t border-slate-200 dark:border-[#242428] flex flex-wrap items-center justify-between gap-2">
+                <span className="text-[11px] text-slate-600 dark:text-gray-400 font-medium">Préréglages rapides :</span>
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <button
                     type="button"
@@ -1983,7 +2094,7 @@ export const SettingsView: React.FC = () => {
                       setShowNotification('Preset Pédalier Standard appliqué');
                       setTimeout(() => setShowNotification(null), 2500);
                     }}
-                    className="px-2.5 py-1 rounded bg-[#1C1C20] hover:bg-[#28282E] text-gray-300 hover:text-white border border-[#333] text-xs font-medium transition-colors"
+                    className="px-2.5 py-1 rounded bg-[#EDF1F5] dark:bg-[#1C1C20] hover:bg-slate-200 dark:hover:bg-[#28282E] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-[#333] text-xs font-medium transition-colors"
                   >
                     Pédalier Standard
                   </button>
@@ -1994,7 +2105,7 @@ export const SettingsView: React.FC = () => {
                       setShowNotification('Preset Clavier MIDI appliqué');
                       setTimeout(() => setShowNotification(null), 2500);
                     }}
-                    className="px-2.5 py-1 rounded bg-[#1C1C20] hover:bg-[#28282E] text-gray-300 hover:text-white border border-[#333] text-xs font-medium transition-colors"
+                    className="px-2.5 py-1 rounded bg-[#EDF1F5] dark:bg-[#1C1C20] hover:bg-slate-200 dark:hover:bg-[#28282E] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-[#333] text-xs font-medium transition-colors"
                   >
                     Clavier MIDI
                   </button>
@@ -2005,7 +2116,7 @@ export const SettingsView: React.FC = () => {
                       setShowNotification('Preset Program Change appliqué');
                       setTimeout(() => setShowNotification(null), 2500);
                     }}
-                    className="px-2.5 py-1 rounded bg-[#1C1C20] hover:bg-[#28282E] text-gray-300 hover:text-white border border-[#333] text-xs font-medium transition-colors"
+                    className="px-2.5 py-1 rounded bg-[#EDF1F5] dark:bg-[#1C1C20] hover:bg-slate-200 dark:hover:bg-[#28282E] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-[#333] text-xs font-medium transition-colors"
                   >
                     Program Change
                   </button>
@@ -2013,98 +2124,101 @@ export const SettingsView: React.FC = () => {
               </div>
 
             </div>
+                </div>
+              </div>
             </div>
           </div>
 
           {/* 8. STOCKAGE HORS-LIGNE & INDEXEDDB */}
-          <div className="bg-[#121214] border border-[#242428] rounded-xl overflow-hidden shadow-sm">
+          <div className="bg-white dark:bg-[#121214] border border-slate-200 dark:border-[#242428] rounded-xl overflow-hidden shadow-sm">
             <button
               type="button"
               onClick={() => toggleCategory('offline')}
-              className="w-full px-4 sm:px-5 py-3.5 flex items-center justify-between hover:bg-[#161619] transition-colors cursor-pointer text-left"
+              className="w-full px-4 sm:px-5 py-3.5 flex items-center justify-between hover:bg-slate-200/70 dark:hover:bg-[#161619] transition-colors cursor-pointer text-left"
             >
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-emerald-600/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                <div className="w-8 h-8 rounded-lg bg-emerald-600/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
                   <Database className="w-4 h-4" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-white text-sm">
+                    <span className="font-bold text-slate-900 dark:text-white text-sm">
                       Accès Hors-Ligne & Cache Local (IndexedDB & PWA)
                     </span>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
                       {offlineStats.songCount || songs.length} chants en cache
                     </span>
                   </div>
-                  <p className="text-xs text-gray-400 mt-0.5">
+                  <p className="text-xs text-slate-600 dark:text-gray-400 mt-0.5">
                     Stockage local haute performance dans IndexedDB et Service Worker pour les répétitions sans réseau
                   </p>
                 </div>
               </div>
-              <div className="text-gray-400">
-                {openCategories.offline ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              <div className={`p-1.5 rounded-lg bg-slate-50 dark:bg-[#18181C] border border-slate-300 dark:border-[#2B2B30] text-slate-600 dark:text-gray-400 transition-transform duration-200 ${openCategories.offline ? 'rotate-180 text-emerald-600 dark:text-emerald-400 border-emerald-500/30' : ''}`}>
+                <ChevronDown className="w-4 h-4" />
               </div>
             </button>
 
-            {openCategories.offline && (
-              <div className="p-4 sm:p-5 border-t border-[#222226] bg-[#0E0E10] space-y-4">
+            <div className="accordion-grid" data-open={openCategories.offline ? 'true' : 'false'}>
+              <div className="accordion-inner">
+              <div className="p-4 sm:p-5 border-t border-slate-200 dark:border-[#222226] bg-white dark:bg-[#0E0E10] space-y-4">
                 {/* Status overview cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="p-3 rounded-lg bg-[#141416] border border-[#242428]">
-                    <div className="flex items-center gap-2 text-xs text-gray-400 mb-1">
-                      <Database className="w-3.5 h-3.5 text-emerald-400" />
+                  <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#141416] border border-slate-200 dark:border-[#242428]">
+                    <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-gray-400 mb-1">
+                      <Database className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                       <span>Base locale IndexedDB</span>
                     </div>
-                    <p className="text-base font-bold text-white">
+                    <p className="text-base font-bold text-slate-900 dark:text-white">
                       {offlineStats.songCount || songs.length} chants
                     </p>
-                    <p className="text-[11px] text-gray-400 mt-0.5">
+                    <p className="text-[11px] text-slate-600 dark:text-gray-400 mt-0.5">
                       {offlineStats.setlistCount || setlists.length} setlists stockées
                     </p>
                   </div>
 
-                  <div className="p-3 rounded-lg bg-[#141416] border border-[#242428]">
-                    <div className="flex items-center gap-2 text-xs text-gray-400 mb-1">
-                      <HardDrive className="w-3.5 h-3.5 text-blue-400" />
+                  <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#141416] border border-slate-200 dark:border-[#242428]">
+                    <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-gray-400 mb-1">
+                      <HardDrive className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                       <span>Service Worker & Cache</span>
                     </div>
-                    <p className="text-base font-bold text-blue-300">
+                    <p className="text-base font-bold text-blue-700 dark:text-blue-300">
                       Prêt hors-ligne
                     </p>
-                    <p className="text-[11px] text-gray-400 mt-0.5">
+                    <p className="text-[11px] text-slate-600 dark:text-gray-400 mt-0.5">
                       PWA installable & assets mis en cache
                     </p>
                   </div>
 
-                  <div className="p-3 rounded-lg bg-[#141416] border border-[#242428]">
-                    <div className="flex items-center gap-2 text-xs text-gray-400 mb-1">
-                      <Zap className="w-3.5 h-3.5 text-purple-400" />
+                  <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#141416] border border-slate-200 dark:border-[#242428]">
+                    <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-gray-400 mb-1">
+                      <Zap className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
                       <span>Espace de stockage</span>
                     </div>
-                    <p className="text-base font-bold text-white">
+                    <p className="text-base font-bold text-slate-900 dark:text-white">
                       {offlineStats.usageBytes > 0 
                         ? `${(offlineStats.usageBytes / (1024 * 1024)).toFixed(1)} Mo`
                         : 'Léger (< 5 Mo)'}
                     </p>
-                    <p className="text-[11px] text-gray-400 mt-0.5">
+                    <p className="text-[11px] text-slate-600 dark:text-gray-400 mt-0.5">
                       Quota alloué par le navigateur
                     </p>
                   </div>
                 </div>
 
                 {/* Information banner */}
-                <div className="p-3 rounded-lg bg-emerald-950/20 border border-emerald-500/30 text-emerald-200 text-xs flex items-start gap-2.5">
+                <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-500/30 text-emerald-700 dark:text-emerald-200 text-xs flex items-start gap-2.5">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0 mt-1" />
                   <div className="space-y-1">
-                    <p className="font-semibold text-white">Fonctionnement hors connexion garanti</p>
-                    <p className="text-gray-300 leading-relaxed text-[11px]">
+                    <p className="font-semibold text-slate-900 dark:text-white">Fonctionnement hors connexion garanti</p>
+                    <p className="text-slate-700 dark:text-gray-300 leading-relaxed text-[11px]">
                       Tous les chants et setlists sont automatiquement persistés dans la base de données <strong>IndexedDB</strong> de votre navigateur et sécurisés par le <strong>Service Worker</strong>. Lors d'une répétition, d'un culte ou d'un concert sans connexion Internet ou en mode avion, l'intégralité de vos partitions reste immédiatement accessible et navigable.
                     </p>
                   </div>
                 </div>
 
                 {/* Action buttons */}
-                <div className="flex flex-wrap items-center gap-2.5 pt-2 border-t border-[#222226]">
+                <div className="flex flex-wrap items-center gap-2.5 pt-2 border-t border-slate-200 dark:border-[#222226]">
                   <button
                     type="button"
                     onClick={async () => {
@@ -2122,9 +2236,9 @@ export const SettingsView: React.FC = () => {
                       await refreshOfflineStats();
                       notify('État du stockage vérifié avec succès');
                     }}
-                    className="px-3.5 py-2 rounded-lg bg-[#1C1C20] hover:bg-[#25252A] text-gray-200 hover:text-white border border-[#333] font-semibold text-xs flex items-center gap-2 transition-colors cursor-pointer"
+                    className="px-3.5 py-2 rounded-lg bg-[#EDF1F5] dark:bg-[#1C1C20] hover:bg-slate-200 dark:hover:bg-[#25252A] text-slate-800 dark:text-gray-200 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-[#333] font-semibold text-xs flex items-center gap-2 transition-colors cursor-pointer"
                   >
-                    <RefreshCw className="w-3.5 h-3.5 text-blue-400" />
+                    <RefreshCw className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                     <span>Vérifier le stockage</span>
                   </button>
 
@@ -2132,7 +2246,7 @@ export const SettingsView: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => promptInstall()}
-                      className="px-3.5 py-2 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/40 font-semibold text-xs flex items-center gap-2 transition-colors cursor-pointer"
+                      className="px-3.5 py-2 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 text-blue-700 dark:text-blue-300 border border-blue-500/40 font-semibold text-xs flex items-center gap-2 transition-colors cursor-pointer"
                     >
                       <Download className="w-4 h-4" />
                       <span>Installer l'application (PWA)</span>
@@ -2146,7 +2260,7 @@ export const SettingsView: React.FC = () => {
                         await clearOfflineStorage();
                       }
                     }}
-                    className="px-3 py-2 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ml-auto"
+                    className="px-3 py-2 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/30 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ml-auto"
                     title="Vider le cache hors-ligne"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -2154,7 +2268,8 @@ export const SettingsView: React.FC = () => {
                   </button>
                 </div>
               </div>
-            )}
+              </div>
+            </div>
           </div>
 
         </div>
@@ -2180,35 +2295,40 @@ export const SettingsView: React.FC = () => {
           </>
         ) : (
           <>
-            <MousePointerClick className="w-4 h-4 text-blue-200" />
+            <MousePointerClick className="w-4 h-4 text-blue-700 dark:text-blue-200" />
             <span>Aperçu Interactif</span>
           </>
         )}
       </button>
 
       {/* FULLSCREEN PREVIEW OVERLAY */}
-      {isMobilePreviewFullscreen && (
-        <div 
-          id="fullscreen-preview-modal"
-          className="fixed inset-0 z-[100] flex flex-col bg-[#0A0A0B] text-white animate-in fade-in duration-200"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Aperçu plein écran"
-        >
+      <AnimatePresence>
+        {isMobilePreviewFullscreen && (
+          <motion.div
+            id="fullscreen-preview-modal"
+            initial={MODAL_BACKDROP_MOTION.initial}
+            animate={MODAL_BACKDROP_MOTION.animate}
+            exit={MODAL_BACKDROP_MOTION.exit}
+            transition={{ duration: 0.18, ease: STAGE_EASE }}
+            className="fixed inset-0 z-[100] flex flex-col bg-[#F4F6F9] dark:bg-[#0A0A0B] text-slate-900 dark:text-white"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Aperçu plein écran"
+          >
           {/* Fullscreen Top Header Bar */}
-          <div className="h-14 px-3 sm:px-6 bg-[#121214] border-b border-[#242428] flex items-center justify-between shrink-0 z-20 shadow-md">
+          <div className="h-14 px-3 sm:px-6 bg-white dark:bg-[#121214] border-b border-slate-200 dark:border-[#242428] flex items-center justify-between shrink-0 z-20 shadow-md">
             <div className="flex items-center gap-2.5 min-w-0">
               <button
                 type="button"
                 onClick={() => setIsMobilePreviewFullscreen(false)}
-                className="p-1.5 rounded-lg bg-[#1E1E22] hover:bg-[#2A2A2E] text-gray-300 hover:text-white border border-[#333] transition-colors"
+                className="p-1.5 rounded-lg bg-[#EDF1F5] dark:bg-[#1E1E22] hover:bg-slate-200 dark:hover:bg-[#2A2A2E] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-[#333] transition-colors"
                 title="Quitter le plein écran"
               >
                 <ArrowLeft className="w-5 h-5" />
               </button>
               <div className="flex items-center gap-2 truncate">
-                <Eye className="w-4 h-4 text-green-400 shrink-0" />
-                <span className="text-sm font-bold text-white tracking-tight truncate">
+                <Eye className="w-4 h-4 text-green-600 dark:text-green-400 shrink-0" />
+                <span className="text-sm font-bold text-slate-900 dark:text-white tracking-tight truncate">
                   Aperçu Plein Écran
                 </span>
               </div>
@@ -2216,12 +2336,12 @@ export const SettingsView: React.FC = () => {
 
             <div className="hidden sm:flex items-center gap-1.5 sm:gap-2 shrink-0">
               {/* Theme switcher */}
-              <div className="flex items-center bg-[#1A1A1E] border border-[#2B2B30] rounded-lg p-0.5">
+              <div className="flex items-center bg-[#EDF1F5] dark:bg-[#1A1A1E] border border-slate-300 dark:border-[#2B2B30] rounded-lg p-0.5">
                 <button
                   type="button"
                   onClick={() => updateStageSettings({ theme: 'dark' })}
                   className={`p-1.5 rounded-md transition-all ${
-                    effectivePreviewTheme === 'dark' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
+                    effectivePreviewTheme === 'dark' ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                   title="Thème sombre"
                 >
@@ -2230,8 +2350,8 @@ export const SettingsView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => updateStageSettings({ theme: 'light' })}
-                  className={`p-1.5 rounded-md transition-all ${
-                    effectivePreviewTheme === 'light' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
+                  className={`p-1.5 rounded-md transition-all cursor-pointer ${
+                    effectivePreviewTheme === 'light' ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                   title="Thème clair"
                 >
@@ -2245,8 +2365,8 @@ export const SettingsView: React.FC = () => {
                 onClick={() => updateStageSettings({ showChords: !stageSettings.showChords })}
                 className={`px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
                   stageSettings.showChords
-                    ? 'bg-blue-600/20 text-blue-400 border-blue-500/30'
-                    : 'bg-[#1E1E22] text-gray-400 border-[#333]'
+                    ? 'bg-blue-600/20 text-blue-600 dark:text-blue-400 border-blue-500/30'
+                    : 'bg-[#EDF1F5] dark:bg-[#1E1E22] text-slate-600 dark:text-gray-400 border-slate-300 dark:border-[#333]'
                 }`}
                 title="Afficher ou masquer les accords"
               >
@@ -2258,7 +2378,7 @@ export const SettingsView: React.FC = () => {
                 id="btn-close-fullscreen-preview"
                 type="button"
                 onClick={() => setIsMobilePreviewFullscreen(false)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold transition-all active:scale-95"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-700 dark:text-amber-300 border border-amber-500/40 text-xs font-bold transition-all active:scale-95"
                 title="Quitter le plein écran"
               >
                 <Minimize2 className="w-3.5 h-3.5" />
@@ -2283,8 +2403,9 @@ export const SettingsView: React.FC = () => {
               {renderSongPreviewBody(true)}
             </div>
           </div>
-        </div>
-      )}
+        </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* MIDI Controller Modal */}
       <MidiSettingsModal

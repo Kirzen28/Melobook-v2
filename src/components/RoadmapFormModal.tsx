@@ -152,25 +152,25 @@ export const RoadmapFormModal: React.FC<RoadmapFormModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
       onClick={() => !isSubmitting && onClose()}
       role="dialog"
       aria-modal="true"
       aria-labelledby="roadmap-form-title"
     >
       <div
-        className="w-full max-w-xl bg-[#111112] border border-[#222224] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+        className="w-full max-w-xl bg-white dark:bg-[#111112] border border-slate-200 dark:border-[#222224] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-5 py-4 border-b border-[#222224] flex items-center justify-between">
-          <h2 id="roadmap-form-title" className="text-base font-semibold text-white">
+        <div className="px-5 py-4 border-b border-slate-200 dark:border-[#222224] flex items-center justify-between">
+          <h2 id="roadmap-form-title" className="text-base font-semibold text-slate-900 dark:text-white">
             {editingItem ? 'Modifier la publication' : 'Proposer une idée ou signaler un bug'}
           </h2>
           <button
             type="button"
             onClick={onClose}
             disabled={isSubmitting}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#1C1C1E] transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#1C1C1E] transition-colors cursor-pointer"
             aria-label="Fermer"
           >
             <X className="w-4 h-4" />
@@ -180,17 +180,17 @@ export const RoadmapFormModal: React.FC<RoadmapFormModalProps> = ({
         <form onSubmit={handleSubmit} className="p-5 space-y-4 overflow-y-auto">
           {/* Category segmented control */}
           <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1.5">
+            <label className="block text-xs font-medium text-slate-600 dark:text-gray-400 mb-1.5">
               Catégorie
             </label>
-            <div className="grid grid-cols-2 gap-1.5 p-1 bg-[#0A0A0B] border border-[#222224] rounded-xl">
+            <div className="grid grid-cols-2 gap-1.5 p-1 bg-[#F4F6F9] dark:bg-[#0A0A0B] border border-slate-200 dark:border-[#222224] rounded-xl">
               <button
                 type="button"
                 onClick={() => setCategory('idea')}
                 className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
                   category === 'idea'
-                    ? 'bg-[#1C1C1E] text-blue-400 border border-[#333]'
-                    : 'text-gray-400 hover:text-white border border-transparent'
+                    ? 'bg-[#EDF1F5] dark:bg-[#1C1C1E] text-blue-600 dark:text-blue-400 border border-slate-300 dark:border-[#333]'
+                    : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white border border-transparent'
                 }`}
               >
                 <Lightbulb className="w-3.5 h-3.5" />
@@ -201,8 +201,8 @@ export const RoadmapFormModal: React.FC<RoadmapFormModalProps> = ({
                 onClick={() => setCategory('bug')}
                 className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
                   category === 'bug'
-                    ? 'bg-[#1C1C1E] text-amber-400 border border-[#333]'
-                    : 'text-gray-400 hover:text-white border border-transparent'
+                    ? 'bg-[#EDF1F5] dark:bg-[#1C1C1E] text-amber-600 dark:text-amber-400 border border-slate-300 dark:border-[#333]'
+                    : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white border border-transparent'
                 }`}
               >
                 <Bug className="w-3.5 h-3.5" />
@@ -214,7 +214,7 @@ export const RoadmapFormModal: React.FC<RoadmapFormModalProps> = ({
           {/* Title */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label htmlFor="roadmap-title-input" className="text-xs font-medium text-gray-400">
+              <label htmlFor="roadmap-title-input" className="text-xs font-medium text-slate-600 dark:text-gray-400">
                 Titre
               </label>
               <span className="text-[11px] font-mono tabular-nums text-gray-500">
@@ -232,7 +232,7 @@ export const RoadmapFormModal: React.FC<RoadmapFormModalProps> = ({
                   ? 'Ex : Décalage des accords lors du défilement auto'
                   : 'Ex : Mode sombre pour la vue PDF exportée'
               }
-              className="w-full px-3.5 py-2.5 rounded-xl bg-[#0A0A0B] border border-[#222224] text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-[#F4F6F9] dark:bg-[#0A0A0B] border border-slate-200 dark:border-[#222224] text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-blue-500"
               required
             />
           </div>
@@ -240,7 +240,7 @@ export const RoadmapFormModal: React.FC<RoadmapFormModalProps> = ({
           {/* Description */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label htmlFor="roadmap-desc-input" className="text-xs font-medium text-gray-400">
+              <label htmlFor="roadmap-desc-input" className="text-xs font-medium text-slate-600 dark:text-gray-400">
                 Description
               </label>
               <span className="text-[11px] font-mono tabular-nums text-gray-500">
@@ -258,7 +258,7 @@ export const RoadmapFormModal: React.FC<RoadmapFormModalProps> = ({
                   ? 'Décrivez comment reproduire le problème, sur quel appareil et ce qui était attendu...'
                   : 'Expliquez votre besoin et comment cette amélioration aiderait votre équipe...'
               }
-              className="w-full px-3.5 py-2.5 rounded-xl bg-[#0A0A0B] border border-[#222224] text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 resize-y min-h-[100px]"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-[#F4F6F9] dark:bg-[#0A0A0B] border border-slate-200 dark:border-[#222224] text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-blue-500 resize-y min-h-[100px]"
               required
             />
           </div>
@@ -266,7 +266,7 @@ export const RoadmapFormModal: React.FC<RoadmapFormModalProps> = ({
           {/* Images (up to 3) */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <span className="text-xs font-medium text-gray-400">
+              <span className="text-xs font-medium text-slate-600 dark:text-gray-400">
                 Captures / Images (optionnel)
               </span>
               <span className="text-[11px] font-mono tabular-nums text-gray-500">
@@ -279,7 +279,7 @@ export const RoadmapFormModal: React.FC<RoadmapFormModalProps> = ({
                 {images.map((src, idx) => (
                   <div
                     key={idx}
-                    className="relative aspect-video rounded-lg overflow-hidden border border-[#222224] bg-[#0A0A0B] group"
+                    className="relative aspect-video rounded-lg overflow-hidden border border-slate-200 dark:border-[#222224] bg-[#F4F6F9] dark:bg-[#0A0A0B] group"
                   >
                     <img
                       src={src}
@@ -314,16 +314,16 @@ export const RoadmapFormModal: React.FC<RoadmapFormModalProps> = ({
                   type="button"
                   disabled={isCompressing}
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-full py-3 px-4 rounded-xl border border-dashed border-[#33333A] bg-[#0A0A0B] hover:border-blue-500/60 hover:bg-[#141417] text-xs font-medium text-gray-300 flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                  className="w-full py-3 px-4 rounded-xl border border-dashed border-slate-300 dark:border-[#33333A] bg-[#F4F6F9] dark:bg-[#0A0A0B] hover:border-blue-500/60 hover:bg-slate-100 dark:hover:bg-[#141417] text-xs font-medium text-slate-700 dark:text-gray-300 flex items-center justify-center gap-2 transition-colors cursor-pointer"
                 >
                   {isCompressing ? (
                     <>
-                      <Loader2 className="w-4 h-4 animate-spin text-blue-400" />
+                      <Loader2 className="w-4 h-4 animate-spin text-blue-600 dark:text-blue-400" />
                       <span>Optimisation de l'image...</span>
                     </>
                   ) : (
                     <>
-                      <ImagePlus className="w-4 h-4 text-blue-400" />
+                      <ImagePlus className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                       <span>
                         Ajouter jusqu'à {ROADMAP_MAX_IMAGES - images.length} image
                         {ROADMAP_MAX_IMAGES - images.length > 1 ? 's' : ''}
@@ -336,17 +336,17 @@ export const RoadmapFormModal: React.FC<RoadmapFormModalProps> = ({
           </div>
 
           {errorMsg && (
-            <p className="text-xs text-rose-400 bg-rose-950/30 border border-rose-500/30 rounded-lg px-3 py-2">
+            <p className="text-xs text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/30 border border-rose-500/30 rounded-lg px-3 py-2">
               {errorMsg}
             </p>
           )}
 
-          <div className="pt-2 flex items-center justify-end gap-2.5 border-t border-[#222224]">
+          <div className="pt-2 flex items-center justify-end gap-2.5 border-t border-slate-200 dark:border-[#222224]">
             <button
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="px-4 py-2 rounded-lg text-xs font-semibold text-gray-300 hover:text-white bg-[#1C1C1E] hover:bg-[#262629] border border-[#2C2C32] transition-colors cursor-pointer"
+              className="px-4 py-2 rounded-lg text-xs font-semibold text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-slate-200 dark:hover:bg-[#262629] border border-slate-300 dark:border-[#2C2C32] transition-colors cursor-pointer"
             >
               Annuler
             </button>

@@ -228,6 +228,67 @@ service cloud.firestore {
         && (!('audioUrl' in data) || (data.audioUrl is string && data.audioUrl.size() <= 750000));
     }
 
+    function isValidPlanningTeam(data, groupId) {
+      return data.keys().hasAll(['id', 'groupId', 'name', 'members'])
+        && data.keys().hasOnly([
+          'id', 'groupId', 'name', 'description', 'color', 'members',
+          'createdBy', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id)
+        && data.groupId == groupId
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 120
+        && (!('description' in data) || data.description == null || (data.description is string && data.description.size() <= 500))
+        && (!('color' in data) || data.color == null || (data.color is string && data.color.size() <= 32))
+        && data.members is list && data.members.size() <= 100
+        && (data.members.size() == 0 || data.members[0] is map)
+        && (!('createdBy' in data) || data.createdBy == null || (data.createdBy is string && data.createdBy.size() <= 128));
+    }
+
+    function isValidPlanningAvailability(data, groupId, availId) {
+      return data.keys().hasAll(['id', 'groupId', 'date', 'uid', 'displayName', 'status'])
+        && data.keys().hasOnly([
+          'id', 'groupId', 'date', 'uid', 'displayName', 'status',
+          'preferredPoles', 'note', 'updatedAt'
+        ])
+        && isValidId(data.id)
+        && data.id == availId
+        && data.groupId == groupId
+        && data.date is string && data.date.size() == 10 && data.date.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && data.id == data.date + '_' + data.uid
+        && isValidId(data.uid)
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 120
+        && data.status in ['available', 'maybe', 'unavailable']
+        && (!('preferredPoles' in data) || data.preferredPoles == null || (
+          data.preferredPoles is list && data.preferredPoles.size() <= 5 && data.preferredPoles.hasOnly(['musique', 'chant', 'regie'])
+        ))
+        && (!('note' in data) || data.note == null || (data.note is string && data.note.size() <= 300));
+    }
+
+    function isValidPlanningAssignment(data, groupId) {
+      return data.keys().hasAll(['id', 'groupId', 'date', 'title', 'slots'])
+        && data.keys().hasOnly([
+          'id', 'groupId', 'setlistId', 'setlistName', 'date', 'title',
+          'callTime', 'serviceTime', 'location', 'teamPresetId', 'teamPresetName',
+          'slots', 'notes', 'updatedBy', 'updatedByName', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id)
+        && data.groupId == groupId
+        && (!('setlistId' in data) || data.setlistId == null || (data.setlistId is string && data.setlistId.size() <= 128))
+        && (!('setlistName' in data) || data.setlistName == null || (data.setlistName is string && data.setlistName.size() <= 200))
+        && data.date is string && data.date.size() == 10 && data.date.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 200
+        && (!('callTime' in data) || data.callTime == null || (data.callTime is string && data.callTime.size() <= 20))
+        && (!('serviceTime' in data) || data.serviceTime == null || (data.serviceTime is string && data.serviceTime.size() <= 20))
+        && (!('location' in data) || data.location == null || (data.location is string && data.location.size() <= 200))
+        && (!('teamPresetId' in data) || data.teamPresetId == null || (data.teamPresetId is string && data.teamPresetId.size() <= 128))
+        && (!('teamPresetName' in data) || data.teamPresetName == null || (data.teamPresetName is string && data.teamPresetName.size() <= 120))
+        && data.slots is list && data.slots.size() <= 100
+        && (data.slots.size() == 0 || data.slots[0] is map)
+        && (!('notes' in data) || data.notes == null || (data.notes is string && data.notes.size() <= 5000))
+        && (!('updatedBy' in data) || data.updatedBy == null || (data.updatedBy is string && data.updatedBy.size() <= 128))
+        && (!('updatedByName' in data) || data.updatedByName == null || (data.updatedByName is string && data.updatedByName.size() <= 120));
+    }
+
     function isValidRoadmapImages(images) {
       return images is list
         && images.size() <= 3
@@ -445,6 +506,70 @@ service cloud.firestore {
         allow delete: if isLibraryMember(groupId)
           && isValidId(padId)
           && (canEditLibrarySongs(groupId) || existing().createdBy == request.auth.uid);
+      }
+
+      // Per-library planning teams (presets created by Responsables / Admins)
+      match /planning_teams/{teamId} {
+        allow get: if isValidId(teamId) && isLibraryMember(groupId);
+        allow list: if isLibraryMember(groupId);
+        allow create: if canEditLibrarySetlists(groupId)
+          && isValidId(teamId)
+          && isValidPlanningTeam(incoming(), groupId)
+          && incoming().id == teamId;
+        allow update: if canEditLibrarySetlists(groupId)
+          && isValidId(teamId)
+          && isValidPlanningTeam(incoming(), groupId)
+          && incoming().id == existing().id
+          && incoming().groupId == existing().groupId
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'name', 'description', 'color', 'members', 'updatedAt'
+          ]);
+        allow delete: if canEditLibrarySetlists(groupId) && isValidId(teamId);
+      }
+
+      // Per-library member date availabilities (each member sets their own; Responsables can also adjust)
+      match /planning_availabilities/{availId} {
+        allow get: if isValidId(availId) && isLibraryMember(groupId);
+        allow list: if isLibraryMember(groupId);
+        allow create: if isLibraryMember(groupId)
+          && isValidId(availId)
+          && isValidPlanningAvailability(incoming(), groupId, availId)
+          && (incoming().uid == request.auth.uid || canEditLibrarySetlists(groupId));
+        allow update: if isLibraryMember(groupId)
+          && isValidId(availId)
+          && isValidPlanningAvailability(incoming(), groupId, availId)
+          && incoming().id == existing().id
+          && incoming().groupId == existing().groupId
+          && incoming().date == existing().date
+          && incoming().uid == existing().uid
+          && (existing().uid == request.auth.uid || canEditLibrarySetlists(groupId))
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'status', 'displayName', 'preferredPoles', 'note', 'updatedAt'
+          ]);
+        allow delete: if isLibraryMember(groupId)
+          && isValidId(availId)
+          && (existing().uid == request.auth.uid || canEditLibrarySetlists(groupId));
+      }
+
+      // Per-library setlist & date planning rosters (managed by Responsables / Admins)
+      match /planning_assignments/{assignmentId} {
+        allow get: if isValidId(assignmentId) && isLibraryMember(groupId);
+        allow list: if isLibraryMember(groupId);
+        allow create: if canEditLibrarySetlists(groupId)
+          && isValidId(assignmentId)
+          && isValidPlanningAssignment(incoming(), groupId)
+          && incoming().id == assignmentId;
+        allow update: if canEditLibrarySetlists(groupId)
+          && isValidId(assignmentId)
+          && isValidPlanningAssignment(incoming(), groupId)
+          && incoming().id == existing().id
+          && incoming().groupId == existing().groupId
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'setlistId', 'setlistName', 'date', 'title', 'callTime', 'serviceTime',
+            'location', 'teamPresetId', 'teamPresetName', 'slots', 'notes',
+            'updatedBy', 'updatedByName', 'updatedAt'
+          ]);
+        allow delete: if canEditLibrarySetlists(groupId) && isValidId(assignmentId);
       }
     }
 

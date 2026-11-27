@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { motion } from 'motion/react';
 import { useApp } from '../context/AppContext';
 import { Song } from '../types';
+import { NAV_SPRING } from '../utils/motionPresets';
 import { 
   parseChordPro, 
   getVocalBadgeStyle,
@@ -1142,12 +1144,12 @@ export const SongEditor: React.FC = () => {
 
   if (!canManageSongs) {
     return (
-      <div className="max-w-2xl mx-auto px-4 py-16 text-center text-[#E0E0E0]">
-        <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto mb-4 shadow-lg">
+      <div className="max-w-2xl mx-auto px-4 py-16 text-center text-slate-900 dark:text-[#E0E0E0]">
+        <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto mb-4 shadow-lg">
           <FileEdit className="w-8 h-8" />
         </div>
-        <h2 className="text-xl font-bold text-white mb-2">Gestion réservée</h2>
-        <p className="text-xs text-gray-400 max-w-md mx-auto mb-6 leading-relaxed">
+        <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Gestion réservée</h2>
+        <p className="text-xs text-slate-600 dark:text-gray-400 max-w-md mx-auto mb-6 leading-relaxed">
           La modification et la création de chants sont réservées aux responsables et administrateurs de la bibliothèque.
           En tant que visiteur, vous pouvez consulter la bibliothèque, transposer les accords, changer la tonalité et consulter les différentes versions d'un chant.
         </p>
@@ -1172,26 +1174,26 @@ export const SongEditor: React.FC = () => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-3 sm:px-6 py-6 pb-16 text-[#E0E0E0]">
+    <div className="max-w-4xl mx-auto px-3 sm:px-6 py-6 pb-16 text-slate-900 dark:text-[#E0E0E0]">
       
       {/* Bandeau en haut : Mode Éditeur (Aligné à gauche, clair & bouton quitter intuitif) */}
-      <div className="mb-4 flex items-center justify-between gap-3 px-3.5 sm:px-4 py-3 rounded-2xl bg-[#141418] border border-amber-500/25 shadow-md shadow-black/40 flex-wrap">
+      <div className="mb-4 flex items-center justify-between gap-3 px-3.5 sm:px-4 py-3 rounded-2xl bg-slate-50 dark:bg-[#141418] border border-amber-500/25 shadow-md shadow-black/40 flex-wrap">
         {/* Gauche : Statut Mode Éditeur & Titre du chant */}
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0 shadow-inner">
+          <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0 shadow-inner">
             <FileEdit className="w-4 h-4" />
           </div>
           <div className="min-w-0 flex flex-col">
             <div className="flex items-center gap-2">
-              <span className="font-extrabold text-amber-400 uppercase tracking-wider text-xs sm:text-sm leading-none">
+              <span className="font-extrabold text-amber-600 dark:text-amber-400 uppercase tracking-wider text-xs sm:text-sm leading-none">
                 Mode Éditeur
               </span>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 font-semibold hidden xs:inline-block">
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-300 font-semibold hidden xs:inline-block">
                 {selectedSong ? 'Modification' : 'Nouveau chant'}
               </span>
             </div>
             {title && (
-              <span className="text-[11px] text-gray-400 truncate max-w-[220px] sm:max-w-md mt-0.5 font-medium">
+              <span className="text-[11px] text-slate-600 dark:text-gray-400 truncate max-w-[220px] sm:max-w-md mt-0.5 font-medium">
                 {title} {artist ? `• ${artist}` : ''}
               </span>
             )}
@@ -1214,7 +1216,7 @@ export const SongEditor: React.FC = () => {
                 setActiveTab('repertoire');
               }
             }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1E1E24] hover:bg-[#282830] text-gray-300 hover:text-white border border-white/10 hover:border-white/20 text-xs font-semibold shadow-xs transition-all active:scale-95 cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#EDF1F5] dark:bg-[#1E1E24] hover:bg-slate-200 dark:hover:bg-[#282830] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-white/10 hover:border-slate-200 dark:hover:border-white/20 text-xs font-semibold shadow-xs transition-all active:scale-95 cursor-pointer"
             title={
               editorReturnTarget === 'setlistLive' && selectedSetlist
                 ? "Quitter le mode éditeur et revenir au chant dans la setlist"
@@ -1223,48 +1225,62 @@ export const SongEditor: React.FC = () => {
                   : "Quitter le mode éditeur et retourner au répertoire"
             }
           >
-            <ChevronLeft className="w-4 h-4 text-gray-400 group-hover:text-white" />
+            <ChevronLeft className="w-4 h-4 text-slate-600 dark:text-gray-400 group-hover:text-slate-900 dark:group-hover:text-white" />
             <span>Quitter l'éditeur</span>
           </button>
         </div>
       </div>
 
       {/* Navigation entre les 2 parties du mode Éditeur */}
-      <div className="mb-5 p-1.5 rounded-2xl bg-[#141418] border border-[#26262E] grid grid-cols-2 gap-2 shadow-lg">
+      <div className="mb-5 p-1.5 rounded-2xl bg-slate-50 dark:bg-[#141418] border border-slate-300 dark:border-[#26262E] grid grid-cols-2 gap-2 shadow-lg">
         <button
           type="button"
           id="tab-editor-chords"
           onClick={() => setEditorSubTab('chords')}
-          className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer ${
+          className={`relative flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm transition-colors cursor-pointer ${
             editorSubTab === 'chords'
-              ? 'bg-gradient-to-r from-blue-500/25 via-indigo-600/15 to-[#141620] text-blue-300 border border-blue-500/50 shadow-md shadow-blue-950/40 ring-1 ring-blue-500/20'
-              : 'text-gray-400 hover:text-gray-200 hover:bg-[#1B1B20] border border-transparent'
+              ? 'text-blue-700 dark:text-blue-300'
+              : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200 hover:bg-slate-200/70 dark:hover:bg-[#1B1B20]'
           }`}
         >
-          <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${
-            editorSubTab === 'chords' ? 'bg-blue-500/20 text-blue-400' : 'bg-[#222228] text-gray-400'
+          {editorSubTab === 'chords' && (
+            <motion.div
+              layoutId="editor-subtab-pill"
+              transition={NAV_SPRING}
+              className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-50 dark:from-blue-500/25 via-indigo-50 dark:via-indigo-600/15 to-white dark:to-[#141620] border border-blue-500/50 shadow-md shadow-blue-950/40 ring-1 ring-blue-500/20"
+            />
+          )}
+          <div className={`relative z-10 w-6 h-6 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+            editorSubTab === 'chords' ? 'bg-blue-500/20 text-blue-600 dark:text-blue-400' : 'bg-[#EDF1F5] dark:bg-[#222228] text-slate-600 dark:text-gray-400'
           }`}>
             <Music2 className="w-3.5 h-3.5" />
           </div>
-          <span className="leading-tight">Éditer les accords</span>
+          <span className="relative z-10 leading-tight">Éditer les accords</span>
         </button>
 
         <button
           type="button"
           id="tab-editor-data"
           onClick={() => setEditorSubTab('data')}
-          className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer ${
+          className={`relative flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm transition-colors cursor-pointer ${
             editorSubTab === 'data'
-              ? 'bg-gradient-to-r from-amber-500/25 via-amber-600/15 to-[#1C1814] text-amber-300 border border-amber-500/50 shadow-md shadow-amber-950/40 ring-1 ring-amber-500/20'
-              : 'text-gray-400 hover:text-gray-200 hover:bg-[#1B1B20] border border-transparent'
+              ? 'text-amber-700 dark:text-amber-300'
+              : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200 hover:bg-slate-200/70 dark:hover:bg-[#1B1B20]'
           }`}
         >
-          <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${
-            editorSubTab === 'data' ? 'bg-amber-500/20 text-amber-400' : 'bg-[#222228] text-gray-400'
+          {editorSubTab === 'data' && (
+            <motion.div
+              layoutId="editor-subtab-pill"
+              transition={NAV_SPRING}
+              className="absolute inset-0 rounded-xl bg-gradient-to-r from-amber-50 dark:from-amber-500/25 via-amber-50 dark:via-amber-600/15 to-white dark:to-[#1C1814] border border-amber-500/50 shadow-md shadow-amber-950/40 ring-1 ring-amber-500/20"
+            />
+          )}
+          <div className={`relative z-10 w-6 h-6 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+            editorSubTab === 'data' ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400' : 'bg-[#EDF1F5] dark:bg-[#222228] text-slate-600 dark:text-gray-400'
           }`}>
             <FileText className="w-3.5 h-3.5" />
           </div>
-          <span className="leading-tight">Éditer les données</span>
+          <span className="relative z-10 leading-tight">Éditer les données</span>
         </button>
       </div>
 
@@ -1286,9 +1302,9 @@ export const SongEditor: React.FC = () => {
         <div className="space-y-4 sm:space-y-5 animate-in fade-in duration-150">
           
           {/* Groupe 1 : Informations principales */}
-          <div className="bg-[#121215] border border-[#222227] rounded-2xl p-4 sm:p-5 shadow-sm space-y-4">
-            <div className="pb-2.5 border-b border-[#1E1E24]">
-              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-gray-200">
+          <div className="bg-white dark:bg-[#121215] border border-slate-200 dark:border-[#222227] rounded-2xl p-4 sm:p-5 shadow-sm space-y-4">
+            <div className="pb-2.5 border-b border-slate-200 dark:border-[#1E1E24]">
+              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-800 dark:text-gray-200">
                 Informations principales
               </h3>
             </div>
@@ -1296,15 +1312,15 @@ export const SongEditor: React.FC = () => {
             <div className="grid grid-cols-12 gap-3.5 sm:gap-4 items-start">
               {/* Titre */}
               <div className="col-span-12 sm:col-span-6 lg:col-span-4">
-                <label className="block text-xs sm:text-[13px] font-semibold text-gray-300 mb-1.5">
-                  Titre du chant <span className="text-rose-400">*</span>
+                <label className="block text-xs sm:text-[13px] font-semibold text-slate-700 dark:text-gray-300 mb-1.5">
+                  Titre du chant <span className="text-rose-600 dark:text-rose-400">*</span>
                 </label>
                 <input
                   type="text"
                   placeholder="Entrez le titre du chant"
                   value={title}
                   onChange={(e) => handleTitleChange(e.target.value)}
-                  className="w-full h-10 bg-[#1A1A1E] border border-[#33333A] hover:border-[#4B4B55] focus:border-blue-500 rounded-xl px-3.5 text-sm text-white font-medium focus:outline-none focus:ring-1 focus:ring-blue-500/30 transition-all shadow-2xs"
+                  className="w-full h-10 bg-[#EDF1F5] dark:bg-[#1A1A1E] border border-slate-300 dark:border-[#33333A] hover:border-slate-400 dark:hover:border-[#4B4B55] focus:border-blue-500 rounded-xl px-3.5 text-sm text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-1 focus:ring-blue-500/30 transition-all shadow-2xs"
                   required
                 />
               </div>
@@ -1312,8 +1328,8 @@ export const SongEditor: React.FC = () => {
               {/* Artiste ou Auteur (Multi-sélection & création rapide) */}
               <div className="col-span-12 sm:col-span-6 lg:col-span-4 relative" ref={artistDropdownRef}>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs sm:text-[13px] font-semibold text-gray-300 flex items-center gap-1.5 truncate">
-                    <Users className="w-3.5 h-3.5 text-purple-400" />
+                  <label className="text-xs sm:text-[13px] font-semibold text-slate-700 dark:text-gray-300 flex items-center gap-1.5 truncate">
+                    <Users className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
                     <span>Artiste(s) ou Auteur(s)</span>
                   </label>
                   {selectedArtists.length > 0 && (
@@ -1324,7 +1340,7 @@ export const SongEditor: React.FC = () => {
                         setSelectedArtists([]);
                         setArtist('');
                       }}
-                      className="text-xs text-gray-400 hover:text-white transition-colors cursor-pointer"
+                      className="text-xs text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
                       title="Effacer tous les artistes"
                     >
                       Effacer tout
@@ -1336,16 +1352,16 @@ export const SongEditor: React.FC = () => {
                   id="song-artist-select"
                   onClick={() => setIsArtistDropdownOpen(!isArtistDropdownOpen)}
                   className={`min-h-[40px] w-full bg-[#1A1A1E] border ${
-                    isArtistDropdownOpen ? 'border-purple-500 ring-2 ring-purple-500/25' : 'border-[#33333A] hover:border-[#4B4B55]'
+                    isArtistDropdownOpen ? 'border-purple-500 ring-2 ring-purple-500/25' : 'border-slate-300 dark:border-[#33333A] hover:border-slate-400 dark:hover:border-[#4B4B55]'
                   } rounded-xl px-3 py-1.5 flex flex-wrap items-center gap-1.5 cursor-pointer transition-all shadow-2xs`}
                 >
                   {selectedArtists.length === 0 ? (
-                    <span className="text-gray-400 text-sm truncate">Choisir ou créer un artiste...</span>
+                    <span className="text-slate-600 dark:text-gray-400 text-sm truncate">Choisir ou créer un artiste...</span>
                   ) : (
                     selectedArtists.map((art) => (
                       <span
                         key={art}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-600/20 text-purple-200 border border-purple-500/35 text-xs font-medium"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-600/20 text-purple-700 dark:text-purple-200 border border-purple-500/35 text-xs font-medium"
                         onClick={(e) => e.stopPropagation()}
                       >
                         <span className="truncate max-w-[160px]">{art}</span>
@@ -1355,7 +1371,7 @@ export const SongEditor: React.FC = () => {
                             e.stopPropagation();
                             handleRemoveArtist(art);
                           }}
-                          className="hover:text-white transition-colors p-0.5 rounded cursor-pointer"
+                          className="hover:text-slate-900 dark:hover:text-white transition-colors p-0.5 rounded cursor-pointer"
                           title={`Retirer ${art}`}
                         >
                           <X className="w-3 h-3" />
@@ -1363,15 +1379,15 @@ export const SongEditor: React.FC = () => {
                       </span>
                     ))
                   )}
-                  <ChevronDown className={`w-4 h-4 text-gray-400 ml-auto shrink-0 transition-transform duration-200 ${isArtistDropdownOpen ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`w-4 h-4 text-slate-600 dark:text-gray-400 ml-auto shrink-0 transition-transform duration-200 ${isArtistDropdownOpen ? 'rotate-180' : ''}`} />
                 </div>
 
                 {isArtistDropdownOpen && (
-                  <div className="absolute left-0 right-0 top-full mt-1.5 bg-[#141417] border border-[#2E2E36] rounded-xl shadow-2xl z-50 p-3 text-sm animate-in fade-in duration-100 min-w-[280px]">
+                  <div className="absolute left-0 right-0 top-full mt-1.5 bg-slate-50 dark:bg-[#141417] border border-slate-300 dark:border-[#2E2E36] rounded-xl shadow-2xl z-50 p-3 text-sm animate-in fade-in duration-100 min-w-[280px]">
                     {/* Champ de recherche & création rapide */}
                     <div className="flex items-center gap-2 mb-2">
                       <div className="relative flex-1">
-                        <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-2.5" />
+                        <Search className="w-3.5 h-3.5 text-slate-600 dark:text-gray-400 absolute left-2.5 top-2.5" />
                         <input
                           id="artist-search-input"
                           type="text"
@@ -1384,7 +1400,7 @@ export const SongEditor: React.FC = () => {
                               handleCreateArtist(artistSearchQuery);
                             }
                           }}
-                          className="w-full bg-[#1A1A1E] border border-[#33333A] rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
+                          className="w-full bg-[#EDF1F5] dark:bg-[#1A1A1E] border border-slate-300 dark:border-[#33333A] rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-purple-500"
                           autoFocus
                         />
                       </div>
@@ -1406,13 +1422,13 @@ export const SongEditor: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => handleCreateArtist(artistSearchQuery)}
-                        className="w-full mb-2 p-2 rounded-lg bg-purple-950/40 border border-purple-800/40 hover:bg-purple-900/50 hover:border-purple-600/50 cursor-pointer flex items-center justify-between text-purple-200 transition-colors text-left"
+                        className="w-full mb-2 p-2 rounded-lg bg-purple-50 dark:bg-purple-950/40 border border-purple-800/40 hover:bg-purple-100 dark:hover:bg-purple-900/50 hover:border-purple-600/50 cursor-pointer flex items-center justify-between text-purple-700 dark:text-purple-200 transition-colors text-left"
                       >
                         <div className="flex items-center gap-1.5 truncate">
-                          <Plus className="w-3.5 h-3.5 text-purple-400 shrink-0" />
-                          <span className="truncate">Créer <strong className="text-white font-semibold">« {artistSearchQuery.trim()} »</strong></span>
+                          <Plus className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
+                          <span className="truncate">Créer <strong className="text-slate-900 dark:text-white font-semibold">« {artistSearchQuery.trim()} »</strong></span>
                         </div>
-                        <span className="text-[10px] bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded font-mono ml-2 shrink-0">Entrée ↵</span>
+                        <span className="text-[10px] bg-purple-500/20 text-purple-700 dark:text-purple-300 px-1.5 py-0.5 rounded font-mono ml-2 shrink-0">Entrée ↵</span>
                       </button>
                     )}
 
@@ -1431,15 +1447,15 @@ export const SongEditor: React.FC = () => {
                               onClick={() => handleToggleArtist(art)}
                               className={`flex items-center justify-between px-3 py-1.5 rounded-lg cursor-pointer transition-colors ${
                                 isSelected
-                                  ? 'bg-purple-600/15 text-purple-200 font-medium'
-                                  : 'hover:bg-[#1C1C1E] text-gray-300'
+                                  ? 'bg-purple-600/15 text-purple-700 dark:text-purple-200 font-medium'
+                                  : 'hover:bg-slate-200/70 dark:hover:bg-[#1C1C1E] text-slate-700 dark:text-gray-300'
                               }`}
                             >
                               <span className="truncate">{art}</span>
                               <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${
                                 isSelected 
                                   ? 'bg-purple-600 border-purple-500 text-white' 
-                                  : 'border-[#444] bg-[#1C1C1E]'
+                                  : 'border-slate-300 dark:border-[#444] bg-[#EDF1F5] dark:bg-[#1C1C1E]'
                               }`}>
                                 {isSelected && <Check className="w-3 h-3 stroke-[2.5]" />}
                               </div>
@@ -1450,9 +1466,9 @@ export const SongEditor: React.FC = () => {
                     </div>
 
                     {/* Footer résumé */}
-                    <div className="mt-2 pt-1.5 border-t border-[#222] flex items-center justify-between text-xs text-gray-500">
+                    <div className="mt-2 pt-1.5 border-t border-slate-200 dark:border-[#222] flex items-center justify-between text-xs text-gray-500">
                       <span>{filteredArtistsList.length} artiste(s) suggéré(s)</span>
-                      <span className="text-purple-400 font-medium">{selectedArtists.length} sélectionné(s)</span>
+                      <span className="text-purple-600 dark:text-purple-400 font-medium">{selectedArtists.length} sélectionné(s)</span>
                     </div>
                   </div>
                 )}
@@ -1461,8 +1477,8 @@ export const SongEditor: React.FC = () => {
               {/* Album (Sélection & création rapide) */}
               <div className="col-span-12 lg:col-span-4 relative" ref={albumDropdownRef}>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs sm:text-[13px] font-semibold text-gray-300 flex items-center gap-1.5 truncate">
-                    <Disc className="w-3.5 h-3.5 text-amber-400" />
+                  <label className="text-xs sm:text-[13px] font-semibold text-slate-700 dark:text-gray-300 flex items-center gap-1.5 truncate">
+                    <Disc className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                     <span>Album</span>
                   </label>
                   {album.trim() && (
@@ -1472,7 +1488,7 @@ export const SongEditor: React.FC = () => {
                         e.stopPropagation();
                         setAlbum('');
                       }}
-                      className="text-xs text-gray-400 hover:text-white transition-colors cursor-pointer"
+                      className="text-xs text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
                       title="Effacer l'album"
                     >
                       Effacer
@@ -1484,14 +1500,14 @@ export const SongEditor: React.FC = () => {
                   id="song-album-select"
                   onClick={() => setIsAlbumDropdownOpen(!isAlbumDropdownOpen)}
                   className={`min-h-[40px] w-full bg-[#1A1A1E] border ${
-                    isAlbumDropdownOpen ? 'border-amber-500 ring-2 ring-amber-500/25' : 'border-[#33333A] hover:border-[#4B4B55]'
+                    isAlbumDropdownOpen ? 'border-amber-500 ring-2 ring-amber-500/25' : 'border-slate-300 dark:border-[#33333A] hover:border-slate-400 dark:hover:border-[#4B4B55]'
                   } rounded-xl px-3 py-1.5 flex items-center gap-1.5 cursor-pointer transition-all shadow-2xs`}
                 >
                   {!album.trim() ? (
-                    <span className="text-gray-400 text-sm truncate">Choisir ou créer un album...</span>
+                    <span className="text-slate-600 dark:text-gray-400 text-sm truncate">Choisir ou créer un album...</span>
                   ) : (
                     <span
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/15 text-amber-200 border border-amber-500/35 text-xs font-medium min-w-0"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/15 text-amber-700 dark:text-amber-200 border border-amber-500/35 text-xs font-medium min-w-0"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <span className="truncate max-w-[200px]">{album}</span>
@@ -1501,22 +1517,22 @@ export const SongEditor: React.FC = () => {
                           e.stopPropagation();
                           setAlbum('');
                         }}
-                        className="hover:text-white transition-colors p-0.5 rounded cursor-pointer shrink-0"
+                        className="hover:text-slate-900 dark:hover:text-white transition-colors p-0.5 rounded cursor-pointer shrink-0"
                         title={`Retirer ${album}`}
                       >
                         <X className="w-3 h-3" />
                       </button>
                     </span>
                   )}
-                  <ChevronDown className={`w-4 h-4 text-gray-400 ml-auto shrink-0 transition-transform duration-200 ${isAlbumDropdownOpen ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`w-4 h-4 text-slate-600 dark:text-gray-400 ml-auto shrink-0 transition-transform duration-200 ${isAlbumDropdownOpen ? 'rotate-180' : ''}`} />
                 </div>
 
                 {isAlbumDropdownOpen && (
-                  <div className="absolute left-0 right-0 top-full mt-1.5 bg-[#141417] border border-[#2E2E36] rounded-xl shadow-2xl z-50 p-3 text-sm animate-in fade-in duration-100 min-w-[260px]">
+                  <div className="absolute left-0 right-0 top-full mt-1.5 bg-slate-50 dark:bg-[#141417] border border-slate-300 dark:border-[#2E2E36] rounded-xl shadow-2xl z-50 p-3 text-sm animate-in fade-in duration-100 min-w-[260px]">
                     {/* Champ de recherche & création rapide */}
                     <div className="flex items-center gap-2 mb-2">
                       <div className="relative flex-1">
-                        <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-2.5" />
+                        <Search className="w-3.5 h-3.5 text-slate-600 dark:text-gray-400 absolute left-2.5 top-2.5" />
                         <input
                           id="album-search-input"
                           type="text"
@@ -1529,7 +1545,7 @@ export const SongEditor: React.FC = () => {
                               handleCreateAlbum(albumSearchQuery);
                             }
                           }}
-                          className="w-full bg-[#1A1A1E] border border-[#33333A] rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-amber-500"
+                          className="w-full bg-[#EDF1F5] dark:bg-[#1A1A1E] border border-slate-300 dark:border-[#33333A] rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-amber-500"
                           autoFocus
                         />
                       </div>
@@ -1551,13 +1567,13 @@ export const SongEditor: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => handleCreateAlbum(albumSearchQuery)}
-                        className="w-full mb-2 p-2 rounded-lg bg-amber-950/40 border border-amber-800/40 hover:bg-amber-900/50 hover:border-amber-600/50 cursor-pointer flex items-center justify-between text-amber-200 transition-colors text-left"
+                        className="w-full mb-2 p-2 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-800/40 hover:bg-amber-100 dark:hover:bg-amber-900/50 hover:border-amber-600/50 cursor-pointer flex items-center justify-between text-amber-700 dark:text-amber-200 transition-colors text-left"
                       >
                         <div className="flex items-center gap-1.5 truncate">
-                          <Plus className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                          <span className="truncate">Créer <strong className="text-white font-semibold">« {albumSearchQuery.trim()} »</strong></span>
+                          <Plus className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                          <span className="truncate">Créer <strong className="text-slate-900 dark:text-white font-semibold">« {albumSearchQuery.trim()} »</strong></span>
                         </div>
-                        <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded font-mono ml-2 shrink-0">Entrée ↵</span>
+                        <span className="text-[10px] bg-amber-500/20 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded font-mono ml-2 shrink-0">Entrée ↵</span>
                       </button>
                     )}
 
@@ -1576,15 +1592,15 @@ export const SongEditor: React.FC = () => {
                               onClick={() => handleSelectAlbum(alb)}
                               className={`flex items-center justify-between px-3 py-1.5 rounded-lg cursor-pointer transition-colors ${
                                 isSelected
-                                  ? 'bg-amber-500/15 text-amber-200 font-medium'
-                                  : 'hover:bg-[#1C1C1E] text-gray-300'
+                                  ? 'bg-amber-500/15 text-amber-700 dark:text-amber-200 font-medium'
+                                  : 'hover:bg-slate-200/70 dark:hover:bg-[#1C1C1E] text-slate-700 dark:text-gray-300'
                               }`}
                             >
                               <span className="truncate">{alb}</span>
                               <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors shrink-0 ${
                                 isSelected
                                   ? 'bg-amber-600 border-amber-500 text-white'
-                                  : 'border-[#444] bg-[#1C1C1E]'
+                                  : 'border-slate-300 dark:border-[#444] bg-[#EDF1F5] dark:bg-[#1C1C1E]'
                               }`}>
                                 {isSelected && <Check className="w-3 h-3 stroke-[2.5]" />}
                               </div>
@@ -1595,9 +1611,9 @@ export const SongEditor: React.FC = () => {
                     </div>
 
                     {/* Footer résumé */}
-                    <div className="mt-2 pt-1.5 border-t border-[#222] flex items-center justify-between text-xs text-gray-500">
+                    <div className="mt-2 pt-1.5 border-t border-slate-200 dark:border-[#222] flex items-center justify-between text-xs text-gray-500">
                       <span>{filteredAlbumsList.length} album(s) disponible(s)</span>
-                      {album.trim() && <span className="text-amber-400 font-medium truncate max-w-[140px]">{album.trim()}</span>}
+                      {album.trim() && <span className="text-amber-600 dark:text-amber-400 font-medium truncate max-w-[140px]">{album.trim()}</span>}
                     </div>
                   </div>
                 )}
@@ -1606,9 +1622,9 @@ export const SongEditor: React.FC = () => {
           </div>
 
           {/* Groupe 2 : Paramètres musicaux */}
-          <div className="bg-[#121215] border border-[#222227] rounded-2xl p-4 sm:p-5 shadow-sm space-y-4">
-            <div className="pb-2.5 border-b border-[#1E1E24]">
-              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-gray-200">
+          <div className="bg-white dark:bg-[#121215] border border-slate-200 dark:border-[#222227] rounded-2xl p-4 sm:p-5 shadow-sm space-y-4">
+            <div className="pb-2.5 border-b border-slate-200 dark:border-[#1E1E24]">
+              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-800 dark:text-gray-200">
                 Paramètres musicaux
               </h3>
             </div>
@@ -1616,7 +1632,7 @@ export const SongEditor: React.FC = () => {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 items-start">
               {/* Tonalité */}
               <div className="relative" ref={keyPickerRef}>
-                <label className="block text-xs sm:text-[13px] font-semibold text-gray-300 mb-1.5 text-center">
+                <label className="block text-xs sm:text-[13px] font-semibold text-slate-700 dark:text-gray-300 mb-1.5 text-center">
                   Tonalité
                 </label>
                 <button
@@ -1625,12 +1641,12 @@ export const SongEditor: React.FC = () => {
                   className={`w-full h-10 rounded-xl px-2 text-sm font-bold transition-all flex items-center justify-center gap-1.5 border cursor-pointer ${
                     isKeyPickerOpen
                       ? 'bg-blue-600 text-white border-blue-500 shadow-md shadow-blue-500/30 ring-2 ring-blue-400/40'
-                      : 'bg-[#1A1A1E] text-blue-400 border-[#33333A] hover:border-blue-500/50 hover:bg-[#222228]'
+                      : 'bg-[#EDF1F5] dark:bg-[#1A1A1E] text-blue-600 dark:text-blue-400 border-slate-300 dark:border-[#33333A] hover:border-blue-500/50 hover:bg-slate-200/70 dark:hover:bg-[#222228]'
                   }`}
                   title="Cliquer pour afficher ou modifier la tonalité"
                 >
                   <span className="text-sm font-bold">{key || 'C'}</span>
-                  <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isKeyPickerOpen ? 'rotate-180 text-white' : 'text-blue-400'}`} />
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isKeyPickerOpen ? 'rotate-180 text-slate-900 dark:text-white' : 'text-blue-600 dark:text-blue-400'}`} />
                 </button>
 
                 {/* Popover / Clavier tonalités */}
@@ -1652,7 +1668,7 @@ export const SongEditor: React.FC = () => {
 
               {/* BPM */}
               <div>
-                <label className="block text-xs sm:text-[13px] font-semibold text-gray-300 mb-1.5 text-center">
+                <label className="block text-xs sm:text-[13px] font-semibold text-slate-700 dark:text-gray-300 mb-1.5 text-center">
                   BPM
                 </label>
                 <input
@@ -1665,7 +1681,7 @@ export const SongEditor: React.FC = () => {
                     setBpm(val);
                     setTempo(val);
                   }}
-                  className="w-full h-10 bg-[#1A1A1E] border border-[#33333A] hover:border-emerald-500/50 focus:border-emerald-500 rounded-xl px-2 text-sm text-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-500/30 text-center font-mono font-bold transition-all shadow-2xs"
+                  className="w-full h-10 bg-[#EDF1F5] dark:bg-[#1A1A1E] border border-slate-300 dark:border-[#33333A] hover:border-emerald-500/50 focus:border-emerald-500 rounded-xl px-2 text-sm text-emerald-600 dark:text-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-500/30 text-center font-mono font-bold transition-all shadow-2xs"
                   title="Battements par minute (BPM)"
                   placeholder="100"
                 />
@@ -1673,16 +1689,16 @@ export const SongEditor: React.FC = () => {
 
               {/* Mesure */}
               <div>
-                <label className="block text-xs sm:text-[13px] font-semibold text-gray-300 mb-1.5 text-center">
+                <label className="block text-xs sm:text-[13px] font-semibold text-slate-700 dark:text-gray-300 mb-1.5 text-center">
                   Signature rythmique
                 </label>
                 <select
                   value={timeSignature}
                   onChange={(e) => setTimeSignature(e.target.value)}
-                  className="w-full h-10 bg-[#1A1A1E] border border-[#33333A] hover:border-[#4B4B55] focus:border-blue-500 rounded-xl px-2 text-sm text-emerald-400 font-bold focus:outline-none focus:ring-1 focus:ring-blue-500/30 cursor-pointer text-center transition-all shadow-2xs"
+                  className="w-full h-10 bg-[#EDF1F5] dark:bg-[#1A1A1E] border border-slate-300 dark:border-[#33333A] hover:border-slate-400 dark:hover:border-[#4B4B55] focus:border-blue-500 rounded-xl px-2 text-sm text-emerald-600 dark:text-emerald-400 font-bold focus:outline-none focus:ring-1 focus:ring-blue-500/30 cursor-pointer text-center transition-all shadow-2xs"
                 >
                   {['4/4', '3/4', '6/8', '2/4', '12/8', '5/4'].map(ts => (
-                    <option key={ts} value={ts} className="bg-[#111112] text-gray-200">{ts}</option>
+                    <option key={ts} value={ts} className="bg-white dark:bg-[#111112] text-slate-800 dark:text-gray-200">{ts}</option>
                   ))}
                 </select>
               </div>
@@ -1690,7 +1706,7 @@ export const SongEditor: React.FC = () => {
               {/* Durée */}
               <div>
                 <div className="flex items-center justify-center gap-1.5 mb-1.5">
-                  <label className="text-xs sm:text-[13px] font-semibold text-gray-300">
+                  <label className="text-xs sm:text-[13px] font-semibold text-slate-700 dark:text-gray-300">
                     Durée
                   </label>
                   <button
@@ -1711,8 +1727,8 @@ export const SongEditor: React.FC = () => {
                     }}
                     className={`text-[10px] font-bold px-1.5 py-0.5 rounded border transition-colors cursor-pointer ${
                       durationMode === 'auto'
-                        ? 'bg-cyan-500/20 border-cyan-500/40 text-cyan-300'
-                        : 'bg-[#1A1A1E] border-[#33333A] text-gray-400 hover:text-cyan-300 hover:border-cyan-500/40'
+                        ? 'bg-cyan-500/20 border-cyan-500/40 text-cyan-700 dark:text-cyan-300'
+                        : 'bg-[#EDF1F5] dark:bg-[#1A1A1E] border-slate-300 dark:border-[#33333A] text-slate-600 dark:text-gray-400 hover:text-cyan-800 dark:hover:text-cyan-300 hover:border-cyan-500/40'
                     }`}
                     title={durationMode === 'auto'
                       ? 'Durée calculée automatiquement (YouTube ou tempo + structure)'
@@ -1736,16 +1752,16 @@ export const SongEditor: React.FC = () => {
                       setDurationMode('auto');
                     }
                   }}
-                  className="w-full h-10 bg-[#1A1A1E] border border-[#33333A] hover:border-[#4B4B55] focus:border-cyan-400 rounded-xl px-2 text-sm text-cyan-300 font-mono font-bold focus:outline-none focus:ring-1 focus:ring-cyan-400/30 text-center transition-all shadow-2xs"
+                  className="w-full h-10 bg-[#EDF1F5] dark:bg-[#1A1A1E] border border-slate-300 dark:border-[#33333A] hover:border-slate-400 dark:hover:border-[#4B4B55] focus:border-cyan-400 rounded-xl px-2 text-sm text-cyan-700 dark:text-cyan-300 font-mono font-bold focus:outline-none focus:ring-1 focus:ring-cyan-400/30 text-center transition-all shadow-2xs"
                 />
               </div>
             </div>
           </div>
 
           {/* Groupe 3 : Classification & Langue */}
-          <div className="bg-[#121215] border border-[#222227] rounded-2xl p-4 sm:p-5 shadow-sm space-y-4">
-            <div className="pb-2.5 border-b border-[#1E1E24]">
-              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-gray-200">
+          <div className="bg-white dark:bg-[#121215] border border-slate-200 dark:border-[#222227] rounded-2xl p-4 sm:p-5 shadow-sm space-y-4">
+            <div className="pb-2.5 border-b border-slate-200 dark:border-[#1E1E24]">
+              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-800 dark:text-gray-200">
                 Classification & Langue
               </h3>
             </div>
@@ -1754,8 +1770,8 @@ export const SongEditor: React.FC = () => {
               {/* Langue & Relations */}
               <div className="col-span-12 sm:col-span-6 lg:col-span-4">
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs sm:text-[13px] font-semibold text-gray-300 flex items-center gap-1.5">
-                    <Globe className="w-3.5 h-3.5 text-blue-400" />
+                  <label className="text-xs sm:text-[13px] font-semibold text-slate-700 dark:text-gray-300 flex items-center gap-1.5">
+                    <Globe className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                     <span>Langue du chant</span>
                   </label>
                   <div className="flex items-center gap-1.5">
@@ -1763,7 +1779,7 @@ export const SongEditor: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setIsLanguageModalOpen(true)}
-                        className="text-xs text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1 transition-colors px-1.5 py-0.5 rounded cursor-pointer"
+                        className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-semibold flex items-center gap-1 transition-colors px-1.5 py-0.5 rounded cursor-pointer"
                       >
                         <Link className="w-3 h-3" />
                         <span>Relations</span>
@@ -1778,18 +1794,18 @@ export const SongEditor: React.FC = () => {
                     setLanguage(e.target.value);
                     setIsLanguageManual(true);
                   }}
-                  className="w-full h-10 bg-[#1A1A1E] border border-[#33333A] hover:border-[#4B4B55] focus:border-blue-500 rounded-xl px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500/30 cursor-pointer font-medium transition-all shadow-2xs"
+                  className="w-full h-10 bg-[#EDF1F5] dark:bg-[#1A1A1E] border border-slate-300 dark:border-[#33333A] hover:border-slate-400 dark:hover:border-[#4B4B55] focus:border-blue-500 rounded-xl px-3 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500/30 cursor-pointer font-medium transition-all shadow-2xs"
                 >
                   {PRESET_LANGUAGES.map(lang => (
-                    <option key={lang.code} value={lang.name} className="bg-[#111112]">
+                    <option key={lang.code} value={lang.name} className="bg-white dark:bg-[#111112]">
                       {lang.name}
                     </option>
                   ))}
                 </select>
 
                 {!isLanguageManual && detectedLangInfo && (
-                  <p className="text-xs text-emerald-400/90 mt-1.5 flex items-center gap-1.5">
-                    <Sparkles className="w-3 h-3 shrink-0 text-emerald-400" />
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400/90 mt-1.5 flex items-center gap-1.5">
+                    <Sparkles className="w-3 h-3 shrink-0 text-emerald-600 dark:text-emerald-400" />
                     <span>Devinée d'après {detectedLangInfo.detectedFrom === 'title' ? 'le titre' : detectedLangInfo.detectedFrom === 'content' ? 'les paroles' : 'le titre et les paroles'}</span>
                   </p>
                 )}
@@ -1808,7 +1824,7 @@ export const SongEditor: React.FC = () => {
                             key={ls.id}
                             type="button"
                             onClick={() => setSelectedSong(ls)}
-                            className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs bg-[#1A1A1E] hover:bg-[#252528] text-gray-300 border border-[#2E2E34] hover:border-blue-500/40 transition-colors cursor-pointer"
+                            className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs bg-[#EDF1F5] dark:bg-[#1A1A1E] hover:bg-slate-200/70 dark:hover:bg-[#252528] text-slate-700 dark:text-gray-300 border border-slate-300 dark:border-[#2E2E34] hover:border-blue-500/40 transition-colors cursor-pointer"
                             title={`Basculer sur ${ls.title} - ${lMeta.name}`}
                           >
                             <span className={`font-bold ${lMeta.badgeClass.split(' ')[0]}`}>{lMeta.code}</span>
@@ -1824,12 +1840,12 @@ export const SongEditor: React.FC = () => {
               {/* Multi-Catégories */}
               <div className="col-span-12 sm:col-span-6 lg:col-span-4 relative" ref={categoryDropdownRef}>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs sm:text-[13px] font-semibold text-gray-300 flex items-center gap-1.5">
-                    <Tag className="w-3.5 h-3.5 text-blue-400" />
+                  <label className="text-xs sm:text-[13px] font-semibold text-slate-700 dark:text-gray-300 flex items-center gap-1.5">
+                    <Tag className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                     <span>Catégories & Thèmes</span>
                   </label>
                   {categories.length > 0 && (
-                    <span className="text-xs text-blue-400 font-semibold">
+                    <span className="text-xs text-blue-600 dark:text-blue-400 font-semibold">
                       {categories.length} sélectionnée{categories.length > 1 ? 's' : ''}
                     </span>
                   )}
@@ -1838,16 +1854,16 @@ export const SongEditor: React.FC = () => {
                 <div 
                   onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}
                   className={`w-full min-h-[40px] bg-[#1A1A1E] border ${
-                    isCategoryDropdownOpen ? 'border-blue-500 ring-2 ring-blue-500/25' : 'border-[#33333A] hover:border-[#4B4B55]'
+                    isCategoryDropdownOpen ? 'border-blue-500 ring-2 ring-blue-500/25' : 'border-slate-300 dark:border-[#33333A] hover:border-slate-400 dark:hover:border-[#4B4B55]'
                   } rounded-xl px-3 py-1.5 text-sm text-gray-200 cursor-pointer flex flex-wrap items-center gap-1.5 transition-all shadow-2xs`}
                 >
                   {categories.length === 0 ? (
-                    <span className="text-gray-400 text-sm">Ajouter des catégories...</span>
+                    <span className="text-slate-600 dark:text-gray-400 text-sm">Ajouter des catégories...</span>
                   ) : (
                     categories.map((cat) => (
                       <span
                         key={cat}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-600/20 text-blue-300 border border-blue-500/30 text-xs font-medium"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-600/20 text-blue-700 dark:text-blue-300 border border-blue-500/30 text-xs font-medium"
                         onClick={(e) => e.stopPropagation()}
                       >
                         <span>{cat}</span>
@@ -1857,7 +1873,7 @@ export const SongEditor: React.FC = () => {
                             e.stopPropagation();
                             handleToggleCategory(cat);
                           }}
-                          className="hover:text-white transition-colors p-0.5 rounded cursor-pointer"
+                          className="hover:text-slate-900 dark:hover:text-white transition-colors p-0.5 rounded cursor-pointer"
                           title="Retirer"
                         >
                           <X className="w-3 h-3" />
@@ -1865,11 +1881,11 @@ export const SongEditor: React.FC = () => {
                       </span>
                     ))
                   )}
-                  <ChevronDown className={`w-4 h-4 text-gray-400 ml-auto shrink-0 transition-transform ${isCategoryDropdownOpen ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`w-4 h-4 text-slate-600 dark:text-gray-400 ml-auto shrink-0 transition-transform ${isCategoryDropdownOpen ? 'rotate-180' : ''}`} />
                 </div>
 
                 {isCategoryDropdownOpen && (
-                  <div className="absolute left-0 right-0 top-full mt-1.5 bg-[#141417] border border-[#2E2E36] rounded-xl shadow-2xl z-50 p-3 text-sm animate-in fade-in duration-100">
+                  <div className="absolute left-0 right-0 top-full mt-1.5 bg-slate-50 dark:bg-[#141417] border border-slate-300 dark:border-[#2E2E36] rounded-xl shadow-2xl z-50 p-3 text-sm animate-in fade-in duration-100">
                     <div className="flex items-center gap-2 mb-2">
                       <input
                         type="text"
@@ -1882,7 +1898,7 @@ export const SongEditor: React.FC = () => {
                             handleCreateCategory();
                           }
                         }}
-                        className="flex-1 bg-[#1A1A1E] border border-[#33333A] rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                        className="flex-1 bg-[#EDF1F5] dark:bg-[#1A1A1E] border border-slate-300 dark:border-[#33333A] rounded-lg px-2.5 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-blue-500"
                         autoFocus
                       />
                       {categorySearchQuery.trim() && (
@@ -1906,15 +1922,15 @@ export const SongEditor: React.FC = () => {
                             onClick={() => handleToggleCategory(cat)}
                             className={`flex items-center justify-between px-3 py-1.5 rounded-lg cursor-pointer transition-colors ${
                               isSelected
-                                ? 'bg-blue-600/15 text-blue-300 font-medium'
-                                : 'hover:bg-[#1A1A1E] text-gray-300'
+                                ? 'bg-blue-600/15 text-blue-700 dark:text-blue-300 font-medium'
+                                : 'hover:bg-slate-200/70 dark:hover:bg-[#1A1A1E] text-slate-700 dark:text-gray-300'
                             }`}
                           >
                             <span className="truncate">{cat}</span>
                             <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${
                               isSelected 
                                 ? 'bg-blue-600 border-blue-500 text-white' 
-                                : 'border-[#444] bg-[#1A1A1E]'
+                                : 'border-slate-300 dark:border-[#444] bg-[#EDF1F5] dark:bg-[#1A1A1E]'
                             }`}>
                               {isSelected && <Check className="w-3 h-3 stroke-[2.5]" />}
                             </div>
@@ -1928,8 +1944,8 @@ export const SongEditor: React.FC = () => {
 
               {/* Note de scène */}
               <div className="col-span-12 lg:col-span-4">
-                <label className="block text-xs sm:text-[13px] font-semibold text-gray-300 mb-1.5 flex items-center gap-1.5">
-                  <Music className="w-3.5 h-3.5 text-amber-400" />
+                <label className="block text-xs sm:text-[13px] font-semibold text-slate-700 dark:text-gray-300 mb-1.5 flex items-center gap-1.5">
+                  <Music className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                   <span>Note de scène</span>
                 </label>
                 <input
@@ -1937,16 +1953,16 @@ export const SongEditor: React.FC = () => {
                   placeholder="ex: Solo de guitare après le pont, fin douce..."
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  className="w-full h-10 bg-[#1A1A1E] border border-[#33333A] hover:border-[#4B4B55] focus:border-blue-500 rounded-xl px-3.5 text-sm text-blue-300 focus:outline-none focus:ring-1 focus:ring-blue-500/30 transition-all shadow-2xs"
+                  className="w-full h-10 bg-[#EDF1F5] dark:bg-[#1A1A1E] border border-slate-300 dark:border-[#33333A] hover:border-slate-400 dark:hover:border-[#4B4B55] focus:border-blue-500 rounded-xl px-3.5 text-sm text-blue-700 dark:text-blue-300 focus:outline-none focus:ring-1 focus:ring-blue-500/30 transition-all shadow-2xs"
                 />
               </div>
             </div>
           </div>
 
           {/* Groupe 4 : Droits & Références légales */}
-          <div className="bg-[#121215] border border-[#222227] rounded-2xl p-4 sm:p-5 shadow-sm space-y-4">
-            <div className="pb-2.5 border-b border-[#1E1E24]">
-              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-gray-200">
+          <div className="bg-white dark:bg-[#121215] border border-slate-200 dark:border-[#222227] rounded-2xl p-4 sm:p-5 shadow-sm space-y-4">
+            <div className="pb-2.5 border-b border-slate-200 dark:border-[#1E1E24]">
+              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-800 dark:text-gray-200">
                 Droits & Références
               </h3>
             </div>
@@ -1955,8 +1971,8 @@ export const SongEditor: React.FC = () => {
               {/* CCLI */}
               <div className="col-span-12 sm:col-span-5 lg:col-span-4">
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs sm:text-[13px] font-semibold text-gray-300 flex items-center gap-1.5">
-                    <Shield className="w-3.5 h-3.5 text-blue-400" />
+                  <label className="text-xs sm:text-[13px] font-semibold text-slate-700 dark:text-gray-300 flex items-center gap-1.5">
+                    <Shield className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                     <span>N° CCLI (SongSelect)</span>
                   </label>
                   {ccli.trim() && (
@@ -1964,7 +1980,7 @@ export const SongEditor: React.FC = () => {
                       href={`https://songselect.ccli.com/Songs/${ccli.trim().replace(/\D/g, '') || ccli.trim()}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs text-blue-400 hover:text-blue-300 font-medium hover:underline flex items-center gap-0.5"
+                      className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium hover:underline flex items-center gap-0.5"
                       title="Consulter sur CCLI SongSelect"
                     >
                       <span>SongSelect ↗</span>
@@ -1976,14 +1992,14 @@ export const SongEditor: React.FC = () => {
                   placeholder="ex: 7117726"
                   value={ccli}
                   onChange={(e) => setCcli(e.target.value)}
-                  className="w-full h-10 bg-[#1A1A1E] border border-[#33333A] hover:border-[#4B4B55] focus:border-blue-500 rounded-xl px-3.5 text-sm text-blue-300 font-mono font-medium focus:outline-none focus:ring-1 focus:ring-blue-500/30 transition-all shadow-2xs"
+                  className="w-full h-10 bg-[#EDF1F5] dark:bg-[#1A1A1E] border border-slate-300 dark:border-[#33333A] hover:border-slate-400 dark:hover:border-[#4B4B55] focus:border-blue-500 rounded-xl px-3.5 text-sm text-blue-700 dark:text-blue-300 font-mono font-medium focus:outline-none focus:ring-1 focus:ring-blue-500/30 transition-all shadow-2xs"
                 />
               </div>
 
               {/* Copyright */}
               <div className="col-span-12 sm:col-span-7 lg:col-span-8">
-                <label className="block text-xs sm:text-[13px] font-semibold text-gray-300 mb-1.5 flex items-center gap-1.5">
-                  <Copyright className="w-3.5 h-3.5 text-emerald-400" />
+                <label className="block text-xs sm:text-[13px] font-semibold text-slate-700 dark:text-gray-300 mb-1.5 flex items-center gap-1.5">
+                  <Copyright className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                   <span>Mentions Copyright & Droits d'auteur</span>
                 </label>
                 <input
@@ -1991,16 +2007,16 @@ export const SongEditor: React.FC = () => {
                   placeholder="ex: © 2018 Bethel Music Publishing / Fellow Ships Music"
                   value={copyright}
                   onChange={(e) => setCopyright(e.target.value)}
-                  className="w-full h-10 bg-[#1A1A1E] border border-[#33333A] hover:border-[#4B4B55] focus:border-blue-500 rounded-xl px-3.5 text-sm text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500/30 transition-all shadow-2xs"
+                  className="w-full h-10 bg-[#EDF1F5] dark:bg-[#1A1A1E] border border-slate-300 dark:border-[#33333A] hover:border-slate-400 dark:hover:border-[#4B4B55] focus:border-blue-500 rounded-xl px-3.5 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500/30 transition-all shadow-2xs"
                 />
               </div>
             </div>
           </div>
 
           {/* Groupe 5 : Médias & Enregistrements externes */}
-          <div className="bg-[#121215] border border-[#222227] rounded-2xl p-4 sm:p-5 shadow-sm space-y-4">
-            <div className="pb-2.5 border-b border-[#1E1E24]">
-              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-gray-200">
+          <div className="bg-white dark:bg-[#121215] border border-slate-200 dark:border-[#222227] rounded-2xl p-4 sm:p-5 shadow-sm space-y-4">
+            <div className="pb-2.5 border-b border-slate-200 dark:border-[#1E1E24]">
+              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-800 dark:text-gray-200">
                 Médias & Enregistrements externes
               </h3>
             </div>
@@ -2009,7 +2025,7 @@ export const SongEditor: React.FC = () => {
               {/* Lien YouTube */}
               <div className="col-span-12 sm:col-span-4">
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs sm:text-[13px] font-semibold text-gray-300 flex items-center gap-1.5">
+                  <label className="text-xs sm:text-[13px] font-semibold text-slate-700 dark:text-gray-300 flex items-center gap-1.5">
                     <svg className="w-3.5 h-3.5 text-red-500 fill-current shrink-0" viewBox="0 0 24 24">
                       <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
                     </svg>
@@ -2020,7 +2036,7 @@ export const SongEditor: React.FC = () => {
                       href={youtubeUrl.trim()}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs text-red-400 hover:text-red-300 font-medium hover:underline flex items-center gap-0.5"
+                      className="text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 font-medium hover:underline flex items-center gap-0.5"
                       title="Tester le lien YouTube"
                     >
                       <span>Tester ↗</span>
@@ -2032,15 +2048,15 @@ export const SongEditor: React.FC = () => {
                   placeholder="https://www.youtube.com/watch?v=..."
                   value={youtubeUrl}
                   onChange={(e) => setYoutubeUrl(e.target.value)}
-                  className="w-full h-10 bg-[#1A1A1E] border border-[#33333A] hover:border-[#4B4B55] rounded-xl px-3.5 text-sm text-red-300 placeholder-gray-500 font-mono focus:outline-none focus:border-red-500 transition-all shadow-2xs"
+                  className="w-full h-10 bg-[#EDF1F5] dark:bg-[#1A1A1E] border border-slate-300 dark:border-[#33333A] hover:border-slate-400 dark:hover:border-[#4B4B55] rounded-xl px-3.5 text-sm text-red-700 dark:text-red-300 placeholder-slate-400 dark:placeholder-gray-500 font-mono focus:outline-none focus:border-red-500 transition-all shadow-2xs"
                 />
               </div>
 
               {/* Lien Spotify */}
               <div className="col-span-12 sm:col-span-4">
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs sm:text-[13px] font-semibold text-gray-300 flex items-center gap-1.5">
-                    <svg className="w-3.5 h-3.5 text-emerald-400 fill-current shrink-0" viewBox="0 0 24 24">
+                  <label className="text-xs sm:text-[13px] font-semibold text-slate-700 dark:text-gray-300 flex items-center gap-1.5">
+                    <svg className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 fill-current shrink-0" viewBox="0 0 24 24">
                       <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
                     </svg>
                     <span>Lien Spotify</span>
@@ -2050,7 +2066,7 @@ export const SongEditor: React.FC = () => {
                       href={spotifyUrl.trim()}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs text-emerald-400 hover:text-emerald-300 font-medium hover:underline flex items-center gap-0.5"
+                      className="text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 font-medium hover:underline flex items-center gap-0.5"
                       title="Tester le lien Spotify"
                     >
                       <span>Tester ↗</span>
@@ -2062,15 +2078,15 @@ export const SongEditor: React.FC = () => {
                   placeholder="https://open.spotify.com/track/..."
                   value={spotifyUrl}
                   onChange={(e) => setSpotifyUrl(e.target.value)}
-                  className="w-full h-10 bg-[#1A1A1E] border border-[#33333A] hover:border-[#4B4B55] rounded-xl px-3.5 text-sm text-emerald-300 placeholder-gray-500 font-mono focus:outline-none focus:border-emerald-500 transition-all shadow-2xs"
+                  className="w-full h-10 bg-[#EDF1F5] dark:bg-[#1A1A1E] border border-slate-300 dark:border-[#33333A] hover:border-slate-400 dark:hover:border-[#4B4B55] rounded-xl px-3.5 text-sm text-emerald-700 dark:text-emerald-300 placeholder-slate-400 dark:placeholder-gray-500 font-mono focus:outline-none focus:border-emerald-500 transition-all shadow-2xs"
                 />
               </div>
 
               {/* Lien Audio externe */}
               <div className="col-span-12 sm:col-span-4">
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs sm:text-[13px] font-semibold text-gray-300 flex items-center gap-1.5">
-                    <Music className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                  <label className="text-xs sm:text-[13px] font-semibold text-slate-700 dark:text-gray-300 flex items-center gap-1.5">
+                    <Music className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
                     <span>Fichier Audio (MP3 / flux)</span>
                   </label>
                   {audioUrl.trim() && (
@@ -2078,7 +2094,7 @@ export const SongEditor: React.FC = () => {
                       href={audioUrl.trim()}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs text-blue-400 hover:text-blue-300 font-medium hover:underline flex items-center gap-0.5"
+                      className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium hover:underline flex items-center gap-0.5"
                       title="Tester le lien audio"
                     >
                       <span>Tester ↗</span>
@@ -2090,7 +2106,7 @@ export const SongEditor: React.FC = () => {
                   placeholder="https://domaine.com/audio.mp3"
                   value={audioUrl}
                   onChange={(e) => setAudioUrl(e.target.value)}
-                  className="w-full h-10 bg-[#1A1A1E] border border-[#33333A] hover:border-[#4B4B55] rounded-xl px-3.5 text-sm text-blue-300 placeholder-gray-500 font-mono focus:outline-none focus:border-blue-500 transition-all shadow-2xs"
+                  className="w-full h-10 bg-[#EDF1F5] dark:bg-[#1A1A1E] border border-slate-300 dark:border-[#33333A] hover:border-slate-400 dark:hover:border-[#4B4B55] rounded-xl px-3.5 text-sm text-blue-700 dark:text-blue-300 placeholder-slate-400 dark:placeholder-gray-500 font-mono focus:outline-none focus:border-blue-500 transition-all shadow-2xs"
                 />
               </div>
             </div>
@@ -2106,12 +2122,12 @@ export const SongEditor: React.FC = () => {
           <div className="space-y-4">
             {/* Si aucune section, afficher un bouton pour ajouter la première section */}
             {visualSections.length === 0 ? (
-              <div className="py-12 px-4 rounded-2xl bg-[#111113] border border-dashed border-white/10 text-center">
-                <div className="w-12 h-12 rounded-xl bg-blue-600/15 border border-blue-500/30 text-blue-400 flex items-center justify-center mx-auto mb-3 shadow-inner">
+              <div className="py-12 px-4 rounded-2xl bg-white dark:bg-[#111113] border border-dashed border-slate-200 dark:border-white/10 text-center">
+                <div className="w-12 h-12 rounded-xl bg-blue-600/15 border border-blue-500/30 text-blue-600 dark:text-blue-400 flex items-center justify-center mx-auto mb-3 shadow-inner">
                   <Plus className="w-6 h-6" />
                 </div>
-                <h3 className="text-sm font-bold text-white mb-1">Aucune section</h3>
-                <p className="text-xs text-gray-400 max-w-sm mx-auto mb-4">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-1">Aucune section</h3>
+                <p className="text-xs text-slate-600 dark:text-gray-400 max-w-sm mx-auto mb-4">
                   Ce chant ne contient encore aucune section de paroles ou d'accords.
                 </p>
                 <div className="relative inline-block" ref={addSectionDropdownRef}>
@@ -2126,8 +2142,8 @@ export const SongEditor: React.FC = () => {
                   </button>
 
                   {isAddSectionDropdownOpen && (
-                    <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 w-64 bg-[#18181C] border border-[#2E2E36] rounded-xl shadow-2xl p-1.5 backdrop-blur-md max-h-80 overflow-y-auto custom-scrollbar text-left">
-                      <div className="px-2 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider border-b border-[#282830] mb-1">
+                    <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 w-64 bg-slate-50 dark:bg-[#18181C] border border-slate-300 dark:border-[#2E2E36] rounded-xl shadow-2xl p-1.5 backdrop-blur-md max-h-80 overflow-y-auto custom-scrollbar text-left">
+                      <div className="px-2 py-1 text-[10px] font-bold text-slate-600 dark:text-gray-400 uppercase tracking-wider border-b border-slate-300 dark:border-[#282830] mb-1">
                         Choisir le type de section
                       </div>
                       <div className="space-y-0.5">
@@ -2135,7 +2151,7 @@ export const SongEditor: React.FC = () => {
                           const conf = SECTION_TYPES_CONFIG[key] || {
                             badgeBg: 'bg-gray-600/20',
                             badgeBorder: 'border-gray-500/30',
-                            badgeText: 'text-gray-300'
+                            badgeText: 'text-slate-700 dark:text-gray-300'
                           };
                           return (
                             <button
@@ -2145,11 +2161,11 @@ export const SongEditor: React.FC = () => {
                                 handleAddNewSection(key as any);
                                 setIsAddSectionDropdownOpen(false);
                               }}
-                              className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs hover:bg-[#232329] text-gray-200 transition-colors text-left group cursor-pointer"
+                              className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs hover:bg-slate-200/70 dark:hover:bg-[#232329] text-slate-800 dark:text-gray-200 transition-colors text-left group cursor-pointer"
                             >
                               <div className="flex items-center gap-2">
                                 <span className={`w-2 h-2 rounded-full ${conf.badgeBg.replace('/20', '')}`} />
-                                <span className="font-medium group-hover:text-white">{label}</span>
+                                <span className="font-medium group-hover:text-slate-900 dark:group-hover:text-white">{label}</span>
                               </div>
                               <span className={`text-[10px] px-1.5 py-0.5 rounded border ${conf.badgeBg} ${conf.badgeBorder} ${conf.badgeText}`}>
                                 + Ajouter
@@ -2163,13 +2179,13 @@ export const SongEditor: React.FC = () => {
                             handleAddNewSection('chorus', 'Refrain', undefined, 'chorus_recall');
                             setIsAddSectionDropdownOpen(false);
                           }}
-                          className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs hover:bg-[#232329] text-amber-200 transition-colors text-left group cursor-pointer"
+                          className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs hover:bg-slate-200/70 dark:hover:bg-[#232329] text-amber-700 dark:text-amber-200 transition-colors text-left group cursor-pointer"
                         >
                           <div className="flex items-center gap-2">
                             <span className="w-2 h-2 rounded-full bg-amber-500" />
-                            <span className="font-medium group-hover:text-white">Rappel Refrain {'{chorus}'}</span>
+                            <span className="font-medium group-hover:text-slate-900 dark:group-hover:text-white">Rappel Refrain {'{chorus}'}</span>
                           </div>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded border bg-amber-600/20 border-amber-500/30 text-amber-300">
+                          <span className="text-[10px] px-1.5 py-0.5 rounded border bg-amber-600/20 border-amber-500/30 text-amber-700 dark:text-amber-300">
                             + Rappel
                           </span>
                         </button>
@@ -2210,7 +2226,7 @@ export const SongEditor: React.FC = () => {
                     {/* Bouton "+" en bas de chaque section pour insérer une section après */}
                     <div className="relative py-1 flex items-center justify-center group/add-section">
                       <div className="absolute inset-0 flex items-center" aria-hidden="true">
-                        <div className="w-full border-t border-dashed border-white/5 group-hover/add-section:border-blue-500/30 transition-colors" />
+                        <div className="w-full border-t border-dashed border-slate-200 dark:border-white/5 group-hover/add-section:border-blue-500/30 transition-colors" />
                       </div>
                       
                       <div className="relative">
@@ -2226,7 +2242,7 @@ export const SongEditor: React.FC = () => {
                           className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold shadow-md transition-all active:scale-95 cursor-pointer ${
                             activeInsertSectionIndex === sIdx
                               ? 'bg-blue-600 text-white ring-2 ring-blue-500/40 shadow-blue-900/50'
-                              : 'bg-[#18181C] hover:bg-blue-600/20 text-gray-400 hover:text-blue-300 border border-white/10 hover:border-blue-500/40'
+                              : 'bg-slate-50 dark:bg-[#18181C] hover:bg-blue-600/20 text-slate-600 dark:text-gray-400 hover:text-blue-800 dark:hover:text-blue-300 border border-slate-200 dark:border-white/10 hover:border-blue-500/40'
                           }`}
                           title="Ajouter une section à cet endroit"
                           aria-label="Ajouter une section à cet endroit"
@@ -2237,13 +2253,13 @@ export const SongEditor: React.FC = () => {
 
                         {/* Dropdown de choix du type de section pour ce point d'insertion */}
                         {activeInsertSectionIndex === sIdx && (
-                          <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 w-64 bg-[#18181C] border border-[#2E2E36] rounded-xl shadow-2xl p-1.5 backdrop-blur-md max-h-80 overflow-y-auto custom-scrollbar animate-in fade-in zoom-in-95">
-                            <div className="px-2 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider border-b border-[#282830] mb-1 flex items-center justify-between">
+                          <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 w-64 bg-slate-50 dark:bg-[#18181C] border border-slate-300 dark:border-[#2E2E36] rounded-xl shadow-2xl p-1.5 backdrop-blur-md max-h-80 overflow-y-auto custom-scrollbar animate-in fade-in zoom-in-95">
+                            <div className="px-2 py-1 text-[10px] font-bold text-slate-600 dark:text-gray-400 uppercase tracking-wider border-b border-slate-300 dark:border-[#282830] mb-1 flex items-center justify-between">
                               <span>Insérer après cette section</span>
                               <button
                                 type="button"
                                 onClick={() => setActiveInsertSectionIndex(null)}
-                                className="text-gray-500 hover:text-white"
+                                className="text-gray-500 hover:text-slate-900 dark:hover:text-white"
                               >
                                 <X className="w-3 h-3" />
                               </button>
@@ -2254,7 +2270,7 @@ export const SongEditor: React.FC = () => {
                                 const conf = SECTION_TYPES_CONFIG[key] || {
                                   badgeBg: 'bg-gray-600/20',
                                   badgeBorder: 'border-gray-500/30',
-                                  badgeText: 'text-gray-300'
+                                  badgeText: 'text-slate-700 dark:text-gray-300'
                                 };
                                 return (
                                   <button
@@ -2264,11 +2280,11 @@ export const SongEditor: React.FC = () => {
                                       handleAddNewSection(key as any, undefined, sIdx);
                                       setActiveInsertSectionIndex(null);
                                     }}
-                                    className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs hover:bg-[#232329] text-gray-200 transition-colors text-left group cursor-pointer"
+                                    className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs hover:bg-slate-200/70 dark:hover:bg-[#232329] text-slate-800 dark:text-gray-200 transition-colors text-left group cursor-pointer"
                                   >
                                     <div className="flex items-center gap-2">
                                       <span className={`w-2 h-2 rounded-full ${conf.badgeBg.replace('/20', '')}`} />
-                                      <span className="font-medium group-hover:text-white">{label}</span>
+                                      <span className="font-medium group-hover:text-slate-900 dark:group-hover:text-white">{label}</span>
                                     </div>
                                     <span className={`text-[10px] px-1.5 py-0.5 rounded border ${conf.badgeBg} ${conf.badgeBorder} ${conf.badgeText}`}>
                                       + Ajouter
@@ -2282,21 +2298,21 @@ export const SongEditor: React.FC = () => {
                                   handleAddNewSection('chorus', 'Refrain', sIdx, 'chorus_recall');
                                   setActiveInsertSectionIndex(null);
                                 }}
-                                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs hover:bg-[#232329] text-amber-200 transition-colors text-left group cursor-pointer"
+                                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs hover:bg-slate-200/70 dark:hover:bg-[#232329] text-amber-700 dark:text-amber-200 transition-colors text-left group cursor-pointer"
                               >
                                 <div className="flex items-center gap-2">
                                   <span className="w-2 h-2 rounded-full bg-amber-500" />
-                                  <span className="font-medium group-hover:text-white">Rappel Refrain {'{chorus}'}</span>
+                                  <span className="font-medium group-hover:text-slate-900 dark:group-hover:text-white">Rappel Refrain {'{chorus}'}</span>
                                 </div>
-                                <span className="text-[10px] px-1.5 py-0.5 rounded border bg-amber-600/20 border-amber-500/30 text-amber-300">
+                                <span className="text-[10px] px-1.5 py-0.5 rounded border bg-amber-600/20 border-amber-500/30 text-amber-700 dark:text-amber-300">
                                   + Rappel
                                 </span>
                               </button>
                             </div>
 
                             {customSectionList.length > 0 && (
-                              <div className="pt-2 mt-1 border-t border-[#25252D]">
-                                <div className="px-2 py-1 text-[10px] font-bold text-teal-400 uppercase tracking-wider mb-1">
+                              <div className="pt-2 mt-1 border-t border-slate-200 dark:border-[#25252D]">
+                                <div className="px-2 py-1 text-[10px] font-bold text-teal-600 dark:text-teal-400 uppercase tracking-wider mb-1">
                                   Sections personnalisées
                                 </div>
                                 <div className="space-y-0.5">
@@ -2308,10 +2324,10 @@ export const SongEditor: React.FC = () => {
                                         handleAddNewSection(customName, customName, sIdx);
                                         setActiveInsertSectionIndex(null);
                                       }}
-                                      className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs hover:bg-[#232329] text-teal-200 transition-colors text-left cursor-pointer"
+                                      className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs hover:bg-slate-200/70 dark:hover:bg-[#232329] text-teal-700 dark:text-teal-200 transition-colors text-left cursor-pointer"
                                     >
                                       <span className="font-medium">{customName}</span>
-                                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-teal-600/20 border border-teal-500/30 text-teal-300">
+                                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-teal-600/20 border border-teal-500/30 text-teal-700 dark:text-teal-300">
                                         + Ajouter
                                       </span>
                                     </button>
@@ -2320,16 +2336,16 @@ export const SongEditor: React.FC = () => {
                               </div>
                             )}
 
-                            <div className="pt-1.5 mt-1 border-t border-[#25252D]">
+                            <div className="pt-1.5 mt-1 border-t border-slate-200 dark:border-[#25252D]">
                               <button
                                 type="button"
                                 onClick={() => {
                                   setActiveInsertSectionIndex(null);
                                   setShowCustomSectionModal(true);
                                 }}
-                                className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-semibold text-amber-300 hover:text-amber-200 hover:bg-amber-600/15 border border-dashed border-amber-500/30 transition-colors text-left cursor-pointer"
+                                className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-semibold text-amber-700 dark:text-amber-300 hover:text-amber-800 dark:hover:text-amber-200 hover:bg-amber-600/15 border border-dashed border-amber-500/30 transition-colors text-left cursor-pointer"
                               >
-                                <Plus className="w-3.5 h-3.5 text-amber-400" />
+                                <Plus className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                                 <span>Créer une section personnalisée...</span>
                               </button>
                             </div>
@@ -2371,13 +2387,13 @@ export const SongEditor: React.FC = () => {
       {/* Modal for creating custom section */}
       {showCustomSectionModal && (
         <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-[#18181C] border border-[#2B2B30] rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-[#25252A]">
+          <div className="bg-slate-50 dark:bg-[#18181C] border border-slate-300 dark:border-[#2B2B30] rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-[#25252A]">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-teal-500/10 border border-teal-500/30 flex items-center justify-center text-teal-400">
+                <div className="w-8 h-8 rounded-lg bg-teal-500/10 border border-teal-500/30 flex items-center justify-center text-teal-600 dark:text-teal-400">
                   <Plus className="w-4 h-4" />
                 </div>
-                <h3 className="text-base font-bold text-white">Section personnalisée</h3>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">Section personnalisée</h3>
               </div>
               <button
                 type="button"
@@ -2385,14 +2401,14 @@ export const SongEditor: React.FC = () => {
                   setShowCustomSectionModal(false);
                   setCustomSectionInput('');
                 }}
-                className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-[#25252A] transition-colors"
+                className="p-1 rounded-lg text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-[#25252A] transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="space-y-3">
-              <label className="block text-xs font-semibold text-gray-300">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-gray-300">
                 Nom du type de section
               </label>
               <input
@@ -2409,20 +2425,20 @@ export const SongEditor: React.FC = () => {
                   }
                 }}
                 placeholder="Ex : Vamp, Descente, Transition, Coda..."
-                className="w-full bg-[#101012] border border-[#333338] focus:border-teal-500 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none"
+                className="w-full bg-white dark:bg-[#101012] border border-slate-300 dark:border-[#333338] focus:border-teal-500 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none"
                 autoFocus
               />
 
               {/* Suggestions */}
               <div className="space-y-1.5 pt-1">
-                <span className="text-[11px] text-gray-400 font-medium">Suggestions :</span>
+                <span className="text-[11px] text-slate-600 dark:text-gray-400 font-medium">Suggestions :</span>
                 <div className="flex flex-wrap gap-1.5">
                   {['Vamp', 'Transition', 'Descente', 'Coda', 'Refrain 2', 'Montée', 'Chœur final'].map((sugg) => (
                     <button
                       key={sugg}
                       type="button"
                       onClick={() => setCustomSectionInput(sugg)}
-                      className="px-2 py-0.5 rounded-md bg-[#222226] hover:bg-[#2A2A30] text-gray-300 hover:text-teal-300 text-xs border border-[#303036] transition-colors"
+                      className="px-2 py-0.5 rounded-md bg-[#EDF1F5] dark:bg-[#222226] hover:bg-slate-200 dark:hover:bg-[#2A2A30] text-slate-700 dark:text-gray-300 hover:text-teal-800 dark:hover:text-teal-300 text-xs border border-slate-300 dark:border-[#303036] transition-colors"
                     >
                       {sugg}
                     </button>
@@ -2431,14 +2447,14 @@ export const SongEditor: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#25252A]">
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-[#25252A]">
               <button
                 type="button"
                 onClick={() => {
                   setShowCustomSectionModal(false);
                   setCustomSectionInput('');
                 }}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-gray-400 hover:text-white hover:bg-[#25252A] transition-colors"
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-[#25252A] transition-colors"
               >
                 Annuler
               </button>
@@ -2466,8 +2482,8 @@ export const SongEditor: React.FC = () => {
           disabled={!canUndo}
           className={`w-12 h-12 sm:w-13 sm:h-13 rounded-full flex items-center justify-center transition-all duration-200 active:scale-90 shadow-2xl border-2 backdrop-blur-md ${
             canUndo
-              ? 'bg-[#18181C]/90 hover:bg-[#25252C] text-gray-200 hover:text-white border-white/20 hover:border-white/40 cursor-pointer hover:scale-105 ring-4 ring-white/5'
-              : 'bg-[#141417]/60 text-gray-600 border-white/5 cursor-not-allowed opacity-40'
+              ? 'bg-slate-50/90 dark:bg-[#18181C]/90 hover:bg-slate-200 dark:hover:bg-[#25252C] text-slate-800 dark:text-gray-200 hover:text-slate-900 dark:hover:text-white border-slate-200 dark:border-white/20 hover:border-white/40 cursor-pointer hover:scale-105 ring-4 ring-white/5'
+              : 'bg-slate-50/60 dark:bg-[#141417]/60 text-slate-500 dark:text-gray-600 border-slate-200 dark:border-white/5 cursor-not-allowed opacity-40'
           }`}
           title="Annuler la dernière action (Ctrl+Z)"
           aria-label="Annuler la dernière action (Ctrl+Z)"
@@ -2485,7 +2501,7 @@ export const SongEditor: React.FC = () => {
             saveSuccess
               ? 'bg-emerald-600 hover:bg-emerald-500 text-white border-2 border-emerald-300 ring-4 ring-emerald-500/25 scale-105 shadow-emerald-950/60'
               : isSaving
-              ? 'bg-blue-600/80 text-white border-2 border-blue-300/40 ring-4 ring-blue-500/20 cursor-wait shadow-blue-950/50'
+              ? 'bg-blue-600/80 text-slate-900 dark:text-white border-2 border-blue-300/40 ring-4 ring-blue-500/20 cursor-wait shadow-blue-950/50'
               : 'bg-blue-600 hover:bg-blue-500 text-white border-2 border-blue-400/50 hover:scale-110 shadow-blue-950/60 ring-4 ring-blue-500/20'
           } disabled:opacity-75`}
           title={saveSuccess ? "Enregistré avec succès !" : selectedSong ? "Mettre à jour" : "Enregistrer le chant"}

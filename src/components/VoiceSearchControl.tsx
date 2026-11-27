@@ -194,7 +194,7 @@ export const VoiceSearchControl: React.FC<VoiceSearchControlProps> = ({
             ? isHandsFree
               ? 'bg-emerald-600 text-white shadow-md shadow-emerald-900/40 ring-2 ring-emerald-400/50 scale-105'
               : 'bg-blue-600 text-white shadow-md shadow-blue-900/40 ring-2 ring-blue-400/50 scale-105 animate-pulse'
-            : 'text-gray-400 hover:text-blue-400 hover:bg-[#252528]'
+            : 'text-slate-600 dark:text-gray-400 hover:text-blue-800 dark:hover:text-blue-400 hover:bg-slate-200/70 dark:hover:bg-[#252528]'
         }`}
         title={
           !isSupported
@@ -207,7 +207,7 @@ export const VoiceSearchControl: React.FC<VoiceSearchControlProps> = ({
         }
       >
         {isListening ? (
-          <Mic className="w-4 h-4 text-white animate-bounce" />
+          <Mic className="w-4 h-4 text-slate-900 dark:text-white animate-bounce" />
         ) : (
           <Mic className="w-4 h-4" />
         )}
@@ -222,10 +222,10 @@ export const VoiceSearchControl: React.FC<VoiceSearchControlProps> = ({
       {(showVoiceHUD || isListening || errorMessage) && (
         <div
           id="voice-command-hud"
-          className="absolute right-0 top-full mt-2 z-40 w-80 sm:w-96 bg-[#18181B] border border-[#2D2D32] rounded-xl p-3 shadow-2xl backdrop-blur-lg animate-in fade-in slide-in-from-top-2 duration-200"
+          className="absolute right-0 top-full mt-2 z-40 w-80 sm:w-96 bg-slate-50 dark:bg-[#18181B] border border-slate-300 dark:border-[#2D2D32] rounded-xl p-3 shadow-2xl backdrop-blur-lg animate-in fade-in slide-in-from-top-2 duration-200"
         >
           {/* Header du panneau vocal */}
-          <div className="flex items-center justify-between pb-2 border-b border-[#28282D]">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-300 dark:border-[#28282D]">
             <div className="flex items-center gap-2">
               <div
                 className={`w-2.5 h-2.5 rounded-full ${
@@ -236,10 +236,10 @@ export const VoiceSearchControl: React.FC<VoiceSearchControlProps> = ({
                     : 'bg-gray-500'
                 }`}
               />
-              <span className="text-xs font-bold text-white tracking-wide flex items-center gap-1.5">
+              <span className="text-xs font-bold text-slate-900 dark:text-white tracking-wide flex items-center gap-1.5">
                 <span>Commande vocale</span>
                 {isHandsFree && (
-                  <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-700/50 flex items-center gap-1">
+                  <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-700/50 flex items-center gap-1">
                     <Headphones className="w-2.5 h-2.5" />
                     Mains libres
                   </span>
@@ -249,7 +249,7 @@ export const VoiceSearchControl: React.FC<VoiceSearchControlProps> = ({
 
             <div className="flex items-center gap-1.5">
               {/* Sélecteur de langue */}
-              <div className="flex items-center bg-[#101012] border border-[#2B2B30] rounded p-0.5 text-[10px]">
+              <div className="flex items-center bg-white dark:bg-[#101012] border border-slate-300 dark:border-[#2B2B30] rounded p-0.5 text-[10px]">
                 {(['fr-FR', 'en-US', 'es-ES'] as const).map(langCode => {
                   const label = langCode === 'fr-FR' ? 'FR' : langCode === 'en-US' ? 'EN' : 'ES';
                   const active = activeLanguage === langCode;
@@ -261,7 +261,7 @@ export const VoiceSearchControl: React.FC<VoiceSearchControlProps> = ({
                       className={`px-1.5 py-0.5 rounded font-bold transition-all ${
                         active
                           ? 'bg-blue-600 text-white shadow-xs'
-                          : 'text-gray-400 hover:text-gray-200'
+                          : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200'
                       }`}
                     >
                       {label}
@@ -277,7 +277,7 @@ export const VoiceSearchControl: React.FC<VoiceSearchControlProps> = ({
                   stopListening();
                   setShowVoiceHUD(false);
                 }}
-                className="w-6 h-6 rounded flex items-center justify-center text-gray-400 hover:text-white hover:bg-[#252528] transition-colors"
+                className="w-6 h-6 rounded flex items-center justify-center text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-[#252528] transition-colors"
                 title="Fermer"
               >
                 <X className="w-3.5 h-3.5" />
@@ -288,21 +288,21 @@ export const VoiceSearchControl: React.FC<VoiceSearchControlProps> = ({
           {/* Corps de la reconnaissance */}
           <div className="py-2.5 space-y-2">
             {!isSupported ? (
-              <div className="flex items-start gap-2 bg-amber-950/40 border border-amber-800/50 rounded-lg p-2.5 text-xs text-amber-200">
-                <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+              <div className="flex items-start gap-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-800/50 rounded-lg p-2.5 text-xs text-amber-700 dark:text-amber-200">
+                <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                 <p>
                   L'API Web Speech n'est pas activée sur ce navigateur. Pour utiliser la recherche vocale mains libres, privilégiez Google Chrome, Microsoft Edge ou Safari.
                 </p>
               </div>
             ) : errorMessage ? (
-              <div className="flex items-start gap-2 bg-rose-950/40 border border-rose-800/50 rounded-lg p-2.5 text-xs text-rose-200">
-                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+              <div className="flex items-start gap-2 bg-rose-50 dark:bg-rose-950/40 border border-rose-800/50 rounded-lg p-2.5 text-xs text-rose-700 dark:text-rose-200">
+                <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
                 <div className="space-y-1">
                   <p>{errorMessage}</p>
                   <button
                     type="button"
                     onClick={() => startListening(isHandsFree)}
-                    className="text-[11px] font-semibold text-rose-300 underline hover:text-white"
+                    className="text-[11px] font-semibold text-rose-700 dark:text-rose-300 underline hover:text-slate-900 dark:hover:text-white"
                   >
                     Réessayer
                   </button>
@@ -330,19 +330,19 @@ export const VoiceSearchControl: React.FC<VoiceSearchControlProps> = ({
                 )}
 
                 {/* Transcription en direct ou retour de commande */}
-                <div className="bg-[#101012] border border-[#232327] rounded-lg p-2.5 min-h-[48px] flex flex-col justify-center">
+                <div className="bg-white dark:bg-[#101012] border border-slate-200 dark:border-[#232327] rounded-lg p-2.5 min-h-[48px] flex flex-col justify-center">
                   {interimTranscript ? (
-                    <p className="text-xs text-blue-300 italic flex items-center gap-1.5">
+                    <p className="text-xs text-blue-700 dark:text-blue-300 italic flex items-center gap-1.5">
                       <span className="w-2 h-2 rounded-full bg-blue-400 animate-ping inline-block" />
                       « {interimTranscript} »
                     </p>
                   ) : lastFeedback ? (
-                    <div className="flex items-center gap-2 text-xs font-semibold text-emerald-400">
-                      <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+                    <div className="flex items-center gap-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                      <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
                       <span>{lastFeedback}</span>
                     </div>
                   ) : isListening ? (
-                    <p className="text-xs text-gray-400 text-center">
+                    <p className="text-xs text-slate-600 dark:text-gray-400 text-center">
                       {isHandsFree
                         ? 'Parlez naturellement comme "Cherche Amazing Grace" ou "Ouvre 10000 raisons"'
                         : 'Dites un titre, des paroles ou une commande vocale...'}
@@ -356,10 +356,10 @@ export const VoiceSearchControl: React.FC<VoiceSearchControlProps> = ({
 
                 {/* Carte de chant trouvé avec action directe */}
                 {lastCommandResult?.songMatch && onSelectSong && (
-                  <div className="flex items-center justify-between bg-blue-950/40 border border-blue-800/40 rounded-lg p-2 text-xs">
+                  <div className="flex items-center justify-between bg-blue-50 dark:bg-blue-950/40 border border-blue-800/40 rounded-lg p-2 text-xs">
                     <div className="min-w-0 pr-2">
-                      <p className="font-bold text-white truncate">{lastCommandResult.songMatch.title}</p>
-                      <p className="text-[10px] text-gray-400 truncate">{lastCommandResult.songMatch.artist || 'Artiste inconnu'}</p>
+                      <p className="font-bold text-slate-900 dark:text-white truncate">{lastCommandResult.songMatch.title}</p>
+                      <p className="text-[10px] text-slate-600 dark:text-gray-400 truncate">{lastCommandResult.songMatch.artist || 'Artiste inconnu'}</p>
                     </div>
                     <button
                       type="button"
@@ -380,7 +380,7 @@ export const VoiceSearchControl: React.FC<VoiceSearchControlProps> = ({
           </div>
 
           {/* Pied du panneau : Bascule Mode Mains Libres + Suggestions */}
-          <div className="pt-2 border-t border-[#28282D] space-y-2">
+          <div className="pt-2 border-t border-slate-300 dark:border-[#28282D] space-y-2">
             <div className="flex items-center justify-between">
               {/* Toggle Mode Mains Libres */}
               <button
@@ -389,8 +389,8 @@ export const VoiceSearchControl: React.FC<VoiceSearchControlProps> = ({
                 onClick={toggleHandsFree}
                 className={`flex items-center gap-1.5 px-2 py-1 rounded text-[11px] font-semibold border transition-all cursor-pointer ${
                   isHandsFree
-                    ? 'bg-emerald-950/60 border-emerald-700/60 text-emerald-300'
-                    : 'bg-[#1C1C1F] border-[#333] text-gray-300 hover:text-white'
+                    ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-700/60 text-emerald-700 dark:text-emerald-300'
+                    : 'bg-[#EDF1F5] dark:bg-[#1C1C1F] border-slate-300 dark:border-[#333] text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white'
                 }`}
                 title="Garde le micro toujours à l'écoute pour les musiciens sur scène"
               >
@@ -428,21 +428,21 @@ export const VoiceSearchControl: React.FC<VoiceSearchControlProps> = ({
               <button
                 type="button"
                 onClick={() => handleCommandRecognized('cherche grâce')}
-                className="px-1.5 py-0.5 bg-[#1F1F23] hover:bg-[#2A2A30] text-gray-300 rounded border border-[#2D2D32] transition-colors"
+                className="px-1.5 py-0.5 bg-[#EDF1F5] dark:bg-[#1F1F23] hover:bg-slate-200 dark:hover:bg-[#2A2A30] text-slate-700 dark:text-gray-300 rounded border border-slate-300 dark:border-[#2D2D32] transition-colors"
               >
                 « Cherche grâce »
               </button>
               <button
                 type="button"
                 onClick={() => handleCommandRecognized('ouvre')}
-                className="px-1.5 py-0.5 bg-[#1F1F23] hover:bg-[#2A2A30] text-gray-300 rounded border border-[#2D2D32] transition-colors"
+                className="px-1.5 py-0.5 bg-[#EDF1F5] dark:bg-[#1F1F23] hover:bg-slate-200 dark:hover:bg-[#2A2A30] text-slate-700 dark:text-gray-300 rounded border border-slate-300 dark:border-[#2D2D32] transition-colors"
               >
                 « Ouvre [titre] »
               </button>
               <button
                 type="button"
                 onClick={() => handleCommandRecognized('effacer')}
-                className="px-1.5 py-0.5 bg-[#1F1F23] hover:bg-[#2A2A30] text-gray-300 rounded border border-[#2D2D32] transition-colors"
+                className="px-1.5 py-0.5 bg-[#EDF1F5] dark:bg-[#1F1F23] hover:bg-slate-200 dark:hover:bg-[#2A2A30] text-slate-700 dark:text-gray-300 rounded border border-slate-300 dark:border-[#2D2D32] transition-colors"
               >
                 « Effacer »
               </button>

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {
   countSlotsByPole,
+  groupRehearsalsByDate,
   isValidIsoDate,
   makeAvailabilityDocId,
   mergeTeamMembersIntoSlots,
@@ -8,7 +9,7 @@ import {
   sanitizePlanningTeamMembers,
   sortMembersByAvailability
 } from './planningUtils';
-import { PlanningAvailability, PlanningTeamMember, UserProfile } from '../types';
+import { PlanningAssignment, PlanningAvailability, PlanningTeamMember, UserProfile } from '../types';
 
 assert.equal(isValidIsoDate('2026-11-29'), true);
 assert.equal(isValidIsoDate('2026-11-29T10:00'), false);
@@ -56,4 +57,13 @@ const avails: PlanningAvailability[] = [
 const sorted = sortMembersByAvailability(users, avails);
 assert.deepEqual(sorted.map(x => x.user.uid), ['u2', 'u1', 'u3']);
 
+const rehearsalMap = groupRehearsalsByDate([
+  { id: 't1', assignment: { id: 't1', groupId: 'g1', date: '2026-12-06', title: 'Culte', slots: [], rehearsalDate: '2026-12-03', rehearsalTime: '19:30' } as PlanningAssignment },
+  { id: 't2', assignment: { id: 't2', groupId: 'g1', date: '2026-12-13', title: 'Concert', slots: [], rehearsalDate: 'invalid' } as PlanningAssignment },
+  { id: 't3' }
+]);
+assert.equal(rehearsalMap.get('2026-12-03')?.length, 1);
+assert.equal(rehearsalMap.size, 1);
+
 console.log('planningUtils self-check passed');
+

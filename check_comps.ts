@@ -14,7 +14,7 @@ dom.window.matchMedia = () => ({ matches: false, addEventListener: () => {}, rem
 
 const { SettingsView } = await import('./src/components/SettingsView');
 const { SongList } = await import('./src/components/SongList');
-const { SetlistManager } = await import('./src/components/SetlistManager');
+const { PlanningManager } = await import('./src/components/PlanningManager');
 const { GroupManager } = await import('./src/components/GroupManager');
 const { AppProvider } = await import('./src/context/AppContext');
 const { MidiProvider } = await import('./src/context/MidiContext');
@@ -61,4 +61,4 @@ function checkComp(name: string, comp: React.ReactElement) {
 checkComp('GroupManager', React.createElement(GroupManager));
 checkComp('SettingsView', React.createElement(SettingsView));
 checkComp('SongList', React.createElement(SongList));
-checkComp('SetlistManager', React.createElement(SetlistManager));
+checkComp('PlanningManager', React.createElement(PlanningManager));

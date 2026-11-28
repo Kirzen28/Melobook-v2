@@ -41,7 +41,7 @@ export const SetlistPdfModal: React.FC<SetlistPdfModalProps> = ({
   onExportChordPro,
   onExportJson,
 }) => {
-  const { currentGroup, currentUser, toggleLibraryGuestMode } = useApp();
+  const { currentGroup, currentUser, isSuperAdmin, toggleLibraryGuestMode } = useApp();
 
   const [activeTab, setActiveTab] = useState<'qr' | 'pdf'>('qr');
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
@@ -69,7 +69,7 @@ export const SetlistPdfModal: React.FC<SetlistPdfModalProps> = ({
   const songCount = setlistSongs.length;
   const isSongMode = mode === 'song';
   const libraryCode = currentGroup?.inviteCode || '';
-  const isOwner = Boolean(currentUser?.uid && currentGroup?.ownerId === currentUser.uid);
+  const isOwner = Boolean(isSuperAdmin || (currentUser?.uid && currentGroup?.ownerId === currentUser.uid));
   const isGuestEnabled = Boolean(currentGroup?.guestEnabled);
 
   const shareUrl = (() => {

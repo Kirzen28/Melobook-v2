@@ -7,7 +7,6 @@ import { Navbar } from './components/Navbar';
 import { SongList } from './components/SongList';
 import { SongReader } from './components/SongReader';
 import { SongEditor } from './components/SongEditor';
-import { SetlistManager } from './components/SetlistManager';
 import { GroupManager } from './components/GroupManager';
 import { SettingsView } from './components/SettingsView';
 import { Tuner } from './components/Tuner';
@@ -25,6 +24,8 @@ import { MelobookLogo } from './components/MelobookLogo';
 import { UpdateBanner } from './components/UpdateBanner';
 import { RoadmapView } from './components/RoadmapView';
 import { PlanningManager } from './components/PlanningManager';
+import { MembersDirectory } from './components/MembersDirectory';
+import { SuperAdminView } from './components/SuperAdminView';
 
 const viewVariants = VIEW_VARIANTS;
 
@@ -34,31 +35,35 @@ const AppContent: React.FC = () => {
     isGuest,
     isRegieOnly,
     canAccessRepertoire,
-    canAccessSetlistsView,
     canAccessPlanning,
+    canAccessMembers,
     canAccessStage,
     canAccessProjection,
     canAccessTools,
     canAccessGroupsView,
     canManageSongs,
-    canAccessSettings
+    canAccessSettings,
+    isSuperAdmin
   } = useApp();
 
   const renderMainView = () => {
     if (activeTab === 'roadmap') return <RoadmapView />;
+    if (!isGuest && activeTab === 'superadmin' && isSuperAdmin) return <SuperAdminView />;
     if (!isGuest && isRegieOnly) {
-      return activeTab === 'planning' ? <PlanningManager /> : <PresentationManager />;
+      if (activeTab === 'planning') return <PlanningManager />;
+      if (activeTab === 'members') return <MembersDirectory />;
+      return <PresentationManager />;
     }
     if (activeTab === 'repertoire' && canAccessRepertoire) return <SongList />;
-    if (activeTab === 'setlists' && canAccessSetlistsView) return <SetlistManager />;
     if (activeTab === 'planning' && canAccessPlanning) return <PlanningManager />;
+    if (activeTab === 'members' && canAccessMembers) return <MembersDirectory />;
     if (activeTab === 'stage' && canAccessStage) return <SongReader />;
     if (activeTab === 'presentation' && canAccessProjection) return <PresentationManager />;
     if (!isGuest && activeTab === 'editor' && canManageSongs) return <SongEditor />;
     if (!isGuest && activeTab === 'groups' && canAccessGroupsView) return <GroupManager />;
     if (!isGuest && activeTab === 'settings' && canAccessSettings) return <SettingsView />;
     if (canAccessRepertoire) return <SongList />;
-    if (canAccessSetlistsView) return <SetlistManager />;
+    if (canAccessPlanning) return <PlanningManager />;
     return <PresentationManager />;
   };
 

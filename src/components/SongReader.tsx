@@ -236,7 +236,7 @@ export const SongReader: React.FC<SongReaderProps> = ({
 
   // Setlist Context & Overrides Determination
   const isInSetlist = Boolean(setlistId || setlistContextName || setlistPosition);
-  const isSetlistMode = Boolean(setlistId || setlistContextName || (selectedSetlist && (activeTab === 'setlists' || activeTab === 'stage')));
+  const isSetlistMode = Boolean(setlistId || setlistContextName || (selectedSetlist && (activeTab === 'planning' || activeTab === 'stage')));
   const currentSetlist = (setlistId ? setlists.find(st => st.id === setlistId) : null) || selectedSetlist;
   const setlistOverride = (isSetlistMode && currentSetlist && song) ? currentSetlist.songOverrides?.[song.id] : undefined;
   

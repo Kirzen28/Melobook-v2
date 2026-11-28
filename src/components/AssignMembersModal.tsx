@@ -377,7 +377,6 @@ export const AssignMembersModal: React.FC<AssignMembersModalProps> = ({
                     </div>
 
                     <UserAvatar
-                      photoURL={u.photoURL}
                       displayName={u.displayName}
                       sizeClass="w-8 h-8 text-xs"
                       iconClass="w-4 h-4"

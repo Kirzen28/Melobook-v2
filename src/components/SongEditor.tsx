@@ -1159,7 +1159,7 @@ export const SongEditor: React.FC = () => {
             if (editorReturnTarget === 'setlistLive' && selectedSetlist) {
               setEditorReturnTarget(null);
               setIsLiveSetlistOpen(true);
-              setActiveTab('setlists');
+              setActiveTab('planning');
             } else {
               setEditorReturnTarget(null);
               setActiveTab('repertoire');
@@ -1209,7 +1209,7 @@ export const SongEditor: React.FC = () => {
               setEditorReturnTarget(null);
               if (target === 'setlistLive' && selectedSetlist) {
                 setIsLiveSetlistOpen(true);
-                setActiveTab('setlists');
+                setActiveTab('planning');
               } else if (selectedSong) {
                 setActiveTab('stage');
               } else {

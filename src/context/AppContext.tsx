@@ -24,8 +24,27 @@ import {
   PlanningAvailability,
   PlanningAssignment,
   PlanningAvailabilityStatus,
-  PlanningPole
+  PlanningPole,
+  AppBrandingConfig,
+  MemberSkillsConfig,
+  MemberSkillsMutation,
+  MemberGroup,
+  MemberGroupColor
 } from '../types';
+import { isMainAppAdmin } from '../utils/roadmapUtils';
+import {
+  DEFAULT_APP_BRANDING,
+  applyAppBrandingToDocument,
+  readCachedBrandingConfig,
+  sanitizeBrandingConfig
+} from '../utils/brandingUtils';
+import {
+  DEFAULT_MEMBER_SKILLS_CONFIG,
+  applySkillsMutationToProfile,
+  readCachedMemberSkillsConfig,
+  sanitizeMemberSkillsConfig,
+  writeCachedMemberSkillsConfig
+} from '../utils/memberSkillsUtils';
 import {
   getTodayIsoDate,
   isValidIsoDate,
@@ -33,6 +52,11 @@ import {
   sanitizePlanningSlots,
   sanitizePlanningTeamMembers
 } from '../utils/planningUtils';
+import {
+  computeMemberGroupMembershipUpdates,
+  normalizeMemberGroupColor,
+  sanitizeMemberGroupMemberIds
+} from '../utils/memberGroupsUtils';
 import {
   ALL_ACCESSES,
   accessesToLegacyRole,
@@ -65,6 +89,8 @@ import {
   signOut,
   serverTimestamp,
   arrayUnion,
+  writeBatch,
+  deleteField,
   OperationType,
   handleFirestoreError
 } from '../firebase';
@@ -91,7 +117,6 @@ import {
   deleteCustomPadFromIndexedDB
 } from '../utils/indexedDB';
 import { padAudio } from '../utils/padAudio';
-import { parseSvgAvatar } from '../utils/avatarPresets';
 
 const stripUndefined = <T extends Record<string, any>>(obj: T): T => {
   const result: Record<string, any> = {};
@@ -163,8 +188,6 @@ interface AppContextType {
   enterGuestMode: (libraryCode: string, target?: { setlistId?: string; songId?: string }) => Promise<Group>;
   exitGuestMode: () => void;
   toggleLibraryGuestMode: (groupId: string, enabled: boolean) => Promise<boolean>;
-  deepLinkSetlistId: string | null;
-  clearDeepLinkSetlistId: () => void;
   needsLibraryOnboarding: boolean;
   setNeedsLibraryOnboarding: (needs: boolean) => void;
   setSignupInProgress: (inProgress: boolean) => void;
@@ -177,8 +200,8 @@ interface AppContextType {
   currentLibrary: Group | null;
   songs: Song[];
   setlists: Setlist[];
-  activeTab: 'repertoire' | 'setlists' | 'planning' | 'stage' | 'groups' | 'editor' | 'settings' | 'tuner' | 'presentation' | 'roadmap';
-  setActiveTab: (tab: 'repertoire' | 'setlists' | 'planning' | 'stage' | 'groups' | 'editor' | 'settings' | 'tuner' | 'presentation' | 'roadmap') => void;
+  activeTab: 'repertoire' | 'planning' | 'members' | 'stage' | 'groups' | 'editor' | 'settings' | 'tuner' | 'presentation' | 'roadmap' | 'superadmin';
+  setActiveTab: (tab: 'repertoire' | 'planning' | 'members' | 'stage' | 'groups' | 'editor' | 'settings' | 'tuner' | 'presentation' | 'roadmap' | 'superadmin') => void;
   editorSubTab: 'data' | 'chords';
   setEditorSubTab: (tab: 'data' | 'chords') => void;
   selectedSong: Song | null;
@@ -288,6 +311,7 @@ interface AppContextType {
   setLibraryMembers: (libraryId: string, memberUids: string[]) => Promise<boolean>;
   
   // Permissions & Accès cumulables
+  isSuperAdmin: boolean;
   effectiveAccesses: AccessPermission[];
   hasAccess: (access: AccessPermission) => boolean;
   isRegieOnly: boolean;
@@ -297,7 +321,6 @@ interface AppContextType {
   isMember: boolean;
   isViewer: boolean;
   canAccessRepertoire: boolean;
-  canAccessSetlistsView: boolean;
   canAccessStage: boolean;
   canAccessProjection: boolean;
   canAccessTools: boolean;
@@ -305,9 +328,21 @@ interface AppContextType {
   canManageSongs: boolean;
   canManageSetlists: boolean;
   canAccessPlanning: boolean;
+  canAccessMembers: boolean;
   canManagePlanning: boolean;
   canManageGroups: boolean;
   canAccessSettings: boolean;
+
+  // Global App Branding (Supreme Admin only writes, all users read)
+  appBranding: AppBrandingConfig;
+  saveAppBranding: (nextConfig: AppBrandingConfig) => Promise<void>;
+  resetAppBranding: () => Promise<void>;
+  // Global Default Instruments & Vocal Roles (Supreme Admin only writes, all users read)
+  memberSkillsConfig: MemberSkillsConfig;
+  saveMemberSkillsConfig: (nextConfig: MemberSkillsConfig, mutation?: MemberSkillsMutation) => Promise<number>;
+  resetMemberSkillsConfig: () => Promise<void>;
+  fetchLibraryMembersForSuperAdmin: (groupId: string) => Promise<UserProfile[]>;
+  updateGroupMemberAccessesForSuperAdmin: (groupId: string, userId: string, newAccesses: AccessPermission[]) => Promise<void>;
   
   allUsers: UserProfile[];
   updateUserAccesses: (userId: string, newAccesses: AccessPermission[]) => Promise<void>;
@@ -319,9 +354,28 @@ interface AppContextType {
   setAdminByEmail: (targetEmail: string, roleOrAccesses?: UserRole | AccessPermission[]) => Promise<void>;
   handleSignOut: () => Promise<void>;
 
-  // SVG Avatar management (zero image storage)
-  selectSvgAvatar: (avatarToken: string) => Promise<void>;
-  removeProfileAvatar: () => Promise<void>;
+  updateMemberDirectoryInfo: (
+    memberUid: string,
+    data: { instruments: string[]; vocalRoles: string[] }
+  ) => Promise<void>;
+
+  // Organizational member groups (cumulative membership per member)
+  memberGroups: MemberGroup[];
+  createMemberGroup: (data: {
+    name: string;
+    description?: string;
+    color?: MemberGroupColor;
+    memberIds: string[];
+  }) => Promise<string>;
+  updateMemberGroup: (
+    id: string,
+    data: Partial<Pick<MemberGroup, 'name' | 'description' | 'color' | 'memberIds'>>
+  ) => Promise<void>;
+  deleteMemberGroup: (id: string) => Promise<void>;
+  setMemberGroupAssignmentsForMember: (
+    memberUid: string,
+    selectedGroupIds: string[]
+  ) => Promise<void>;
 
   // Custom Pads management
   customPads: CustomPad[];
@@ -360,10 +414,11 @@ const AppContext = createContext<AppContextType | null>(null);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Navigation & Selection
-  const [activeTab, setActiveTabState] = useState<'repertoire' | 'setlists' | 'planning' | 'stage' | 'groups' | 'editor' | 'settings' | 'tuner' | 'presentation' | 'roadmap'>(() => {
+  const [activeTab, setActiveTabState] = useState<'repertoire' | 'planning' | 'members' | 'stage' | 'groups' | 'editor' | 'settings' | 'tuner' | 'presentation' | 'roadmap' | 'superadmin'>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('songbook_active_tab');
-      if (saved && ['repertoire', 'setlists', 'planning', 'stage', 'groups', 'editor', 'settings', 'tuner', 'presentation', 'roadmap'].includes(saved)) {
+      if (saved === 'setlists') return 'planning';
+      if (saved && ['repertoire', 'planning', 'members', 'stage', 'groups', 'editor', 'settings', 'tuner', 'presentation', 'roadmap', 'superadmin'].includes(saved)) {
         return saved as any;
       }
     }
@@ -376,16 +431,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isGuest, setIsGuest] = useState<boolean>(false);
   const [needsLibraryOnboarding, setNeedsLibraryOnboarding] = useState<boolean>(false);
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const isSuperAdmin = useMemo(() => {
+    if (isGuest) return false;
+    return isMainAppAdmin(currentUser?.email || firebaseUser?.email);
+  }, [isGuest, currentUser?.email, firebaseUser?.email]);
   const signupInProgressRef = useRef<boolean>(false);
   const setSignupInProgress = useCallback((inProgress: boolean) => {
     signupInProgressRef.current = inProgress;
   }, []);
 
   const permissionsRef = useRef({
+    isSuperAdmin: false,
     isRegieOnly: false,
     canAccessRepertoire: true,
-    canAccessSetlistsView: true,
     canAccessPlanning: true,
+    canAccessMembers: true,
     canAccessStage: true,
     canAccessProjection: true,
     canAccessGroupsView: true,
@@ -393,22 +453,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     canAccessSettings: true
   });
 
-  const setActiveTab = useCallback((tab: 'repertoire' | 'setlists' | 'planning' | 'stage' | 'groups' | 'editor' | 'settings' | 'tuner' | 'presentation' | 'roadmap') => {
+  const setActiveTab = useCallback((tab: 'repertoire' | 'planning' | 'members' | 'stage' | 'groups' | 'editor' | 'settings' | 'tuner' | 'presentation' | 'roadmap' | 'superadmin') => {
     const p = permissionsRef.current;
     let resolvedTab = tab;
-    if (tab === 'roadmap') {
+    if (tab === 'superadmin') {
+      resolvedTab = p.isSuperAdmin ? 'superadmin' : (p.canAccessRepertoire ? 'repertoire' : 'presentation');
+    } else if (tab === 'roadmap') {
       resolvedTab = 'roadmap';
     } else if (isGuest) {
-      if (tab === 'editor' || tab === 'groups' || tab === 'settings' || tab === 'planning') {
+      if (tab === 'editor' || tab === 'groups' || tab === 'settings' || tab === 'members') {
         resolvedTab = 'repertoire';
       }
     } else if (p.isRegieOnly) {
-      resolvedTab = tab === 'planning' ? 'planning' : 'presentation';
+      resolvedTab = tab === 'planning' ? 'planning' : tab === 'members' ? 'members' : 'presentation';
     } else {
-      const fallback = p.canAccessRepertoire ? 'repertoire' : p.canAccessSetlistsView ? 'setlists' : 'presentation';
+      const fallback = p.canAccessRepertoire ? 'repertoire' : p.canAccessPlanning ? 'planning' : 'presentation';
       if (tab === 'repertoire' && !p.canAccessRepertoire) resolvedTab = fallback;
-      else if (tab === 'setlists' && !p.canAccessSetlistsView) resolvedTab = fallback;
       else if (tab === 'planning' && !p.canAccessPlanning) resolvedTab = fallback;
+      else if (tab === 'members' && !p.canAccessMembers) resolvedTab = fallback;
       else if (tab === 'stage' && !p.canAccessStage) resolvedTab = fallback;
       else if (tab === 'editor' && !p.canManageSongs) resolvedTab = fallback;
       else if (tab === 'groups' && !p.canAccessGroupsView) resolvedTab = fallback;
@@ -416,7 +478,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       else if (tab === 'presentation' && !p.canAccessProjection) resolvedTab = fallback;
     }
 
-    if (resolvedTab !== 'setlists' && resolvedTab !== 'editor') {
+    if (resolvedTab !== 'planning' && resolvedTab !== 'editor') {
       setIsLiveSetlistOpen(false);
       setEditorReturnTarget(null);
     }
@@ -427,7 +489,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [isGuest]);
 
   useEffect(() => {
-    if (isGuest && (activeTab === 'editor' || activeTab === 'groups' || activeTab === 'settings' || activeTab === 'planning')) {
+    if (isGuest && (activeTab === 'editor' || activeTab === 'groups' || activeTab === 'settings' || activeTab === 'superadmin')) {
       setActiveTabState('repertoire');
     }
   }, [isGuest, activeTab]);
@@ -445,8 +507,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
   const [selectedSong, setSelectedSong] = useState<Song | null>(null);
   const [selectedSetlist, setSelectedSetlist] = useState<Setlist | null>(null);
-  const [deepLinkSetlistId, setDeepLinkSetlistId] = useState<string | null>(null);
-  const clearDeepLinkSetlistId = useCallback(() => setDeepLinkSetlistId(null), []);
   const pendingDeepLinkRef = useRef<{ inviteCode?: string; setlistId?: string; songId?: string } | null>((() => {
     if (typeof window === 'undefined') return null;
     try {
@@ -586,8 +646,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (isGuest) {
       return currentGroup && currentGroup.guestEnabled ? [currentGroup] : [];
     }
+    if (isSuperAdmin) {
+      return allGroups;
+    }
     return allGroups.filter(g => isMemberOfLibrary(g, currentUser));
-  }, [isGuest, currentGroup, allGroups, currentUser, isMemberOfLibrary]);
+  }, [isGuest, isSuperAdmin, currentGroup, allGroups, currentUser, isMemberOfLibrary]);
 
   // Si la bibliothèque active ne fait pas partie des bibliothèques autorisées, basculer automatiquement
   useEffect(() => {
@@ -612,6 +675,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [planningTeams, setPlanningTeams] = useState<PlanningTeam[]>([]);
   const [planningAvailabilities, setPlanningAvailabilities] = useState<PlanningAvailability[]>([]);
   const [planningAssignments, setPlanningAssignments] = useState<PlanningAssignment[]>([]);
+  const [memberGroups, setMemberGroups] = useState<MemberGroup[]>([]);
   const [selectedPlanningTargetId, setSelectedPlanningTargetId] = useState<string | null>(null);
 
   const songsRef = useRef<Song[]>(songs);
@@ -766,7 +830,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             uid,
             email: currentUser?.email || auth.currentUser?.email || '',
             displayName: currentUser?.displayName || auth.currentUser?.displayName || 'Musicien',
-            photoURL: currentUser?.photoURL || auth.currentUser?.photoURL || undefined,
             currentGroupId: currentGroup?.id || currentUser?.currentGroupId || null,
             role: currentUser?.role || 'member',
             personalCapos: nextMap
@@ -788,7 +851,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         console.warn('Personal capo sync note:', err);
       }
     }
-  }, [isGuest, currentUser?.uid, currentUser?.email, currentUser?.displayName, currentUser?.photoURL, currentUser?.currentGroupId, currentUser?.role, currentGroup?.id]);
+  }, [isGuest, currentUser?.uid, currentUser?.email, currentUser?.displayName, currentUser?.currentGroupId, currentUser?.role, currentGroup?.id]);
 
   // Display Typography, Section Colors & Section Borders (synced with localStorage)
   const [displaySettings, setDisplaySettings] = useState<DisplaySettings>(() => {
@@ -1258,9 +1321,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         localStorage.setItem(`songbook_cached_planning_teams_${currentGroup.id}`, JSON.stringify(planningTeams));
         localStorage.setItem(`songbook_cached_planning_avail_${currentGroup.id}`, JSON.stringify(planningAvailabilities));
         localStorage.setItem(`songbook_cached_planning_assign_${currentGroup.id}`, JSON.stringify(planningAssignments));
+        localStorage.setItem(`songbook_cached_member_groups_${currentGroup.id}`, JSON.stringify(memberGroups));
       } catch {}
     }
-  }, [planningTeams, planningAvailabilities, planningAssignments, currentGroup?.id, isGuest]);
+  }, [planningTeams, planningAvailabilities, planningAssignments, memberGroups, currentGroup?.id, isGuest]);
 
   useEffect(() => {
     if (currentUser && !isGuest) {
@@ -1285,10 +1349,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
         try {
           const userRef = doc(db, 'users', user.uid);
-          const [snap, memberGroupsSnap, ownerGroupsSnap] = await Promise.all([
+          const isBootstrappedMaster = isMainAppAdmin(user.email);
+          const [snap, memberGroupsSnap, ownerGroupsSnap, allGroupsSnap] = await Promise.all([
             getDoc(userRef).catch(() => null),
             getDocs(query(collection(db, 'groups'), where('members', 'array-contains', user.uid))).catch(() => null),
-            getDocs(query(collection(db, 'groups'), where('ownerId', '==', user.uid))).catch(() => null)
+            getDocs(query(collection(db, 'groups'), where('ownerId', '==', user.uid))).catch(() => null),
+            isBootstrappedMaster ? getDocs(collection(db, 'groups')).catch(() => null) : Promise.resolve(null)
           ]);
 
           const groupMap = new Map<string, Group>();
@@ -1296,6 +1362,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             groupMap.set(d.id, { id: d.id, ...d.data() } as Group);
           });
           ownerGroupsSnap?.forEach(d => {
+            groupMap.set(d.id, { id: d.id, ...d.data() } as Group);
+          });
+          allGroupsSnap?.forEach(d => {
             groupMap.set(d.id, { id: d.id, ...d.data() } as Group);
           });
 
@@ -1307,7 +1376,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               const curGroupSnap = await getDoc(doc(db, 'groups', data.currentGroupId));
               if (curGroupSnap.exists()) {
                 const cg = { id: curGroupSnap.id, ...curGroupSnap.data() } as Group;
-                if (cg.ownerId === user.uid || (Array.isArray(cg.members) && cg.members.includes(user.uid))) {
+                if (isBootstrappedMaster || cg.ownerId === user.uid || (Array.isArray(cg.members) && cg.members.includes(user.uid))) {
                   groupMap.set(cg.id, cg);
                 }
               }
@@ -1317,7 +1386,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const userGroups = Array.from(groupMap.values());
 
           if (userGroups.length > 0) {
-            const preferredGroup = userGroups.find(g => g.id === data.currentGroupId) || userGroups[0];
+            const preferredId = (typeof window !== 'undefined' ? localStorage.getItem('songbook_current_group_id') : null) || data.currentGroupId;
+            const preferredGroup = (preferredId && userGroups.find(g => g.id === preferredId)) || userGroups[0];
             const accessesInGroup = resolveMemberAccesses(
               preferredGroup,
               user.uid,
@@ -1329,7 +1399,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               uid: user.uid,
               email: data.email || user.email || '',
               displayName: data.displayName || user.displayName || user.email?.split('@')[0] || 'Musicien',
-              photoURL: data.photoURL || user.photoURL || undefined,
               currentGroupId: preferredGroup.id,
               role: roleInGroup,
               accesses: accessesInGroup,
@@ -1341,6 +1410,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 createdAt: serverTimestamp(),
                 updatedAt: serverTimestamp()
               }, { merge: true }).catch(() => {});
+            } else if ((data as Record<string, unknown>).photoURL !== undefined) {
+              updateDoc(userRef, { photoURL: deleteField() }).catch(() => {});
             }
             setAllGroups(userGroups);
             setCurrentGroup(preferredGroup);
@@ -1408,6 +1479,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setPlanningTeams([]);
         setPlanningAvailabilities([]);
         setPlanningAssignments([]);
+        setMemberGroups([]);
         setSelectedPlanningTargetId(null);
         setAllUsers([]);
         setSelectedSong(null);
@@ -1460,7 +1532,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       uid,
       email: cleanEmail,
       displayName: finalDisplayName,
-      photoURL: user.photoURL || undefined,
       currentGroupId: newId,
       role: 'admin',
       accesses: [...ALL_ACCESSES]
@@ -1469,7 +1540,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const memberEntry = stripUndefined({
       uid,
       displayName: finalDisplayName,
-      photoURL: user.photoURL || undefined,
       role: 'admin' as UserRole,
       accesses: [...ALL_ACCESSES]
     });
@@ -1506,6 +1576,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setPlanningTeams([]);
     setPlanningAvailabilities([]);
     setPlanningAssignments([]);
+    setMemberGroups([]);
     setSelectedPlanningTargetId(null);
     setSelectedSong(null);
     setSelectedSetlist(null);
@@ -1604,7 +1675,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const memberEntry = stripUndefined({
         uid,
         displayName: finalDisplayName,
-        photoURL: user.photoURL || undefined,
         role: roleInLibrary,
         accesses: accessesInLibrary
       });
@@ -1617,7 +1687,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         uid,
         email: cleanEmail,
         displayName: finalDisplayName,
-        photoURL: user.photoURL || undefined,
         currentGroupId: matchedGroup.id,
         role: roleInLibrary,
         accesses: accessesInLibrary
@@ -1635,6 +1704,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setPlanningTeams([]);
       setPlanningAvailabilities([]);
       setPlanningAssignments([]);
+      setMemberGroups([]);
       setSelectedPlanningTargetId(null);
       setSelectedSong(null);
       setSelectedSetlist(null);
@@ -1727,18 +1797,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setPlanningTeams([]);
     setPlanningAvailabilities([]);
     setPlanningAssignments([]);
-    setSelectedPlanningTargetId(null);
+    setMemberGroups([]);
+    setSelectedPlanningTargetId(resolvedTarget?.setlistId ?? null);
     setAllUsers([]);
     setSelectedSong(null);
     setSelectedSetlist(null);
-    setDeepLinkSetlistId(null);
     setCurrentUser(null);
     setNeedsLibraryOnboarding(false);
     setIsGuest(true);
     setAllGroups([matchedGroup]);
     setCurrentGroup(matchedGroup);
     setActiveTabState(
-      resolvedTarget?.setlistId ? 'setlists' : resolvedTarget?.songId ? 'stage' : 'repertoire'
+      resolvedTarget?.setlistId ? 'planning' : resolvedTarget?.songId ? 'stage' : 'repertoire'
     );
 
     showNotification({
@@ -1753,7 +1823,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const exitGuestMode = useCallback(() => {
     pendingDeepLinkRef.current = null;
-    setDeepLinkSetlistId(null);
     setIsGuest(false);
     setAllGroups([]);
     setCurrentGroup(null);
@@ -1764,6 +1833,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setPlanningTeams([]);
     setPlanningAvailabilities([]);
     setPlanningAssignments([]);
+    setMemberGroups([]);
     setSelectedPlanningTargetId(null);
     setAllUsers([]);
     setSelectedSong(null);
@@ -1835,7 +1905,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ...(group.ownerId ? [group.ownerId] : [])
     ])).filter(Boolean);
 
-    const isCurUserAdmin = group.ownerId === user.uid || resolveMemberAccesses(group, user.uid).includes('admin');
+    const isCurUserAdmin = isMainAppAdmin(user.email) || group.ownerId === user.uid || resolveMemberAccesses(group, user.uid).includes('admin');
 
     for (const uid of expectedUids) {
       if (byUid.has(uid)) continue;
@@ -1850,12 +1920,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       if (uid === user.uid) {
         const displayName = (user.displayName || user.email?.split('@')[0] || 'Musicien').trim().slice(0, 120) || 'Musicien';
-        const validPhoto = user.photoURL && user.photoURL.length <= 2048 ? user.photoURL : undefined;
         byUid.set(uid, {
           uid,
           email: user.email || '',
           displayName,
-          photoURL: user.photoURL,
           currentGroupId: targetGroupId,
           role: roleInGroup,
           accesses: accessesInGroup
@@ -1867,7 +1935,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setDoc(doc(db, 'groups', targetGroupId, 'members', uid), stripUndefined({
             uid,
             displayName,
-            photoURL: validPhoto,
             role: roleInGroup,
             accesses: accessesInGroup,
             joinedAt: serverTimestamp()
@@ -1880,7 +1947,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           uid,
           email: cachedProfile?.email || '',
           displayName: fallbackName,
-          photoURL: cachedProfile?.photoURL,
           currentGroupId: targetGroupId,
           role: roleInGroup,
           accesses: accessesInGroup
@@ -1895,23 +1961,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const resolvedName = (uData.displayName || uData.email?.split('@')[0] || `Membre (${uid.slice(0, 6)})`).trim().slice(0, 120);
             resolvedUserProfilesRef.current[uid] = {
               displayName: resolvedName,
-              email: uData.email || '',
-              photoURL: uData.photoURL
+              email: uData.email || ''
             };
             setAllUsers(prev => prev.map(item => item.uid === uid ? {
               ...item,
               displayName: resolvedName,
-              email: uData.email || item.email,
-              photoURL: uData.photoURL ?? item.photoURL
+              email: uData.email || item.email
             } : item));
 
             if (isCurUserAdmin && !backfilledMemberKeysRef.current.has(lookupKey)) {
               backfilledMemberKeysRef.current.add(lookupKey);
-              const validPhoto = uData.photoURL && uData.photoURL.length <= 2048 ? uData.photoURL : undefined;
               setDoc(doc(db, 'groups', targetGroupId, 'members', uid), stripUndefined({
                 uid,
                 displayName: resolvedName,
-                photoURL: validPhoto,
                 role: roleInGroup,
                 accesses: accessesInGroup,
                 joinedAt: serverTimestamp()
@@ -1945,10 +2007,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           uid,
           email: data.email || cached?.email || (uid === currentUser.uid ? currentUser.email : ''),
           displayName: data.displayName || cached?.displayName || 'Musicien',
-          photoURL: data.photoURL || cached?.photoURL,
           currentGroupId: targetGroupId,
           role: (data.role as UserRole) || 'member',
-          accesses: Array.isArray(data.accesses) ? normalizeAccessList(data.accesses) : undefined
+          accesses: Array.isArray(data.accesses) ? normalizeAccessList(data.accesses) : undefined,
+          instruments: Array.isArray(data.instruments) ? data.instruments.filter((x): x is string => typeof x === 'string') : undefined,
+          vocalRoles: Array.isArray(data.vocalRoles) ? data.vocalRoles.filter((x): x is string => typeof x === 'string') : undefined
         });
       });
       libraryMemberDocsRef.current = mList;
@@ -1984,6 +2047,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setPlanningTeams([]);
       setPlanningAvailabilities([]);
       setPlanningAssignments([]);
+      setMemberGroups([]);
       setSelectedSong(null);
       setSelectedSetlist(null);
       return;
@@ -2009,6 +2073,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const cachedPlanningTeams = loadLibraryLocalCache<PlanningTeam>(`songbook_cached_planning_teams_${targetGroupId}`);
       const cachedPlanningAvail = loadLibraryLocalCache<PlanningAvailability>(`songbook_cached_planning_avail_${targetGroupId}`);
       const cachedPlanningAssign = loadLibraryLocalCache<PlanningAssignment>(`songbook_cached_planning_assign_${targetGroupId}`);
+      const cachedMemberGroups = loadLibraryLocalCache<MemberGroup>(`songbook_cached_member_groups_${targetGroupId}`);
 
       setSongs(cachedSongs);
       setSetlists(cachedSetlists);
@@ -2017,6 +2082,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setPlanningTeams(cachedPlanningTeams);
       setPlanningAvailabilities(cachedPlanningAvail);
       setPlanningAssignments(cachedPlanningAssign);
+      setMemberGroups(cachedMemberGroups);
       setSelectedSong(cachedSongs[0] || null);
       setSelectedSetlist(null);
     }
@@ -2132,8 +2198,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (deepLinkedSetlist) {
           pendingDeepLinkRef.current = null;
           setSelectedSetlist(deepLinkedSetlist);
-          setDeepLinkSetlistId(deepLinkedSetlist.id);
-          setActiveTabState('setlists');
+          setSelectedPlanningTargetId(deepLinkedSetlist.id);
+          setActiveTabState('planning');
         } else if (!snapshot.metadata.fromCache) {
           pendingDeepLinkRef.current = null;
         }
@@ -2196,10 +2262,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     });
 
-    // 5. Sync Planning collections (members only)
+    // 5. Sync Planning & Member Groups collections (members only)
     let unsubPlanningTeams: (() => void) | null = null;
     let unsubPlanningAvail: (() => void) | null = null;
     let unsubPlanningAssign: (() => void) | null = null;
+    let unsubMemberGroups: (() => void) | null = null;
 
     if (!isGuest && currentUser?.uid) {
       unsubPlanningTeams = onSnapshot(collection(db, 'groups', targetGroupId, 'planning_teams'), (snapshot) => {
@@ -2237,10 +2304,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           console.warn('Firestore planning assignments snapshot notice:', error.message);
         }
       });
+
+      unsubMemberGroups = onSnapshot(collection(db, 'groups', targetGroupId, 'member_groups'), (snapshot) => {
+        const list: MemberGroup[] = [];
+        snapshot.forEach((d) => {
+          list.push({ id: d.id, ...d.data(), groupId: targetGroupId } as MemberGroup);
+        });
+        setMemberGroups(list.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'fr')));
+      }, (error) => {
+        if (error?.code !== 'unavailable') {
+          console.warn('Firestore member groups snapshot notice:', error.message);
+        }
+      });
     } else {
       setPlanningTeams([]);
       setPlanningAvailabilities([]);
       setPlanningAssignments([]);
+      setMemberGroups([]);
     }
 
     return () => {
@@ -2251,16 +2331,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (unsubPlanningTeams) unsubPlanningTeams();
       if (unsubPlanningAvail) unsubPlanningAvail();
       if (unsubPlanningAssign) unsubPlanningAssign();
+      if (unsubMemberGroups) unsubMemberGroups();
     };
   }, [currentGroup?.id, currentUser?.uid, isGuest]);
 
-  // Synchronisation en temps réel des bibliothèques dont l'utilisateur connecté est membre
+  // Synchronisation en temps réel des bibliothèques (toutes pour l'Admin Suprême, sinon celles dont l'utilisateur est membre)
   useEffect(() => {
     if (!currentUser?.uid || !auth.currentUser || isGuest) {
       return;
     }
 
-    const qGroups = query(collection(db, 'groups'), where('members', 'array-contains', currentUser.uid));
+    const qGroups = isSuperAdmin
+      ? query(collection(db, 'groups'))
+      : query(collection(db, 'groups'), where('members', 'array-contains', currentUser.uid));
+
     const unsubGroups = onSnapshot(qGroups, (snapshot) => {
       const loadedGroups: Group[] = [];
       snapshot.forEach((d) => {
@@ -2283,7 +2367,190 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     return () => unsubGroups();
-  }, [currentUser?.uid, isGuest]);
+  }, [currentUser?.uid, isGuest, isSuperAdmin]);
+
+  // Configuration globale de l'app (Logo, couleurs, police) - lecture universelle, écriture Admin Suprême
+  const [appBranding, setAppBranding] = useState<AppBrandingConfig>(() => readCachedBrandingConfig());
+
+  useEffect(() => {
+    applyAppBrandingToDocument(appBranding);
+  }, [appBranding]);
+
+  useEffect(() => {
+    const brandingRef = doc(db, 'app_config', 'branding');
+    const unsubBranding = onSnapshot(brandingRef, (snap) => {
+      if (snap.exists()) {
+        setAppBranding(sanitizeBrandingConfig({ id: 'branding', ...snap.data() }));
+      } else {
+        setAppBranding(DEFAULT_APP_BRANDING);
+      }
+    }, (err) => {
+      if (err?.code !== 'unavailable' && err?.code !== 'permission-denied') {
+        console.warn('App branding sync note:', err.message);
+      }
+    });
+    return () => unsubBranding();
+  }, []);
+
+  const saveAppBranding = useCallback(async (nextConfig: AppBrandingConfig): Promise<void> => {
+    const authUid = auth.currentUser?.uid;
+    if (!isSuperAdmin || !authUid) {
+      showNotification("Seul l'Admin Suprême peut modifier la configuration globale de l'application", 'error');
+      throw new Error('Unauthorized');
+    }
+    const clean = sanitizeBrandingConfig(nextConfig);
+    setAppBranding(clean);
+    applyAppBrandingToDocument(clean);
+
+    try {
+      await setDoc(doc(db, 'app_config', 'branding'), {
+        id: 'branding',
+        logoMode: clean.logoMode,
+        customLogoDataUrl: clean.customLogoDataUrl ?? null,
+        accentColor: clean.accentColor,
+        lightBgColor: clean.lightBgColor,
+        lightSurfaceColor: clean.lightSurfaceColor,
+        darkBgColor: clean.darkBgColor,
+        darkSurfaceColor: clean.darkSurfaceColor,
+        fontFamily: clean.fontFamily,
+        updatedBy: authUid,
+        updatedAt: serverTimestamp()
+      });
+      showNotification({
+        title: 'Identité globale mise à jour',
+        message: "Le logo, les couleurs et la police ont été appliqués à toute l'application.",
+        type: 'success'
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'app_config/branding');
+    }
+  }, [isSuperAdmin, showNotification]);
+
+  const resetAppBranding = useCallback(async (): Promise<void> => {
+    await saveAppBranding(DEFAULT_APP_BRANDING);
+  }, [saveAppBranding]);
+
+  // Configuration globale des instruments et voix par défaut (lecture universelle, écriture Admin Suprême)
+  const [memberSkillsConfig, setMemberSkillsConfig] = useState<MemberSkillsConfig>(() => readCachedMemberSkillsConfig());
+
+  useEffect(() => {
+    const skillsRef = doc(db, 'app_config', 'member_skills');
+    const unsubSkills = onSnapshot(skillsRef, (snap) => {
+      if (snap.exists()) {
+        const clean = sanitizeMemberSkillsConfig({ id: 'member_skills', ...snap.data() });
+        setMemberSkillsConfig(clean);
+        writeCachedMemberSkillsConfig(clean);
+      } else {
+        setMemberSkillsConfig(DEFAULT_MEMBER_SKILLS_CONFIG);
+      }
+    }, (err) => {
+      if (err?.code !== 'unavailable' && err?.code !== 'permission-denied') {
+        console.warn('Member skills sync note:', err.message);
+      }
+    });
+    return () => unsubSkills();
+  }, []);
+
+  const saveMemberSkillsConfig = useCallback(async (
+    nextConfig: MemberSkillsConfig,
+    mutation?: MemberSkillsMutation
+  ): Promise<number> => {
+    const authUid = auth.currentUser?.uid;
+    if (!isSuperAdmin || !authUid) {
+      showNotification("Seul l'Admin Suprême peut modifier les instruments et voix par défaut", 'error');
+      throw new Error('Unauthorized');
+    }
+    const clean = sanitizeMemberSkillsConfig(nextConfig);
+    setMemberSkillsConfig(clean);
+    writeCachedMemberSkillsConfig(clean);
+
+    try {
+      await setDoc(doc(db, 'app_config', 'member_skills'), {
+        id: 'member_skills',
+        instruments: clean.instruments,
+        vocalRoles: clean.vocalRoles,
+        updatedBy: authUid,
+        updatedAt: serverTimestamp()
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'app_config/member_skills');
+    }
+
+    const hasMutations = Boolean(
+      mutation &&
+      ((mutation.instrumentRenames?.length || 0) > 0 ||
+        (mutation.instrumentDeletions?.length || 0) > 0 ||
+        (mutation.vocalRoleRenames?.length || 0) > 0 ||
+        (mutation.vocalRoleDeletions?.length || 0) > 0)
+    );
+
+    let updatedProfilesCount = 0;
+    if (hasMutations && mutation) {
+      try {
+        const groupsSnap = await getDocs(collection(db, 'groups'));
+        let batch = writeBatch(db);
+        let batchOps = 0;
+
+        for (const groupDoc of groupsSnap.docs) {
+          const membersSnap = await getDocs(collection(db, 'groups', groupDoc.id, 'members'));
+          for (const memberDoc of membersSnap.docs) {
+            const mData = memberDoc.data() as Record<string, unknown>;
+            const rawInst = Array.isArray(mData.instruments)
+              ? mData.instruments.filter((x): x is string => typeof x === 'string')
+              : [];
+            const rawVoc = Array.isArray(mData.vocalRoles)
+              ? mData.vocalRoles.filter((x): x is string => typeof x === 'string')
+              : [];
+            const migrated = applySkillsMutationToProfile(rawInst, rawVoc, mutation);
+            if (!migrated.changed) continue;
+
+            const patch: Record<string, unknown> = {
+              instruments: migrated.instruments,
+              vocalRoles: migrated.vocalRoles,
+              updatedAt: serverTimestamp()
+            };
+            if ('photoURL' in mData) patch.photoURL = deleteField();
+            if ('bio' in mData) patch.bio = deleteField();
+
+            batch.update(memberDoc.ref, patch);
+            batchOps += 1;
+            updatedProfilesCount += 1;
+            if (batchOps >= 400) {
+              await batch.commit();
+              batch = writeBatch(db);
+              batchOps = 0;
+            }
+          }
+        }
+        if (batchOps > 0) {
+          await batch.commit();
+        }
+      } catch (err) {
+        console.warn('Member skills propagation note:', err);
+      }
+
+      setAllUsers(prev => prev.map(u => {
+        const migrated = applySkillsMutationToProfile(u.instruments, u.vocalRoles, mutation);
+        return migrated.changed
+          ? { ...u, instruments: migrated.instruments, vocalRoles: migrated.vocalRoles }
+          : u;
+      }));
+    }
+
+    showNotification({
+      title: 'Référentiel instruments & voix enregistré',
+      message: updatedProfilesCount > 0
+        ? `Catalogue mis à jour et ${updatedProfilesCount} fiche${updatedProfilesCount > 1 ? 's' : ''} membre${updatedProfilesCount > 1 ? 's' : ''} actualisée${updatedProfilesCount > 1 ? 's' : ''}.`
+        : "Les choix par défaut ont été appliqués à toute l'application.",
+      type: 'success'
+    });
+
+    return updatedProfilesCount;
+  }, [isSuperAdmin, showNotification]);
+
+  const resetMemberSkillsConfig = useCallback(async (): Promise<void> => {
+    await saveMemberSkillsConfig(DEFAULT_MEMBER_SKILLS_CONFIG);
+  }, [saveMemberSkillsConfig]);
 
   // Song Actions (scopées dans /groups/{groupId}/songs)
   const createSong = useCallback(async (songData: Omit<Song, 'id' | 'groupId' | 'createdAt' | 'updatedAt'>) => {
@@ -3151,6 +3418,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       callTime: data.callTime !== undefined ? (data.callTime ? data.callTime.trim().slice(0, 20) : null) : (existing?.callTime ?? null),
       serviceTime: data.serviceTime !== undefined ? (data.serviceTime ? data.serviceTime.trim().slice(0, 20) : null) : (existing?.serviceTime ?? null),
       location: data.location !== undefined ? (data.location ? data.location.trim().slice(0, 200) : null) : (existing?.location ?? null),
+      rehearsalDate: data.rehearsalDate !== undefined ? (data.rehearsalDate && isValidIsoDate(data.rehearsalDate) ? data.rehearsalDate.trim().slice(0, 10) : null) : (existing?.rehearsalDate && isValidIsoDate(existing.rehearsalDate) ? existing.rehearsalDate : null),
+      rehearsalTime: data.rehearsalTime !== undefined ? (data.rehearsalTime ? data.rehearsalTime.trim().slice(0, 20) : null) : (existing?.rehearsalTime ?? null),
+      rehearsalLocation: data.rehearsalLocation !== undefined ? (data.rehearsalLocation ? data.rehearsalLocation.trim().slice(0, 200) : null) : (existing?.rehearsalLocation ?? null),
       teamPresetId: data.teamPresetId !== undefined ? data.teamPresetId : (existing?.teamPresetId ?? null),
       teamPresetName: data.teamPresetName !== undefined ? (data.teamPresetName ? data.teamPresetName.trim().slice(0, 120) : null) : (existing?.teamPresetName ?? null),
       slots: cleanSlots,
@@ -3229,8 +3499,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Helper permission check pour la bibliothèque ciblée
   const isLibraryAdminForGroup = useCallback((group?: Group | null): boolean => {
     if (!group || !currentUser?.uid) return false;
+    if (isSuperAdmin) return true;
     return group.ownerId === currentUser.uid || resolveMemberAccesses(group, currentUser.uid).includes('admin');
-  }, [currentUser?.uid]);
+  }, [currentUser?.uid, isSuperAdmin]);
 
   // Group / Library Actions (chaque bibliothèque possède sa propre base isolée)
   const createGroup = useCallback(async (name: string, description = '') => {
@@ -3275,7 +3546,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await setDoc(doc(db, 'groups', newId, 'members', uid), stripUndefined({
         uid,
         displayName: currentUser.displayName || authUser.displayName || 'Musicien',
-        photoURL: currentUser.photoURL || authUser.photoURL || undefined,
         role: 'admin' as UserRole,
         accesses: [...ALL_ACCESSES],
         joinedAt: serverTimestamp()
@@ -3295,6 +3565,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setPlanningTeams([]);
     setPlanningAvailabilities([]);
     setPlanningAssignments([]);
+    setMemberGroups([]);
     setSelectedPlanningTargetId(null);
     setSelectedSong(null);
     setSelectedSetlist(null);
@@ -3362,8 +3633,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   ): Promise<boolean> => {
     if (blockIfGuest()) return false;
     const targetGroup = allGroups.find(g => g.id === groupId);
-    if (!targetGroup || targetGroup.ownerId !== currentUser?.uid) {
-      showNotification("Seul le propriétaire créateur peut supprimer cette bibliothèque", 'error');
+    if (!targetGroup || (targetGroup.ownerId !== currentUser?.uid && !isSuperAdmin)) {
+      showNotification("Seul le propriétaire créateur ou l'Admin Suprême peut supprimer cette bibliothèque", 'error');
       return false;
     }
 
@@ -3372,7 +3643,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     try {
       if (shouldDeleteData) {
-        const subcols = ['songs', 'setlists', 'setlist_history', 'custom_pads', 'members'];
+        const subcols = ['songs', 'setlists', 'setlist_history', 'custom_pads', 'planning_teams', 'planning_availabilities', 'planning_assignments', 'member_groups', 'members'];
         for (const sub of subcols) {
           try {
             const subSnap = await getDocs(collection(db, 'groups', groupId, sub));
@@ -3439,7 +3710,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       type: 'success'
     });
     return true;
-  }, [currentUser?.uid, allGroups, currentGroup?.id, showNotification]);
+  }, [currentUser?.uid, isSuperAdmin, allGroups, currentGroup?.id, showNotification]);
 
   const setGroupMembers = useCallback(async (groupId: string, memberUids: string[]): Promise<boolean> => {
     if (blockIfGuest()) return false;
@@ -3460,11 +3731,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const profile = allUsers.find(u => u.uid === uid);
           const accessesInGroup = resolveMemberAccesses(targetGroup, uid, profile?.role, profile?.accesses);
           const roleInGroup: UserRole = accessesToLegacyRole(accessesInGroup);
-          const validPhoto = profile?.photoURL && profile.photoURL.length <= 2048 ? profile.photoURL : undefined;
           await setDoc(doc(db, 'groups', groupId, 'members', uid), stripUndefined({
             uid,
             displayName: (profile?.displayName || `Membre (${uid.slice(0, 6)})`).slice(0, 120),
-            photoURL: validPhoto,
             role: roleInGroup,
             accesses: accessesInGroup,
             joinedAt: serverTimestamp()
@@ -3505,11 +3774,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const profile = allUsers.find(u => u.uid === uid);
           const accessesInGroup = resolveMemberAccesses(targetGroup, uid, profile?.role, profile?.accesses);
           const roleInGroup: UserRole = accessesToLegacyRole(accessesInGroup);
-          const validPhoto = profile?.photoURL && profile.photoURL.length <= 2048 ? profile.photoURL : undefined;
           await setDoc(doc(db, 'groups', groupId, 'members', uid), stripUndefined({
             uid,
             displayName: (profile?.displayName || `Membre (${uid.slice(0, 6)})`).slice(0, 120),
-            photoURL: validPhoto,
             role: roleInGroup,
             accesses: accessesInGroup,
             joinedAt: serverTimestamp()
@@ -3611,7 +3878,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         await setDoc(doc(db, 'groups', matchedGroup.id, 'members', uid), stripUndefined({
           uid,
           displayName: currentUser.displayName || authUser.displayName || 'Musicien',
-          photoURL: currentUser.photoURL || authUser.photoURL || undefined,
           role: roleInLib,
           accesses: accessesInLib,
           joinedAt: serverTimestamp()
@@ -3659,8 +3925,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const toggleLibraryGuestMode = useCallback(async (groupId: string, enabled: boolean): Promise<boolean> => {
     if (blockIfGuest() || !auth.currentUser || !currentUser?.uid) return false;
     const targetGroup = allGroups.find(g => g.id === groupId);
-    if (!targetGroup || targetGroup.ownerId !== currentUser.uid) {
-      showNotification("Seul le propriétaire créateur peut activer ou désactiver l'accès visiteur", 'error');
+    if (!targetGroup || (targetGroup.ownerId !== currentUser.uid && !isSuperAdmin)) {
+      showNotification("Seul le propriétaire créateur ou l'Admin Suprême peut activer ou désactiver l'accès visiteur", 'error');
       return false;
     }
 
@@ -3685,12 +3951,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       showNotification("Impossible de mettre à jour l'accès visiteur", 'error');
       return false;
     }
-  }, [blockIfGuest, currentUser?.uid, allGroups, currentGroup?.id, showNotification]);
+  }, [blockIfGuest, currentUser?.uid, isSuperAdmin, allGroups, currentGroup?.id, showNotification]);
 
   const switchGroup = useCallback((groupId: string) => {
     if (blockIfGuest()) return;
     const g = allGroups.find(item => item.id === groupId);
-    if (!g || !isMemberOfLibrary(g, currentUser)) {
+    if (!g || (!isSuperAdmin && !isMemberOfLibrary(g, currentUser))) {
       showNotification("Vous ne faites pas partie de cette bibliothèque", 'error');
       return;
     }
@@ -3716,7 +3982,92 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       message: 'Base de données de la bibliothèque chargée.',
       type: 'info'
     });
-  }, [allGroups, currentUser, isMemberOfLibrary, showNotification]);
+  }, [allGroups, currentUser, isSuperAdmin, isMemberOfLibrary, showNotification]);
+
+  const fetchLibraryMembersForSuperAdmin = useCallback(async (groupId: string): Promise<UserProfile[]> => {
+    if (!isSuperAdmin || !groupId) return [];
+    const targetGroup = allGroups.find(g => g.id === groupId);
+    if (!targetGroup) return [];
+    try {
+      const snap = await getDocs(collection(db, 'groups', groupId, 'members'));
+      const docs: UserProfile[] = [];
+      snap.forEach(d => {
+        const data = d.data() as Partial<UserProfile>;
+        const uid = data.uid || d.id;
+        docs.push({
+          uid,
+          email: data.email || '',
+          displayName: data.displayName || 'Musicien',
+          currentGroupId: groupId,
+          role: (data.role as UserRole) || 'member',
+          accesses: Array.isArray(data.accesses) ? normalizeAccessList(data.accesses) : undefined
+        });
+      });
+      const reconciled = reconcileLibraryMembers(docs, targetGroup, currentUser);
+      // Resolve missing emails/names directly from /users/{uid} (permitted for Supreme Admin)
+      const enriched = await Promise.all(
+        reconciled.map(async (member) => {
+          if (member.email && !member.displayName.startsWith('Membre (')) return member;
+          try {
+            const uSnap = await getDoc(doc(db, 'users', member.uid));
+            if (uSnap.exists()) {
+              const uData = uSnap.data() as Partial<UserProfile>;
+              return {
+                ...member,
+                email: uData.email || member.email,
+                displayName: uData.displayName || uData.email?.split('@')[0] || member.displayName
+              };
+            }
+          } catch {}
+          return member;
+        })
+      );
+      return enriched;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.GET, `groups/${groupId}/members`);
+    }
+  }, [isSuperAdmin, allGroups, currentUser, reconcileLibraryMembers]);
+
+  const updateGroupMemberAccessesForSuperAdmin = useCallback(async (
+    groupId: string,
+    userId: string,
+    newAccesses: AccessPermission[]
+  ): Promise<void> => {
+    if (blockIfGuest() || !isSuperAdmin) return;
+    const targetGroup = allGroups.find(g => g.id === groupId);
+    if (!targetGroup) return;
+
+    const isOwnerTarget = userId === targetGroup.ownerId;
+    let normalized = normalizeAccessList(newAccesses);
+    if (isOwnerTarget && !normalized.includes('admin')) {
+      showNotification('Le propriétaire créateur conserve l’accès Admin complet', 'warning');
+      normalized = [...ALL_ACCESSES];
+    }
+    const legacyRole = accessesToLegacyRole(normalized);
+
+    try {
+      await updateDoc(doc(db, 'groups', groupId), {
+        [`memberAccesses.${userId}`]: normalized,
+        [`memberRoles.${userId}`]: legacyRole,
+        updatedAt: serverTimestamp()
+      });
+      await setDoc(doc(db, 'groups', groupId, 'members', userId), {
+        accesses: normalized,
+        role: legacyRole
+      }, { merge: true });
+
+      const updatedMemberAccesses = { ...(targetGroup.memberAccesses || {}), [userId]: normalized };
+      const updatedMemberRoles = { ...(targetGroup.memberRoles || {}), [userId]: legacyRole };
+      setAllGroups(prev => prev.map(g => g.id === groupId ? { ...g, memberAccesses: updatedMemberAccesses, memberRoles: updatedMemberRoles } : g));
+      if (currentGroup?.id === groupId) {
+        setCurrentGroup(prev => prev && prev.id === groupId ? { ...prev, memberAccesses: updatedMemberAccesses, memberRoles: updatedMemberRoles } : prev);
+        setAllUsers(prev => prev.map(u => u.uid === userId ? { ...u, accesses: normalized, role: legacyRole } : u));
+      }
+      showNotification(`Accès mis à jour : ${formatAccessSummary(normalized)}`);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `groups/${groupId}`);
+    }
+  }, [blockIfGuest, isSuperAdmin, allGroups, currentGroup?.id, showNotification]);
 
   const updateUserAccesses = useCallback(async (userId: string, newAccesses: AccessPermission[]) => {
     if (blockIfGuest()) return;
@@ -3827,6 +4178,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       for (const uid of removable) {
         await deleteDoc(doc(db, 'groups', groupId, 'members', uid)).catch(() => {});
       }
+      if (currentGroup?.id === groupId && removable.length > 0) {
+        const removableSet = new Set(removable);
+        const affectedGroups = memberGroups.filter(mg =>
+          (mg.memberIds || []).some(id => removableSet.has(id))
+        );
+        for (const mg of affectedGroups) {
+          const nextIds = sanitizeMemberGroupMemberIds(
+            (mg.memberIds || []).filter(id => !removableSet.has(id))
+          );
+          await updateDoc(doc(db, 'groups', groupId, 'member_groups', mg.id), {
+            memberIds: nextIds,
+            updatedAt: serverTimestamp()
+          }).catch(() => {});
+        }
+        if (affectedGroups.length > 0) {
+          setMemberGroups(prev => prev.map(mg =>
+            (mg.memberIds || []).some(id => removableSet.has(id))
+              ? { ...mg, memberIds: sanitizeMemberGroupMemberIds((mg.memberIds || []).filter(id => !removableSet.has(id))) }
+              : mg
+          ));
+        }
+      }
     } catch (e) {
       console.warn('Bulk remove members note:', e);
     }
@@ -3837,7 +4210,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     showNotification('Membres retirés de la bibliothèque', 'info');
     return true;
-  }, [allGroups, isLibraryAdminForGroup, currentGroup?.id, showNotification]);
+  }, [allGroups, isLibraryAdminForGroup, currentGroup?.id, memberGroups, showNotification]);
 
   const bulkDeleteUserAccounts = useCallback(async (userIds: string[]): Promise<boolean> => {
     if (blockIfGuest()) return false;
@@ -3881,57 +4254,229 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [currentGroup, isLibraryAdminForGroup, allUsers, updateUserAccesses, showNotification]);
 
-  const selectSvgAvatar = useCallback(async (avatarToken: string): Promise<void> => {
-    if (blockIfGuest()) return;
-    if (!parseSvgAvatar(avatarToken)) return;
-    const userId = currentUser?.uid || auth.currentUser?.uid;
-    if (!userId) return;
+  const updateMemberDirectoryInfo = useCallback(async (
+    memberUid: string,
+    data: { instruments: string[]; vocalRoles: string[] }
+  ): Promise<void> => {
+    if (blockIfGuest() || !currentGroup?.id || !currentUser?.uid) return;
+    const isSelf = memberUid === currentUser.uid;
+    const curAccesses = resolveMemberAccesses(currentGroup, currentUser.uid, currentUser.role, currentUser.accesses);
+    const isRespOrAdmin =
+      isSuperAdmin ||
+      currentGroup.ownerId === currentUser.uid ||
+      curAccesses.includes('admin') ||
+      curAccesses.includes('setlists');
 
-    try {
-      await setDoc(doc(db, 'users', userId), {
-        photoURL: avatarToken,
-        updatedAt: serverTimestamp()
-      }, { merge: true });
-      if (currentGroup?.id) {
-        await setDoc(doc(db, 'groups', currentGroup.id, 'members', userId), {
-          photoURL: avatarToken
-        }, { merge: true });
-      }
-    } catch (e) {
-      console.warn('Firestore SVG avatar update error:', e);
+    if (!isSelf && !isRespOrAdmin) {
+      showNotification('Permission refusée pour modifier cette fiche.', 'error');
+      return;
     }
 
-    setCurrentUser(prev => prev ? { ...prev, photoURL: avatarToken } : null);
-    setAllUsers(prev => prev.map(u => u.uid === userId ? { ...u, photoURL: avatarToken } : u));
-
-    showNotification({
-      title: 'Avatar enregistré',
-      message: 'Votre avatar SVG a été mis à jour.',
-      type: 'success'
-    });
-  }, [blockIfGuest, currentUser?.uid, currentGroup?.id, showNotification]);
-
-  const removeProfileAvatar = useCallback(async (): Promise<void> => {
-    if (blockIfGuest()) return;
-    const userId = currentUser?.uid || auth.currentUser?.uid;
-    if (!userId) return;
+    const cleanInstruments = Array.from(new Set(data.instruments.map(s => s.trim().slice(0, 80)).filter(Boolean))).slice(0, 20);
+    const cleanVocalRoles = Array.from(new Set(data.vocalRoles.map(s => s.trim().slice(0, 80)).filter(Boolean))).slice(0, 10);
 
     try {
-      await setDoc(doc(db, 'users', userId), { photoURL: '', updatedAt: serverTimestamp() }, { merge: true });
-      if (currentGroup?.id) {
-        await setDoc(doc(db, 'groups', currentGroup.id, 'members', userId), { photoURL: '' }, { merge: true });
+      const memberRef = doc(db, 'groups', currentGroup.id, 'members', memberUid);
+      const existingDoc = libraryMemberDocsRef.current.some(m => m.uid === memberUid);
+      if (existingDoc) {
+        await updateDoc(memberRef, {
+          instruments: cleanInstruments,
+          vocalRoles: cleanVocalRoles,
+          photoURL: deleteField(),
+          bio: deleteField(),
+          updatedAt: serverTimestamp()
+        });
+      } else {
+        const target = allUsers.find(u => u.uid === memberUid);
+        const displayName = (target?.displayName || 'Membre').trim().slice(0, 120) || 'Membre';
+        const isCurAdmin = isSuperAdmin || currentGroup.ownerId === currentUser.uid || curAccesses.includes('admin');
+        const accesses = resolveMemberAccesses(currentGroup, memberUid, target?.role, target?.accesses);
+        await setDoc(memberRef, stripUndefined({
+          uid: memberUid,
+          displayName,
+          role: isCurAdmin ? accessesToLegacyRole(accesses) : 'member',
+          accesses: isCurAdmin ? accesses : undefined,
+          instruments: cleanInstruments,
+          vocalRoles: cleanVocalRoles,
+          joinedAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        }), { merge: true });
       }
-    } catch (e) {}
+      setAllUsers(prev => prev.map(u => u.uid === memberUid ? {
+        ...u,
+        instruments: cleanInstruments,
+        vocalRoles: cleanVocalRoles
+      } : u));
+      showNotification('Fiche membre enregistrée.', 'success');
+    } catch (e: any) {
+      if (e?.code === 'permission-denied') {
+        handleFirestoreError(e, OperationType.UPDATE, `groups/${currentGroup.id}/members/${memberUid}`);
+      } else {
+        showNotification('Erreur lors de la sauvegarde de la fiche.', 'error');
+      }
+    }
+  }, [blockIfGuest, currentGroup, currentUser, isSuperAdmin, allUsers, showNotification]);
 
-    setCurrentUser(prev => prev ? { ...prev, photoURL: undefined } : null);
-    setAllUsers(prev => prev.map(u => u.uid === userId ? { ...u, photoURL: undefined } : u));
+  const canManageCurrentMemberGroups = useCallback((): boolean => {
+    if (!currentGroup || !currentUser) return false;
+    if (isSuperAdmin || currentGroup.ownerId === currentUser.uid) return true;
+    const accesses = resolveMemberAccesses(currentGroup, currentUser.uid, currentUser.role, currentUser.accesses);
+    return accesses.includes('admin') || accesses.includes('setlists');
+  }, [currentGroup, currentUser, isSuperAdmin]);
 
-    showNotification({
-      title: 'Avatar réinitialisé',
-      message: 'Affichage par défaut rétabli.',
-      type: 'info'
+  const createMemberGroup = useCallback(async (data: {
+    name: string;
+    description?: string;
+    color?: MemberGroupColor;
+    memberIds: string[];
+  }): Promise<string> => {
+    if (blockIfGuest() || !currentGroup?.id || !currentUser?.uid) return '';
+    if (!canManageCurrentMemberGroups()) {
+      showNotification('Permission refusée pour gérer les groupes de membres.', 'error');
+      return '';
+    }
+
+    const groupId = currentGroup.id;
+    const newId = `mg_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const cleanName = data.name.trim().slice(0, 120) || 'Groupe';
+    const cleanDesc = data.description?.trim() ? data.description.trim().slice(0, 300) : undefined;
+    const cleanColor = normalizeMemberGroupColor(data.color);
+    const cleanMemberIds = sanitizeMemberGroupMemberIds(data.memberIds);
+
+    const newGroup: MemberGroup = stripUndefined({
+      id: newId,
+      groupId,
+      name: cleanName,
+      description: cleanDesc,
+      color: cleanColor,
+      memberIds: cleanMemberIds,
+      createdBy: currentUser.uid,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     });
-  }, [blockIfGuest, currentUser?.uid, currentGroup?.id, showNotification]);
+
+    setMemberGroups(prev => [...prev, newGroup].sort((a, b) => a.name.localeCompare(b.name, 'fr')));
+    showNotification('Groupe de membres créé.', 'success');
+
+    try {
+      await setDoc(doc(db, 'groups', groupId, 'member_groups', newId), stripUndefined({
+        id: newId,
+        groupId,
+        name: cleanName,
+        description: cleanDesc,
+        color: cleanColor,
+        memberIds: cleanMemberIds,
+        createdBy: currentUser.uid,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }));
+    } catch (e: any) {
+      if (e?.code === 'permission-denied') {
+        handleFirestoreError(e, OperationType.CREATE, `groups/${groupId}/member_groups/${newId}`);
+      }
+      console.warn('Create member group note:', e);
+    }
+
+    return newId;
+  }, [blockIfGuest, currentGroup?.id, currentUser?.uid, canManageCurrentMemberGroups, showNotification]);
+
+  const updateMemberGroup = useCallback(async (
+    id: string,
+    data: Partial<Pick<MemberGroup, 'name' | 'description' | 'color' | 'memberIds'>>
+  ): Promise<void> => {
+    if (blockIfGuest() || !currentGroup?.id) return;
+    if (!canManageCurrentMemberGroups()) {
+      showNotification('Permission refusée pour modifier ce groupe.', 'error');
+      return;
+    }
+
+    const existing = memberGroups.find(mg => mg.id === id);
+    const groupId = existing?.groupId || currentGroup.id;
+
+    const patch: Partial<MemberGroup> = stripUndefined({
+      name: data.name !== undefined ? (data.name.trim().slice(0, 120) || 'Groupe') : undefined,
+      description: data.description !== undefined ? (data.description.trim() ? data.description.trim().slice(0, 300) : null) : undefined,
+      color: data.color !== undefined ? normalizeMemberGroupColor(data.color) : undefined,
+      memberIds: data.memberIds !== undefined ? sanitizeMemberGroupMemberIds(data.memberIds) : undefined,
+      updatedAt: new Date().toISOString()
+    });
+
+    setMemberGroups(prev =>
+      prev
+        .map(mg => (mg.id === id ? { ...mg, ...patch, description: patch.description === null ? undefined : (patch.description ?? mg.description) } : mg))
+        .sort((a, b) => a.name.localeCompare(b.name, 'fr'))
+    );
+    showNotification('Groupe de membres mis à jour.', 'success');
+
+    try {
+      await updateDoc(doc(db, 'groups', groupId, 'member_groups', id), stripUndefined({
+        name: patch.name,
+        description: data.description !== undefined ? (data.description.trim() ? data.description.trim().slice(0, 300) : null) : undefined,
+        color: patch.color,
+        memberIds: patch.memberIds,
+        updatedAt: serverTimestamp()
+      }));
+    } catch (e: any) {
+      if (e?.code === 'permission-denied') {
+        handleFirestoreError(e, OperationType.UPDATE, `groups/${groupId}/member_groups/${id}`);
+      }
+      console.warn('Update member group note:', e);
+    }
+  }, [blockIfGuest, currentGroup?.id, canManageCurrentMemberGroups, memberGroups, showNotification]);
+
+  const deleteMemberGroup = useCallback(async (id: string): Promise<void> => {
+    if (blockIfGuest() || !currentGroup?.id) return;
+    if (!canManageCurrentMemberGroups()) {
+      showNotification('Permission refusée pour supprimer ce groupe.', 'error');
+      return;
+    }
+
+    const groupId = memberGroups.find(mg => mg.id === id)?.groupId || currentGroup.id;
+    setMemberGroups(prev => prev.filter(mg => mg.id !== id));
+    showNotification({ title: 'Groupe supprimé', type: 'info' });
+
+    try {
+      await deleteDoc(doc(db, 'groups', groupId, 'member_groups', id));
+    } catch (e: any) {
+      if (e?.code === 'permission-denied') {
+        handleFirestoreError(e, OperationType.DELETE, `groups/${groupId}/member_groups/${id}`);
+      }
+      console.warn('Delete member group note:', e);
+    }
+  }, [blockIfGuest, currentGroup?.id, canManageCurrentMemberGroups, memberGroups, showNotification]);
+
+  const setMemberGroupAssignmentsForMember = useCallback(async (
+    memberUid: string,
+    selectedGroupIds: string[]
+  ): Promise<void> => {
+    if (blockIfGuest() || !currentGroup?.id) return;
+    if (!canManageCurrentMemberGroups()) return;
+
+    const updates = computeMemberGroupMembershipUpdates(memberGroups, memberUid, selectedGroupIds);
+    if (updates.length === 0) return;
+
+    const groupId = currentGroup.id;
+    const updateMap = new Map(updates.map(u => [u.groupId, u.memberIds]));
+    setMemberGroups(prev =>
+      prev.map(mg => (updateMap.has(mg.id) ? { ...mg, memberIds: updateMap.get(mg.id)! } : mg))
+    );
+
+    try {
+      await Promise.all(
+        updates.map(u =>
+          updateDoc(doc(db, 'groups', groupId, 'member_groups', u.groupId), {
+            memberIds: u.memberIds,
+            updatedAt: serverTimestamp()
+          })
+        )
+      );
+    } catch (e: any) {
+      if (e?.code === 'permission-denied') {
+        handleFirestoreError(e, OperationType.UPDATE, `groups/${groupId}/member_groups`);
+      }
+      console.warn('Sync member group memberships note:', e);
+    }
+  }, [blockIfGuest, currentGroup?.id, canManageCurrentMemberGroups, memberGroups]);
 
   const handleSignOut = useCallback(async () => {
     try {
@@ -3946,6 +4491,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSetlists([]);
     setSetlistHistory([]);
     setCustomPads([]);
+    setMemberGroups([]);
     setAllUsers([]);
     setSelectedSong(null);
     setSelectedSetlist(null);
@@ -4053,13 +4599,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Accès cumulables effectifs dans la bibliothèque active
   const effectiveAccesses: AccessPermission[] = useMemo(() => {
     if (isGuest || !currentUser) return ['regie'];
+    if (isSuperAdmin) return [...ALL_ACCESSES];
     return resolveMemberAccesses(
       currentGroup,
       currentUser.uid,
       currentUser.role,
       currentUser.accesses
     );
-  }, [isGuest, currentUser, currentGroup]);
+  }, [isGuest, isSuperAdmin, currentUser, currentGroup]);
 
   const effectiveRole: UserRole = useMemo(() => {
     if (isGuest || !currentUser) return 'viewer';
@@ -4089,7 +4636,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const isViewer = isGuest || isRegieOnly;
 
   const canAccessRepertoire = isGuest || effectiveAccesses.some(a => a === 'admin' || a === 'setlists' || a === 'chants' || a === 'pupitre');
-  const canAccessSetlistsView = isGuest || effectiveAccesses.some(a => a === 'admin' || a === 'setlists' || a === 'pupitre');
   const canAccessStage = isGuest || effectiveAccesses.some(a => a === 'admin' || a === 'setlists' || a === 'chants' || a === 'pupitre');
   const canAccessProjection = isGuest || effectiveAccesses.some(a => a === 'admin' || a === 'setlists' || a === 'chants' || a === 'pupitre' || a === 'regie');
   const canAccessTools = !isRegieOnly && (isGuest || canAccessRepertoire);
@@ -4097,16 +4643,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const canManageSongs = !isGuest && (effectiveAccesses.includes('admin') || effectiveAccesses.includes('chants'));
   const canManageSetlists = !isGuest && (effectiveAccesses.includes('admin') || effectiveAccesses.includes('setlists'));
-  const canAccessPlanning = !isGuest && Boolean(currentUser);
+  const canAccessPlanning = isGuest || Boolean(currentUser);
+  const canAccessMembers = !isGuest && Boolean(currentUser);
   const canManagePlanning = canManageSetlists;
   const canManageGroups = !isGuest && effectiveAccesses.includes('admin');
   const canAccessSettings = !isGuest && !isRegieOnly && canAccessRepertoire;
 
   permissionsRef.current = {
+    isSuperAdmin,
     isRegieOnly,
     canAccessRepertoire,
-    canAccessSetlistsView,
     canAccessPlanning,
+    canAccessMembers,
     canAccessStage,
     canAccessProjection,
     canAccessGroupsView,
@@ -4116,8 +4664,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   useEffect(() => {
     if (isGuest || !currentUser) return;
+    if (activeTab === 'superadmin') {
+      if (!isSuperAdmin) {
+        setActiveTabState(canAccessRepertoire ? 'repertoire' : 'presentation');
+      }
+      return;
+    }
     if (isRegieOnly) {
-      if (activeTab !== 'presentation' && activeTab !== 'planning' && activeTab !== 'roadmap') {
+      if (activeTab !== 'presentation' && activeTab !== 'planning' && activeTab !== 'members' && activeTab !== 'roadmap') {
         setActiveTabState('presentation');
       }
       setIsPianoOpen(false);
@@ -4126,11 +4680,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return;
     }
 
-    const fallback = canAccessRepertoire ? 'repertoire' : canAccessSetlistsView ? 'setlists' : 'presentation';
+    const fallback = canAccessRepertoire ? 'repertoire' : canAccessPlanning ? 'planning' : 'presentation';
     if (
       (activeTab === 'repertoire' && !canAccessRepertoire) ||
-      (activeTab === 'setlists' && !canAccessSetlistsView) ||
       (activeTab === 'planning' && !canAccessPlanning) ||
+      (activeTab === 'members' && !canAccessMembers) ||
       (activeTab === 'stage' && !canAccessStage) ||
       (activeTab === 'editor' && !canManageSongs) ||
       (activeTab === 'groups' && !canAccessGroupsView) ||
@@ -4142,11 +4696,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [
     isGuest,
     currentUser,
+    isSuperAdmin,
     isRegieOnly,
     activeTab,
     canAccessRepertoire,
-    canAccessSetlistsView,
     canAccessPlanning,
+    canAccessMembers,
     canAccessStage,
     canManageSongs,
     canAccessGroupsView,
@@ -4163,13 +4718,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       enterGuestMode,
       exitGuestMode,
       toggleLibraryGuestMode,
-      deepLinkSetlistId,
-      clearDeepLinkSetlistId,
       needsLibraryOnboarding,
       setNeedsLibraryOnboarding,
       setSignupInProgress,
       completeSignupCreateLibrary,
       completeSignupJoinLibrary,
+      isSuperAdmin,
       effectiveAccesses,
       hasAccess,
       isRegieOnly,
@@ -4179,7 +4733,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       isMember,
       isViewer,
       canAccessRepertoire,
-      canAccessSetlistsView,
       canAccessStage,
       canAccessProjection,
       canAccessTools,
@@ -4187,9 +4740,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       canManageSongs,
       canManageSetlists,
       canAccessPlanning,
+      canAccessMembers,
       canManagePlanning,
       canManageGroups,
       canAccessSettings,
+      appBranding,
+      saveAppBranding,
+      resetAppBranding,
+      memberSkillsConfig,
+      saveMemberSkillsConfig,
+      resetMemberSkillsConfig,
+      fetchLibraryMembersForSuperAdmin,
+      updateGroupMemberAccessesForSuperAdmin,
       allUsers,
       updateUserAccesses,
       bulkUpdateUserAccesses,
@@ -4287,8 +4849,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       removeMemberFromLibrary: removeMemberFromGroup,
       setLibraryMembers: setGroupMembers,
       handleSignOut,
-      selectSvgAvatar,
-      removeProfileAvatar,
+      updateMemberDirectoryInfo,
+      memberGroups,
+      createMemberGroup,
+      updateMemberGroup,
+      deleteMemberGroup,
+      setMemberGroupAssignmentsForMember,
       customPads,
       createCustomPad,
       deleteCustomPad,

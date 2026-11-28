@@ -8,7 +8,6 @@
         "uid": { "type": "string", "maxLength": 128 },
         "email": { "type": "string", "maxLength": 256 },
         "displayName": { "type": "string", "maxLength": 120 },
-        "photoURL": { "type": "string", "maxLength": 2048 },
         "currentGroupId": { "type": "string", "maxLength": 128 },
         "role": { "type": "string", "enum": ["admin", "leader", "member", "editor", "viewer"] },
         "accesses": { "type": "array" },
@@ -57,10 +56,12 @@
       "properties": {
         "uid": { "type": "string", "maxLength": 128 },
         "displayName": { "type": "string", "maxLength": 120 },
-        "photoURL": { "type": "string", "maxLength": 2048 },
         "role": { "type": "string", "enum": ["admin", "leader", "member", "editor", "viewer"] },
         "accesses": { "type": "array" },
-        "joinedAt": { "type": "string", "format": "date-time" }
+        "instruments": { "type": "array" },
+        "vocalRoles": { "type": "array" },
+        "joinedAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["uid", "displayName", "role"]
     },
@@ -169,7 +170,6 @@
         "images": { "type": "array" },
         "authorId": { "type": "string", "maxLength": 128 },
         "authorName": { "type": "string", "minLength": 1, "maxLength": 120 },
-        "authorPhotoURL": { "type": "string", "maxLength": 2048 },
         "likesCount": { "type": "number" },
         "commentsCount": { "type": "number" },
         "lastCommentId": { "type": "string", "maxLength": 128 },
@@ -211,7 +211,6 @@
         "text": { "type": "string", "minLength": 1, "maxLength": 2000 },
         "authorId": { "type": "string", "maxLength": 128 },
         "authorName": { "type": "string", "minLength": 1, "maxLength": 120 },
-        "authorPhotoURL": { "type": "string", "maxLength": 2048 },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "itemId", "text", "authorId", "authorName", "createdAt"]
@@ -232,6 +231,23 @@
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "groupId", "name", "members"]
+    },
+    "MemberGroup": {
+      "title": "MemberGroup",
+      "description": "Organizational member subgroup inside a library (cumulative membership per member)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "groupId": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "description": { "type": "string", "maxLength": 300 },
+        "color": { "type": "string", "enum": ["blue", "emerald", "purple", "amber", "rose", "slate"] },
+        "memberIds": { "type": "array" },
+        "createdBy": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "groupId", "name", "memberIds"]
     },
     "PlanningAvailability": {
       "title": "PlanningAvailability",
@@ -264,6 +280,9 @@
         "callTime": { "type": "string", "maxLength": 20 },
         "serviceTime": { "type": "string", "maxLength": 20 },
         "location": { "type": "string", "maxLength": 200 },
+        "rehearsalDate": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$", "maxLength": 10 },
+        "rehearsalTime": { "type": "string", "maxLength": 20 },
+        "rehearsalLocation": { "type": "string", "maxLength": 200 },
         "teamPresetId": { "type": "string", "maxLength": 128 },
         "teamPresetName": { "type": "string", "maxLength": 120 },
         "slots": { "type": "array" },
@@ -274,9 +293,74 @@
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "groupId", "date", "title", "slots"]
+    },
+    "AppBrandingConfig": {
+      "title": "AppBrandingConfig",
+      "description": "Global application branding configuration (logo, colors, typography) managed exclusively by the Supreme Admin",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "logoMode": { "type": "string", "enum": ["default", "custom"] },
+        "customLogoDataUrl": { "type": "string", "maxLength": 260000 },
+        "accentColor": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$", "maxLength": 7 },
+        "lightBgColor": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$", "maxLength": 7 },
+        "lightSurfaceColor": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$", "maxLength": 7 },
+        "darkBgColor": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$", "maxLength": 7 },
+        "darkSurfaceColor": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$", "maxLength": 7 },
+        "fontFamily": {
+          "type": "string",
+          "enum": [
+            "plus-jakarta-sans",
+            "outfit",
+            "manrope",
+            "dm-sans",
+            "bricolage-grotesque",
+            "public-sans",
+            "playfair-display",
+            "lora"
+          ]
+        },
+        "updatedBy": { "type": "string", "maxLength": 128 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id",
+        "logoMode",
+        "accentColor",
+        "lightBgColor",
+        "lightSurfaceColor",
+        "darkBgColor",
+        "darkSurfaceColor",
+        "fontFamily",
+        "updatedBy",
+        "updatedAt"
+      ]
+    },
+    "MemberSkillsConfig": {
+      "title": "MemberSkillsConfig",
+      "description": "Global default instruments and vocal roles selectable across the app, managed exclusively by the Supreme Admin",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "instruments": { "type": "array" },
+        "vocalRoles": { "type": "array" },
+        "updatedBy": { "type": "string", "maxLength": 128 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id",
+        "instruments",
+        "vocalRoles",
+        "updatedBy",
+        "updatedAt"
+      ]
     }
   },
   "firestore": {
+    "/app_config/{configId}": {
+      "schema": "AppBrandingConfig",
+      "description": "Global application configuration (branding and default member skills)"
+    },
     "/users/{userId}": {
       "schema": "UserProfile",
       "description": "Private user profiles"
@@ -320,6 +404,10 @@
     "/groups/{groupId}/planning_assignments/{assignmentId}": {
       "schema": "PlanningAssignment",
       "description": "Setlist and date planning rosters isolated per library"
+    },
+    "/groups/{groupId}/member_groups/{memberGroupId}": {
+      "schema": "MemberGroup",
+      "description": "Organizational member subgroups isolated per library"
     },
     "/roadmap_items/{itemId}": {
       "schema": "RoadmapItem",

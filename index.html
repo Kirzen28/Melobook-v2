@@ -22,7 +22,7 @@
           e.preventDefault();
         }
       });
-      // Apply saved theme immediately before paint (projection mode always stays dark)
+      // Apply saved theme & global branding immediately before paint (projection mode always stays dark)
       (function() {
         try {
           var isPresentation = window.location.search.indexOf('mode=presentation') !== -1 || window.location.hash === '#presentation';
@@ -31,6 +31,48 @@
           if (parsedSettings && parsedSettings.reduceMotion === true) {
             document.documentElement.classList.add('reduce-motion');
           }
+
+          var rawBrand = localStorage.getItem('melobook_app_branding');
+          if (rawBrand && !isPresentation) {
+            var brand = JSON.parse(rawBrand);
+            var hexRe = /^#[0-9a-fA-F]{6}$/;
+            var root = document.documentElement;
+            if (brand && hexRe.test(brand.lightBgColor || '')) root.style.setProperty('--app-bg-light', brand.lightBgColor);
+            if (brand && hexRe.test(brand.lightSurfaceColor || '')) root.style.setProperty('--app-surface-light', brand.lightSurfaceColor);
+            if (brand && hexRe.test(brand.darkBgColor || '')) root.style.setProperty('--app-bg-dark', brand.darkBgColor);
+            if (brand && hexRe.test(brand.darkSurfaceColor || '')) root.style.setProperty('--app-surface-dark', brand.darkSurfaceColor);
+            if (
+              brand &&
+              (brand.lightBgColor !== '#F4F6F9' ||
+               brand.lightSurfaceColor !== '#FFFFFF' ||
+               brand.darkBgColor !== '#0A0A0B' ||
+               brand.darkSurfaceColor !== '#111112')
+            ) {
+              root.setAttribute('data-custom-surface', 'true');
+            }
+            var fontMap = {
+              'plus-jakarta-sans': ["'Plus Jakarta Sans', system-ui, sans-serif", null],
+              'outfit': ["'Outfit', system-ui, sans-serif", 'Outfit:wght@400;500;600;700;800'],
+              'manrope': ["'Manrope', system-ui, sans-serif", 'Manrope:wght@400;500;600;700;800'],
+              'dm-sans': ["'DM Sans', system-ui, sans-serif", 'DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400'],
+              'bricolage-grotesque': ["'Bricolage Grotesque', system-ui, sans-serif", 'Bricolage+Grotesque:wght@400;500;600;700;800'],
+              'public-sans': ["'Public Sans', system-ui, sans-serif", 'Public+Sans:wght@400;500;600;700;800'],
+              'playfair-display': ["'Playfair Display', Georgia, serif", 'Playfair+Display:ital,wght@0,400;0,600;0,700;1,400'],
+              'lora': ["'Lora', Georgia, serif", 'Lora:ital,wght@0,400;0,500;0,600;0,700;1,400']
+            };
+            var fontSpec = brand && fontMap[brand.fontFamily];
+            if (fontSpec) {
+              root.style.setProperty('--font-sans', fontSpec[0]);
+              if (fontSpec[1]) {
+                var fontLink = document.createElement('link');
+                fontLink.id = 'melobook-dynamic-font';
+                fontLink.rel = 'stylesheet';
+                fontLink.href = 'https://fonts.googleapis.com/css2?family=' + fontSpec[1] + '&display=swap';
+                document.head.appendChild(fontLink);
+              }
+            }
+          }
+
           if (isPresentation) {
             document.documentElement.classList.add('dark');
             return;

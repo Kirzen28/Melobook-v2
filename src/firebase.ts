@@ -37,7 +37,8 @@ import {
   arrayUnion,
   arrayRemove,
   getDocFromServer,
-  writeBatch
+  writeBatch,
+  deleteField
 } from 'firebase/firestore';
 import { 
   getStorage, 
@@ -198,7 +199,8 @@ export {
   arrayUnion,
   arrayRemove,
   getDocFromServer,
-  writeBatch
+  writeBatch,
+  deleteField
 };
 
 export type { FirebaseUser };

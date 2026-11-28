@@ -347,6 +347,7 @@ export const GroupManager: React.FC = () => {
     removeMemberFromGroup,
     setIsAuthModalOpen,
     canManageGroups,
+    isSuperAdmin,
     toggleLibraryGuestMode
   } = useApp();
 
@@ -385,7 +386,7 @@ export const GroupManager: React.FC = () => {
   const [isDuplicatesOpen, setIsDuplicatesOpen] = useState(false);
 
   const canDeleteLibrary = (g: Group) => {
-    return Boolean(currentUser?.uid && g.ownerId === currentUser.uid);
+    return Boolean(isSuperAdmin || (currentUser?.uid && g.ownerId === currentUser.uid));
   };
 
   const handleConfirmDelete = async () => {
@@ -615,13 +616,15 @@ export const GroupManager: React.FC = () => {
                     <option value="">Aucune bibliothèque</option>
                   ) : (
                     groups
-                      .filter(g => !currentUser?.uid || g.ownerId === currentUser.uid || (g.members || []).includes(currentUser.uid))
+                      .filter(g => isSuperAdmin || !currentUser?.uid || g.ownerId === currentUser.uid || (g.members || []).includes(currentUser.uid))
                       .map((g, index) => {
                         const isOwner = Boolean(currentUser?.uid && g.ownerId === currentUser.uid);
+                        const isMember = Boolean(currentUser?.uid && (g.members || []).includes(currentUser.uid));
                         const memberCount = (g.members || []).length;
+                        const roleSuffix = isOwner ? 'Propriétaire' : isMember ? 'Membre' : 'Supervision';
                         return (
                           <option key={g.id || `group-${index}`} value={g.id} className="bg-slate-50 dark:bg-[#141418] text-slate-900 dark:text-white">
-                            {g.name} ({isOwner ? 'Propriétaire' : 'Membre'} · {memberCount} membre{memberCount > 1 ? 's' : ''})
+                            {g.name} ({roleSuffix} · {memberCount} membre{memberCount > 1 ? 's' : ''})
                           </option>
                         );
                       })
@@ -739,7 +742,7 @@ export const GroupManager: React.FC = () => {
                             </button>
                           </div>
 
-                          {isOwner && (
+                          {(isOwner || isSuperAdmin) && (
                             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-[#16161C] border border-slate-300 dark:border-[#2A2A35]">
                               <Eye className={`w-3.5 h-3.5 shrink-0 ${currentGroup.guestEnabled ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-500'}`} />
                               <span className="text-[11px] text-slate-600 dark:text-gray-400">Visiteurs sans compte :</span>
@@ -1036,7 +1039,6 @@ export const GroupManager: React.FC = () => {
                           )}
 
                           <UserAvatar
-                            photoURL={u.photoURL}
                             displayName={u.displayName}
                             sizeClass="w-8 h-8 sm:w-7 sm:h-7 text-xs sm:text-[11px]"
                             iconClass="w-3.5 h-3.5"
@@ -1245,8 +1247,8 @@ export const GroupManager: React.FC = () => {
         </div>
       </div>
 
-      {/* Nettoyage des doublons (réservé au propriétaire de la bibliothèque active) */}
-      {currentGroup && currentUser?.uid && currentGroup.ownerId === currentUser.uid && (
+      {/* Nettoyage des doublons (réservé au propriétaire de la bibliothèque active ou Admin Suprême) */}
+      {currentGroup && (isSuperAdmin || (currentUser?.uid && currentGroup.ownerId === currentUser.uid)) && (
         <div className="mb-8">
           <DuplicateCleanerSection
             isOpen={isDuplicatesOpen}

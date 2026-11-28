@@ -5,6 +5,13 @@
   :root {
     --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    --app-accent: #2563EB;
+    --app-accent-hover: #3B82F6;
+    --app-accent-on: #FFFFFF;
+    --app-bg-light: #F4F6F9;
+    --app-surface-light: #FFFFFF;
+    --app-bg-dark: #0A0A0B;
+    --app-surface-dark: #111112;
     color-scheme: light;
   }
 
@@ -14,13 +21,41 @@
 
   body {
     font-family: var(--font-sans);
-    background-color: #F4F6F9;
+    background-color: var(--app-bg-light);
     color: #0F172A;
   }
 
   html.dark body {
-    background-color: #0A0A0B;
+    background-color: var(--app-bg-dark);
     color: #E0E0E0;
+  }
+}
+
+/* Global branding overrides applied dynamically when Supreme Admin customizes palette/accent */
+@media not print {
+  html[data-custom-surface="true"]:not(.dark) body,
+  html[data-custom-surface="true"]:not(.dark) :not([data-presentation-root="true"]):not([data-stage-sheet="true"]).bg-\[\#F4F6F9\] {
+    background-color: var(--app-bg-light);
+  }
+
+  html[data-custom-surface="true"]:not(.dark) :not([data-presentation-root="true"]):not([data-stage-sheet="true"]).bg-white {
+    background-color: var(--app-surface-light);
+  }
+
+  html[data-custom-surface="true"].dark body,
+  html[data-custom-surface="true"].dark :not([data-presentation-root="true"]):not([data-stage-sheet="true"]).dark\:bg-\[\#0A0A0B\],
+  html[data-custom-surface="true"].dark :not([data-presentation-root="true"]):not([data-stage-sheet="true"]).dark\:bg-\[\#09090B\] {
+    background-color: var(--app-bg-dark);
+  }
+
+  html[data-custom-surface="true"].dark :not([data-presentation-root="true"]):not([data-stage-sheet="true"]).dark\:bg-\[\#111112\],
+  html[data-custom-surface="true"].dark :not([data-presentation-root="true"]):not([data-stage-sheet="true"]).dark\:bg-\[\#121214\],
+  html[data-custom-surface="true"].dark :not([data-presentation-root="true"]):not([data-stage-sheet="true"]).dark\:bg-\[\#111112\]\/95 {
+    background-color: var(--app-surface-dark);
+  }
+
+  html[data-custom-accent="true"] .bg-blue-600 {
+    color: var(--app-accent-on);
   }
 }
 

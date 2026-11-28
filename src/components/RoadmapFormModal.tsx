@@ -128,8 +128,7 @@ export const RoadmapFormModal: React.FC<RoadmapFormModalProps> = ({
           images,
           author: {
             uid,
-            displayName: currentUser?.displayName || firebaseUser?.displayName || 'Musicien',
-            photoURL: currentUser?.photoURL || null
+            displayName: currentUser?.displayName || firebaseUser?.displayName || 'Musicien'
           }
         });
         showNotification('Publication ajoutée à la Roadmap', 'success');

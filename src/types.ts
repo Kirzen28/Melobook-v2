@@ -15,7 +15,8 @@ export interface UserProfile {
   currentGroupId: string | null;
   role: UserRole;
   accesses?: AccessPermission[];
-  photoURL?: string;
+  instruments?: string[];
+  vocalRoles?: string[];
   personalCapos?: Record<string, number>;
   createdAt?: any;
 }
@@ -251,7 +252,6 @@ export interface RoadmapItem {
   images: string[];
   authorId: string;
   authorName: string;
-  authorPhotoURL?: string | null;
   likesCount: number;
   commentsCount: number;
   lastCommentId?: string | null;
@@ -265,7 +265,6 @@ export interface RoadmapComment {
   text: string;
   authorId: string;
   authorName: string;
-  authorPhotoURL?: string | null;
   createdAt?: any;
 }
 
@@ -289,6 +288,20 @@ export interface PlanningTeam {
   description?: string;
   color?: string;
   members: PlanningTeamMember[];
+  createdBy?: string;
+  createdAt?: any;
+  updatedAt?: any;
+}
+
+export type MemberGroupColor = 'blue' | 'emerald' | 'purple' | 'amber' | 'rose' | 'slate';
+
+export interface MemberGroup {
+  id: string;
+  groupId: string;
+  name: string;
+  description?: string;
+  color?: MemberGroupColor;
+  memberIds: string[];
   createdBy?: string;
   createdAt?: any;
   updatedAt?: any;
@@ -326,6 +339,9 @@ export interface PlanningAssignment {
   callTime?: string;
   serviceTime?: string;
   location?: string;
+  rehearsalDate?: string;
+  rehearsalTime?: string;
+  rehearsalLocation?: string;
   teamPresetId?: string | null;
   teamPresetName?: string | null;
   slots: PlanningSlot[];
@@ -333,5 +349,44 @@ export interface PlanningAssignment {
   updatedBy?: string;
   updatedByName?: string;
   createdAt?: any;
+  updatedAt?: any;
+}
+
+export type AppBrandingFontId =
+  | 'plus-jakarta-sans'
+  | 'outfit'
+  | 'manrope'
+  | 'dm-sans'
+  | 'bricolage-grotesque'
+  | 'public-sans'
+  | 'playfair-display'
+  | 'lora';
+
+export interface AppBrandingConfig {
+  id: 'branding';
+  logoMode: 'default' | 'custom';
+  customLogoDataUrl?: string | null;
+  accentColor: string;
+  lightBgColor: string;
+  lightSurfaceColor: string;
+  darkBgColor: string;
+  darkSurfaceColor: string;
+  fontFamily: AppBrandingFontId;
+  updatedBy?: string;
+  updatedAt?: any;
+}
+
+export interface MemberSkillsMutation {
+  instrumentRenames?: Array<{ from: string; to: string }>;
+  instrumentDeletions?: string[];
+  vocalRoleRenames?: Array<{ from: string; to: string }>;
+  vocalRoleDeletions?: string[];
+}
+
+export interface MemberSkillsConfig {
+  id: 'member_skills';
+  instruments: string[];
+  vocalRoles: string[];
+  updatedBy?: string;
   updatedAt?: any;
 }

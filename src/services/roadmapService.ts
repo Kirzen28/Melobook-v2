@@ -44,7 +44,6 @@ export const subscribeRoadmapItems = (
           images: Array.isArray(data.images) ? data.images : [],
           authorId: String(data.authorId || ''),
           authorName: String(data.authorName || 'Utilisateur'),
-          authorPhotoURL: data.authorPhotoURL || null,
           likesCount: typeof data.likesCount === 'number' ? data.likesCount : 0,
           commentsCount: typeof data.commentsCount === 'number' ? data.commentsCount : 0,
           lastCommentId: data.lastCommentId || null,
@@ -110,7 +109,6 @@ export const subscribeRoadmapComments = (
           text: String(data.text || ''),
           authorId: String(data.authorId || ''),
           authorName: String(data.authorName || 'Utilisateur'),
-          authorPhotoURL: data.authorPhotoURL || null,
           createdAt: data.createdAt
         };
       });
@@ -131,7 +129,7 @@ export const createRoadmapItem = async (params: {
   description: string;
   category: RoadmapCategory;
   images: string[];
-  author: { uid: string; displayName: string; photoURL?: string | null };
+  author: { uid: string; displayName: string };
 }): Promise<string> => {
   const clean = sanitizeRoadmapInput(params);
   const id = generateRoadmapId('rm');
@@ -146,7 +144,6 @@ export const createRoadmapItem = async (params: {
       images: clean.images,
       authorId: params.author.uid,
       authorName: (params.author.displayName || 'Utilisateur').trim().slice(0, 120),
-      authorPhotoURL: params.author.photoURL || null,
       likesCount: 0,
       commentsCount: 0,
       createdAt: serverTimestamp(),
@@ -241,7 +238,7 @@ export const toggleRoadmapLike = async (
 export const addRoadmapComment = async (
   item: Pick<RoadmapItem, 'id' | 'commentsCount'>,
   text: string,
-  author: { uid: string; displayName: string; photoURL?: string | null }
+  author: { uid: string; displayName: string }
 ): Promise<string> => {
   const cleanText = sanitizeRoadmapComment(text);
   const commentId = generateRoadmapId('cmt');
@@ -257,7 +254,6 @@ export const addRoadmapComment = async (
       text: cleanText,
       authorId: author.uid,
       authorName: (author.displayName || 'Utilisateur').trim().slice(0, 120),
-      authorPhotoURL: author.photoURL || null,
       createdAt: serverTimestamp()
     });
 

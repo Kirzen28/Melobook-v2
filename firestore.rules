@@ -46,6 +46,7 @@ service cloud.firestore {
       return isSignedIn()
         && exists(groupPath(groupId))
         && (
+          isBootstrappedAdmin() ||
           groupData(groupId).ownerId == request.auth.uid ||
           (groupData(groupId).members is list && request.auth.uid in groupData(groupId).members)
         );
@@ -66,7 +67,8 @@ service cloud.firestore {
 
     function hasLibraryAccess(groupId, accessKey) {
       let g = groupData(groupId);
-      return g.ownerId == request.auth.uid
+      return isBootstrappedAdmin()
+        || g.ownerId == request.auth.uid
         || (
           g.memberAccesses is map
           && request.auth.uid in g.memberAccesses
@@ -102,13 +104,58 @@ service cloud.firestore {
     }
 
     // Validation Blueprints
+    function isValidHexColor(val) {
+      return val is string && val.size() == 7 && val.matches('^#[0-9a-fA-F]{6}$');
+    }
+
+    function isValidAppBrandingConfig(data) {
+      return data.keys().hasAll([
+          'id', 'logoMode', 'accentColor', 'lightBgColor', 'lightSurfaceColor',
+          'darkBgColor', 'darkSurfaceColor', 'fontFamily', 'updatedBy', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'logoMode', 'customLogoDataUrl', 'accentColor', 'lightBgColor',
+          'lightSurfaceColor', 'darkBgColor', 'darkSurfaceColor', 'fontFamily',
+          'updatedBy', 'updatedAt'
+        ])
+        && data.id == 'branding'
+        && data.logoMode in ['default', 'custom']
+        && (!('customLogoDataUrl' in data) || data.customLogoDataUrl == null || (data.customLogoDataUrl is string && data.customLogoDataUrl.size() <= 260000))
+        && isValidHexColor(data.accentColor)
+        && isValidHexColor(data.lightBgColor)
+        && isValidHexColor(data.lightSurfaceColor)
+        && isValidHexColor(data.darkBgColor)
+        && isValidHexColor(data.darkSurfaceColor)
+        && data.fontFamily in [
+          'plus-jakarta-sans', 'outfit', 'manrope', 'dm-sans',
+          'bricolage-grotesque', 'public-sans', 'playfair-display', 'lora'
+        ]
+        && data.updatedBy is string && data.updatedBy.size() >= 1 && data.updatedBy.size() <= 128
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidSkillStringList(listVal, maxLen) {
+      return listVal is list
+        && listVal.size() <= maxLen
+        && (listVal.size() == 0 || (listVal[0] is string && listVal[0].size() >= 1 && listVal[0].size() <= 80));
+    }
+
+    function isValidMemberSkillsConfig(data) {
+      return data.keys().hasAll(['id', 'instruments', 'vocalRoles', 'updatedBy', 'updatedAt'])
+        && data.keys().hasOnly(['id', 'instruments', 'vocalRoles', 'updatedBy', 'updatedAt'])
+        && data.id == 'member_skills'
+        && isValidSkillStringList(data.instruments, 50)
+        && isValidSkillStringList(data.vocalRoles, 30)
+        && data.updatedBy is string && data.updatedBy.size() >= 1 && data.updatedBy.size() <= 128
+        && data.updatedAt is timestamp;
+    }
+
     function isValidUserProfile(data) {
       return data.keys().hasAll(['uid', 'email', 'displayName', 'currentGroupId', 'role'])
-        && data.keys().hasOnly(['uid', 'email', 'displayName', 'photoURL', 'currentGroupId', 'role', 'accesses', 'personalCapos', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'email', 'displayName', 'currentGroupId', 'role', 'accesses', 'personalCapos', 'createdAt', 'updatedAt'])
         && data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128
         && data.email is string && data.email.size() <= 256
         && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 120
-        && (!('photoURL' in data) || data.photoURL == null || (data.photoURL is string && data.photoURL.size() <= 2048))
         && (data.currentGroupId == null || (data.currentGroupId is string && data.currentGroupId.size() <= 128))
         && data.role in ['admin', 'leader', 'member', 'editor', 'viewer']
         && (!('accesses' in data) || isValidAccessList(data.accesses))
@@ -142,12 +189,22 @@ service cloud.firestore {
 
     function isValidLibraryMember(data) {
       return data.keys().hasAll(['uid', 'displayName', 'role'])
-        && data.keys().hasOnly(['uid', 'displayName', 'photoURL', 'role', 'accesses', 'joinedAt'])
+        && data.keys().hasOnly([
+          'uid', 'displayName', 'role', 'accesses',
+          'instruments', 'vocalRoles', 'joinedAt', 'updatedAt'
+        ])
         && data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128
         && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 120
-        && (!('photoURL' in data) || data.photoURL == null || (data.photoURL is string && data.photoURL.size() <= 2048))
         && data.role in ['admin', 'leader', 'member', 'editor', 'viewer']
-        && (!('accesses' in data) || isValidAccessList(data.accesses));
+        && (!('accesses' in data) || isValidAccessList(data.accesses))
+        && (!('instruments' in data) || (
+          data.instruments is list && data.instruments.size() <= 20 &&
+          (data.instruments.size() == 0 || (data.instruments[0] is string && data.instruments[0].size() >= 1 && data.instruments[0].size() <= 80))
+        ))
+        && (!('vocalRoles' in data) || (
+          data.vocalRoles is list && data.vocalRoles.size() <= 10 &&
+          (data.vocalRoles.size() == 0 || (data.vocalRoles[0] is string && data.vocalRoles[0].size() >= 1 && data.vocalRoles[0].size() <= 80))
+        ));
     }
 
     function isValidSong(data, groupId) {
@@ -244,6 +301,22 @@ service cloud.firestore {
         && (!('createdBy' in data) || data.createdBy == null || (data.createdBy is string && data.createdBy.size() <= 128));
     }
 
+    function isValidMemberGroup(data, groupId) {
+      return data.keys().hasAll(['id', 'groupId', 'name', 'memberIds'])
+        && data.keys().hasOnly([
+          'id', 'groupId', 'name', 'description', 'color', 'memberIds',
+          'createdBy', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id)
+        && data.groupId == groupId
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 120
+        && (!('description' in data) || data.description == null || (data.description is string && data.description.size() <= 300))
+        && (!('color' in data) || data.color == null || data.color in ['blue', 'emerald', 'purple', 'amber', 'rose', 'slate'])
+        && data.memberIds is list && data.memberIds.size() <= 200
+        && (data.memberIds.size() == 0 || (data.memberIds[0] is string && data.memberIds[0].size() >= 1 && data.memberIds[0].size() <= 128))
+        && (!('createdBy' in data) || data.createdBy == null || (data.createdBy is string && data.createdBy.size() <= 128));
+    }
+
     function isValidPlanningAvailability(data, groupId, availId) {
       return data.keys().hasAll(['id', 'groupId', 'date', 'uid', 'displayName', 'status'])
         && data.keys().hasOnly([
@@ -268,7 +341,9 @@ service cloud.firestore {
       return data.keys().hasAll(['id', 'groupId', 'date', 'title', 'slots'])
         && data.keys().hasOnly([
           'id', 'groupId', 'setlistId', 'setlistName', 'date', 'title',
-          'callTime', 'serviceTime', 'location', 'teamPresetId', 'teamPresetName',
+          'callTime', 'serviceTime', 'location',
+          'rehearsalDate', 'rehearsalTime', 'rehearsalLocation',
+          'teamPresetId', 'teamPresetName',
           'slots', 'notes', 'updatedBy', 'updatedByName', 'createdAt', 'updatedAt'
         ])
         && isValidId(data.id)
@@ -280,6 +355,9 @@ service cloud.firestore {
         && (!('callTime' in data) || data.callTime == null || (data.callTime is string && data.callTime.size() <= 20))
         && (!('serviceTime' in data) || data.serviceTime == null || (data.serviceTime is string && data.serviceTime.size() <= 20))
         && (!('location' in data) || data.location == null || (data.location is string && data.location.size() <= 200))
+        && (!('rehearsalDate' in data) || data.rehearsalDate == null || (data.rehearsalDate is string && data.rehearsalDate.size() == 10 && data.rehearsalDate.matches('^\\d{4}-\\d{2}-\\d{2}$')))
+        && (!('rehearsalTime' in data) || data.rehearsalTime == null || (data.rehearsalTime is string && data.rehearsalTime.size() <= 20))
+        && (!('rehearsalLocation' in data) || data.rehearsalLocation == null || (data.rehearsalLocation is string && data.rehearsalLocation.size() <= 200))
         && (!('teamPresetId' in data) || data.teamPresetId == null || (data.teamPresetId is string && data.teamPresetId.size() <= 128))
         && (!('teamPresetName' in data) || data.teamPresetName == null || (data.teamPresetName is string && data.teamPresetName.size() <= 120))
         && data.slots is list && data.slots.size() <= 100
@@ -347,6 +425,32 @@ service cloud.firestore {
         && data.createdAt == request.time;
     }
 
+    // Global App Configuration (branding & default member skills, writes strictly restricted to Supreme Admin)
+    match /app_config/{configId} {
+      allow get: if isValidId(configId);
+      allow list: if false;
+      allow create: if isValidId(configId)
+        && isBootstrappedAdmin()
+        && incoming().updatedBy == request.auth.uid
+        && incoming().updatedAt == request.time
+        && (
+          (configId == 'branding' && isValidAppBrandingConfig(incoming())) ||
+          (configId == 'member_skills' && isValidMemberSkillsConfig(incoming()))
+        );
+      allow update: if isValidId(configId)
+        && isBootstrappedAdmin()
+        && incoming().id == existing().id
+        && incoming().updatedBy == request.auth.uid
+        && incoming().updatedAt == request.time
+        && (
+          (configId == 'branding' && isValidAppBrandingConfig(incoming())) ||
+          (configId == 'member_skills' && isValidMemberSkillsConfig(incoming()))
+        );
+      allow delete: if isValidId(configId)
+        && configId in ['branding', 'member_skills']
+        && isBootstrappedAdmin();
+    }
+
     // Users collection (PII isolated strictly to owner or bootstrapped admin)
     match /users/{userId} {
       allow get: if isValidId(userId) && (isOwner(userId) || isBootstrappedAdmin());
@@ -376,20 +480,21 @@ service cloud.firestore {
       allow create: if isSignedIn()
         && isValidId(inviteCode)
         && isValidLibraryInvite(incoming())
-        && incoming().ownerId == request.auth.uid;
+        && (incoming().ownerId == request.auth.uid || isBootstrappedAdmin());
       allow update: if isSignedIn()
         && isValidId(inviteCode)
-        && existing().ownerId == request.auth.uid
+        && (existing().ownerId == request.auth.uid || isBootstrappedAdmin())
         && isValidLibraryInvite(incoming())
         && incoming().ownerId == existing().ownerId
         && incoming().groupId == existing().groupId;
-      allow delete: if isSignedIn() && isValidId(inviteCode) && existing().ownerId == request.auth.uid;
+      allow delete: if isSignedIn() && isValidId(inviteCode) && (existing().ownerId == request.auth.uid || isBootstrappedAdmin());
     }
 
     // Libraries (groups) & per-library isolated subcollection databases
     match /groups/{groupId} {
       allow get: if isValidId(groupId) && (isSignedIn() || (resource != null && existing().guestEnabled == true));
       allow list: if isSignedIn() && (
+        isBootstrappedAdmin() ||
         resource.data.ownerId == request.auth.uid ||
         request.auth.uid in resource.data.members
       );
@@ -405,6 +510,11 @@ service cloud.firestore {
         && incoming().id == existing().id
         && incoming().ownerId == existing().ownerId
         && (
+          // Action 0: Supreme Admin manages any library settings, visitor mode, members, roles & accesses
+          (
+            isBootstrappedAdmin()
+            && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'description', 'inviteCode', 'guestEnabled', 'members', 'memberRoles', 'memberAccesses', 'updatedAt'])
+          ) ||
           // Action 1: Library owner manages all library settings including visitor mode, roles & accesses
           (
             existing().ownerId == request.auth.uid
@@ -427,7 +537,7 @@ service cloud.firestore {
             && incoming().diff(existing()).affectedKeys().hasOnly(['members'])
           )
         );
-      allow delete: if isSignedIn() && isValidId(groupId) && existing().ownerId == request.auth.uid;
+      allow delete: if isSignedIn() && isValidId(groupId) && (existing().ownerId == request.auth.uid || isBootstrappedAdmin());
 
       // Per-library members subcollection
       match /members/{memberId} {
@@ -439,7 +549,8 @@ service cloud.firestore {
           && (
             isLibraryAdmin(groupId) ||
             (memberId == request.auth.uid && incoming().role == 'member' && (!('accesses' in incoming()) || incoming().accesses == ['pupitre'])) ||
-            (groupData(groupId).ownerId == request.auth.uid && memberId == request.auth.uid && incoming().role == 'admin')
+            (groupData(groupId).ownerId == request.auth.uid && memberId == request.auth.uid && incoming().role == 'admin') ||
+            (canEditLibrarySetlists(groupId) && (memberId in groupData(groupId).members || groupData(groupId).ownerId == memberId) && incoming().role == 'member' && !('accesses' in incoming()))
           );
         allow update: if isLibraryMember(groupId)
           && isValidId(memberId)
@@ -447,7 +558,8 @@ service cloud.firestore {
           && incoming().uid == existing().uid
           && (
             isLibraryAdmin(groupId) ||
-            (memberId == request.auth.uid && incoming().role == existing().role && incoming().get('accesses', []) == existing().get('accesses', []))
+            (memberId == request.auth.uid && incoming().role == existing().role && incoming().get('accesses', []) == existing().get('accesses', [])) ||
+            (canEditLibrarySetlists(groupId) && incoming().diff(existing()).affectedKeys().hasOnly(['instruments', 'vocalRoles', 'updatedAt']))
           );
         allow delete: if isLibraryMember(groupId)
           && isValidId(memberId)
@@ -566,10 +678,36 @@ service cloud.firestore {
           && incoming().groupId == existing().groupId
           && incoming().diff(existing()).affectedKeys().hasOnly([
             'setlistId', 'setlistName', 'date', 'title', 'callTime', 'serviceTime',
-            'location', 'teamPresetId', 'teamPresetName', 'slots', 'notes',
+            'location', 'rehearsalDate', 'rehearsalTime', 'rehearsalLocation',
+            'teamPresetId', 'teamPresetName', 'slots', 'notes',
             'updatedBy', 'updatedByName', 'updatedAt'
           ]);
         allow delete: if canEditLibrarySetlists(groupId) && isValidId(assignmentId);
+      }
+
+      // Per-library organizational member groups (managed by Responsables / Admins)
+      match /member_groups/{memberGroupId} {
+        allow get: if isValidId(memberGroupId) && isLibraryMember(groupId);
+        allow list: if isLibraryMember(groupId);
+        allow create: if (isLibraryAdmin(groupId) || canEditLibrarySetlists(groupId))
+          && isValidId(memberGroupId)
+          && isValidMemberGroup(incoming(), groupId)
+          && incoming().id == memberGroupId
+          && (!('createdBy' in incoming()) || incoming().createdBy == null || incoming().createdBy == request.auth.uid)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time;
+        allow update: if (isLibraryAdmin(groupId) || canEditLibrarySetlists(groupId))
+          && isValidId(memberGroupId)
+          && isValidMemberGroup(incoming(), groupId)
+          && incoming().id == existing().id
+          && incoming().groupId == existing().groupId
+          && (!('createdAt' in existing()) || incoming().createdAt == existing().createdAt)
+          && (!('createdBy' in existing()) || incoming().createdBy == existing().createdBy)
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'name', 'description', 'color', 'memberIds', 'updatedAt'
+          ]);
+        allow delete: if (isLibraryAdmin(groupId) || canEditLibrarySetlists(groupId)) && isValidId(memberGroupId);
       }
     }
 

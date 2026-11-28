@@ -1,4 +1,5 @@
 import {
+  MemberSkillsConfig,
   PlanningAssignment,
   PlanningAvailability,
   PlanningAvailabilityStatus,
@@ -72,6 +73,31 @@ export const PLANNING_POLE_META: Record<PlanningPole, PlanningPoleMeta> = {
     surfaceTint: 'bg-cyan-500/10 border-cyan-500/25'
   }
 };
+
+export function buildPlanningPoleMetaMap(
+  skillsConfig?: MemberSkillsConfig | null
+): Record<PlanningPole, PlanningPoleMeta> {
+  const musiqueRoles =
+    skillsConfig && Array.isArray(skillsConfig.instruments) && skillsConfig.instruments.length > 0
+      ? skillsConfig.instruments
+      : PLANNING_POLE_META.musique.suggestedRoles;
+  const chantRoles =
+    skillsConfig && Array.isArray(skillsConfig.vocalRoles) && skillsConfig.vocalRoles.length > 0
+      ? skillsConfig.vocalRoles
+      : PLANNING_POLE_META.chant.suggestedRoles;
+
+  return {
+    musique: {
+      ...PLANNING_POLE_META.musique,
+      suggestedRoles: musiqueRoles
+    },
+    chant: {
+      ...PLANNING_POLE_META.chant,
+      suggestedRoles: chantRoles
+    },
+    regie: PLANNING_POLE_META.regie
+  };
+}
 
 export interface AvailabilityStatusMeta {
   key: PlanningAvailabilityStatus;
@@ -278,3 +304,18 @@ export function getAssignmentForSetlist(
 ): PlanningAssignment | undefined {
   return assignments.find(a => a.setlistId === setlistId || a.id === setlistId);
 }
+
+export function groupRehearsalsByDate<T extends { assignment?: PlanningAssignment }>(
+  targets: T[]
+): Map<string, T[]> {
+  const byDate = new Map<string, T[]>();
+  for (const t of targets) {
+    const rDate = t.assignment?.rehearsalDate;
+    if (!isValidIsoDate(rDate)) continue;
+    const arr = byDate.get(rDate) || [];
+    arr.push(t);
+    byDate.set(rDate, arr);
+  }
+  return byDate;
+}
+

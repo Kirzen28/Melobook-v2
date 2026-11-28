@@ -497,6 +497,7 @@ export const PresentationDisplay: React.FC = () => {
 
   return (
     <div 
+      data-presentation-root="true"
       onClick={handleScreenClick}
       onMouseMove={handleUserActivity}
       onTouchStart={handleUserActivity}

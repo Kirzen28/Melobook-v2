@@ -19,6 +19,13 @@ export function includesIgnoreAccents(haystack: string | undefined | null, needl
   return normalizeAccentFree(haystack).includes(q);
 }
 
+export function includesAllTokensIgnoreAccents(haystack: string | undefined | null, query: string): boolean {
+  const tokens = normalizeAccentFree(query).trim().split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return true;
+  const target = normalizeAccentFree(haystack);
+  return tokens.every(token => target.includes(token));
+}
+
 /**
  * Normalise une chaîne de caractères pour la recherche :
  * - Minuscules

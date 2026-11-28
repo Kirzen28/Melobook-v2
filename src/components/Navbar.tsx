@@ -26,13 +26,11 @@ import {
   Cloud,
   Piano,
   Tv,
-  Pencil,
   Map as RoadmapIcon,
   CalendarCheck2
 } from 'lucide-react';
 import { MelobookLogo } from './MelobookLogo';
 import { MetronomeIcon } from './MetronomeIcon';
-import { ProfilePictureModal } from './ProfilePictureModal';
 import { UserAvatar } from '../utils/avatarPresets';
 import { metronomeAudio } from '../utils/metronomeAudio';
 import { formatAccessSummary } from '../utils/accessUtils';
@@ -62,19 +60,18 @@ export const Navbar: React.FC = () => {
     effectiveAccesses,
     isRegieOnly,
     canAccessRepertoire,
-    canAccessSetlistsView,
     canAccessPlanning,
+    canAccessMembers,
     canAccessProjection,
     canAccessTools,
     canAccessGroupsView,
-    canAccessSettings
+    canAccessSettings,
+    isSuperAdmin
   } = useApp();
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isProfilePictureModalOpen, setIsProfilePictureModalOpen] = useState(false);
   const [isMetronomeActive, setIsMetronomeActive] = useState(false);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
-  const canEditProfilePicture = Boolean(currentUser && !isGuest);
 
   useEffect(() => {
     return metronomeAudio.subscribeState(s => {
@@ -203,28 +200,6 @@ export const Navbar: React.FC = () => {
                 </button>
               )}
 
-              {canAccessSetlistsView && (
-                <button
-                  type="button"
-                  onClick={() => handleNavClick('setlists')}
-                  className={`relative z-10 flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold whitespace-nowrap transition-colors cursor-pointer ${
-                    activeTab === 'setlists'
-                      ? 'text-slate-900 dark:text-white'
-                      : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
-                  }`}
-                >
-                  {activeTab === 'setlists' && (
-                    <motion.span
-                      layoutId="active-mobile-nav-indicator"
-                      className="absolute inset-0 bg-[#EDF1F5] dark:bg-[#1C1C1E] rounded-md border border-slate-300 dark:border-[#333] -z-10 shadow-xs"
-                      transition={NAV_SPRING}
-                    />
-                  )}
-                  <ListMusic className={`w-3 h-3 ${activeTab === 'setlists' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-gray-400'}`} />
-                  <span>Listes</span>
-                </button>
-              )}
-
               {canAccessProjection && isRegieOnly && (
                 <button
                   type="button"
@@ -268,6 +243,28 @@ export const Navbar: React.FC = () => {
                   <span>Planning</span>
                 </button>
               )}
+
+              {canAccessMembers && (
+                <button
+                  type="button"
+                  onClick={() => handleNavClick('members')}
+                  className={`relative z-10 flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold whitespace-nowrap transition-colors cursor-pointer ${
+                    activeTab === 'members'
+                      ? 'text-slate-900 dark:text-white'
+                      : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  {activeTab === 'members' && (
+                    <motion.span
+                      layoutId="active-mobile-nav-indicator"
+                      className="absolute inset-0 bg-[#EDF1F5] dark:bg-[#1C1C1E] rounded-md border border-slate-300 dark:border-[#333] -z-10 shadow-xs"
+                      transition={NAV_SPRING}
+                    />
+                  )}
+                  <Users className={`w-3 h-3 ${activeTab === 'members' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-gray-400'}`} />
+                  <span>Membres</span>
+                </button>
+              )}
             </div>
 
             {/* Version Tablette / Laptop / Desktop (>= md) */}
@@ -293,27 +290,6 @@ export const Navbar: React.FC = () => {
                 </button>
               )}
 
-              {canAccessSetlistsView && (
-                <button
-                  onClick={() => setActiveTab('setlists')}
-                  className={`relative z-10 flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
-                    activeTab === 'setlists'
-                      ? 'text-slate-900 dark:text-white'
-                      : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
-                  }`}
-                >
-                  {activeTab === 'setlists' && (
-                    <motion.span
-                      layoutId="active-nav-indicator"
-                      className="absolute inset-0 bg-[#EDF1F5] dark:bg-[#1C1C1E] rounded-md border border-slate-300 dark:border-[#333] -z-10 shadow-sm"
-                      transition={NAV_SPRING}
-                    />
-                  )}
-                  <ListMusic className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                  <span>Setlists</span>
-                </button>
-              )}
-
               {canAccessPlanning && (
                 <button
                   type="button"
@@ -333,6 +309,28 @@ export const Navbar: React.FC = () => {
                   )}
                   <CalendarCheck2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                   <span>Planning</span>
+                </button>
+              )}
+
+              {canAccessMembers && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('members')}
+                  className={`relative z-10 flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
+                    activeTab === 'members'
+                      ? 'text-slate-900 dark:text-white'
+                      : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  {activeTab === 'members' && (
+                    <motion.span
+                      layoutId="active-nav-indicator"
+                      className="absolute inset-0 bg-[#EDF1F5] dark:bg-[#1C1C1E] rounded-md border border-slate-300 dark:border-[#333] -z-10 shadow-sm"
+                      transition={NAV_SPRING}
+                    />
+                  )}
+                  <Users className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                  <span>Membres</span>
                 </button>
               )}
 
@@ -390,6 +388,22 @@ export const Navbar: React.FC = () => {
               </button>
             )}
 
+            {!isGuest && isSuperAdmin && (
+              <button
+                type="button"
+                onClick={() => handleNavClick('superadmin')}
+                className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-xs font-semibold transition-colors cursor-pointer ${
+                  activeTab === 'superadmin'
+                    ? 'bg-amber-500/15 border-amber-500/40 text-amber-700 dark:text-amber-300'
+                    : 'bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-slate-200 dark:hover:bg-[#2A2A2D] text-slate-800 dark:text-gray-200 border-slate-300 dark:border-[#333]'
+                }`}
+                title="Espace Admin Suprême"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                <span className="hidden lg:inline">Admin Suprême</span>
+              </button>
+            )}
+
             {/* Hamburger Dropdown Menu (accessible mobile et desktop) */}
             <div className="relative" ref={mobileMenuRef}>
               <button
@@ -428,42 +442,15 @@ export const Navbar: React.FC = () => {
                   {/* En-tête profil compact */}
                   <div className="px-3 py-2 bg-slate-50 dark:bg-[#141417] flex items-center justify-between gap-2.5">
                     {/* Infos utilisateur */}
-                    <div
-                      onClick={canEditProfilePicture ? () => {
-                        setIsProfilePictureModalOpen(true);
-                        setIsMobileMenuOpen(false);
-                      } : undefined}
-                      onKeyDown={canEditProfilePicture ? (e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          setIsProfilePictureModalOpen(true);
-                          setIsMobileMenuOpen(false);
-                        }
-                      } : undefined}
-                      role={canEditProfilePicture ? 'button' : undefined}
-                      tabIndex={canEditProfilePicture ? 0 : undefined}
-                      title={canEditProfilePicture ? 'Choisir un avatar SVG' : undefined}
-                      aria-label={canEditProfilePicture ? 'Choisir un avatar SVG' : undefined}
-                      className={`flex items-center gap-2 min-w-0 flex-1 ${
-                        canEditProfilePicture
-                          ? 'group/avatar cursor-pointer rounded-lg p-1 -m-1 hover:bg-slate-200/70 dark:hover:bg-[#1C1C1F] transition-colors'
-                          : ''
-                      }`}
-                    >
-                      {/* Avatar avec pastille de synchronisation */}
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      {/* Avatar initiales avec pastille de synchronisation */}
                       <div className="relative w-7 h-7 rounded-full shrink-0 shadow-xs">
                         <UserAvatar
-                          photoURL={currentUser?.photoURL}
                           displayName={currentUser?.displayName}
                           sizeClass="w-7 h-7 text-xs"
                           iconClass="w-3.5 h-3.5"
                           fallbackClassName="bg-[#EDF1F5] dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] text-slate-900 dark:text-white"
                         />
-                        {canEditProfilePicture && (
-                          <span className="absolute inset-0 bg-black/55 flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-opacity rounded-full z-20">
-                            <Pencil className="w-3 h-3 text-slate-900 dark:text-white" />
-                          </span>
-                        )}
                         <span className="absolute -bottom-0.5 -right-0.5 flex h-2 w-2 pointer-events-none z-10">
                           {syncStatus === 'syncing' && (
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
@@ -628,8 +615,8 @@ export const Navbar: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Sélecteur de bibliothèque compact pour les comptes Régie uniquement multi-bibliothèques */}
-                  {!isGuest && isRegieOnly && groups.length > 1 && (
+                  {/* Sélecteur de bibliothèque compact (Régie ou Admin Suprême multi-bibliothèques) */}
+                  {!isGuest && (isRegieOnly || isSuperAdmin) && groups.length > 1 && (
                     <div className="py-1.5 px-3.5 space-y-1">
                       <div className="text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-gray-400">
                         Bibliothèque
@@ -688,6 +675,26 @@ export const Navbar: React.FC = () => {
                         </div>
                         {activeTab === 'groups' && (
                           <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                        )}
+                      </button>
+                    )}
+
+                    {!isGuest && isSuperAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => handleNavClick('superadmin')}
+                        className={`w-full text-left px-3.5 py-2 flex items-center justify-between transition-colors cursor-pointer ${
+                          activeTab === 'superadmin'
+                            ? 'bg-[#EDF1F5] dark:bg-[#1C1C1E] text-amber-600 dark:text-amber-400 font-semibold'
+                            : 'text-slate-700 dark:text-gray-300 hover:bg-slate-200/70 dark:hover:bg-[#1C1C1E] hover:text-slate-900 dark:hover:text-white'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <ShieldCheck className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                          <span>Admin Suprême</span>
+                        </div>
+                        {activeTab === 'superadmin' && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
                         )}
                       </button>
                     )}
@@ -753,12 +760,6 @@ export const Navbar: React.FC = () => {
         </div>
       </div>
     </header>
-    {canEditProfilePicture && (
-      <ProfilePictureModal
-        isOpen={isProfilePictureModalOpen}
-        onClose={() => setIsProfilePictureModalOpen(false)}
-      />
-    )}
     </>
   );
 };

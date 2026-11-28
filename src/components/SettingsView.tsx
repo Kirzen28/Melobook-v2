@@ -50,7 +50,6 @@ import {
 } from 'lucide-react';
 import { useMidi } from '../context/MidiContext';
 import { MidiSettingsModal } from './MidiSettingsModal';
-import { UserAvatarSelector } from './UserAvatarSelector';
 import { 
   COLOR_PRESETS, 
   SECTION_TYPES_LIST, 
@@ -1752,9 +1751,6 @@ export const SettingsView: React.FC = () => {
               </button>
             </div>
           </section>
-
-          {/* USER AVATAR SELECTOR */}
-          {!isGuest && <UserAvatarSelector />}
 
           {/* 1. STAGE DISPLAY & NOTATION SETTINGS */}
           <div className="bg-white dark:bg-[#111112] border border-slate-200 dark:border-[#222224] rounded-xl overflow-hidden shadow-sm transition-colors hover:border-slate-400 dark:hover:border-[#303036]">

@@ -20,14 +20,14 @@ async function checkAll() {
   const { SettingsView } = await import('./src/components/SettingsView');
   const { SongReader } = await import('./src/components/SongReader');
   const { PresentationManager } = await import('./src/components/PresentationManager');
-  const { SetlistManager } = await import('./src/components/SetlistManager');
+  const { PlanningManager } = await import('./src/components/PlanningManager');
   const { SongEditor } = await import('./src/components/SongEditor');
 
   const comps = [
     { name: 'SettingsView', comp: SettingsView },
     { name: 'SongReader', comp: SongReader },
     { name: 'PresentationManager', comp: PresentationManager },
-    { name: 'SetlistManager', comp: SetlistManager },
+    { name: 'PlanningManager', comp: PlanningManager },
     { name: 'SongEditor', comp: SongEditor }
   ];
 

@@ -1045,8 +1045,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (snap.exists()) {
             const data = snap.data() as UserProfile;
             const mergedUser: UserProfile = {
-              ...data,
-              photoURL: data.photoURL || user.photoURL || undefined
+              ...data
             };
             setCurrentUser(mergedUser);
           } else {
@@ -1079,8 +1078,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               email: user.email || '',
               displayName: user.displayName || user.email?.split('@')[0] || 'Musicien',
               currentGroupId: 'default-group',
-              role,
-              photoURL: user.photoURL || undefined
+              role
             };
             await setDoc(userRef, newUser);
             setCurrentUser(newUser);
@@ -2478,22 +2476,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     // 3. Update React AppContext state & local storage
-    setCurrentUser(prev => prev ? { ...prev, photoURL: downloadURL } : {
+    setCurrentUser(prev => prev ? { ...prev } : {
       uid: userId,
       email: auth.currentUser?.email || '',
       displayName: auth.currentUser?.displayName || 'Musicien',
       currentGroupId: 'default-group',
-      role: 'member',
-      photoURL: downloadURL
+      role: 'member'
     });
 
-    setAllUsers(prev => {
-      const exists = prev.some(u => u.uid === userId);
-      if (exists) {
-        return prev.map(u => u.uid === userId ? { ...u, photoURL: downloadURL } : u);
-      }
-      return prev;
-    });
+    setAllUsers(prev => prev);
 
     try {
       const saved = localStorage.getItem('songbook_user');
@@ -2527,8 +2518,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await setDoc(userDocRef, { photoURL: '' }, { merge: true });
     } catch (e) {}
 
-    setCurrentUser(prev => prev ? { ...prev, photoURL: undefined } : null);
-    setAllUsers(prev => prev.map(u => u.uid === userId ? { ...u, photoURL: undefined } : u));
+    setCurrentUser(prev => prev ? { ...prev } : null);
+    setAllUsers(prev => prev);
 
     try {
       const saved = localStorage.getItem('songbook_user');

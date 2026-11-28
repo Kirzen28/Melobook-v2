@@ -175,8 +175,7 @@ export const RoadmapDetailModal: React.FC<RoadmapDetailModalProps> = ({
     try {
       await addRoadmapComment(item, clean, {
         uid,
-        displayName: currentUser?.displayName || firebaseUser?.displayName || 'Musicien',
-        photoURL: currentUser?.photoURL || null
+        displayName: currentUser?.displayName || firebaseUser?.displayName || 'Musicien'
       });
       setCommentText('');
     } catch {
@@ -294,7 +293,6 @@ export const RoadmapDetailModal: React.FC<RoadmapDetailModalProps> = ({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2.5 min-w-0">
               <UserAvatar
-                photoURL={item.authorPhotoURL}
                 displayName={item.authorName}
                 sizeClass="w-8 h-8 text-xs"
                 iconClass="w-4 h-4"
@@ -417,7 +415,6 @@ export const RoadmapDetailModal: React.FC<RoadmapDetailModalProps> = ({
                       className="flex items-start gap-2.5 pb-3 border-b border-slate-200 dark:border-[#1E1E22] last:border-b-0 last:pb-0"
                     >
                       <UserAvatar
-                        photoURL={cmt.authorPhotoURL}
                         displayName={cmt.authorName}
                         sizeClass="w-7 h-7 text-[11px]"
                         iconClass="w-3.5 h-3.5"

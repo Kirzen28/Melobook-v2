@@ -1,19 +1,50 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { useApp } from '../context/AppContext';
+import { isSafeCustomLogoDataUrl } from '../utils/brandingUtils';
 
 interface MelobookLogoProps {
   className?: string;
   size?: number;
+  overrideLogoUrl?: string | null;
+  forceDefault?: boolean;
 }
 
 export const MelobookLogo: React.FC<MelobookLogoProps> = ({ 
   className = 'w-9 h-9 sm:w-10 sm:h-10', 
-  size 
+  size,
+  overrideLogoUrl,
+  forceDefault = false
 }) => {
+  const { appBranding } = useApp();
+  const [imgError, setImgError] = useState(false);
+
+  const customUrl = forceDefault
+    ? null
+    : overrideLogoUrl !== undefined
+      ? overrideLogoUrl
+      : appBranding?.logoMode === 'custom'
+        ? appBranding.customLogoDataUrl
+        : null;
+
+  useEffect(() => {
+    setImgError(false);
+  }, [customUrl]);
+
+  const showCustomImage = !imgError && isSafeCustomLogoDataUrl(customUrl);
+
   return (
     <div 
       className={`inline-flex items-center justify-center shrink-0 ${className}`}
       style={size ? { width: size, height: size } : undefined}
     >
+      {showCustomImage ? (
+        <img
+          src={customUrl}
+          alt="Logo application"
+          className="w-full h-full object-contain rounded-md"
+          onError={() => setImgError(true)}
+        />
+      ) : (
       <svg
         viewBox="0 0 500 500"
         width="100%"
@@ -277,6 +308,7 @@ export const MelobookLogo: React.FC<MelobookLogoProps> = ({
           </g>
         </g>
       </svg>
+      )}
     </div>
   );
 };

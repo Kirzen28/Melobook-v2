@@ -9,15 +9,19 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  Copy,
+  Download,
   Edit3,
-  ExternalLink,
+  FileDown,
   Layers,
   ListMusic,
   MapPin,
   Mic2,
   Monitor,
   Music2,
+  Pencil,
   Plus,
+  Share2,
   Sparkles,
   Trash2,
   UserCheck,
@@ -33,21 +37,36 @@ import {
   PlanningSlot,
   PlanningTeam,
   PlanningTeamMember,
-  Setlist
+  Setlist,
+  Song
 } from '../types';
+import { formatSetlistDuration, parseDurationToSeconds } from '../utils/chordUtils';
+import { SetlistSongsPanel } from './SetlistSongsPanel';
+import { SetlistAddSongsModal } from './SetlistAddSongsModal';
+import { SetlistPdfModal } from './SetlistPdfModal';
+import { LiveSetlistPlayer } from './LiveSetlistPlayer';
 import {
   AVAILABILITY_STATUS_META,
-  PLANNING_POLE_META,
   PLANNING_POLE_ORDER,
+  buildPlanningPoleMetaMap,
   countSlotsByPole,
   formatPlanningDateFr,
   formatPlanningDateLongFr,
   getAssignmentForSetlist,
   getTodayIsoDate,
+  groupRehearsalsByDate,
   isValidIsoDate,
   mergeTeamMembersIntoSlots,
   sortMembersByAvailability
 } from '../utils/planningUtils';
+import {
+  PlanningExportPeriodMode,
+  PlanningExportScope,
+  filterPlanningTargetsForExport,
+  generatePlanningCsv,
+  generatePlanningPdf
+} from '../utils/planningExport';
+import { buildBulkSlotsForMemberGroup, countActiveMembersInGroup } from '../utils/memberGroupsUtils';
 import { MODAL_BACKDROP_MOTION, MODAL_PANEL_MOTION, STAGE_EASE } from '../utils/motionPresets';
 import { UserAvatar } from '../utils/avatarPresets';
 import { DarkDateInput } from './SetlistDatePickerModal';
@@ -85,17 +104,28 @@ function formatIsoYmd(y: number, mZeroIndexed: number, d: number): string {
 export const PlanningManager: React.FC = () => {
   const {
     currentUser,
+    currentGroup,
     allUsers,
+    memberSkillsConfig,
+    songs,
     setlists,
+    selectedSetlist,
     planningTeams,
     planningAvailabilities,
     planningAssignments,
+    memberGroups,
     selectedPlanningTargetId,
     setSelectedPlanningTargetId,
     canManagePlanning,
-    canAccessSetlistsView,
+    canManageSetlists,
     setSelectedSetlist,
-    setActiveTab,
+    setSelectedSong,
+    setActiveSetlistIndex,
+    isLiveSetlistOpen,
+    setIsLiveSetlistOpen,
+    createSetlist,
+    updateSetlist,
+    deleteSetlist,
     createPlanningTeam,
     updatePlanningTeam,
     deletePlanningTeam,
@@ -105,6 +135,11 @@ export const PlanningManager: React.FC = () => {
     deletePlanningAssignment,
     showNotification
   } = useApp();
+
+  const poleMetaMap = useMemo(
+    () => buildPlanningPoleMetaMap(memberSkillsConfig),
+    [memberSkillsConfig]
+  );
 
   const todayIso = getTodayIsoDate();
   const [todayY, todayM] = useMemo(() => {
@@ -120,6 +155,22 @@ export const PlanningManager: React.FC = () => {
   const [calMonth, setCalMonth] = useState<number>(todayM);
   const [selectedDate, setSelectedDate] = useState<string>(todayIso);
   const [isDayDrawerOpen, setIsDayDrawerOpen] = useState(false);
+  const [drawerTab, setDrawerTab] = useState<'team' | 'setlist'>('team');
+  const [isAddSongModalOpen, setIsAddSongModalOpen] = useState(false);
+  const [pdfModalSetlist, setPdfModalSetlist] = useState<Setlist | null>(null);
+  const [confirmDeleteSetlistId, setConfirmDeleteSetlistId] = useState<string | null>(null);
+
+  // Create / Edit setlist modals
+  const [isCreateSetlistOpen, setIsCreateSetlistOpen] = useState(false);
+  const [newSetName, setNewSetName] = useState('');
+  const [newSetDate, setNewSetDate] = useState(todayIso);
+  const [newSetNotes, setNewSetNotes] = useState('');
+  const [editingSetlist, setEditingSetlist] = useState<Setlist | null>(null);
+  const [editSetName, setEditSetName] = useState('');
+  const [editSetDate, setEditSetDate] = useState('');
+  const [editSetNotes, setEditSetNotes] = useState('');
+  const drawerTeamTabRef = useRef<HTMLButtonElement>(null);
+  const drawerSetlistTabRef = useRef<HTMLButtonElement>(null);
   const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
   const [pickerYear, setPickerYear] = useState<number>(todayY);
   const monthPickerRef = useRef<HTMLDivElement>(null);
@@ -129,11 +180,15 @@ export const PlanningManager: React.FC = () => {
   const [detailCallTime, setDetailCallTime] = useState('');
   const [detailServiceTime, setDetailServiceTime] = useState('');
   const [detailLocation, setDetailLocation] = useState('');
+  const [detailRehearsalDate, setDetailRehearsalDate] = useState('');
+  const [detailRehearsalTime, setDetailRehearsalTime] = useState('');
+  const [detailRehearsalLocation, setDetailRehearsalLocation] = useState('');
   const [detailNotes, setDetailNotes] = useState('');
 
   // Inline slot add per pôle
   const [addingPole, setAddingPole] = useState<PlanningPole | null>(null);
   const [slotMemberUid, setSlotMemberUid] = useState<string>('');
+  const [slotGroupFilterId, setSlotGroupFilterId] = useState<string>('all');
   const [slotCustomName, setSlotCustomName] = useState<string>('');
   const [slotRoleLabel, setSlotRoleLabel] = useState<string>('');
   const [slotExternalMode, setSlotExternalMode] = useState<boolean>(false);
@@ -156,6 +211,17 @@ export const PlanningManager: React.FC = () => {
   const [newPlanCallTime, setNewPlanCallTime] = useState('08:30');
   const [newPlanServiceTime, setNewPlanServiceTime] = useState('10:00');
   const [newPlanLocation, setNewPlanLocation] = useState('');
+  const [newPlanRehearsalDate, setNewPlanRehearsalDate] = useState('');
+  const [newPlanRehearsalTime, setNewPlanRehearsalTime] = useState('');
+  const [newPlanRehearsalLocation, setNewPlanRehearsalLocation] = useState('');
+
+  // Export planning modal state
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [exportPeriodMode, setExportPeriodMode] = useState<PlanningExportPeriodMode>('month');
+  const [exportScope, setExportScope] = useState<PlanningExportScope>('all');
+  const [exportStartDate, setExportStartDate] = useState(todayIso);
+  const [exportEndDate, setExportEndDate] = useState(todayIso);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   // Date availability drawer inside planning view
   const [showDateAvailPanel, setShowDateAvailPanel] = useState(false);
@@ -209,6 +275,12 @@ export const PlanningManager: React.FC = () => {
       isTeamModalOpen ||
       Boolean(teamApplyModalTeam) ||
       isMonthPickerOpen ||
+      isAddSongModalOpen ||
+      Boolean(pdfModalSetlist) ||
+      isCreateSetlistOpen ||
+      Boolean(editingSetlist) ||
+      isLiveSetlistOpen ||
+      isExportModalOpen ||
       Boolean(editingSlotId) ||
       Boolean(editingNoteDate);
     if (hasOverlayOrInlineEdit) return;
@@ -226,9 +298,151 @@ export const PlanningManager: React.FC = () => {
     isTeamModalOpen,
     teamApplyModalTeam,
     isMonthPickerOpen,
+    isExportModalOpen,
     editingSlotId,
     editingNoteDate
   ]);
+
+  useEffect(() => {
+    if (!isExportModalOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsExportModalOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isExportModalOpen]);
+
+  const existingSongIdsSet = useMemo(() => new Set(songs.map(s => s.id)), [songs]);
+  const songsById = useMemo(() => new Map(songs.map(s => [s.id, s])), [songs]);
+
+  const handleLaunchLive = (st: Setlist, startIndex = 0) => {
+    const liveSetlist = setlists.find(s => s.id === st.id) || st;
+    const validSongs = liveSetlist.songIds
+      .map(id => songsById.get(id))
+      .filter((s): s is Song => Boolean(s));
+    setSelectedSetlist(liveSetlist);
+    setActiveSetlistIndex(startIndex);
+    if (validSongs[startIndex]) {
+      setSelectedSong(validSongs[startIndex]);
+    }
+    setIsLiveSetlistOpen(true);
+  };
+
+  const handleToggleSongInDrawerSetlist = async (songId: string) => {
+    const st = activeTarget?.setlist;
+    if (!st) return;
+    const validIds = st.songIds.filter(id => existingSongIdsSet.has(id) || id === songId);
+    const newSongIds = validIds.includes(songId)
+      ? validIds.filter(id => id !== songId)
+      : [...validIds, songId];
+    await updateSetlist(st.id, { songIds: newSongIds });
+  };
+
+  const handleAddMultipleSongsToDrawerSetlist = async (songIdsToAdd: string[]) => {
+    const st = activeTarget?.setlist;
+    if (!st) return;
+    const addSet = new Set(songIdsToAdd);
+    const newIds = st.songIds.filter(id => existingSongIdsSet.has(id) || addSet.has(id));
+    const existing = new Set(newIds);
+    songIdsToAdd.forEach(id => {
+      if (!existing.has(id)) {
+        newIds.push(id);
+        existing.add(id);
+      }
+    });
+    await updateSetlist(st.id, { songIds: newIds });
+  };
+
+  const handleRemoveMultipleSongsFromDrawerSetlist = async (songIdsToRemove: string[]) => {
+    const st = activeTarget?.setlist;
+    if (!st) return;
+    const removeSet = new Set(songIdsToRemove);
+    const newIds = st.songIds.filter(id => !removeSet.has(id) && existingSongIdsSet.has(id));
+    await updateSetlist(st.id, { songIds: newIds });
+  };
+
+  useEffect(() => {
+    if (!confirmDeleteSetlistId) return;
+    const timer = window.setTimeout(() => setConfirmDeleteSetlistId(null), 4000);
+    return () => window.clearTimeout(timer);
+  }, [confirmDeleteSetlistId]);
+
+  const handleOpenEditSetlistModal = (st: Setlist) => {
+    setEditingSetlist(st);
+    setEditSetName(st.name || '');
+    setEditSetDate(st.date || todayIso);
+    setEditSetNotes(st.notes || '');
+  };
+
+  const handleSaveEditSetlist = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingSetlist || !editSetName.trim()) return;
+    const trimmedName = editSetName.trim();
+    const trimmedNotes = editSetNotes.trim().slice(0, 5000);
+    await updateSetlist(editingSetlist.id, {
+      name: trimmedName,
+      date: editSetDate,
+      notes: trimmedNotes
+    });
+    if (selectedSetlist?.id === editingSetlist.id) {
+      setSelectedSetlist({
+        ...selectedSetlist,
+        name: trimmedName,
+        date: editSetDate,
+        notes: trimmedNotes
+      });
+    }
+    if (isValidIsoDate(editSetDate)) {
+      const [y, m] = editSetDate.split('-').map(Number);
+      setCalYear(y);
+      setCalMonth(m - 1);
+      setSelectedDate(editSetDate);
+    }
+    setEditingSetlist(null);
+  };
+
+  const handleCreateNewSetlist = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSetName.trim()) return;
+    const trimmedNotes = newSetNotes.trim().slice(0, 5000);
+    const newId = await createSetlist({
+      name: newSetName.trim(),
+      date: newSetDate,
+      songIds: [],
+      notes: trimmedNotes,
+      targetDuration: 25
+    });
+    if (newId) {
+      if (isValidIsoDate(newSetDate)) {
+        const [y, m] = newSetDate.split('-').map(Number);
+        setCalYear(y);
+        setCalMonth(m - 1);
+        setSelectedDate(newSetDate);
+      }
+      setSelectedPlanningTargetId(newId);
+      setDrawerTab('setlist');
+      setIsDayDrawerOpen(true);
+    }
+    setNewSetName('');
+    setNewSetNotes('');
+    setIsCreateSetlistOpen(false);
+  };
+
+  const handleDuplicateSetlist = async (st: Setlist) => {
+    const newId = await createSetlist({
+      name: `${st.name} (copie)`,
+      date: st.date || todayIso,
+      songIds: [...st.songIds],
+      songOverrides: st.songOverrides ? JSON.parse(JSON.stringify(st.songOverrides)) : undefined,
+      notes: st.notes || '',
+      targetDuration: st.targetDuration || 20
+    });
+    if (newId) {
+      setSelectedPlanningTargetId(newId);
+      setDrawerTab('setlist');
+      showNotification('Setlist dupliquée.', 'success');
+    }
+  };
 
   // Unified targets: setlists + standalone planningAssignments
   const allTargets = useMemo<PlanningTarget[]>(() => {
@@ -272,6 +486,123 @@ export const PlanningManager: React.FC = () => {
     });
   }, [setlists, planningAssignments]);
 
+  const activeYearMonth = `${calYear}-${String(calMonth + 1).padStart(2, '0')}`;
+
+  const exportTargets = useMemo(
+    () =>
+      filterPlanningTargetsForExport(allTargets, {
+        periodMode: exportPeriodMode,
+        scope: exportScope,
+        currentUid: currentUser?.uid,
+        yearMonth: activeYearMonth,
+        todayIso,
+        startDate: exportStartDate,
+        endDate: exportEndDate
+      }),
+    [
+      allTargets,
+      exportPeriodMode,
+      exportScope,
+      currentUser?.uid,
+      activeYearMonth,
+      todayIso,
+      exportStartDate,
+      exportEndDate
+    ]
+  );
+
+  const exportRehearsalCount = useMemo(
+    () => exportTargets.filter(t => isValidIsoDate(t.assignment?.rehearsalDate)).length,
+    [exportTargets]
+  );
+
+  const exportPeriodMeta = useMemo(() => {
+    const scopeSuffix = exportScope === 'mine' ? ' (Mes services)' : '';
+    if (exportPeriodMode === 'month') {
+      return {
+        label: `${MONTH_NAMES_FR[calMonth]} ${calYear}${scopeSuffix}`,
+        slug: activeYearMonth
+      };
+    }
+    if (exportPeriodMode === 'upcoming') {
+      return {
+        label: `À venir à partir du ${formatPlanningDateFr(todayIso)}${scopeSuffix}`,
+        slug: `avenir-${todayIso}`
+      };
+    }
+    const startLabel = isValidIsoDate(exportStartDate) ? formatPlanningDateFr(exportStartDate) : '...';
+    const endLabel = isValidIsoDate(exportEndDate) ? formatPlanningDateFr(exportEndDate) : '...';
+    return {
+      label: `Du ${startLabel} au ${endLabel}${scopeSuffix}`,
+      slug: `${exportStartDate || 'debut'}_${exportEndDate || 'fin'}`
+    };
+  }, [exportPeriodMode, exportScope, calMonth, calYear, activeYearMonth, todayIso, exportStartDate, exportEndDate]);
+
+  const openExportModal = () => {
+    setExportScope(calendarFilter);
+    setExportPeriodMode('month');
+    const monthStart = `${activeYearMonth}-01`;
+    const lastDay = new Date(calYear, calMonth + 1, 0).getDate();
+    const monthEnd = formatIsoYmd(calYear, calMonth, lastDay);
+    setExportStartDate(monthStart);
+    setExportEndDate(monthEnd);
+    setIsExportModalOpen(true);
+  };
+
+  const handleExportCsv = () => {
+    if (exportTargets.length === 0) return;
+    const { csvContent, fileName } = generatePlanningCsv(
+      exportTargets,
+      songsById,
+      currentGroup?.name || 'Groupe',
+      exportPeriodMeta.slug
+    );
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showNotification('Planning exporté en CSV.', 'success');
+  };
+
+  const handleExportPdf = (share = false) => {
+    if (exportTargets.length === 0 || isExportingPdf) return;
+    setIsExportingPdf(true);
+    try {
+      const { doc, blob, fileName } = generatePlanningPdf({
+        items: exportTargets,
+        songsById,
+        poleMetaMap,
+        groupName: currentGroup?.name || 'Groupe',
+        periodLabel: exportPeriodMeta.label,
+        periodSlug: exportPeriodMeta.slug
+      });
+      if (share && typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+        const file = new File([blob], fileName, { type: 'application/pdf' });
+        if (!navigator.canShare || navigator.canShare({ files: [file] })) {
+          navigator
+            .share({
+              title: `Planning - ${currentGroup?.name || 'Groupe'}`,
+              text: exportPeriodMeta.label,
+              files: [file]
+            })
+            .catch(() => {
+              doc.save(fileName);
+            });
+          return;
+        }
+      }
+      doc.save(fileName);
+      showNotification('Planning exporté en PDF.', 'success');
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
   const filteredTargets = useMemo(() => {
     if (calendarFilter !== 'mine') return allTargets;
     return allTargets.filter(t =>
@@ -279,7 +610,7 @@ export const PlanningManager: React.FC = () => {
     );
   }, [allTargets, calendarFilter, currentUser?.uid]);
 
-  const { targetsByDate, undatedTargets } = useMemo(() => {
+  const { targetsByDate, undatedTargets, rehearsalsByDate } = useMemo(() => {
     const byDate = new Map<string, PlanningTarget[]>();
     const undated: PlanningTarget[] = [];
     for (const t of filteredTargets) {
@@ -291,7 +622,11 @@ export const PlanningManager: React.FC = () => {
       arr.push(t);
       byDate.set(t.date, arr);
     }
-    return { targetsByDate: byDate, undatedTargets: undated };
+    return {
+      targetsByDate: byDate,
+      undatedTargets: undated,
+      rehearsalsByDate: groupRehearsalsByDate(filteredTargets)
+    };
   }, [filteredTargets]);
 
   // Deep-link from SetlistManager: jump calendar to target's month & date and open drawer
@@ -312,6 +647,11 @@ export const PlanningManager: React.FC = () => {
   const targetsForSelectedDate = useMemo(
     () => targetsByDate.get(selectedDate) || [],
     [targetsByDate, selectedDate]
+  );
+
+  const rehearsalsForSelectedDate = useMemo(
+    () => rehearsalsByDate.get(selectedDate) || [],
+    [rehearsalsByDate, selectedDate]
   );
 
   // Active target for the detail panel:
@@ -336,12 +676,18 @@ export const PlanningManager: React.FC = () => {
     setDetailCallTime(activeTarget.assignment?.callTime || '');
     setDetailServiceTime(activeTarget.assignment?.serviceTime || '');
     setDetailLocation(activeTarget.assignment?.location || '');
+    setDetailRehearsalDate(activeTarget.assignment?.rehearsalDate || '');
+    setDetailRehearsalTime(activeTarget.assignment?.rehearsalTime || '');
+    setDetailRehearsalLocation(activeTarget.assignment?.rehearsalLocation || '');
     setDetailNotes(activeTarget.assignment?.notes || '');
   }, [
     activeTarget?.id,
     activeTarget?.assignment?.callTime,
     activeTarget?.assignment?.serviceTime,
     activeTarget?.assignment?.location,
+    activeTarget?.assignment?.rehearsalDate,
+    activeTarget?.assignment?.rehearsalTime,
+    activeTarget?.assignment?.rehearsalLocation,
     activeTarget?.assignment?.notes
   ]);
 
@@ -456,6 +802,19 @@ export const PlanningManager: React.FC = () => {
     [allUsers, availabilitiesForDetailDate]
   );
 
+  const activeUserUids = useMemo(() => new Set(allUsers.map(u => u.uid)), [allUsers]);
+
+  const selectedSlotMemberGroup = useMemo(
+    () => (slotGroupFilterId === 'all' ? null : memberGroups.find(mg => mg.id === slotGroupFilterId) || null),
+    [slotGroupFilterId, memberGroups]
+  );
+
+  const filteredMembersForSlotAdd = useMemo(() => {
+    if (!selectedSlotMemberGroup) return sortedMembersForDetailDate;
+    const uidSet = new Set(selectedSlotMemberGroup.memberIds || []);
+    return sortedMembersForDetailDate.filter(item => uidSet.has(item.user.uid));
+  }, [sortedMembersForDetailDate, selectedSlotMemberGroup]);
+
   const availCountsForDetailDate = useMemo(() => {
     let available = 0;
     let maybe = 0;
@@ -492,7 +851,20 @@ export const PlanningManager: React.FC = () => {
   const persistSlotsForTarget = async (
     target: PlanningTarget,
     nextSlots: PlanningSlot[],
-    extra?: Partial<Pick<PlanningAssignment, 'callTime' | 'serviceTime' | 'location' | 'notes' | 'teamPresetId' | 'teamPresetName'>>
+    extra?: Partial<
+      Pick<
+        PlanningAssignment,
+        | 'callTime'
+        | 'serviceTime'
+        | 'location'
+        | 'rehearsalDate'
+        | 'rehearsalTime'
+        | 'rehearsalLocation'
+        | 'notes'
+        | 'teamPresetId'
+        | 'teamPresetName'
+      >
+    >
   ) => {
     const validDate = target.hasValidDate ? target.date : todayIso;
     await savePlanningAssignment({
@@ -504,6 +876,9 @@ export const PlanningManager: React.FC = () => {
       callTime: extra?.callTime !== undefined ? extra.callTime : target.assignment?.callTime,
       serviceTime: extra?.serviceTime !== undefined ? extra.serviceTime : target.assignment?.serviceTime,
       location: extra?.location !== undefined ? extra.location : target.assignment?.location,
+      rehearsalDate: extra?.rehearsalDate !== undefined ? extra.rehearsalDate : target.assignment?.rehearsalDate,
+      rehearsalTime: extra?.rehearsalTime !== undefined ? extra.rehearsalTime : target.assignment?.rehearsalTime,
+      rehearsalLocation: extra?.rehearsalLocation !== undefined ? extra.rehearsalLocation : target.assignment?.rehearsalLocation,
       teamPresetId: extra?.teamPresetId !== undefined ? extra.teamPresetId : target.assignment?.teamPresetId ?? null,
       teamPresetName: extra?.teamPresetName !== undefined ? extra.teamPresetName : target.assignment?.teamPresetName ?? null,
       notes: extra?.notes !== undefined ? extra.notes : target.assignment?.notes,
@@ -515,10 +890,13 @@ export const PlanningManager: React.FC = () => {
     e.preventDefault();
     if (!activeTarget || !canManagePlanning) return;
     await persistSlotsForTarget(activeTarget, activeTarget.slots, {
-      callTime: detailCallTime.trim() || undefined,
-      serviceTime: detailServiceTime.trim() || undefined,
-      location: detailLocation.trim() || undefined,
-      notes: detailNotes.trim() || undefined
+      callTime: detailCallTime.trim(),
+      serviceTime: detailServiceTime.trim(),
+      location: detailLocation.trim(),
+      rehearsalDate: isValidIsoDate(detailRehearsalDate) ? detailRehearsalDate.trim() : '',
+      rehearsalTime: detailRehearsalTime.trim(),
+      rehearsalLocation: detailRehearsalLocation.trim(),
+      notes: detailNotes.trim()
     });
     setIsEditingDetails(false);
     showNotification('Horaires enregistrés.', 'success');
@@ -527,10 +905,56 @@ export const PlanningManager: React.FC = () => {
   const openInlineAddForPole = (pole: PlanningPole) => {
     setAddingPole(pole);
     setSlotExternalMode(false);
+    setSlotGroupFilterId('all');
     setSlotCustomName('');
-    setSlotRoleLabel(PLANNING_POLE_META[pole].suggestedRoles[0] || '');
+    setSlotRoleLabel(poleMetaMap[pole].suggestedRoles[0] || '');
     const firstMember = sortedMembersForDetailDate[0]?.user;
     setSlotMemberUid(firstMember?.uid || '');
+  };
+
+  const handleChangeSlotGroupFilter = (nextGroupId: string) => {
+    setSlotGroupFilterId(nextGroupId);
+    if (nextGroupId === 'all') {
+      if (!slotMemberUid && sortedMembersForDetailDate[0]?.user) {
+        setSlotMemberUid(sortedMembersForDetailDate[0].user.uid);
+      }
+      return;
+    }
+    const targetGroup = memberGroups.find(mg => mg.id === nextGroupId);
+    const uidSet = new Set(targetGroup?.memberIds || []);
+    const matching = sortedMembersForDetailDate.filter(m => uidSet.has(m.user.uid));
+    if (matching.length > 0 && !matching.some(m => m.user.uid === slotMemberUid)) {
+      setSlotMemberUid(matching[0].user.uid);
+    } else if (matching.length === 0) {
+      setSlotMemberUid('');
+    }
+  };
+
+  const handleBulkAddMemberGroupToPole = async () => {
+    if (!activeTarget || !addingPole || !canManagePlanning || !selectedSlotMemberGroup) return;
+    const { nextSlots, addedCount } = buildBulkSlotsForMemberGroup({
+      memberGroup: selectedSlotMemberGroup,
+      existingSlots: activeTarget.slots,
+      pole: addingPole,
+      orderedMembers: sortedMembersForDetailDate.map(m => m.user),
+      suggestedRoles: poleMetaMap[addingPole].suggestedRoles
+    });
+
+    if (addedCount === 0) {
+      showNotification(
+        `Tous les membres de « ${selectedSlotMemberGroup.name} » sont déjà affectés sur ce pôle.`,
+        'info'
+      );
+      return;
+    }
+
+    await persistSlotsForTarget(activeTarget, nextSlots);
+    setAddingPole(null);
+    setSlotCustomName('');
+    showNotification(
+      `${addedCount} membre${addedCount > 1 ? 's' : ''} de « ${selectedSlotMemberGroup.name} » ajouté${addedCount > 1 ? 's' : ''}.`,
+      'success'
+    );
   };
 
   const handleConfirmAddSlot = async (e: React.FormEvent) => {
@@ -549,7 +973,7 @@ export const PlanningManager: React.FC = () => {
       memberName = found.displayName || found.email || 'Membre';
     }
 
-    const roleLabel = slotRoleLabel.trim() || PLANNING_POLE_META[addingPole].suggestedRoles[0];
+    const roleLabel = slotRoleLabel.trim() || poleMetaMap[addingPole].suggestedRoles[0] || 'Autre';
     const newSlot: PlanningSlot = {
       id: `slot_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       uid,
@@ -635,6 +1059,9 @@ export const PlanningManager: React.FC = () => {
       callTime: newPlanCallTime.trim() || undefined,
       serviceTime: newPlanServiceTime.trim() || undefined,
       location: newPlanLocation.trim() || undefined,
+      rehearsalDate: isValidIsoDate(newPlanRehearsalDate) ? newPlanRehearsalDate.trim() : undefined,
+      rehearsalTime: newPlanRehearsalTime.trim() || undefined,
+      rehearsalLocation: newPlanRehearsalLocation.trim() || undefined,
       slots: []
     });
     const [y, m] = newPlanDate.split('-').map(Number);
@@ -646,6 +1073,9 @@ export const PlanningManager: React.FC = () => {
     setIsDayDrawerOpen(true);
     setNewPlanTitle('');
     setNewPlanLocation('');
+    setNewPlanRehearsalDate('');
+    setNewPlanRehearsalTime('');
+    setNewPlanRehearsalLocation('');
     showNotification(`Date « ${title} » enregistrée.`, 'success');
   };
 
@@ -672,7 +1102,7 @@ export const PlanningManager: React.FC = () => {
     setTeamMembers([]);
     setNewTmUid(allUsers[0]?.uid || '');
     setNewTmPole('musique');
-    setNewTmRole(PLANNING_POLE_META.musique.suggestedRoles[0]);
+    setNewTmRole(poleMetaMap.musique.suggestedRoles[0] || '');
     setIsTeamModalOpen(true);
   };
 
@@ -683,14 +1113,14 @@ export const PlanningManager: React.FC = () => {
     setTeamMembers(team.members);
     setNewTmUid(allUsers[0]?.uid || '');
     setNewTmPole('musique');
-    setNewTmRole(PLANNING_POLE_META.musique.suggestedRoles[0]);
+    setNewTmRole(poleMetaMap.musique.suggestedRoles[0] || '');
     setIsTeamModalOpen(true);
   };
 
   const handleAddMemberToTeamDraft = () => {
     const user = allUsers.find(u => u.uid === newTmUid);
     if (!user) return;
-    const roleLabel = newTmRole.trim() || PLANNING_POLE_META[newTmPole].suggestedRoles[0];
+    const roleLabel = newTmRole.trim() || poleMetaMap[newTmPole].suggestedRoles[0] || 'Autre';
     const key = `${user.uid}:${newTmPole}:${roleLabel.toLowerCase()}`;
     if (teamMembers.some(m => `${m.uid}:${m.pole}:${m.roleLabel.toLowerCase()}` === key)) return;
     setTeamMembers(prev => [
@@ -873,6 +1303,15 @@ export const PlanningManager: React.FC = () => {
               </button>
             </div>
 
+            <button
+              type="button"
+              onClick={openExportModal}
+              className="px-3 py-1.5 rounded-lg bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-slate-200 dark:hover:bg-[#252529] border border-slate-300 dark:border-[#333] text-slate-800 dark:text-gray-200 text-xs font-semibold flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+            >
+              <Download className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+              <span>Exporter le Planning</span>
+            </button>
+
             {canManagePlanning && (
               <button
                 type="button"
@@ -880,10 +1319,26 @@ export const PlanningManager: React.FC = () => {
                   setNewPlanDate(selectedDate || todayIso);
                   setIsCreatePlanOpen(true);
                 }}
-                className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center gap-1 cursor-pointer whitespace-nowrap"
+                className="px-3 py-1.5 rounded-lg bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-slate-200 dark:hover:bg-[#252529] border border-slate-300 dark:border-[#333] text-slate-800 dark:text-gray-200 text-xs font-semibold flex items-center gap-1 cursor-pointer whitespace-nowrap"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Date</span>
+              </button>
+            )}
+
+            {canManageSetlists && (
+              <button
+                type="button"
+                onClick={() => {
+                  setNewSetDate(selectedDate || todayIso);
+                  setNewSetName('');
+                  setNewSetNotes('');
+                  setIsCreateSetlistOpen(true);
+                }}
+                className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center gap-1 cursor-pointer whitespace-nowrap"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Setlist</span>
               </button>
             )}
           </div>
@@ -918,6 +1373,7 @@ export const PlanningManager: React.FC = () => {
           const isToday = cell.dateStr === todayIso;
           const isSelected = cell.dateStr === selectedDate;
           const dayTargets = targetsByDate.get(cell.dateStr) || [];
+          const dayRehearsals = rehearsalsByDate.get(cell.dateStr) || [];
           const myAvail = myAvailByDate.get(cell.dateStr);
           const myAvailMeta = myAvail ? AVAILABILITY_STATUS_META[myAvail.status] : null;
           const myAssignedSlots = dayTargets.flatMap(t =>
@@ -1025,6 +1481,30 @@ export const PlanningManager: React.FC = () => {
                       +{dayTargets.length - 2}
                     </div>
                   )}
+                  {dayRehearsals.slice(0, 2).map(target => (
+                    <button
+                      key={`reh_${target.id}`}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedPlanningTargetId(target.id);
+                        setEditingNoteDate(null);
+                        setIsDayDrawerOpen(true);
+                      }}
+                      className="w-full text-left px-1.5 py-0.5 rounded border border-amber-300/90 dark:border-amber-700/50 bg-amber-50/90 dark:bg-amber-950/25 text-amber-900 dark:text-amber-200 hover:border-amber-500/70 text-[10px] truncate transition-colors cursor-pointer tabular-nums"
+                      title={`Répétition : ${target.title}${target.assignment?.rehearsalTime ? ` (${target.assignment.rehearsalTime})` : ''}${target.assignment?.rehearsalLocation ? ` · ${target.assignment.rehearsalLocation}` : ''}`}
+                    >
+                      <span className="font-semibold">Répét.</span>
+                      {target.assignment?.rehearsalTime ? ` ${target.assignment.rehearsalTime}` : ''}
+                      {' · '}
+                      {target.title}
+                    </button>
+                  ))}
+                  {dayRehearsals.length > 2 && (
+                    <div className="text-[10px] font-semibold text-amber-700 dark:text-amber-400 pl-1 tabular-nums">
+                      +{dayRehearsals.length - 2} répét.
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="mt-1 space-y-0.5 overflow-hidden text-[10px]">
@@ -1035,6 +1515,15 @@ export const PlanningManager: React.FC = () => {
                       title={t.title}
                     >
                       {t.title}
+                    </div>
+                  ))}
+                  {dayRehearsals.slice(0, 1).map(t => (
+                    <div
+                      key={`av_reh_${t.id}`}
+                      className="truncate text-amber-700 dark:text-amber-400 font-medium tabular-nums"
+                      title={`Répétition : ${t.title}`}
+                    >
+                      Répét. · {t.title}
                     </div>
                   ))}
                   {myAssignedSlots.length > 0 && (
@@ -1341,8 +1830,8 @@ export const PlanningManager: React.FC = () => {
                           if (list.length === 0) return null;
                           return (
                             <div key={pole} className="text-xs flex items-baseline gap-2">
-                              <span className={`font-semibold shrink-0 w-16 ${PLANNING_POLE_META[pole].accentText}`}>
-                                {PLANNING_POLE_META[pole].shortLabel}
+                              <span className={`font-semibold shrink-0 w-16 ${poleMetaMap[pole].accentText}`}>
+                                {poleMetaMap[pole].shortLabel}
                               </span>
                               <span className="text-slate-700 dark:text-gray-300">
                                 {list.map(m => `${m.displayName} (${m.roleLabel})`).join(', ')}
@@ -1439,6 +1928,15 @@ export const PlanningManager: React.FC = () => {
                             </span>
                           </>
                         )}
+                        {activeTarget.assignment?.rehearsalDate && (
+                          <>
+                            <span>·</span>
+                            <span className="text-amber-700 dark:text-amber-400 font-medium">
+                              Répét. {formatPlanningDateFr(activeTarget.assignment.rehearsalDate)}
+                              {activeTarget.assignment.rehearsalTime ? ` ${activeTarget.assignment.rehearsalTime}` : ''}
+                            </span>
+                          </>
+                        )}
                       </div>
                     ) : (
                       <div className="text-xs text-slate-500 dark:text-gray-400">
@@ -1487,194 +1985,419 @@ export const PlanningManager: React.FC = () => {
                     )}
 
                     {!activeTarget ? (
-                      <div className="bg-[#F4F6F9] dark:bg-[#16161A] border border-slate-200 dark:border-[#242429] rounded-xl p-5 flex flex-col gap-3">
-                        <div className="text-xs text-slate-600 dark:text-gray-400">
-                          Aucun service planifié pour cette date.
+                      <div className="space-y-3">
+                        <div className="bg-[#F4F6F9] dark:bg-[#16161A] border border-slate-200 dark:border-[#242429] rounded-xl p-5 flex flex-col gap-3">
+                          <div className="text-xs text-slate-600 dark:text-gray-400">
+                            Aucun service planifié pour cette date.
+                          </div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {canManagePlanning && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setNewPlanDate(selectedDate);
+                                  setIsCreatePlanOpen(true);
+                                }}
+                                className="px-3.5 py-2 rounded-lg bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-slate-200 dark:hover:bg-[#252529] border border-slate-300 dark:border-[#333] text-slate-800 dark:text-gray-200 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                                <span>Créer un événement</span>
+                              </button>
+                            )}
+                            {canManageSetlists && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setNewSetDate(selectedDate);
+                                  setNewSetName('');
+                                  setNewSetNotes('');
+                                  setIsCreateSetlistOpen(true);
+                                }}
+                                className="px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                                <span>Créer une setlist</span>
+                              </button>
+                            )}
+                          </div>
                         </div>
-                        {canManagePlanning && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setNewPlanDate(selectedDate);
-                              setIsCreatePlanOpen(true);
-                            }}
-                            className="px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold inline-flex items-center gap-1.5 self-start cursor-pointer"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>Créer un événement</span>
-                          </button>
+
+                        {rehearsalsForSelectedDate.length > 0 && (
+                          <div className="bg-[#F8FAFC] dark:bg-[#151518] border border-slate-200 dark:border-[#222226] rounded-xl p-3.5 space-y-2">
+                            <div className="text-xs font-semibold text-amber-800 dark:text-amber-300">
+                              Répétitions prévues ce jour
+                            </div>
+                            <div className="space-y-1.5">
+                              {rehearsalsForSelectedDate.map(t => (
+                                <button
+                                  key={`drawer_reh_${t.id}`}
+                                  type="button"
+                                  onClick={() => setSelectedPlanningTargetId(t.id)}
+                                  className="w-full text-left text-xs bg-white dark:bg-[#111112] border border-slate-200 dark:border-[#242429] hover:border-amber-500/60 rounded-lg px-3 py-2 flex items-center justify-between gap-2 cursor-pointer transition-colors"
+                                >
+                                  <div className="min-w-0">
+                                    <div className="font-semibold text-slate-900 dark:text-white truncate">
+                                      {t.title}
+                                    </div>
+                                    <div className="text-[11px] text-slate-500 dark:text-gray-400 tabular-nums truncate">
+                                      {[
+                                        t.assignment?.rehearsalTime ? `Horaire ${t.assignment.rehearsalTime}` : null,
+                                        t.assignment?.rehearsalLocation || null,
+                                        t.hasValidDate ? `Service le ${formatPlanningDateFr(t.date)}` : null
+                                      ]
+                                        .filter(Boolean)
+                                        .join(' · ') || 'Voir l’événement'}
+                                    </div>
+                                  </div>
+                                  <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+                                </button>
+                              ))}
+                            </div>
+                          </div>
                         )}
                       </div>
                     ) : (
                       <>
-                        {/* Event Actions & Availability Summary Card */}
-                        <div className="bg-[#F8FAFC] dark:bg-[#151518] border border-slate-200 dark:border-[#222226] rounded-xl p-3.5 space-y-3">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            {activeTarget.setlist && canAccessSetlistsView && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setSelectedSetlist(activeTarget.setlist!);
-                                  setActiveTab('setlists');
-                                }}
-                                className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-[#1C1C1E] hover:bg-slate-100 dark:hover:bg-[#252529] border border-slate-300 dark:border-[#333] text-xs font-medium text-slate-800 dark:text-gray-200 flex items-center gap-1.5 cursor-pointer"
-                              >
-                                <ListMusic className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                                <span>Setlist</span>
-                                <ExternalLink className="w-3 h-3 opacity-60" />
-                              </button>
-                            )}
+                        {/* Drawer Tabs: Équipe & Planning vs Setlist */}
+                        <div
+                          role="tablist"
+                          aria-label="Vues de l'événement"
+                          onKeyDown={(e) => {
+                            if (e.key === 'ArrowRight' || e.key === 'End') {
+                              e.preventDefault();
+                              setDrawerTab('setlist');
+                              drawerSetlistTabRef.current?.focus();
+                            } else if (e.key === 'ArrowLeft' || e.key === 'Home') {
+                              e.preventDefault();
+                              setDrawerTab('team');
+                              drawerTeamTabRef.current?.focus();
+                            }
+                          }}
+                          className="flex items-center gap-1 border-b border-slate-200 dark:border-[#222226] overflow-x-auto"
+                        >
+                          <button
+                            ref={drawerTeamTabRef}
+                            type="button"
+                            role="tab"
+                            id="planning-drawer-tab-team"
+                            aria-selected={drawerTab === 'team'}
+                            tabIndex={drawerTab === 'team' ? 0 : -1}
+                            onClick={() => setDrawerTab('team')}
+                            className={`relative px-3 py-2 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors shrink-0 ${
+                              drawerTab === 'team'
+                                ? 'text-blue-600 dark:text-blue-400 after:content-[""] after:absolute after:inset-x-0 after:bottom-0 after:border-b-2 after:border-blue-600 dark:after:border-blue-400'
+                                : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
+                            }`}
+                          >
+                            <Users className="w-3.5 h-3.5" />
+                            <span>Équipe &amp; Planning</span>
+                          </button>
 
-                            {canManagePlanning && (
-                              <>
+                          <button
+                            ref={drawerSetlistTabRef}
+                            type="button"
+                            role="tab"
+                            id="planning-drawer-tab-setlist"
+                            aria-selected={drawerTab === 'setlist'}
+                            tabIndex={drawerTab === 'setlist' ? 0 : -1}
+                            onClick={() => setDrawerTab('setlist')}
+                            className={`relative px-3 py-2 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors shrink-0 ${
+                              drawerTab === 'setlist'
+                                ? 'text-blue-600 dark:text-blue-400 after:content-[""] after:absolute after:inset-x-0 after:bottom-0 after:border-b-2 after:border-blue-600 dark:after:border-blue-400'
+                                : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
+                            }`}
+                          >
+                            <ListMusic className="w-3.5 h-3.5" />
+                            <span>Setlist</span>
+                            {activeTarget.setlist && (
+                              <span className="text-[10px] font-mono tabular-nums px-1.5 py-0.5 rounded bg-slate-200/80 dark:bg-[#1E1E24] text-slate-700 dark:text-gray-300">
+                                {activeTarget.setlist.songIds.filter(id => existingSongIdsSet.has(id)).length}
+                              </span>
+                            )}
+                          </button>
+                        </div>
+
+                        <div
+                          role="tabpanel"
+                          aria-labelledby="planning-drawer-tab-team"
+                          hidden={drawerTab !== 'team'}
+                        >
+                          <div className="space-y-4">
+                        {/* Event Actions, Schedules & Availability Summary Card */}
+                        <div className="bg-[#F8FAFC] dark:bg-[#151518] border border-slate-200 dark:border-[#222226] rounded-xl p-3.5 space-y-3">
+                          {canManagePlanning && (
+                            planningTeams.length > 0 ||
+                            activeTarget.slots.some(s => s.uid) ||
+                            (!activeTarget.setlist && activeTarget.assignment)
+                          ) && (
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {planningTeams.length > 0 && (
                                 <button
                                   type="button"
-                                  onClick={() => setIsEditingDetails(v => !v)}
-                                  className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-[#1C1C1E] hover:bg-slate-100 dark:hover:bg-[#252529] border border-slate-300 dark:border-[#333] text-xs font-medium text-slate-800 dark:text-gray-200 flex items-center gap-1.5 cursor-pointer"
+                                  onClick={() => {
+                                    setApplyTeamId(planningTeams[0]?.id || '');
+                                    setApplyTeamMode(activeTarget.slots.length === 0 ? 'replace' : 'append');
+                                    setIsApplyModalOpen(true);
+                                  }}
+                                  className="px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
                                 >
-                                  <Edit3 className="w-3.5 h-3.5" />
-                                  <span>Horaires</span>
+                                  <Layers className="w-3.5 h-3.5" />
+                                  <span>Modèle</span>
                                 </button>
+                              )}
 
-                                {planningTeams.length > 0 && (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setApplyTeamId(planningTeams[0]?.id || '');
-                                      setApplyTeamMode(activeTarget.slots.length === 0 ? 'replace' : 'append');
-                                      setIsApplyModalOpen(true);
-                                    }}
-                                    className="px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
-                                  >
-                                    <Layers className="w-3.5 h-3.5" />
-                                    <span>Modèle</span>
-                                  </button>
-                                )}
+                              {activeTarget.slots.some(s => s.uid) && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSaveAsTeamName(activeTarget.title);
+                                    setIsSaveAsTeamOpen(true);
+                                  }}
+                                  className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-[#1C1C1E] hover:bg-slate-100 dark:hover:bg-[#252529] border border-slate-300 dark:border-[#333] text-xs font-medium text-slate-800 dark:text-gray-200 flex items-center gap-1.5 cursor-pointer"
+                                  title="Enregistrer cette composition comme modèle d’équipe"
+                                >
+                                  <Sparkles className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                                  <span>Sauver</span>
+                                </button>
+                              )}
 
-                                {activeTarget.slots.some(s => s.uid) && (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setSaveAsTeamName(activeTarget.title);
-                                      setIsSaveAsTeamOpen(true);
-                                    }}
-                                    className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-[#1C1C1E] hover:bg-slate-100 dark:hover:bg-[#252529] border border-slate-300 dark:border-[#333] text-xs font-medium text-slate-800 dark:text-gray-200 flex items-center gap-1.5 cursor-pointer"
-                                    title="Enregistrer cette composition comme modèle d’équipe"
-                                  >
-                                    <Sparkles className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                                    <span>Sauver</span>
-                                  </button>
-                                )}
-
-                                {!activeTarget.setlist && activeTarget.assignment && (
-                                  <button
-                                    type="button"
-                                    onClick={async () => {
-                                      if (confirmDeletePlanId === activeTarget.id) {
-                                        await deletePlanningAssignment(activeTarget.id);
-                                        setConfirmDeletePlanId(null);
-                                        setSelectedPlanningTargetId(null);
-                                      } else {
-                                        setConfirmDeletePlanId(activeTarget.id);
-                                      }
-                                    }}
-                                    className={`p-1.5 rounded-lg border text-xs transition-colors cursor-pointer ml-auto ${
-                                      confirmDeletePlanId === activeTarget.id
-                                        ? 'bg-rose-600 text-white border-rose-500'
-                                        : 'bg-white dark:bg-[#1C1C1E] text-rose-600 dark:text-rose-400 border-slate-300 dark:border-[#333] hover:bg-rose-500/15'
-                                    }`}
-                                    title={confirmDeletePlanId === activeTarget.id ? 'Confirmer' : 'Supprimer'}
-                                  >
-                                    {confirmDeletePlanId === activeTarget.id ? (
-                                      <Check className="w-3.5 h-3.5" />
-                                    ) : (
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    )}
-                                  </button>
-                                )}
-                              </>
-                            )}
-                          </div>
-
-                          {activeTarget.assignment?.notes && !isEditingDetails && (
-                            <div className="text-xs text-slate-700 dark:text-gray-300 bg-white dark:bg-[#111112] border border-slate-200 dark:border-[#242429] rounded-lg px-3 py-2 whitespace-pre-wrap">
-                              {activeTarget.assignment.notes}
+                              {!activeTarget.setlist && activeTarget.assignment && (
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    if (confirmDeletePlanId === activeTarget.id) {
+                                      await deletePlanningAssignment(activeTarget.id);
+                                      setConfirmDeletePlanId(null);
+                                      setSelectedPlanningTargetId(null);
+                                    } else {
+                                      setConfirmDeletePlanId(activeTarget.id);
+                                    }
+                                  }}
+                                  className={`p-1.5 rounded-lg border text-xs transition-colors cursor-pointer ml-auto ${
+                                    confirmDeletePlanId === activeTarget.id
+                                      ? 'bg-rose-600 text-white border-rose-500'
+                                      : 'bg-white dark:bg-[#1C1C1E] text-rose-600 dark:text-rose-400 border-slate-300 dark:border-[#333] hover:bg-rose-500/15'
+                                  }`}
+                                  title={confirmDeletePlanId === activeTarget.id ? 'Confirmer' : 'Supprimer'}
+                                >
+                                  {confirmDeletePlanId === activeTarget.id ? (
+                                    <Check className="w-3.5 h-3.5" />
+                                  ) : (
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  )}
+                                </button>
+                              )}
                             </div>
                           )}
 
-                          {isEditingDetails && canManagePlanning && (
-                            <form
-                              onSubmit={handleSaveDetails}
-                              className="pt-3 border-t border-slate-200 dark:border-[#222224] grid grid-cols-1 sm:grid-cols-3 gap-2.5"
-                            >
-                              <div>
-                                <label className="block text-[11px] font-medium text-slate-600 dark:text-gray-400 mb-1">
-                                  Balance
-                                </label>
-                                <input
-                                  type="text"
-                                  value={detailCallTime}
-                                  onChange={(e) => setDetailCallTime(e.target.value)}
-                                  placeholder="08:30"
-                                  maxLength={20}
-                                  className="w-full bg-white dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] rounded-md px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-[11px] font-medium text-slate-600 dark:text-gray-400 mb-1">
-                                  Service
-                                </label>
-                                <input
-                                  type="text"
-                                  value={detailServiceTime}
-                                  onChange={(e) => setDetailServiceTime(e.target.value)}
-                                  placeholder="10:00"
-                                  maxLength={20}
-                                  className="w-full bg-white dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] rounded-md px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-[11px] font-medium text-slate-600 dark:text-gray-400 mb-1">
-                                  Lieu
-                                </label>
-                                <input
-                                  type="text"
-                                  value={detailLocation}
-                                  onChange={(e) => setDetailLocation(e.target.value)}
-                                  placeholder="Grande salle"
-                                  maxLength={200}
-                                  className="w-full bg-white dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] rounded-md px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
-                                />
-                              </div>
-                              <div className="sm:col-span-3">
-                                <label className="block text-[11px] font-medium text-slate-600 dark:text-gray-400 mb-1">
-                                  Consignes
-                                </label>
-                                <textarea
-                                  rows={2}
-                                  maxLength={1000}
-                                  value={detailNotes}
-                                  onChange={(e) => setDetailNotes(e.target.value)}
-                                  className="w-full bg-white dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] rounded-md px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
-                                />
-                              </div>
-                              <div className="sm:col-span-3 flex items-center justify-end gap-2">
+                          {/* Always-visible Schedules & Rehearsal Summary (editable by managers only) */}
+                          <div className="space-y-2.5">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-xs font-semibold text-slate-800 dark:text-gray-200 inline-flex items-center gap-1.5">
+                                <Clock className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                                <span>Horaires &amp; Répétition</span>
+                              </span>
+
+                              {canManagePlanning && !isEditingDetails && (
                                 <button
                                   type="button"
-                                  onClick={() => setIsEditingDetails(false)}
-                                  className="px-3 py-1.5 rounded-md text-xs font-medium text-slate-600 dark:text-gray-400 cursor-pointer"
+                                  onClick={() => setIsEditingDetails(true)}
+                                  className="px-2.5 py-1 rounded-lg bg-white dark:bg-[#1C1C1E] hover:bg-slate-100 dark:hover:bg-[#252529] border border-slate-300 dark:border-[#333] text-[11px] font-medium text-slate-700 dark:text-gray-200 inline-flex items-center gap-1 cursor-pointer whitespace-nowrap shrink-0"
                                 >
-                                  Annuler
+                                  <Edit3 className="w-3 h-3" />
+                                  <span>Modifier</span>
                                 </button>
-                                <button
-                                  type="submit"
-                                  className="px-3 py-1.5 rounded-md text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white cursor-pointer"
-                                >
-                                  Enregistrer
-                                </button>
+                              )}
+                            </div>
+
+                            {!isEditingDetails ? (
+                              <div className="space-y-2 text-xs">
+                                <div className="grid grid-cols-3 gap-2 bg-white dark:bg-[#111112] border border-slate-200 dark:border-[#242429] rounded-lg px-3 py-2">
+                                  <div className="min-w-0">
+                                    <div className="text-[11px] text-slate-500 dark:text-gray-400">Balance</div>
+                                    <div className="font-semibold text-slate-900 dark:text-white tabular-nums truncate">
+                                      {activeTarget.assignment?.callTime || '—'}
+                                    </div>
+                                  </div>
+                                  <div className="min-w-0">
+                                    <div className="text-[11px] text-slate-500 dark:text-gray-400">Service</div>
+                                    <div className="font-semibold text-slate-900 dark:text-white tabular-nums truncate">
+                                      {activeTarget.assignment?.serviceTime || '—'}
+                                    </div>
+                                  </div>
+                                  <div className="min-w-0">
+                                    <div className="text-[11px] text-slate-500 dark:text-gray-400">Lieu</div>
+                                    <div className="font-semibold text-slate-900 dark:text-white truncate">
+                                      {activeTarget.assignment?.location || '—'}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="bg-white dark:bg-[#111112] border border-slate-200 dark:border-[#242429] rounded-lg px-3 py-2 space-y-1.5">
+                                  <div className="text-[11px] font-semibold text-amber-800 dark:text-amber-300">
+                                    Répétition
+                                  </div>
+                                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                    <div className="min-w-0">
+                                      <div className="text-[11px] text-slate-500 dark:text-gray-400">Date</div>
+                                      <div className="font-semibold text-slate-900 dark:text-white tabular-nums capitalize truncate">
+                                        {activeTarget.assignment?.rehearsalDate
+                                          ? formatPlanningDateFr(activeTarget.assignment.rehearsalDate)
+                                          : '—'}
+                                      </div>
+                                    </div>
+                                    <div className="min-w-0">
+                                      <div className="text-[11px] text-slate-500 dark:text-gray-400">Horaire</div>
+                                      <div className="font-semibold text-slate-900 dark:text-white tabular-nums truncate">
+                                        {activeTarget.assignment?.rehearsalTime || '—'}
+                                      </div>
+                                    </div>
+                                    <div className="min-w-0">
+                                      <div className="text-[11px] text-slate-500 dark:text-gray-400">Lieu</div>
+                                      <div className="font-semibold text-slate-900 dark:text-white truncate">
+                                        {activeTarget.assignment?.rehearsalLocation || '—'}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {activeTarget.assignment?.notes && (
+                                  <div className="text-xs text-slate-700 dark:text-gray-300 bg-white dark:bg-[#111112] border border-slate-200 dark:border-[#242429] rounded-lg px-3 py-2 whitespace-pre-wrap">
+                                    {activeTarget.assignment.notes}
+                                  </div>
+                                )}
                               </div>
-                            </form>
-                          )}
+                            ) : canManagePlanning ? (
+                              <form
+                                onSubmit={handleSaveDetails}
+                                className="pt-2.5 border-t border-slate-200 dark:border-[#222224] space-y-3"
+                              >
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                                  <div>
+                                    <label className="block text-[11px] font-medium text-slate-600 dark:text-gray-400 mb-1">
+                                      Balance
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={detailCallTime}
+                                      onChange={(e) => setDetailCallTime(e.target.value)}
+                                      placeholder="08:30"
+                                      maxLength={20}
+                                      className="w-full bg-white dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] rounded-md px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[11px] font-medium text-slate-600 dark:text-gray-400 mb-1">
+                                      Service
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={detailServiceTime}
+                                      onChange={(e) => setDetailServiceTime(e.target.value)}
+                                      placeholder="10:00"
+                                      maxLength={20}
+                                      className="w-full bg-white dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] rounded-md px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[11px] font-medium text-slate-600 dark:text-gray-400 mb-1">
+                                      Lieu
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={detailLocation}
+                                      onChange={(e) => setDetailLocation(e.target.value)}
+                                      placeholder="Grande salle"
+                                      maxLength={200}
+                                      className="w-full bg-white dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] rounded-md px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="pt-2 border-t border-slate-200 dark:border-[#202026] space-y-2">
+                                  <div className="text-[11px] font-semibold text-amber-800 dark:text-amber-300">
+                                    Répétition
+                                  </div>
+                                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                                    <div>
+                                      <label className="block text-[11px] font-medium text-slate-600 dark:text-gray-400 mb-1">
+                                        Date
+                                      </label>
+                                      <DarkDateInput
+                                        value={detailRehearsalDate}
+                                        onChange={setDetailRehearsalDate}
+                                        placeholder="Optionnel"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="block text-[11px] font-medium text-slate-600 dark:text-gray-400 mb-1">
+                                        Horaire
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={detailRehearsalTime}
+                                        onChange={(e) => setDetailRehearsalTime(e.target.value)}
+                                        placeholder="19:30"
+                                        maxLength={20}
+                                        className="w-full bg-white dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] rounded-md px-2.5 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="block text-[11px] font-medium text-slate-600 dark:text-gray-400 mb-1">
+                                        Lieu
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={detailRehearsalLocation}
+                                        onChange={(e) => setDetailRehearsalLocation(e.target.value)}
+                                        placeholder="Salle annexe"
+                                        maxLength={200}
+                                        className="w-full bg-white dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] rounded-md px-2.5 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <label className="block text-[11px] font-medium text-slate-600 dark:text-gray-400 mb-1">
+                                    Consignes
+                                  </label>
+                                  <textarea
+                                    rows={2}
+                                    maxLength={1000}
+                                    value={detailNotes}
+                                    onChange={(e) => setDetailNotes(e.target.value)}
+                                    className="w-full bg-white dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] rounded-md px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+                                  />
+                                </div>
+
+                                <div className="flex items-center justify-end gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setDetailCallTime(activeTarget.assignment?.callTime || '');
+                                      setDetailServiceTime(activeTarget.assignment?.serviceTime || '');
+                                      setDetailLocation(activeTarget.assignment?.location || '');
+                                      setDetailRehearsalDate(activeTarget.assignment?.rehearsalDate || '');
+                                      setDetailRehearsalTime(activeTarget.assignment?.rehearsalTime || '');
+                                      setDetailRehearsalLocation(activeTarget.assignment?.rehearsalLocation || '');
+                                      setDetailNotes(activeTarget.assignment?.notes || '');
+                                      setIsEditingDetails(false);
+                                    }}
+                                    className="px-3 py-1.5 rounded-md text-xs font-medium text-slate-600 dark:text-gray-400 cursor-pointer"
+                                  >
+                                    Annuler
+                                  </button>
+                                  <button
+                                    type="submit"
+                                    className="px-3 py-1.5 rounded-md text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white cursor-pointer"
+                                  >
+                                    Enregistrer
+                                  </button>
+                                </div>
+                              </form>
+                            ) : null}
+                          </div>
 
                           {/* Availability summary & quick self-response */}
                           <div className="pt-2.5 border-t border-slate-200 dark:border-[#202026] flex flex-col gap-2">
@@ -1766,7 +2489,7 @@ export const PlanningManager: React.FC = () => {
                         {/* 3 Pôles Stacked inside Drawer */}
                         <div className="space-y-3">
                           {PLANNING_POLE_ORDER.map(pole => {
-                            const meta = PLANNING_POLE_META[pole];
+                            const meta = poleMetaMap[pole];
                             const PoleIcon = POLE_ICONS[pole];
                             const poleSlots = activeTarget.slots.filter(s => s.pole === pole);
                             const isAddingHere = addingPole === pole;
@@ -1831,22 +2554,60 @@ export const PlanningManager: React.FC = () => {
                                         className="w-full bg-white dark:bg-[#18181D] border border-slate-300 dark:border-[#333] rounded-md px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
                                       />
                                     ) : (
-                                      <select
-                                        value={slotMemberUid}
-                                        onChange={(e) => setSlotMemberUid(e.target.value)}
-                                        className="w-full bg-white dark:bg-[#18181D] border border-slate-300 dark:border-[#333] rounded-md px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 cursor-pointer"
-                                      >
-                                        {sortedMembersForDetailDate.map(({ user, availability }) => {
-                                          const statusLabel = availability
-                                            ? AVAILABILITY_STATUS_META[availability.status].shortLabel
-                                            : '—';
-                                          return (
-                                            <option key={user.uid} value={user.uid}>
-                                              {user.displayName || user.email} ({statusLabel})
-                                            </option>
-                                          );
-                                        })}
-                                      </select>
+                                      <div className="space-y-2">
+                                        {memberGroups.length > 0 && (
+                                          <div className="flex items-center gap-1.5">
+                                            <select
+                                              value={slotGroupFilterId}
+                                              onChange={(e) => handleChangeSlotGroupFilter(e.target.value)}
+                                              aria-label="Filtrer par groupe de membres"
+                                              className="flex-1 min-w-0 bg-white dark:bg-[#18181D] border border-slate-300 dark:border-[#333] rounded-md px-2.5 py-1.5 text-xs text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500 cursor-pointer"
+                                            >
+                                              <option value="all">Tous les groupes ({allUsers.length})</option>
+                                              {memberGroups.map(mg => {
+                                                const count = countActiveMembersInGroup(mg, activeUserUids);
+                                                return (
+                                                  <option key={mg.id} value={mg.id}>
+                                                    {mg.name} ({count})
+                                                  </option>
+                                                );
+                                              })}
+                                            </select>
+                                            {selectedSlotMemberGroup && (
+                                              <button
+                                                type="button"
+                                                onClick={handleBulkAddMemberGroupToPole}
+                                                disabled={filteredMembersForSlotAdd.length === 0}
+                                                className="px-2.5 py-1.5 rounded-md bg-[#EDF1F5] dark:bg-[#1C1C22] hover:bg-slate-200 dark:hover:bg-[#25252D] border border-slate-300 dark:border-[#333] text-[11px] font-semibold text-blue-600 dark:text-blue-400 disabled:opacity-50 whitespace-nowrap shrink-0 cursor-pointer"
+                                                title="Ajouter tous les membres de ce groupe non encore affectés sur ce pôle"
+                                              >
+                                                + Tout le groupe
+                                              </button>
+                                            )}
+                                          </div>
+                                        )}
+
+                                        <select
+                                          value={slotMemberUid}
+                                          onChange={(e) => setSlotMemberUid(e.target.value)}
+                                          className="w-full bg-white dark:bg-[#18181D] border border-slate-300 dark:border-[#333] rounded-md px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 cursor-pointer"
+                                        >
+                                          {filteredMembersForSlotAdd.length === 0 ? (
+                                            <option value="">Aucun membre dans ce groupe</option>
+                                          ) : (
+                                            filteredMembersForSlotAdd.map(({ user, availability }) => {
+                                              const statusLabel = availability
+                                                ? AVAILABILITY_STATUS_META[availability.status].shortLabel
+                                                : '—';
+                                              return (
+                                                <option key={user.uid} value={user.uid}>
+                                                  {user.displayName || user.email} ({statusLabel})
+                                                </option>
+                                              );
+                                            })
+                                          )}
+                                        </select>
+                                      </div>
                                     )}
 
                                     <input
@@ -1874,7 +2635,8 @@ export const PlanningManager: React.FC = () => {
                                       </button>
                                       <button
                                         type="submit"
-                                        className="px-2.5 py-1 rounded text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white cursor-pointer"
+                                        disabled={!slotExternalMode && !slotMemberUid}
+                                        className="px-2.5 py-1 rounded text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-50 cursor-pointer"
                                       >
                                         Valider
                                       </button>
@@ -1892,7 +2654,6 @@ export const PlanningManager: React.FC = () => {
                                       const avail = slot.uid ? availByUidForDetailDate.get(slot.uid) : undefined;
                                       const availMeta = avail ? AVAILABILITY_STATUS_META[avail.status] : null;
                                       const isUnavailable = avail?.status === 'unavailable';
-                                      const userObj = slot.uid ? allUsers.find(u => u.uid === slot.uid) : undefined;
                                       const isMe = Boolean(slot.uid && currentUser?.uid && slot.uid === currentUser.uid);
 
                                       return (
@@ -1904,7 +2665,6 @@ export const PlanningManager: React.FC = () => {
                                         >
                                           <div className="flex items-center gap-2 min-w-0">
                                             <UserAvatar
-                                              photoURL={userObj?.photoURL}
                                               displayName={slot.memberName}
                                               sizeClass="w-6 h-6 text-[10px]"
                                               iconClass="w-3 h-3"
@@ -2001,6 +2761,159 @@ export const PlanningManager: React.FC = () => {
                               </div>
                             );
                           })}
+                        </div>
+                          </div>
+                        </div>
+
+                        <div
+                          role="tabpanel"
+                          aria-labelledby="planning-drawer-tab-setlist"
+                          hidden={drawerTab !== 'setlist'}
+                        >
+                          <div className="space-y-3">
+                            {activeTarget.setlist ? (
+                              <>
+                                <div className="flex items-center justify-between gap-2 flex-wrap">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    {(() => {
+                                      const totalSecs = activeTarget.setlist!.songIds.reduce((total, id) => {
+                                        const s = songsById.get(id);
+                                        return total + parseDurationToSeconds(s);
+                                      }, 0);
+                                      if (totalSecs <= 0) return null;
+                                      return (
+                                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-cyan-50 dark:bg-cyan-950/40 border border-cyan-500/30 text-cyan-700 dark:text-cyan-300 font-mono font-medium text-xs">
+                                          <Clock className="w-3 h-3 shrink-0" />
+                                          <span>{formatSetlistDuration(totalSecs)}</span>
+                                        </span>
+                                      );
+                                    })()}
+                                  </div>
+
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    {canManageSetlists && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setSelectedSetlist(activeTarget.setlist!);
+                                          setIsAddSongModalOpen(true);
+                                        }}
+                                        className="px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
+                                      >
+                                        <Plus className="w-3.5 h-3.5" />
+                                        <span>Ajouter chant</span>
+                                      </button>
+                                    )}
+                                    {canManageSetlists && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleOpenEditSetlistModal(activeTarget.setlist!)}
+                                        className="p-1.5 rounded-lg bg-white dark:bg-[#1C1C1E] hover:bg-slate-100 dark:hover:bg-[#252529] border border-slate-300 dark:border-[#333] text-slate-700 dark:text-gray-300 hover:text-blue-700 dark:hover:text-blue-400 cursor-pointer"
+                                        title="Modifier les infos de la setlist"
+                                        aria-label="Modifier la setlist"
+                                      >
+                                        <Pencil className="w-3.5 h-3.5" />
+                                      </button>
+                                    )}
+                                    {canManageSetlists && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDuplicateSetlist(activeTarget.setlist!)}
+                                        className="p-1.5 rounded-lg bg-white dark:bg-[#1C1C1E] hover:bg-slate-100 dark:hover:bg-[#252529] border border-slate-300 dark:border-[#333] text-slate-700 dark:text-gray-300 hover:text-cyan-700 dark:hover:text-cyan-400 cursor-pointer"
+                                        title="Dupliquer la setlist"
+                                        aria-label="Dupliquer la setlist"
+                                      >
+                                        <Copy className="w-3.5 h-3.5" />
+                                      </button>
+                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={() => setPdfModalSetlist(activeTarget.setlist!)}
+                                      className="p-1.5 rounded-lg bg-white dark:bg-[#1C1C1E] hover:bg-slate-100 dark:hover:bg-[#252529] border border-slate-300 dark:border-[#333] text-slate-700 dark:text-gray-300 hover:text-blue-700 dark:hover:text-blue-400 cursor-pointer"
+                                      title="Partager (QR code, lien ou PDF)"
+                                      aria-label="Partager"
+                                    >
+                                      <Share2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                                    </button>
+                                    {canManageSetlists && (
+                                      <button
+                                        type="button"
+                                        onClick={async () => {
+                                          const st = activeTarget.setlist!;
+                                          if (confirmDeleteSetlistId === st.id) {
+                                            await deleteSetlist(st.id);
+                                            setConfirmDeleteSetlistId(null);
+                                            if (selectedSetlist?.id === st.id) {
+                                              setSelectedSetlist(null);
+                                            }
+                                            setSelectedPlanningTargetId(null);
+                                          } else {
+                                            setConfirmDeleteSetlistId(st.id);
+                                          }
+                                        }}
+                                        className={`p-1.5 rounded-lg border text-xs transition-colors cursor-pointer ${
+                                          confirmDeleteSetlistId === activeTarget.setlist.id
+                                            ? 'bg-rose-600 hover:bg-rose-700 text-white border-rose-500 animate-pulse'
+                                            : 'bg-white dark:bg-[#1C1C1E] hover:bg-rose-500/15 border-slate-300 dark:border-[#333] text-rose-600 dark:text-rose-400'
+                                        }`}
+                                        title={
+                                          confirmDeleteSetlistId === activeTarget.setlist.id
+                                            ? 'Confirmer la suppression'
+                                            : 'Supprimer la setlist'
+                                        }
+                                        aria-label={
+                                          confirmDeleteSetlistId === activeTarget.setlist.id
+                                            ? 'Confirmer la suppression'
+                                            : 'Supprimer la setlist'
+                                        }
+                                      >
+                                        {confirmDeleteSetlistId === activeTarget.setlist.id ? (
+                                          <Check className="w-3.5 h-3.5" />
+                                        ) : (
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        )}
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <SetlistSongsPanel
+                                  setlist={activeTarget.setlist}
+                                  onLaunchLive={handleLaunchLive}
+                                  onOpenAddSongs={
+                                    canManageSetlists
+                                      ? (st) => {
+                                          setSelectedSetlist(st);
+                                          setIsAddSongModalOpen(true);
+                                        }
+                                      : undefined
+                                  }
+                                  onEditNotes={canManageSetlists ? handleOpenEditSetlistModal : undefined}
+                                />
+                              </>
+                            ) : (
+                              <div className="bg-[#F4F6F9] dark:bg-[#16161A] border border-slate-200 dark:border-[#242429] rounded-xl p-5 flex flex-col gap-3">
+                                <div className="text-xs text-slate-600 dark:text-gray-400">
+                                  Aucune setlist liée à cet événement.
+                                </div>
+                                {canManageSetlists && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setNewSetDate(activeTarget.hasValidDate ? activeTarget.date : selectedDate);
+                                      setNewSetName(activeTarget.title || '');
+                                      setNewSetNotes('');
+                                      setIsCreateSetlistOpen(true);
+                                    }}
+                                    className="px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold inline-flex items-center gap-1.5 self-start cursor-pointer"
+                                  >
+                                    <Plus className="w-3.5 h-3.5" />
+                                    <span>Créer une setlist</span>
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </>
                     )}
@@ -2122,7 +3035,7 @@ export const PlanningManager: React.FC = () => {
                                         : 'bg-white dark:bg-[#18181B] border-slate-200 dark:border-[#2A2A30] text-slate-600 dark:text-gray-400'
                                     }`}
                                   >
-                                    {PLANNING_POLE_META[pole].shortLabel}
+                                    {poleMetaMap[pole].shortLabel}
                                   </button>
                                 );
                               })}
@@ -2274,6 +3187,49 @@ export const PlanningManager: React.FC = () => {
                     maxLength={200}
                     className="w-full bg-[#EDF1F5] dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] rounded-md px-3 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
                   />
+                </div>
+                <div className="pt-2 border-t border-slate-200 dark:border-[#222224] space-y-2.5">
+                  <div className="text-xs font-semibold text-amber-800 dark:text-amber-300">
+                    Répétition (optionnel)
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 dark:text-gray-300 mb-1">
+                      Date de répétition
+                    </label>
+                    <DarkDateInput
+                      value={newPlanRehearsalDate}
+                      onChange={setNewPlanRehearsalDate}
+                      placeholder="Choisir une date"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-700 dark:text-gray-300 mb-1">
+                        Horaire
+                      </label>
+                      <input
+                        type="text"
+                        value={newPlanRehearsalTime}
+                        onChange={(e) => setNewPlanRehearsalTime(e.target.value)}
+                        placeholder="19:30"
+                        maxLength={20}
+                        className="w-full bg-[#EDF1F5] dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] rounded-md px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-700 dark:text-gray-300 mb-1">
+                        Lieu
+                      </label>
+                      <input
+                        type="text"
+                        value={newPlanRehearsalLocation}
+                        onChange={(e) => setNewPlanRehearsalLocation(e.target.value)}
+                        placeholder="Salle annexe"
+                        maxLength={200}
+                        className="w-full bg-[#EDF1F5] dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] rounded-md px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                  </div>
                 </div>
                 <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-[#222224]">
                   <button
@@ -2529,13 +3485,13 @@ export const PlanningManager: React.FC = () => {
                     onChange={(e) => {
                       const next = e.target.value as PlanningPole;
                       setNewTmPole(next);
-                      setNewTmRole(PLANNING_POLE_META[next].suggestedRoles[0]);
+                      setNewTmRole(poleMetaMap[next].suggestedRoles[0] || '');
                     }}
                     className="w-full bg-white dark:bg-[#111112] border border-slate-300 dark:border-[#333] rounded-md px-2.5 py-1.5 text-xs text-slate-900 dark:text-white cursor-pointer"
                   >
                     {PLANNING_POLE_ORDER.map(p => (
                       <option key={p} value={p}>
-                        {PLANNING_POLE_META[p].shortLabel}
+                        {poleMetaMap[p].shortLabel}
                       </option>
                     ))}
                   </select>
@@ -2551,7 +3507,7 @@ export const PlanningManager: React.FC = () => {
                       className="w-full bg-white dark:bg-[#111112] border border-slate-300 dark:border-[#333] rounded-md px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
                     />
                     <datalist id="team-role-suggestions">
-                      {PLANNING_POLE_META[newTmPole].suggestedRoles.map(r => (
+                      {poleMetaMap[newTmPole].suggestedRoles.map(r => (
                         <option key={r} value={r} />
                       ))}
                     </datalist>
@@ -2586,8 +3542,8 @@ export const PlanningManager: React.FC = () => {
                             </span>
                             <span className="text-slate-500 dark:text-gray-400">
                               {' · '}
-                              <span className={PLANNING_POLE_META[m.pole].accentText}>
-                                {PLANNING_POLE_META[m.pole].shortLabel}
+                              <span className={poleMetaMap[m.pole].accentText}>
+                                {poleMetaMap[m.pole].shortLabel}
                               </span>
                               {' · '}
                               {m.roleLabel}
@@ -2723,6 +3679,366 @@ export const PlanningManager: React.FC = () => {
                     Appliquer
                   </button>
                 </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {activeTarget?.setlist && (
+        <SetlistAddSongsModal
+          isOpen={isAddSongModalOpen}
+          onClose={() => setIsAddSongModalOpen(false)}
+          setlist={activeTarget.setlist}
+          songs={songs}
+          onToggleSong={handleToggleSongInDrawerSetlist}
+          onAddMultipleSongs={handleAddMultipleSongsToDrawerSetlist}
+          onRemoveMultipleSongs={handleRemoveMultipleSongsFromDrawerSetlist}
+        />
+      )}
+
+      {pdfModalSetlist && (
+        <SetlistPdfModal
+          setlist={pdfModalSetlist}
+          songs={songs}
+          onClose={() => setPdfModalSetlist(null)}
+        />
+      )}
+
+      {isLiveSetlistOpen && selectedSetlist && (
+        <LiveSetlistPlayer onClose={() => setIsLiveSetlistOpen(false)} />
+      )}
+
+      {/* Modal: Create Setlist */}
+      <AnimatePresence>
+        {isCreateSetlistOpen && (
+          <motion.div
+            {...MODAL_BACKDROP_MOTION}
+            className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => setIsCreateSetlistOpen(false)}
+          >
+            <motion.div
+              {...MODAL_PANEL_MOTION}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-[#111112] border border-slate-200 dark:border-[#222224] rounded-xl w-full max-w-md p-5 shadow-2xl"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <ListMusic className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  <span>Nouvelle Setlist</span>
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setIsCreateSetlistOpen(false)}
+                  className="text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <form onSubmit={handleCreateNewSetlist} className="space-y-3.5">
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 dark:text-gray-300 mb-1">
+                    Nom de l&apos;événement / Setlist *
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="ex: Culte Dimanche 30 Août"
+                    value={newSetName}
+                    onChange={(e) => setNewSetName(e.target.value)}
+                    className="w-full bg-[#EDF1F5] dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] rounded-md px-3 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+                    autoFocus
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 dark:text-gray-300 mb-1">
+                    Date de l&apos;événement
+                  </label>
+                  <DarkDateInput value={newSetDate} onChange={setNewSetDate} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 dark:text-gray-300 mb-1">
+                    Notes pour la setlist
+                  </label>
+                  <textarea
+                    rows={3}
+                    maxLength={5000}
+                    placeholder="Consignes, transitions, thème du culte..."
+                    value={newSetNotes}
+                    onChange={(e) => setNewSetNotes(e.target.value)}
+                    className="w-full bg-[#EDF1F5] dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] rounded-md px-3 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-blue-500 resize-y"
+                  />
+                </div>
+                <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200 dark:border-[#222224]">
+                  <button
+                    type="button"
+                    onClick={() => setIsCreateSetlistOpen(false)}
+                    className="px-3.5 py-1.5 rounded-md text-xs font-medium text-slate-600 dark:text-gray-400 cursor-pointer"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={!newSetName.trim()}
+                    className="px-3.5 py-1.5 rounded-md text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-50 cursor-pointer"
+                  >
+                    Créer la setlist
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal: Edit Setlist Metadata */}
+      <AnimatePresence>
+        {editingSetlist && (
+          <motion.div
+            {...MODAL_BACKDROP_MOTION}
+            className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => setEditingSetlist(null)}
+          >
+            <motion.div
+              {...MODAL_PANEL_MOTION}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-[#111112] border border-slate-200 dark:border-[#222224] rounded-xl w-full max-w-md p-5 shadow-2xl"
+            >
+              <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-200 dark:border-[#222224]">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Pencil className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  <span>Modifier les métadonnées de la setlist</span>
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setEditingSetlist(null)}
+                  className="text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white p-1 rounded-md cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <form onSubmit={handleSaveEditSetlist} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 dark:text-gray-300 mb-1">
+                    Nom de la setlist *
+                  </label>
+                  <input
+                    type="text"
+                    value={editSetName}
+                    onChange={(e) => setEditSetName(e.target.value)}
+                    className="w-full bg-[#EDF1F5] dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+                    autoFocus
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 dark:text-gray-300 mb-1">
+                    Date de l&apos;événement
+                  </label>
+                  <DarkDateInput value={editSetDate} onChange={setEditSetDate} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 dark:text-gray-300 mb-1">
+                    Notes pour la setlist
+                  </label>
+                  <textarea
+                    rows={3}
+                    maxLength={5000}
+                    placeholder="Consignes, transitions, thème du culte..."
+                    value={editSetNotes}
+                    onChange={(e) => setEditSetNotes(e.target.value)}
+                    className="w-full bg-[#EDF1F5] dark:bg-[#1C1C1E] border border-slate-300 dark:border-[#333] rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-blue-500 resize-y"
+                  />
+                </div>
+                <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200 dark:border-[#222224]">
+                  <button
+                    type="button"
+                    onClick={() => setEditingSetlist(null)}
+                    className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 dark:text-gray-400 cursor-pointer"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={!editSetName.trim()}
+                    className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Enregistrer</span>
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Export Planning Modal (PDF / CSV) */}
+      <AnimatePresence>
+        {isExportModalOpen && (
+          <motion.div
+            {...MODAL_BACKDROP_MOTION}
+            className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => setIsExportModalOpen(false)}
+          >
+            <motion.div
+              {...MODAL_PANEL_MOTION}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-[#111112] border border-slate-200 dark:border-[#222224] rounded-xl w-full max-w-md p-5 shadow-2xl space-y-4"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-[#222224]">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Download className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  <span>Exporter le Planning</span>
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setIsExportModalOpen(false)}
+                  aria-label="Fermer"
+                  className="text-slate-500 hover:text-slate-900 dark:hover:text-white p-1 rounded-md cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Period selector */}
+              <div className="space-y-2">
+                <div className="text-xs font-semibold text-slate-700 dark:text-gray-300">
+                  Période
+                </div>
+                <div className="grid grid-cols-3 gap-1 bg-[#F4F6F9] dark:bg-[#0A0A0B] p-1 rounded-lg border border-slate-200 dark:border-[#222224] text-xs font-semibold">
+                  {(
+                    [
+                      { id: 'month', label: 'Mois affiché' },
+                      { id: 'upcoming', label: 'À venir' },
+                      { id: 'range', label: 'Plage libre' }
+                    ] as Array<{ id: PlanningExportPeriodMode; label: string }>
+                  ).map(opt => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setExportPeriodMode(opt.id)}
+                      className={`px-2 py-1.5 rounded-md cursor-pointer transition-colors whitespace-nowrap ${
+                        exportPeriodMode === opt.id
+                          ? 'bg-white dark:bg-[#1C1C1E] text-slate-900 dark:text-white border border-slate-200 dark:border-[#333]'
+                          : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+
+                {exportPeriodMode === 'range' && (
+                  <div className="grid grid-cols-2 gap-2.5 pt-1">
+                    <div>
+                      <label className="block text-[11px] font-medium text-slate-600 dark:text-gray-400 mb-1">
+                        Du
+                      </label>
+                      <DarkDateInput value={exportStartDate} onChange={setExportStartDate} />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-medium text-slate-600 dark:text-gray-400 mb-1">
+                        Au
+                      </label>
+                      <DarkDateInput value={exportEndDate} onChange={setExportEndDate} />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Scope selector */}
+              <div className="space-y-2">
+                <div className="text-xs font-semibold text-slate-700 dark:text-gray-300">
+                  Périmètre
+                </div>
+                <div className="grid grid-cols-2 gap-1 bg-[#F4F6F9] dark:bg-[#0A0A0B] p-1 rounded-lg border border-slate-200 dark:border-[#222224] text-xs font-semibold">
+                  <button
+                    type="button"
+                    onClick={() => setExportScope('all')}
+                    className={`px-2.5 py-1.5 rounded-md cursor-pointer transition-colors whitespace-nowrap ${
+                      exportScope === 'all'
+                        ? 'bg-white dark:bg-[#1C1C1E] text-slate-900 dark:text-white border border-slate-200 dark:border-[#333]'
+                        : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    Tout le groupe
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setExportScope('mine')}
+                    className={`px-2.5 py-1.5 rounded-md cursor-pointer transition-colors whitespace-nowrap ${
+                      exportScope === 'mine'
+                        ? 'bg-white dark:bg-[#1C1C1E] text-slate-900 dark:text-white border border-slate-200 dark:border-[#333]'
+                        : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    Mes services
+                  </button>
+                </div>
+              </div>
+
+              {/* Live preview summary */}
+              <div className="bg-[#F8FAFC] dark:bg-[#151518] border border-slate-200 dark:border-[#222226] rounded-lg px-3.5 py-2.5 space-y-1 text-xs">
+                <div className="font-semibold text-slate-900 dark:text-white capitalize truncate">
+                  {exportPeriodMeta.label}
+                </div>
+                {exportTargets.length === 0 ? (
+                  <div className="text-amber-700 dark:text-amber-400">
+                    Aucun événement ou répétition sur cette période.
+                  </div>
+                ) : (
+                  <div className="text-slate-600 dark:text-gray-400 tabular-nums">
+                    {exportTargets.length} événement{exportTargets.length > 1 ? 's' : ''}
+                    {' · '}
+                    {exportRehearsalCount} répétition{exportRehearsalCount > 1 ? 's' : ''}
+                    {' · '}
+                    Horaires, équipe et chants inclus
+                  </div>
+                )}
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-[#222224] flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setIsExportModalOpen(false)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 dark:text-gray-400 cursor-pointer mr-auto"
+                >
+                  Fermer
+                </button>
+
+                <button
+                  type="button"
+                  disabled={exportTargets.length === 0}
+                  onClick={handleExportCsv}
+                  className="px-3 py-1.5 rounded-lg bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-slate-200 dark:hover:bg-[#252529] border border-slate-300 dark:border-[#333] text-slate-800 dark:text-gray-200 text-xs font-semibold flex items-center gap-1.5 disabled:opacity-45 cursor-pointer whitespace-nowrap"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>CSV</span>
+                </button>
+
+                {typeof navigator !== 'undefined' && typeof navigator.share === 'function' && (
+                  <button
+                    type="button"
+                    disabled={exportTargets.length === 0 || isExportingPdf}
+                    onClick={() => handleExportPdf(true)}
+                    className="px-3 py-1.5 rounded-lg bg-[#EDF1F5] dark:bg-[#1C1C1E] hover:bg-slate-200 dark:hover:bg-[#252529] border border-slate-300 dark:border-[#333] text-slate-800 dark:text-gray-200 text-xs font-semibold flex items-center gap-1.5 disabled:opacity-45 cursor-pointer whitespace-nowrap"
+                  >
+                    <Share2 className="w-3.5 h-3.5" />
+                    <span>Partager</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  disabled={exportTargets.length === 0 || isExportingPdf}
+                  onClick={() => handleExportPdf(false)}
+                  className="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center gap-1.5 disabled:opacity-45 cursor-pointer whitespace-nowrap"
+                >
+                  <FileDown className="w-3.5 h-3.5" />
+                  <span>PDF</span>
+                </button>
               </div>
             </motion.div>
           </motion.div>
